@@ -1,0 +1,10 @@
+import "./type-extensions.js";
+const hardhatPlugin = {
+    id: "builtin:artifacts",
+    hookHandlers: {
+        hre: () => import("./hook-handlers/hre.js"),
+    },
+    npmPackage: "hardhat",
+};
+export default hardhatPlugin;
+//# sourceMappingURL=index.js.map
