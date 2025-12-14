@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import "./CrikzMath.sol";
+import "./StakingTiers.sol";
+
+
 library StakeManager {
     using CrikzMath for uint256;
 

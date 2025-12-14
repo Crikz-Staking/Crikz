@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
-import "C:/Users/Admin/Downloads/Crikz/Crikz-Staking/crikz-contracts/contracts/libraries/CrikzMath.sol";
+
+import "./CrikzMath.sol";
 
 library RewardDistributor {
     using CrikzMath for uint256;

@@ -1,0 +1,53 @@
+{
+	"compiler": {
+		"version": "0.8.20+commit.a1b79de6"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [],
+		"devdoc": {
+			"kind": "dev",
+			"methods": {},
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {},
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"libraries/StakingTiers.sol": "StakingTiers"
+		},
+		"evmVersion": "shanghai",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": false,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"libraries/CrikzMath.sol": {
+			"keccak256": "0x725f089ee3c56e5a18d3b60d3254fc7a64fc9f18c7618e5959125575511cfcb6",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://d6633536e2d36f8e689062ef1e7e060f36762b79b53bdd308edc60efe2ccda67",
+				"dweb:/ipfs/QmNMhRytcF95ped77LxP9bZrA7vRxw4ng9kMaP7iWqHwgQ"
+			]
+		},
+		"libraries/StakingTiers.sol": {
+			"keccak256": "0x455896c5d11e2bbbbc00a840766dd135635e13d666011a26b25a1d6e0a62a94f",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://be5bd54f266acd2413e703004e37776009cae483b684c86ffa439a92142cf316",
+				"dweb:/ipfs/QmV4HDuH7r9gwqVBqbJrcuGNsEGCQNJ6kVGv6Bev5gQ1dy"
+			]
+		}
+	},
+	"version": 1
+}

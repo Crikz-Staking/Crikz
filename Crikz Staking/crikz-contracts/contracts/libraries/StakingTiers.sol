@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import "./CrikzMath.sol";
+
 library StakingTiers {
     using CrikzMath for uint256;
 
@@ -12,7 +14,7 @@ library StakingTiers {
     function initializeTiers() internal pure returns (Tier[] memory tiers) {
         tiers = new Tier[](7);
         
-        uint256[7] memory days = [
+        uint256[7] memory _days = [
             uint256(5),
             uint256(13),
             uint256(34),
@@ -32,7 +34,7 @@ library StakingTiers {
             }
             
             tiers[i] = Tier({
-                lockDuration: days[i] * 1 days,
+                lockDuration: _days[i] * 1 days,
                 weightFactor: (baseWeight * currentMultiplier) / CrikzMath.WAD
             });
         }
