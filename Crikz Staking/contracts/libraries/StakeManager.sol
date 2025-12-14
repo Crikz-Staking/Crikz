@@ -26,7 +26,8 @@ library StakeManager {
         return StakeInfo({
             amount: amount,
             tier: tier,
-            weight: CrikzMath.calculateWeight(amount, tierInfo.weightFactor),
+            weight: 
+            CrikzMath.calculateWeight(amount, tierInfo.weightFactor),
             lockUntil: timestamp + tierInfo.lockDuration
         });
     }
@@ -69,6 +70,7 @@ library StakeManager {
         stake.amount = newAmount;
         newWeight = CrikzMath.calculateWeight(newAmount, tierInfo.weightFactor);
         stake.weight = newWeight;
-        // The calling function (compoundRewards) handles the global weight update.
+
+        return (oldWeight, newWeight);
     }
 }

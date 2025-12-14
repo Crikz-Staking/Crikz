@@ -40,7 +40,7 @@ library RewardDistributor {
     ) internal pure returns (uint256 pendingRewards) {
         // Accumulated rewards up to now = userWeight * accumulatedRewardPerWeight / WAD
         uint256 accumulated = (userWeight * pool.accumulatedRewardPerWeight) / CrikzMath.WAD;
-        
+
         if (accumulated <= userDebt) {
             return 0;
         }
@@ -48,8 +48,10 @@ library RewardDistributor {
     }
 
     /**
-     * @notice Updates the reward pool state by accruing new time-based rewards.
-     * @dev Updates the pool's balance and accumulatedRewardPerWeight.
+     * @notice Updates the RewardPool state by accruing time-based rewards.
+     * @dev The rewards are calculated based on the time elapsed and a fixed BASE_APR_RATE.
+     * The accrued rewards are immediately deducted from the pool balance and added to the 
+     * accumulatedRewardPerWeight rate.
      * @return rewardsAccrued The amount of rewards generated in this update.
      */
     function updatePool(

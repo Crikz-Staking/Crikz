@@ -1,3 +1,4 @@
+// contracts/libraries/CrikzMath.sol
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
@@ -61,8 +62,7 @@ library CrikzMath {
      */
     function calculateRewardPerWeight(uint256 rewardsAccrued, uint256 totalWeight) internal pure returns (uint256) {
         if (rewardsAccrued == 0 || totalWeight == 0) return 0;
-        
-        // rewardPerWeightDelta = (rewardsAccrued * WAD) / totalWeight
+        // rewardPerWeight = (rewardsAccrued * WAD) / totalWeight
         return (rewardsAccrued * WAD) / totalWeight;
     }
 }

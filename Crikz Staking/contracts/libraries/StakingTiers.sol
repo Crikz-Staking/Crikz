@@ -35,11 +35,11 @@ library StakingTiers {
             lockDuration: 180 days,
             weightFactor: 15 * 10**17 // 1.5 * 1e18
         });
-        
+
         return tiers;
     }
-
+    
     function isValidTier(uint8 tier) internal pure returns (bool) {
-        return tier < initializeTiers().length;
+        return tier < 3; // Hardcoded to the number of tiers defined in initializeTiers()
     }
 }
