@@ -5,7 +5,11 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/metatx/ERC2771Context.sol";
-import "./CrikzMath.sol";
+import "../libraries/CrikzMath.sol";
+import "../libraries/StakeManager.sol";
+import "../libraries/RewardDistributor.sol";
+import "../libraries/StakingTiers.sol";
+
 
 contract Crikz is ERC20, Ownable, ReentrancyGuard, ERC2771Context {
     using CrikzMath for uint256;
@@ -175,24 +179,35 @@ contract Crikz is ERC20, Ownable, ReentrancyGuard, ERC2771Context {
         totalRewardsCompounded = 0;
     }
 
-    function _msgSender()
-        internal
-        view
-        override(Context, ERC2771Context)
-        returns (address)
-    {
-        return ERC2771Context._msgSender();
-    }
+function _contextSuffixLength()
+    internal
+    view
+    override(Context, ERC2771Context)
+    returns (uint256)
+{
+    // Calling ERC2771Context's implementation, which calls the Context one internally.
+    return ERC2771Context._contextSuffixLength();
+}
 
-    function _msgData()
-        internal
-        view
-        override(Context, ERC2771Context)
-        returns (bytes calldata)
-    {
-        return ERC2771Context._msgData();
-    }
+function _msgSender()
+    internal
+    view
+    override(Context, ERC2771Context) // Must list both parents
+    returns (address)
+{
+    // You are currently calling ERC2771Context's implementation, which is correct.
+    return ERC2771Context._msgSender();
+}
 
+function _msgData()
+    internal
+    view
+    override(Context, ERC2771Context) // Must list both parents
+    returns (bytes calldata)
+{
+    // You are currently calling ERC2771Context's implementation, which is correct.
+    return ERC2771Context._msgData();
+}
     function _transfer(
         address from,
         address to,
@@ -333,7 +348,7 @@ contract Crikz is ERC20, Ownable, ReentrancyGuard, ERC2771Context {
 
         if (block.timestamp <= poolSnapshot.lastUpdateTime) {
             return RewardDistributor.calculatePending(
-                poolSnapshot,
+                rewardPool,
                 userTotalWeight[account],
                 userRewardDebt[account]
             );
@@ -353,7 +368,7 @@ contract Crikz is ERC20, Ownable, ReentrancyGuard, ERC2771Context {
 
         if (rewardsAccrued == 0) {
             return RewardDistributor.calculatePending(
-                poolSnapshot,
+                rewardPool,
                 userTotalWeight[account],
                 userRewardDebt[account]
             );
@@ -727,7 +742,7 @@ contract Crikz is ERC20, Ownable, ReentrancyGuard, ERC2771Context {
         uint256 timeInSeconds = _days * 1 days;
         uint256 projectedAccrued = CrikzMath.calculateTimeBasedRewards(
             poolSnapshot.balance,
-            uint256 timeInSeconds = _days * 1 days,
+            timeInSeconds,
             poolSnapshot.totalWeight
         );
 
