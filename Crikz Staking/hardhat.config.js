@@ -1,24 +1,24 @@
-// hardhat.config.js
+// hardhat.config.js (COMMONJS Syntax)
 
-require("@nomicfoundation/hardhat-toolbox");
-require("dotenv").config();
-
-// ... (other constants and requirements) ...
+require("@nomiclabs/hardhat-waffle");
+require("@nomiclabs/hardhat-ethers");
 
 /** @type import('hardhat/config').HardhatUserConfig */
-module.exports = { // <--- OPENING BRACE 1 (module.exports)
-
-  solidity: { // <--- OPENING BRACE 2 (solidity)
-    version: "0.8.20",
-    settings: { // <--- OPENING BRACE 3 (settings)
-      optimizer: { // <--- OPENING BRACE 4 (optimizer)
+module.exports = {
+  solidity: {
+    version: "0.8.20", // Matches your Crikz.sol file
+    settings: {
+      optimizer: {
         enabled: true,
-        runs: 5000,
-      }, // <--- CLOSING BRACE 4 (optimizer)
-      viaIR: true, // <--- The line you added
-    }, // <--- CLOSING BRACE 3 (settings)
-  }, // <--- CLOSING BRACE 2 (solidity)
-
-  // ... (networks, etherscan, etc.) ...
-
-}; // <--- CLOSING BRACE 1 (module.exports)
+        runs: 200,
+      },
+    },
+  },
+  networks: {
+    hardhat: {},
+  },
+  paths: {
+      sources: "./contracts", 
+      tests: "./test",       
+  }
+};
