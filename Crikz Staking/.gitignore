@@ -1,0 +1,11 @@
+# Exclude sensitive configuration files
+.env
+.env.*
+
+# Exclude common developer files/folders
+# Dependency directories
+node_modules/
+# Hardhat/Truffle build artifacts
+/artifacts
+/cache
+/coverage
