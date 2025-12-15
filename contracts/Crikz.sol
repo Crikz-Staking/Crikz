@@ -13,7 +13,7 @@ import "./libraries/StakingTiers.sol";
 import "./libraries/StakeManager.sol";
 import "./libraries/RewardDistributor.sol";
 
-contract CrikzV2 is ERC20, ERC2771Context, Ownable, ReentrancyGuard {
+contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard {
     using CrikzMath for uint256;
     using StakeManager for StakeManager.StakeInfo[];
 
