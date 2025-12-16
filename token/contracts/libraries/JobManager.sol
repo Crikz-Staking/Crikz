@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import "./CrikzMath.sol"; 
+import "./CrikzMath.sol";
 import "./WorkTiers.sol";
 
 library JobManager {
@@ -18,12 +18,7 @@ library JobManager {
         uint256 startTime;
     }
 
-    function createJob(
-        uint256 amount,
-        uint8 tier,
-        WorkTiers.Tier memory tierInfo,
-        uint256 timestamp
-    ) internal pure returns (Job memory) {
+    function createJob(uint256 amount, uint8 tier, WorkTiers.Tier memory tierInfo, uint256 timestamp) internal pure returns (Job memory) {
         return Job({
             amount: amount,
             tier: tier,
@@ -33,17 +28,12 @@ library JobManager {
         });
     }
 
-    function isCompleted(Job memory job, uint256 timestamp) internal pure returns (bool) {
-        return timestamp >= job.lockUntil;
+    function validateJobIndex(Job[] storage jobs, uint256 index) internal view {
+        if (index >= jobs.length) revert InvalidJobIndex();
     }
 
     function validateCompleted(Job memory job, uint256 timestamp) internal pure {
-        if (!isCompleted(job, timestamp)) revert JobStillLocked();
-    }
-
-    function getTimeRemaining(Job memory job, uint256 timestamp) internal pure returns (uint256) {
-        if (timestamp >= job.lockUntil) return 0;
-        return job.lockUntil - timestamp;
+        if (timestamp < job.lockUntil) revert JobStillLocked();
     }
 
     function removeJob(Job[] storage jobs, uint256 index) internal {
@@ -55,19 +45,11 @@ library JobManager {
         jobs.pop();
     }
 
-    function updateJobAmount(
-        Job storage job,
-        uint256 newAmount,
-        WorkTiers.Tier memory tierInfo
-    ) internal returns (uint256 oldReputation, uint256 newReputation) {
+    function updateJobAmount(Job storage job, uint256 newAmount, WorkTiers.Tier memory tierInfo) internal returns (uint256 oldReputation, uint256 newReputation) {
         oldReputation = job.reputation;
         job.amount = newAmount;
         newReputation = CrikzMath.calculateReputation(newAmount, tierInfo.reputationMultiplier);
         job.reputation = newReputation;
         return (oldReputation, newReputation);
-    }
-
-    function validateJobIndex(Job[] storage jobs, uint256 index) internal view {
-        if (index >= jobs.length) revert InvalidJobIndex();
     }
 }
