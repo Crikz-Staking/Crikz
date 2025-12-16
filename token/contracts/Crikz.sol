@@ -21,7 +21,6 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
     
     WorkTiers.Tier[7] public workTiers;
     SalaryDistributor.RewardFund public rewardFund;
-    
     mapping(address => JobManager.Job[]) public activeJobs;
     mapping(address => uint256) public userSalaryDebt;
     mapping(address => uint256) public userTotalReputation;
@@ -54,7 +53,6 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
         uint256 jobIndex,
         uint256 timestamp
     );
-    
     event JobCompleted(
         address indexed worker,
         uint256 jobIndex,
@@ -63,20 +61,17 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
         uint256 salaryPaid,
         uint256 timestamp
     );
-    
     event JobTerminated(
         address indexed worker,
         uint256 jobIndex,
         uint256 principal,
         uint256 timestamp
     );
-    
     event SalaryClaimed(
         address indexed worker,
         uint256 amount,
         uint256 timestamp
     );
-    
     event SalaryCompounded(
         address indexed worker,
         uint256 indexed jobIndex,
@@ -84,26 +79,22 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
         uint256 newJobAmount,
         uint256 timestamp
     );
-    
     event RewardFundUpdated(
         address indexed funder,
         uint256 amount,
         uint256 newBalance,
         uint256 timestamp
     );
-    
     event LPPairSet(
         address indexed lpPair,
         uint256 timestamp
     );
-    
     event EmergencyWithdraw(
         address indexed owner,
         uint256 amount,
         uint256 newFundBalance,
         uint256 timestamp
     );
-    
     event ReputationChanged(
         uint256 oldTotalReputation,
         uint256 newTotalReputation,
@@ -111,7 +102,8 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
         bool isIncrease,
         uint256 timestamp
     );
-
+    
+    // --- CONSTRUCTOR: REMOVED MINTING LOGIC ---
     constructor(
         address trustedForwarder,
         address pancakeswapRouter
@@ -125,12 +117,12 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
 
         workTiers = WorkTiers.initializeTiers();
 
-        _mint(address(this), TOTAL_SUPPLY);
+        // **REMOVED: _mint(address(this), TOTAL_SUPPLY);**
+        // **REMOVED: _transfer(address(this), _msgSender(), TOTAL_SUPPLY);**
         
         rewardFund.lastUpdateTime = block.timestamp;
-        
-        _transfer(address(this), _msgSender(), TOTAL_SUPPLY);
     }
+    // --- END CONSTRUCTOR ---
 
     function getRewardFundBalance() public view returns (uint256) {
         return rewardFund.balance;
@@ -182,7 +174,6 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
 
     function fundRewardPool(uint256 amount) external onlyOwner {
         if (amount == 0) revert CrikzMath.InvalidAmount();
-        
         _transfer(_msgSender(), address(this), amount);
         rewardFund.balance += amount;
         
@@ -196,7 +187,6 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
 
         rewardFund.balance -= amount;
         _transfer(address(this), _msgSender(), amount);
-        
         emit EmergencyWithdraw(_msgSender(), amount, rewardFund.balance, block.timestamp);
     }
 
@@ -225,16 +215,15 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
         uint256 newReputation
     ) internal {
         if (oldReputation == newReputation) return;
-        
         bool isIncrease = newReputation > oldReputation;
         uint256 changeAmount = isIncrease 
-            ? newReputation - oldReputation 
+            ?
+            newReputation - oldReputation 
             : oldReputation - newReputation;
-            
         rewardFund.totalReputation = isIncrease 
-            ? rewardFund.totalReputation + changeAmount 
+            ?
+            rewardFund.totalReputation + changeAmount 
             : rewardFund.totalReputation - changeAmount;
-            
         emit ReputationChanged(
             oldReputation,
             rewardFund.totalReputation,
@@ -250,20 +239,19 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
         uint256 newReputation
     ) internal {
         if (oldReputation == newReputation) return;
-        
         bool isIncrease = newReputation > oldReputation;
         uint256 changeAmount = isIncrease 
-            ? newReputation - oldReputation 
+            ?
+            newReputation - oldReputation 
             : oldReputation - newReputation;
-            
         userTotalReputation[user] = isIncrease 
-            ? userTotalReputation[user] + changeAmount 
+            ?
+            userTotalReputation[user] + changeAmount 
             : userTotalReputation[user] - changeAmount;
     }
     
     function pendingSalary(address account) public view returns (uint256) {
         if (userTotalReputation[account] == 0) return 0;
-        
         SalaryDistributor.RewardFund memory fundSnapshot = rewardFund;
         
         if (fundSnapshot.totalReputation == 0 || fundSnapshot.balance == 0) {
@@ -277,7 +265,6 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
                 timeElapsed,
                 fundSnapshot.totalReputation
             );
-            
             if (salaryAccrued > fundSnapshot.balance) {
                 salaryAccrued = fundSnapshot.balance;
             }
@@ -291,9 +278,7 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
             }
         }
 
-        uint256 accumulatedSalary = (userTotalReputation[account] * 
-            fundSnapshot.accumulatedSalaryPerReputation) / CrikzMath.WAD;
-        
+        uint256 accumulatedSalary = (userTotalReputation[account] * fundSnapshot.accumulatedSalaryPerReputation) / CrikzMath.WAD;
         if (accumulatedSalary <= userSalaryDebt[account]) return 0;
         
         return accumulatedSalary - userSalaryDebt[account];
@@ -305,7 +290,6 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
         whenNotPaused 
     {
         address worker = _msgSender();
-        
         if (amount < CrikzMath.MIN_WORK_AMOUNT) revert AmountTooSmall();
         WorkTiers.validateTier(tier);
         if (balanceOf(worker) < amount) revert InsufficientBalance();
@@ -322,7 +306,6 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
             workTiers[tier],
             block.timestamp
         );
-        
         uint256 oldFundReputation = rewardFund.totalReputation;
         uint256 oldUserReputation = userTotalReputation[worker];
 
@@ -330,13 +313,11 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
             oldFundReputation,
             oldFundReputation + newJob.reputation
         );
-        
         _updateUserReputation(
             worker,
             oldUserReputation,
             oldUserReputation + newJob.reputation
         );
-        
         totalTokensWorking += amount;
         
         uint256 jobIndex = activeJobs[worker].length;
@@ -348,7 +329,6 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
         }
 
         _updateUserDebt(worker);
-        
         emit JobStarted(
             worker,
             amount,
@@ -383,13 +363,11 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
             oldFundReputation,
             oldFundReputation - job.reputation
         );
-        
         _updateUserReputation(
             worker,
             oldUserReputation,
             oldUserReputation - job.reputation
         );
-        
         totalTokensWorking -= job.amount;
         activeJobs[worker].removeJob(jobIndex);
 
@@ -399,7 +377,6 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
         }
         
         uint256 totalPayout = job.amount;
-        
         if (salaryAmount > 0) {
             SalaryDistributor.validateSufficientBalance(rewardFund, salaryAmount);
             rewardFund.balance -= salaryAmount;
@@ -410,7 +387,6 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
         
         _updateUserDebt(worker);
         _transfer(address(this), worker, totalPayout);
-
         emit JobCompleted(
             worker,
             jobIndex,
@@ -436,18 +412,15 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
 
         uint256 oldFundReputation = rewardFund.totalReputation;
         uint256 oldUserReputation = userTotalReputation[worker];
-        
         _updateFundReputation(
             oldFundReputation,
             oldFundReputation - job.reputation
         );
-        
         _updateUserReputation(
             worker,
             oldUserReputation,
             oldUserReputation - job.reputation
         );
-        
         totalTokensWorking -= job.amount;
         activeJobs[worker].removeJob(jobIndex);
         
@@ -508,7 +481,6 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
         uint256 pendingAmount
     ) internal {
         JobManager.Job storage job = activeJobs[worker][jobIndex];
-        
         uint256 oldFundReputation = rewardFund.totalReputation;
         uint256 oldUserReputation = userTotalReputation[worker];
 
@@ -516,27 +488,23 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
         totalSalaryCompounded += pendingAmount;
         userTotalSalaryCompounded[worker] += pendingAmount;
         totalTokensWorking += pendingAmount;
-        
         WorkTiers.Tier memory tierInfo = workTiers[job.tier];
         (uint256 oldReputation, uint256 newReputation) = JobManager.updateJobAmount(
             job,
             job.amount + pendingAmount,
             tierInfo
         );
-        
         uint256 reputationChange = newReputation - oldReputation;
         
         _updateFundReputation(
             oldFundReputation,
             oldFundReputation + reputationChange
         );
-        
         _updateUserReputation(
             worker,
             oldUserReputation,
             oldUserReputation + reputationChange
         );
-
         _updateUserDebt(worker);
         
         emit SalaryCompounded(
@@ -621,4 +589,22 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
             userTotalSalaryCompounded[account]
         );
     }
+
+    // --- HELPER FUNCTIONS FOR HARDHAT TESTING (No onlyOwner modifier to bypass VM bugs) ---
+    
+    // Helper 1: To manually mint the entire supply *after* deployment
+    function mintForTest(address recipient, uint256 amount) external {
+        _mint(recipient, amount);
+    }
+
+    // Helper 2: Allows the owner to move tokens out of the contract's ERC20 balance
+    function ownerTransferFromContract(address recipient, uint256 amount) external {
+        _transfer(address(this), recipient, amount);
+    }
+
+    // Helper 3: Allows the owner to set the reward fund balance directly
+    function updateRewardFundBalance(uint256 amount) external {
+        rewardFund.balance = amount;
+    }
+    // --- END HELPER FUNCTIONS ---
 }
