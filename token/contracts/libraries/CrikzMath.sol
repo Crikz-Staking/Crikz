@@ -5,7 +5,7 @@ library CrikzMath {
     uint256 public constant WAD = 1e18;
     uint256 public constant BASE_APR = 6182 * 10**13;
     uint256 public constant SECONDS_PER_YEAR = 365 days;
-    uint256 public constant MIN_WORK_AMOUNT = 1 * WAD;
+    uint256 public constant MIN_ORDER_AMOUNT = 1 * WAD;
 
     error InvalidAmount();
     error InvalidReputation();
@@ -20,7 +20,7 @@ library CrikzMath {
         return (amount * reputationMultiplier) / WAD;
     }
     
-    function calculateTimeBasedSalary(
+    function calculateTimeBasedYield(
         uint256 rewardFundBalance,
         uint256 timeElapsed,
         uint256 totalReputation
@@ -28,18 +28,18 @@ library CrikzMath {
         if (totalReputation == 0) return 0;
         if (rewardFundBalance == 0) return 0;
         
-        uint256 salary = (rewardFundBalance * BASE_APR) / WAD;
-        salary = (salary * timeElapsed) / SECONDS_PER_YEAR;
+        uint256 yieldAmount = (rewardFundBalance * BASE_APR) / WAD;
+        yieldAmount = (yieldAmount * timeElapsed) / SECONDS_PER_YEAR;
         
-        return salary;
+        return yieldAmount;
     }
 
-    function calculateSalaryPerReputation(
-        uint256 salaryAccrued,
+    function calculateYieldPerReputation(
+        uint256 yieldAccrued,
         uint256 totalReputation
     ) internal pure returns (uint256) {
-        if (salaryAccrued == 0 || totalReputation == 0) return 0;
-        return (salaryAccrued * WAD) / totalReputation;
+        if (yieldAccrued == 0 || totalReputation == 0) return 0;
+        return (yieldAccrued * WAD) / totalReputation;
     }
 
     function getBaseAPR() internal pure returns (uint256) {

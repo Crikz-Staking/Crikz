@@ -8,93 +8,102 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 
 import "./libraries/CrikzMath.sol"; 
-import "./libraries/WorkTiers.sol";
-import "./libraries/JobManager.sol";
-import "./libraries/SalaryDistributor.sol";
+import "./libraries/OrderTypes.sol";
+import "./libraries/OrderManager.sol";
+import "./libraries/ProductionDistributor.sol";
 
 contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
     using CrikzMath for uint256;
-    using JobManager for JobManager.Job[];
+    using OrderManager for OrderManager.Order[];
 
     address public immutable PANCAKESWAP_V2_ROUTER;
     address public lpPairAddress;
     
-    WorkTiers.Tier[7] public workTiers;
-    SalaryDistributor.RewardFund public rewardFund;
-    mapping(address => JobManager.Job[]) public activeJobs;
-    mapping(address => uint256) public userSalaryDebt;
-    mapping(address => uint256) public userTotalReputation;
-    mapping(address => bool) private hasActiveJobs;
-    mapping(address => uint256) public userTotalSalaryClaimed;
-    mapping(address => uint256) public userTotalSalaryCompounded;
+    OrderTypes.OrderType[7] public orderTypes;
+    ProductionDistributor.ProductionFund public productionFund;
+
+    mapping(address => OrderManager.Order[]) public activeOrders;
+    mapping(address => uint256) public creatorYieldDebt;
+    mapping(address => uint256) public creatorTotalReputation;
+    mapping(address => bool) private hasActiveOrders;
+    mapping(address => uint256) public creatorTotalProductsClaimed;
+    mapping(address => uint256) public creatorTotalProductsRestocked;
 
     uint256 public constant TOTAL_SUPPLY = 701_408_733 * 10**18;
-    uint256 public constant MAX_JOBS_PER_USER = 50;
+    uint256 public constant MAX_ORDERS_PER_CREATOR = 50;
     
-    uint256 public totalTokensWorking;
-    uint256 public totalActiveWorkers;
-    uint256 public totalSalaryClaimed;
-    uint256 public totalSalaryCompounded;
+    uint256 public totalTokensInProduction;
+    uint256 public totalActiveCreators;
+    uint256 public totalProductsClaimed;
+    uint256 public totalProductsRestocked;
 
     error InsufficientBalance();
     error LPPairAlreadySet();
     error InvalidAddress();
     error AmountTooSmall();
-    error MaxJobsReached();
-    error ExceedsRewardFund();
+    error MaxOrdersReached();
+    error ExceedsProductionFund();
 
-    event JobStarted(
-        address indexed worker,
+    event OrderCreated(
+        address indexed creator,
         uint256 amount,
-        uint8 tier,
-        string tierName,
+        uint8 orderType,
+        string orderTypeName,
         uint256 reputation,
         uint256 lockUntil,
-        uint256 jobIndex,
+        uint256 orderIndex,
         uint256 timestamp
     );
-    event JobCompleted(
-        address indexed worker,
-        uint256 jobIndex,
+
+    event OrderCompleted(
+        address indexed creator,
+        uint256 orderIndex,
         uint256 amount,
         uint256 reputation,
-        uint256 salaryPaid,
+        uint256 productsPaid,
         uint256 timestamp
     );
-    event JobTerminated(
-        address indexed worker,
-        uint256 jobIndex,
+
+    event OrderCancelled(
+        address indexed creator,
+        uint256 orderIndex,
         uint256 principal,
         uint256 timestamp
     );
-    event SalaryClaimed(
-        address indexed worker,
+
+    event ProductsClaimed(
+        address indexed creator,
         uint256 amount,
         uint256 timestamp
     );
-    event SalaryCompounded(
-        address indexed worker,
-        uint256 indexed jobIndex,
-        uint256 salaryAmount,
-        uint256 newJobAmount,
+
+    event OrderExpanded(
+        address indexed creator,
+        uint256 indexed orderIndex,
+        uint256 yieldAmount,
+        uint256 newOrderAmount,
         uint256 timestamp
     );
-    event RewardFundUpdated(
+
+    event ProductionFundUpdated(
         address indexed funder,
         uint256 amount,
         uint256 newBalance,
         uint256 timestamp
     );
+
     event LPPairSet(
         address indexed lpPair,
         uint256 timestamp
     );
+
     event EmergencyWithdraw(
         address indexed owner,
         uint256 amount,
         uint256 newFundBalance,
         uint256 timestamp
     );
+
     event ReputationChanged(
         uint256 oldTotalReputation,
         uint256 newTotalReputation,
@@ -102,7 +111,7 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
         bool isIncrease,
         uint256 timestamp
     );
-    
+
     // --- CONSTRUCTOR: REMOVED MINTING LOGIC ---
     constructor(
         address trustedForwarder,
@@ -115,21 +124,18 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
         if (pancakeswapRouter == address(0)) revert InvalidAddress();
         PANCAKESWAP_V2_ROUTER = pancakeswapRouter;
 
-        workTiers = WorkTiers.initializeTiers();
-
-        // **REMOVED: _mint(address(this), TOTAL_SUPPLY);**
-        // **REMOVED: _transfer(address(this), _msgSender(), TOTAL_SUPPLY);**
+        orderTypes = OrderTypes.initializeOrderTypes();
         
-        rewardFund.lastUpdateTime = block.timestamp;
+        productionFund.lastUpdateTime = block.timestamp;
     }
     // --- END CONSTRUCTOR ---
 
-    function getRewardFundBalance() public view returns (uint256) {
-        return rewardFund.balance;
+    function getProductionFundBalance() public view returns (uint256) {
+        return productionFund.balance;
     }
 
-    function getRewardFundTotalReputation() public view returns (uint256) {
-        return rewardFund.totalReputation;
+    function getProductionFundTotalReputation() public view returns (uint256) {
+        return productionFund.totalReputation;
     }
 
     function getBaseAPR() public pure returns (uint256) {
@@ -172,22 +178,22 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
         emit LPPairSet(_lpPairAddress, block.timestamp);
     }
 
-    function fundRewardPool(uint256 amount) external onlyOwner {
+    function fundProductionPool(uint256 amount) external onlyOwner {
         if (amount == 0) revert CrikzMath.InvalidAmount();
         _transfer(_msgSender(), address(this), amount);
-        rewardFund.balance += amount;
+        productionFund.balance += amount;
         
-        emit RewardFundUpdated(_msgSender(), amount, rewardFund.balance, block.timestamp);
+        emit ProductionFundUpdated(_msgSender(), amount, productionFund.balance, block.timestamp);
     }
 
     function emergencyOwnerWithdraw(uint256 amount) external onlyOwner {
         if (amount == 0) revert CrikzMath.InvalidAmount();
         if (balanceOf(address(this)) < amount) revert InsufficientBalance();
-        if (rewardFund.balance < amount) revert ExceedsRewardFund();
+        if (productionFund.balance < amount) revert ExceedsProductionFund();
 
-        rewardFund.balance -= amount;
+        productionFund.balance -= amount;
         _transfer(address(this), _msgSender(), amount);
-        emit EmergencyWithdraw(_msgSender(), amount, rewardFund.balance, block.timestamp);
+        emit EmergencyWithdraw(_msgSender(), amount, productionFund.balance, block.timestamp);
     }
 
     function pause() external onlyOwner {
@@ -199,15 +205,15 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
     }
 
     function _updateFund() internal {
-        SalaryDistributor.updateFund(rewardFund, block.timestamp);
+        ProductionDistributor.updateFund(productionFund, block.timestamp);
     }
 
-    function _updateUserDebt(address user) internal {
-        uint256 newDebt = SalaryDistributor.updateUserDebt(
-            rewardFund,
-            userTotalReputation[user]
+    function _updateCreatorDebt(address creator) internal {
+        uint256 newDebt = ProductionDistributor.updateCreatorDebt(
+            productionFund,
+            creatorTotalReputation[creator]
         );
-        userSalaryDebt[user] = newDebt;
+        creatorYieldDebt[creator] = newDebt;
     }
     
     function _updateFundReputation(
@@ -217,42 +223,41 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
         if (oldReputation == newReputation) return;
         bool isIncrease = newReputation > oldReputation;
         uint256 changeAmount = isIncrease 
-            ?
-            newReputation - oldReputation 
+            ? newReputation - oldReputation 
             : oldReputation - newReputation;
-        rewardFund.totalReputation = isIncrease 
-            ?
-            rewardFund.totalReputation + changeAmount 
-            : rewardFund.totalReputation - changeAmount;
+            
+        productionFund.totalReputation = isIncrease 
+            ? productionFund.totalReputation + changeAmount 
+            : productionFund.totalReputation - changeAmount;
+
         emit ReputationChanged(
             oldReputation,
-            rewardFund.totalReputation,
+            productionFund.totalReputation,
             changeAmount,
             isIncrease,
             block.timestamp
         );
     }
 
-    function _updateUserReputation(
-        address user,
+    function _updateCreatorReputation(
+        address creator,
         uint256 oldReputation,
         uint256 newReputation
     ) internal {
         if (oldReputation == newReputation) return;
         bool isIncrease = newReputation > oldReputation;
         uint256 changeAmount = isIncrease 
-            ?
-            newReputation - oldReputation 
+            ? newReputation - oldReputation 
             : oldReputation - newReputation;
-        userTotalReputation[user] = isIncrease 
-            ?
-            userTotalReputation[user] + changeAmount 
-            : userTotalReputation[user] - changeAmount;
+            
+        creatorTotalReputation[creator] = isIncrease 
+            ? creatorTotalReputation[creator] + changeAmount 
+            : creatorTotalReputation[creator] - changeAmount;
     }
     
-    function pendingSalary(address account) public view returns (uint256) {
-        if (userTotalReputation[account] == 0) return 0;
-        SalaryDistributor.RewardFund memory fundSnapshot = rewardFund;
+    function pendingProducts(address account) public view returns (uint256) {
+        if (creatorTotalReputation[account] == 0) return 0;
+        ProductionDistributor.ProductionFund memory fundSnapshot = productionFund;
         
         if (fundSnapshot.totalReputation == 0 || fundSnapshot.balance == 0) {
             return 0;
@@ -260,263 +265,273 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
 
         if (block.timestamp > fundSnapshot.lastUpdateTime) {
             uint256 timeElapsed = block.timestamp - fundSnapshot.lastUpdateTime;
-            uint256 salaryAccrued = CrikzMath.calculateTimeBasedSalary(
+            uint256 yieldAccrued = CrikzMath.calculateTimeBasedYield(
                 fundSnapshot.balance,
                 timeElapsed,
                 fundSnapshot.totalReputation
             );
-            if (salaryAccrued > fundSnapshot.balance) {
-                salaryAccrued = fundSnapshot.balance;
+            
+            if (yieldAccrued > fundSnapshot.balance) {
+                yieldAccrued = fundSnapshot.balance;
             }
             
-            if (salaryAccrued > 0) {
-                uint256 salaryPerReputationDelta = CrikzMath.calculateSalaryPerReputation(
-                    salaryAccrued,
+            if (yieldAccrued > 0) {
+                uint256 yieldPerReputationDelta = CrikzMath.calculateYieldPerReputation(
+                    yieldAccrued,
                     fundSnapshot.totalReputation
                 );
-                fundSnapshot.accumulatedSalaryPerReputation += salaryPerReputationDelta;
+                fundSnapshot.accumulatedYieldPerReputation += yieldPerReputationDelta;
             }
         }
 
-        uint256 accumulatedSalary = (userTotalReputation[account] * fundSnapshot.accumulatedSalaryPerReputation) / CrikzMath.WAD;
-        if (accumulatedSalary <= userSalaryDebt[account]) return 0;
+        uint256 accumulatedYield = (creatorTotalReputation[account] * fundSnapshot.accumulatedYieldPerReputation) / CrikzMath.WAD;
+        if (accumulatedYield <= creatorYieldDebt[account]) return 0;
         
-        return accumulatedSalary - userSalaryDebt[account];
+        return accumulatedYield - creatorYieldDebt[account];
     }
 
-    function startJob(uint256 amount, uint8 tier) 
+    function createOrder(uint256 amount, uint8 orderType) 
         external 
         nonReentrant 
         whenNotPaused 
     {
-        address worker = _msgSender();
-        if (amount < CrikzMath.MIN_WORK_AMOUNT) revert AmountTooSmall();
-        WorkTiers.validateTier(tier);
-        if (balanceOf(worker) < amount) revert InsufficientBalance();
-        if (activeJobs[worker].length >= MAX_JOBS_PER_USER) revert MaxJobsReached();
+        address creator = _msgSender();
+        if (amount < CrikzMath.MIN_ORDER_AMOUNT) revert AmountTooSmall();
+        OrderTypes.validateOrderType(orderType);
+        if (balanceOf(creator) < amount) revert InsufficientBalance();
+        if (activeOrders[creator].length >= MAX_ORDERS_PER_CREATOR) revert MaxOrdersReached();
 
         _updateFund();
-        _updateUserDebt(worker);
+        _updateCreatorDebt(creator);
 
-        _transfer(worker, address(this), amount);
+        _transfer(creator, address(this), amount);
         
-        JobManager.Job memory newJob = JobManager.createJob(
+        OrderManager.Order memory newOrder = OrderManager.createOrder(
             amount,
-            tier,
-            workTiers[tier],
+            orderType,
+            orderTypes[orderType],
             block.timestamp
         );
-        uint256 oldFundReputation = rewardFund.totalReputation;
-        uint256 oldUserReputation = userTotalReputation[worker];
+
+        uint256 oldFundReputation = productionFund.totalReputation;
+        uint256 oldCreatorReputation = creatorTotalReputation[creator];
 
         _updateFundReputation(
             oldFundReputation,
-            oldFundReputation + newJob.reputation
+            oldFundReputation + newOrder.reputation
         );
-        _updateUserReputation(
-            worker,
-            oldUserReputation,
-            oldUserReputation + newJob.reputation
+        _updateCreatorReputation(
+            creator,
+            oldCreatorReputation,
+            oldCreatorReputation + newOrder.reputation
         );
-        totalTokensWorking += amount;
+
+        totalTokensInProduction += amount;
         
-        uint256 jobIndex = activeJobs[worker].length;
-        activeJobs[worker].push(newJob);
+        uint256 orderIndex = activeOrders[creator].length;
+        activeOrders[creator].push(newOrder);
         
-        if (!hasActiveJobs[worker]) {
-            hasActiveJobs[worker] = true;
-            totalActiveWorkers += 1;
+        if (!hasActiveOrders[creator]) {
+            hasActiveOrders[creator] = true;
+            totalActiveCreators += 1;
         }
 
-        _updateUserDebt(worker);
-        emit JobStarted(
-            worker,
+        _updateCreatorDebt(creator);
+        emit OrderCreated(
+            creator,
             amount,
-            tier,
-            workTiers[tier].name,
-            newJob.reputation,
-            newJob.lockUntil,
-            jobIndex,
+            orderType,
+            orderTypes[orderType].name,
+            newOrder.reputation,
+            newOrder.lockUntil,
+            orderIndex,
             block.timestamp
         );
     }
 
-    function completeJob(uint256 jobIndex) 
+    function completeOrder(uint256 orderIndex) 
         external 
         nonReentrant 
         whenNotPaused 
     {
-        address worker = _msgSender();
-        JobManager.validateJobIndex(activeJobs[worker], jobIndex);
+        address creator = _msgSender();
+        OrderManager.validateOrderIndex(activeOrders[creator], orderIndex);
         
-        JobManager.Job memory job = activeJobs[worker][jobIndex];
-        JobManager.validateCompleted(job, block.timestamp);
+        OrderManager.Order memory order = activeOrders[creator][orderIndex];
+        OrderManager.validateCompleted(order, block.timestamp);
 
         _updateFund();
         
-        uint256 salaryAmount = pendingSalary(worker);
+        uint256 productsAmount = pendingProducts(creator);
         
-        uint256 oldFundReputation = rewardFund.totalReputation;
-        uint256 oldUserReputation = userTotalReputation[worker];
+        uint256 oldFundReputation = productionFund.totalReputation;
+        uint256 oldCreatorReputation = creatorTotalReputation[creator];
         
         _updateFundReputation(
             oldFundReputation,
-            oldFundReputation - job.reputation
+            oldFundReputation - order.reputation
         );
-        _updateUserReputation(
-            worker,
-            oldUserReputation,
-            oldUserReputation - job.reputation
+        _updateCreatorReputation(
+            creator,
+            oldCreatorReputation,
+            oldCreatorReputation - order.reputation
         );
-        totalTokensWorking -= job.amount;
-        activeJobs[worker].removeJob(jobIndex);
 
-        if (activeJobs[worker].length == 0) {
-            hasActiveJobs[worker] = false;
-            totalActiveWorkers -= 1;
+        totalTokensInProduction -= order.amount;
+        activeOrders[creator].removeOrder(orderIndex);
+
+        if (activeOrders[creator].length == 0) {
+            hasActiveOrders[creator] = false;
+            totalActiveCreators -= 1;
         }
         
-        uint256 totalPayout = job.amount;
-        if (salaryAmount > 0) {
-            SalaryDistributor.validateSufficientBalance(rewardFund, salaryAmount);
-            rewardFund.balance -= salaryAmount;
-            totalSalaryClaimed += salaryAmount;
-            userTotalSalaryClaimed[worker] += salaryAmount;
-            totalPayout += salaryAmount;
+        uint256 totalPayout = order.amount;
+        if (productsAmount > 0) {
+            ProductionDistributor.validateSufficientBalance(productionFund, productsAmount);
+            productionFund.balance -= productsAmount;
+            totalProductsClaimed += productsAmount;
+            creatorTotalProductsClaimed[creator] += productsAmount;
+            totalPayout += productsAmount;
         }
         
-        _updateUserDebt(worker);
-        _transfer(address(this), worker, totalPayout);
-        emit JobCompleted(
-            worker,
-            jobIndex,
-            job.amount,
-            job.reputation,
-            salaryAmount,
+        _updateCreatorDebt(creator);
+        _transfer(address(this), creator, totalPayout);
+        
+        emit OrderCompleted(
+            creator,
+            orderIndex,
+            order.amount,
+            order.reputation,
+            productsAmount,
             block.timestamp
         );
     }
 
-    function terminateJob(uint256 jobIndex) 
+    function cancelOrder(uint256 orderIndex) 
         external 
         nonReentrant 
         whenNotPaused 
     {
-        address worker = _msgSender();
-        JobManager.validateJobIndex(activeJobs[worker], jobIndex);
+        address creator = _msgSender();
+        OrderManager.validateOrderIndex(activeOrders[creator], orderIndex);
         
-        JobManager.Job memory job = activeJobs[worker][jobIndex];
+        OrderManager.Order memory order = activeOrders[creator][orderIndex];
 
         _updateFund();
-        _updateUserDebt(worker);
+        _updateCreatorDebt(creator);
 
-        uint256 oldFundReputation = rewardFund.totalReputation;
-        uint256 oldUserReputation = userTotalReputation[worker];
+        uint256 oldFundReputation = productionFund.totalReputation;
+        uint256 oldCreatorReputation = creatorTotalReputation[creator];
+        
         _updateFundReputation(
             oldFundReputation,
-            oldFundReputation - job.reputation
+            oldFundReputation - order.reputation
         );
-        _updateUserReputation(
-            worker,
-            oldUserReputation,
-            oldUserReputation - job.reputation
+        _updateCreatorReputation(
+            creator,
+            oldCreatorReputation,
+            oldCreatorReputation - order.reputation
         );
-        totalTokensWorking -= job.amount;
-        activeJobs[worker].removeJob(jobIndex);
+
+        totalTokensInProduction -= order.amount;
+        activeOrders[creator].removeOrder(orderIndex);
         
-        if (activeJobs[worker].length == 0) {
-            hasActiveJobs[worker] = false;
-            totalActiveWorkers -= 1;
+        if (activeOrders[creator].length == 0) {
+            hasActiveOrders[creator] = false;
+            totalActiveCreators -= 1;
         }
 
-        _transfer(address(this), worker, job.amount);
-        _updateUserDebt(worker);
+        _transfer(address(this), creator, order.amount);
+        _updateCreatorDebt(creator);
         
-        emit JobTerminated(worker, jobIndex, job.amount, block.timestamp);
+        emit OrderCancelled(creator, orderIndex, order.amount, block.timestamp);
     }
 
-    function _claimSalary(address worker) internal {
+    function _claimProducts(address creator) internal {
         _updateFund();
-        uint256 pendingAmount = pendingSalary(worker);
+        uint256 pendingAmount = pendingProducts(creator);
         
         if (pendingAmount > 0) {
-            SalaryDistributor.validateSufficientBalance(rewardFund, pendingAmount);
-            rewardFund.balance -= pendingAmount;
-            totalSalaryClaimed += pendingAmount;
-            userTotalSalaryClaimed[worker] += pendingAmount;
+            ProductionDistributor.validateSufficientBalance(productionFund, pendingAmount);
+            productionFund.balance -= pendingAmount;
+            totalProductsClaimed += pendingAmount;
+            creatorTotalProductsClaimed[creator] += pendingAmount;
             
-            _updateUserDebt(worker);
+            _updateCreatorDebt(creator);
 
-            _transfer(address(this), worker, pendingAmount);
-            emit SalaryClaimed(worker, pendingAmount, block.timestamp);
+            _transfer(address(this), creator, pendingAmount);
+            emit ProductsClaimed(creator, pendingAmount, block.timestamp);
         } else {
-            _updateUserDebt(worker);
+            _updateCreatorDebt(creator);
         }
     }
 
-    function claimSalary() external nonReentrant whenNotPaused {
-        _claimSalary(_msgSender());
+    function claimProducts() external nonReentrant whenNotPaused {
+        _claimProducts(_msgSender());
     }
 
-    function compoundSalary(uint256 jobIndex) 
+    function expandOrder(uint256 orderIndex) 
         external 
         nonReentrant 
         whenNotPaused 
     {
-        address worker = _msgSender();
-        JobManager.validateJobIndex(activeJobs[worker], jobIndex);
+        address creator = _msgSender();
+        OrderManager.validateOrderIndex(activeOrders[creator], orderIndex);
         
         _updateFund();
-        uint256 pendingAmount = pendingSalary(worker);
+        uint256 pendingAmount = pendingProducts(creator);
         
-        SalaryDistributor.validatePendingSalary(pendingAmount);
-        SalaryDistributor.validateSufficientBalance(rewardFund, pendingAmount);
+        ProductionDistributor.validatePendingProducts(pendingAmount);
+        ProductionDistributor.validateSufficientBalance(productionFund, pendingAmount);
 
-        _executeCompounding(worker, jobIndex, pendingAmount);
+        _executeExpansion(creator, orderIndex, pendingAmount);
     }
 
-    function _executeCompounding(
-        address worker,
-        uint256 jobIndex,
+    function _executeExpansion(
+        address creator,
+        uint256 orderIndex,
         uint256 pendingAmount
     ) internal {
-        JobManager.Job storage job = activeJobs[worker][jobIndex];
-        uint256 oldFundReputation = rewardFund.totalReputation;
-        uint256 oldUserReputation = userTotalReputation[worker];
+        OrderManager.Order storage order = activeOrders[creator][orderIndex];
+        uint256 oldFundReputation = productionFund.totalReputation;
+        uint256 oldCreatorReputation = creatorTotalReputation[creator];
 
-        rewardFund.balance -= pendingAmount;
-        totalSalaryCompounded += pendingAmount;
-        userTotalSalaryCompounded[worker] += pendingAmount;
-        totalTokensWorking += pendingAmount;
-        WorkTiers.Tier memory tierInfo = workTiers[job.tier];
-        (uint256 oldReputation, uint256 newReputation) = JobManager.updateJobAmount(
-            job,
-            job.amount + pendingAmount,
-            tierInfo
+        productionFund.balance -= pendingAmount;
+        totalProductsRestocked += pendingAmount;
+        creatorTotalProductsRestocked[creator] += pendingAmount;
+        totalTokensInProduction += pendingAmount;
+        
+        OrderTypes.OrderType memory typeInfo = orderTypes[order.orderType];
+        (uint256 oldReputation, uint256 newReputation) = OrderManager.updateOrderAmount(
+            order,
+            order.amount + pendingAmount,
+            typeInfo
         );
+        
         uint256 reputationChange = newReputation - oldReputation;
         
         _updateFundReputation(
             oldFundReputation,
             oldFundReputation + reputationChange
         );
-        _updateUserReputation(
-            worker,
-            oldUserReputation,
-            oldUserReputation + reputationChange
+        _updateCreatorReputation(
+            creator,
+            oldCreatorReputation,
+            oldCreatorReputation + reputationChange
         );
-        _updateUserDebt(worker);
         
-        emit SalaryCompounded(
-            worker,
-            jobIndex,
+        _updateCreatorDebt(creator);
+        
+        emit OrderExpanded(
+            creator,
+            orderIndex,
             pendingAmount,
-            job.amount,
+            order.amount,
             block.timestamp
         );
     }
 
-    function getTierDetails(uint8 tier) 
+    function getOrderTypeDetails(uint8 orderType) 
         external 
         view 
         returns (
@@ -525,68 +540,68 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
             string memory name
         ) 
     {
-        WorkTiers.validateTier(tier);
+        OrderTypes.validateOrderType(orderType);
         return (
-            workTiers[tier].lockDuration,
-            workTiers[tier].reputationMultiplier,
-            workTiers[tier].name
+            orderTypes[orderType].lockDuration,
+            orderTypes[orderType].reputationMultiplier,
+            orderTypes[orderType].name
         );
     }
     
-    function getJobCount(address account) external view returns (uint256) {
-        return activeJobs[account].length;
+    function getOrderCount(address account) external view returns (uint256) {
+        return activeOrders[account].length;
     }
 
-    function getJobByIndex(address account, uint256 index) 
+    function getOrderByIndex(address account, uint256 index) 
         external 
         view 
-        returns (JobManager.Job memory) 
+        returns (OrderManager.Order memory) 
     {
-        JobManager.validateJobIndex(activeJobs[account], index);
-        return activeJobs[account][index];
+        OrderManager.validateOrderIndex(activeOrders[account], index);
+        return activeOrders[account][index];
     }
 
     function getContractStats() 
         external 
         view 
         returns (
-            uint256 _totalTokensWorking,
-            uint256 _totalActiveWorkers,
-            uint256 _rewardFundBalance,
+            uint256 _totalTokensInProduction,
+            uint256 _totalActiveCreators,
+            uint256 _productionFundBalance,
             uint256 _fundTotalReputation,
-            uint256 _totalSalaryClaimed,
-            uint256 _totalSalaryCompounded
+            uint256 _totalProductsClaimed,
+            uint256 _totalProductsRestocked
         ) 
     {
         return (
-            totalTokensWorking,
-            totalActiveWorkers,
-            rewardFund.balance,
-            rewardFund.totalReputation,
-            totalSalaryClaimed,
-            totalSalaryCompounded
+            totalTokensInProduction,
+            totalActiveCreators,
+            productionFund.balance,
+            productionFund.totalReputation,
+            totalProductsClaimed,
+            totalProductsRestocked
         );
     }
 
-    function getUserStats(address account) 
+    function getCreatorStats(address account) 
         external 
         view 
         returns (
             uint256 _totalReputation,
-            uint256 _salaryDebt,
-            uint256 _pendingSalary,
-            uint256 _activeJobCount,
-            uint256 _totalSalaryClaimed,
-            uint256 _totalSalaryCompounded
+            uint256 _yieldDebt,
+            uint256 _pendingProducts,
+            uint256 _activeOrderCount,
+            uint256 _totalProductsClaimed,
+            uint256 _totalProductsRestocked
         ) 
     {
         return (
-            userTotalReputation[account],
-            userSalaryDebt[account],
-            pendingSalary(account),
-            activeJobs[account].length,
-            userTotalSalaryClaimed[account],
-            userTotalSalaryCompounded[account]
+            creatorTotalReputation[account],
+            creatorYieldDebt[account],
+            pendingProducts(account),
+            activeOrders[account].length,
+            creatorTotalProductsClaimed[account],
+            creatorTotalProductsRestocked[account]
         );
     }
 
@@ -602,9 +617,9 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
         _transfer(address(this), recipient, amount);
     }
 
-    // Helper 3: Allows the owner to set the reward fund balance directly
-    function updateRewardFundBalance(uint256 amount) external {
-        rewardFund.balance = amount;
+    // Helper 3: Allows the owner to set the production fund balance directly
+    function updateProductionFundBalance(uint256 amount) external {
+        productionFund.balance = amount;
     }
     // --- END HELPER FUNCTIONS ---
 }
