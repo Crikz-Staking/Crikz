@@ -1,13 +1,20 @@
 ﻿# 🔱 Decentralized Production & Yield Ecosystem
- [https://img.shields.io/badge/Blockchain-Binance%20Smart%20Chain-F0B90B.svg](https://img.shields.io/badge/Blockchain-Binance%20Smart%20Chain-F0B90B.svg)
+
+ 🌍 **Website(dApp)** Coming Soon
 
 📘 **Facebook** [https://www.facebook.com/crikztoken](https://www.facebook.com/crikztoken)
 
 🐦**X/Twitter** [https://x.com/CrikzToken](https://x.com/CrikzToken)
 
-**Medium** [https://medium.com/@crikztoken](https://medium.com/@crikztoken)
+📰**Medium** [https://medium.com/@crikztoken](https://medium.com/@crikztoken)
 
-**GitHub:** [https://github.com/Crikz-Staking/Crikz](https://github.com/Crikz-Staking/Crikz)
+💻**GitHub:** [https://github.com/Crikz-Staking/Crikz](https://github.com/Crikz-Staking/Crikz)
+
+💬 **Telegram** Coming soon
+
+🎮 **Discord** Coming soon
+
+
 
 **License:** [Custom Non-Commercial](./LICENSE) 📜
 
@@ -31,7 +38,7 @@
 
 ## 🏭 What is Crikz? (For Future Producers)
 
-Crikz is a decentralized yield protocol designed for long-term holders. We transform idle tokens into a **Decentralized Production Asset** that constantly generates yield. Instead of simple staking, you initiate a **Production Order**, committing tokens to generate new **Products** (yield) every second.
+Crikz is a decentralized yield protocol designed for long-term holders. We transform idle tokens into a **Decentralized Production Asset** that constantly generates yield. Instead of simple staking, you initiate a **Production Order**, committing tokens to generate new **tokens** (yield) every second.
 
 ### 🌟 The Core Production Mechanism
 
@@ -94,8 +101,7 @@ $$\text{Reputation} = \frac{\text{Tokens Locked} \times \text{Tier Multiplier}}{
 | Icon | File/Directory | Description |
 | :---: | :--- | :--- |
 | 📝 | `contracts/Crikz.sol` | **The Core Engine.** ERC20 logic, the `_transfer` override for the dynamic DEX tax, and all public production management functions (`createOrder`, `completeOrder`, etc.). Includes **Pausable** and **ReentrancyGuard**. |
-| 📚 | `contracts/libraries/CrikzMath.sol` | Centralized math logic, defining the `1.618%` constants, the `6.182%` Base APR, and efficient calculation methods. |
-| 📚 | `contracts/libraries/SalaryDistributor.sol` | Manages the internal accounting of the **Production Fund** and the time-based distribution logic for yield generation. |
+| 📚 | `contracts/libraries/ | Centralized math logic and companions, defining the `1.618%` constants, the `6.182%` Base APR, and efficient calculation methods. |
 | 🌐 | `dApp/` | The frontend source code for the user interface. |
 | 🧪 | `test/` | Comprehensive testing suite using Hardhat and Ethers.js. |
 
@@ -189,6 +195,7 @@ $$\text{Reputacioni} = \frac{\text{Tokenat e Bllokuar} \times \text{Shumëzuesi 
 | 🌐 | `dApp/` | Kodi burimor i ndërfaqes për përdoruesin. |
 
 | 🧪 | `test/` | Paketa e testimit gjithëpërfshirës duke përdorur Hardhat dhe Ethers.js. |
+
 
 
 
