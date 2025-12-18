@@ -4,6 +4,8 @@
 
 **X/Twitter** [https://x.com/CrikzToken](https://x.com/CrikzToken)
 
+**Medium** [https://medium.com/@crikztoken](https://medium.com/@crikztoken)
+
 **GitHub:** [https://github.com/Crikz-Staking/Crikz](https://github.com/Crikz-Staking/Crikz)
 
 **License:** [Custom Non-Commercial](./LICENSE) 📜
@@ -186,4 +188,5 @@ $$\text{Reputacioni} = \frac{\text{Tokenat e Bllokuar} \times \text{Shumëzuesi 
 | 🌐 | `dApp/` | Kodi burimor i ndërfaqes për përdoruesin. |
 
 | 🧪 | `test/` | Paketa e testimit gjithëpërfshirës duke përdorur Hardhat dhe Ethers.js. |
+
 
