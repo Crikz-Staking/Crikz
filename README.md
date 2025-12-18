@@ -1,8 +1,8 @@
 ﻿# 🔱 Decentralized Production & Yield Ecosystem
 
-**Facebook** [https://www.facebook.com/crikztoken] (https://www.facebook.com/crikztoken)
+**Facebook** [https://www.facebook.com/crikztoken](https://www.facebook.com/crikztoken)
 
-**X/Twitter** [https://x.com/CrikzToken] (https://x.com/CrikzToken)
+**X/Twitter** [https://x.com/CrikzToken](https://x.com/CrikzToken)
 
 **GitHub:** [https://github.com/Crikz-Staking/Crikz](https://github.com/Crikz-Staking/Crikz)
 
@@ -186,3 +186,4 @@ $$\text{Reputacioni} = \frac{\text{Tokenat e Bllokuar} \times \text{Shumëzuesi 
 | 🌐 | `dApp/` | Kodi burimor i ndërfaqes për përdoruesin. |
 
 | 🧪 | `test/` | Paketa e testimit gjithëpërfshirës duke përdorur Hardhat dhe Ethers.js. |
+
