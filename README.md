@@ -1,8 +1,9 @@
 ﻿# 🔱 Decentralized Production & Yield Ecosystem
+ [https://img.shields.io/badge/Blockchain-Binance%20Smart%20Chain-F0B90B.svg](https://img.shields.io/badge/Blockchain-Binance%20Smart%20Chain-F0B90B.svg)
 
-**Facebook** [https://www.facebook.com/crikztoken](https://www.facebook.com/crikztoken)
+📘 **Facebook** [https://www.facebook.com/crikztoken](https://www.facebook.com/crikztoken)
 
-**X/Twitter** [https://x.com/CrikzToken](https://x.com/CrikzToken)
+🐦**X/Twitter** [https://x.com/CrikzToken](https://x.com/CrikzToken)
 
 **Medium** [https://medium.com/@crikztoken](https://medium.com/@crikztoken)
 
@@ -188,5 +189,6 @@ $$\text{Reputacioni} = \frac{\text{Tokenat e Bllokuar} \times \text{Shumëzuesi 
 | 🌐 | `dApp/` | Kodi burimor i ndërfaqes për përdoruesin. |
 
 | 🧪 | `test/` | Paketa e testimit gjithëpërfshirës duke përdorur Hardhat dhe Ethers.js. |
+
 
 
