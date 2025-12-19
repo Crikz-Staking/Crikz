@@ -2234,3 +2234,168 @@ describe("Crikz - Extreme State & Integrity Tests", function () {
     ).to.be.revertedWithCustomError(crikz, "InsufficientOrderType");
   });
 });
+
+const { expect } = require("chai");
+const { ethers } = require("hardhat");
+const { time } = require("@nomicfoundation/hardhat-network-helpers");
+
+describe("Crikz - Order Array Integrity", function () {
+  let crikz, owner, user;
+  const MIN_STAKE = ethers.parseUnits("10", 18);
+
+  beforeEach(async function () {
+    [owner, user] = await ethers.getSigners();
+    const Crikz = await ethers.getContractFactory("Crikz");
+    
+    // CRITICAL FIX: Deploy with owner as the signer so owner gets INITIAL_SUPPLY
+    crikz = await Crikz.connect(owner).deploy(ethers.ZeroAddress, owner.address); 
+    await crikz.waitForDeployment();
+
+    // Now owner has the tokens and can transfer them
+    const transferAmount = ethers.parseUnits("1000", 18);
+    await crikz.connect(owner).transfer(user.address, transferAmount);
+  });
+
+  it("Should maintain state integrity after middle-array deletions (Swap-and-Pop)", async function () {
+    // 1. Create 3 orders to test middle removal
+    await crikz.connect(user).createOrder(MIN_STAKE, 0); 
+    await crikz.connect(user).createOrder(MIN_STAKE * 2n, 1); 
+    await crikz.connect(user).createOrder(MIN_STAKE * 3n, 2); 
+
+    await time.increase(31 * 24 * 60 * 60); 
+
+    // 2. Remove the middle order (index 1)
+    await crikz.connect(user).completeOrder(1);
+
+    const orders = await crikz.getActiveOrders(user.address);
+    expect(orders.length).to.equal(2);
+    // Verify Swap-and-Pop: original index 2 moved to index 1
+    expect(orders[1].amount).to.equal(MIN_STAKE * 3n);
+  });
+});
+
+const { expect } = require("chai");
+const { ethers } = require("hardhat");
+const { time } = require("@nomicfoundation/hardhat-network-helpers");
+
+describe("Crikz - Multi-User Yield Attribution", function () {
+  let crikz, owner, userA, userB, funder;
+
+  beforeEach(async function () {
+    [owner, userA, userB, funder] = await ethers.getSigners();
+    const Crikz = await ethers.getContractFactory("Crikz");
+    
+    // CRITICAL FIX: Deploy with owner as deployer
+    crikz = await Crikz.connect(owner).deploy(ethers.ZeroAddress, owner.address);
+    await crikz.waitForDeployment();
+    
+    // Distribute tokens to participants from owner's balance
+    await crikz.connect(owner).transfer(userA.address, ethers.parseUnits("1000", 18));
+    await crikz.connect(owner).transfer(userB.address, ethers.parseUnits("1000", 18));
+    await crikz.connect(owner).transfer(funder.address, ethers.parseUnits("10000", 18));
+  });
+
+  it("Should fairly distribute rewards based on reputation timing", async function () {
+    await crikz.connect(userA).createOrder(ethers.parseUnits("100", 18), 0);
+    await crikz.connect(funder).fundProductionPool(ethers.parseUnits("500", 18));
+    
+    await time.increase(15 * 24 * 60 * 60); 
+
+    await crikz.connect(userB).createOrder(ethers.parseUnits("100", 18), 0);
+    await time.increase(15 * 24 * 60 * 60); 
+
+    await crikz.connect(userA).claimYield();
+    await crikz.connect(userB).claimYield();
+
+    const balA = await crikz.balanceOf(userA.address);
+    const balB = await crikz.balanceOf(userB.address);
+    
+    // User A should have more because they were in the pool longer 
+    expect(balA).to.be.gt(balB);
+  });
+});
+
+const { expect } = require("chai");
+const { ethers } = require("hardhat");
+const { time } = require("@nomicfoundation/hardhat-network-helpers");
+
+describe("Crikz - Precision and Zero States", function () {
+  let crikz, owner, user, funder;
+
+  beforeEach(async function () {
+    [owner, user, funder] = await ethers.getSigners();
+    const Crikz = await ethers.getContractFactory("Crikz");
+    
+    crikz = await Crikz.connect(owner).deploy(ethers.ZeroAddress, owner.address);
+    await crikz.waitForDeployment();
+  });
+
+  it("Should handle yield updates when pool balance is very small", async function () {
+    const minStake = ethers.parseUnits("10", 18);
+    
+    await crikz.connect(owner).transfer(user.address, minStake);
+    await crikz.connect(user).createOrder(minStake, 0);
+
+    // Fund the pool with a very small amount
+    await crikz.connect(owner).fundProductionPool(ethers.parseUnits("0.001", 18)); 
+    
+    await time.increase(365 * 24 * 60 * 60);
+    
+    // Should not revert - the system handles small amounts gracefully
+    await expect(crikz.connect(user).claimYield()).to.not.be.reverted;
+  });
+
+  it("Should handle fundProductionPool calls when totalReputation is 0", async function () {
+    const fundAmount = ethers.parseUnits("10", 18);
+    
+    await crikz.connect(owner).transfer(funder.address, fundAmount);
+    
+    // Funding when no orders exist should not revert 
+    await expect(crikz.connect(funder).fundProductionPool(fundAmount)).to.not.be.reverted;
+    
+    const fund = await crikz.productionFund();
+    expect(fund.balance).to.equal(fundAmount);
+  });
+
+  it("Should revert when claiming with no pending yield", async function () {
+    const minStake = ethers.parseUnits("10", 18);
+    
+    await crikz.connect(owner).transfer(user.address, minStake);
+    await crikz.connect(user).createOrder(minStake, 0);
+    await crikz.connect(owner).fundProductionPool(ethers.parseUnits("1000", 18));
+    
+    // Try to claim immediately (no time passed, so no yield)
+    await expect(crikz.connect(user).claimYield())
+      .to.be.revertedWithCustomError(crikz, "NoProductsToClaim");
+  });
+});
+const { expect } = require("chai");
+const { ethers } = require("hardhat");
+
+describe("Crikz - Access and Security", function () {
+  let crikz, owner, user;
+
+  beforeEach(async function () {
+    [owner, user] = await ethers.getSigners();
+    const Crikz = await ethers.getContractFactory("Crikz");
+    crikz = await Crikz.deploy(owner.address, owner.address);
+  });
+
+  it("Should prevent non-owners from pausing", async function () {
+    await expect(crikz.connect(user).pause())
+      .to.be.revertedWith("Ownable: caller is not the owner");
+  });
+
+  it("Should prevent creating orders when paused", async function () {
+    await crikz.pause();
+    const amount = ethers.parseUnits("10", 18);
+    await expect(crikz.connect(owner).createOrder(amount, 0))
+      .to.be.revertedWith("Pausable: paused");
+  });
+
+  it("Should properly initialize total supply to the deployer", async function () {
+    const expectedSupply = ethers.parseUnits("1000000000", 18);
+    expect(await crikz.totalSupply()).to.equal(expectedSupply);
+    expect(await crikz.balanceOf(owner.address)).to.equal(expectedSupply);
+  });
+});
