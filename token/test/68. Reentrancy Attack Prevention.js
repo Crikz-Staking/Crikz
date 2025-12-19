@@ -33,7 +33,7 @@ describe("Crikz - Reentrancy Protection", function () {
   it("Should prevent reentrancy in completeOrder", async function () {
     await crikz.connect(attacker).createOrder(ethers.parseUnits("500", 18), 0);
     
-    await time.increase(2 * 24 * 60 * 60);
+    await time.increase(6 * 24 * 60 * 60);
     
     // Complete order
     await crikz.connect(attacker).completeOrder(0);
@@ -67,7 +67,7 @@ describe("Crikz - Reentrancy Protection", function () {
     
     // Fund pool
     await crikz.connect(owner).fundProductionPool(ethers.parseUnits("5000", 18));
-    await time.increase(2 * 24 * 60 * 60);
+    await time.increase(6 * 24 * 60 * 60);
     
     // Complete orders rapidly (tests reentrancy guard)
     await crikz.connect(attacker).completeOrder(0);

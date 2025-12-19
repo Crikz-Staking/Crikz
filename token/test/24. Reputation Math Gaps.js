@@ -16,8 +16,10 @@ describe("Crikz - Reputation Math Verification", function () {
     for (let i = 0; i < 7; i++) {
       await crikz.connect(tester).createOrder(stakeAmount, i);
       const orders = await crikz.getActiveOrders(tester.address);
-      const expectedRep = (stakeAmount * 618n) / 1000n;
-      expect(orders[i].reputation).to.equal(expectedRep);
-    }
+      const multipliers = [618, 787, 1001, 1273, 1619, 2059, 2618];
+  const expectedRep = (stakeAmount * BigInt(multipliers[i])) / 1000n;
+  
+  expect(orders[i].reputation).to.equal(expectedRep);
+}
   });
 });

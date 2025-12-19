@@ -13,25 +13,36 @@ import "./libraries/OrderTypes.sol";
 import "./libraries/OrderManager.sol";      
 import "./libraries/ProductionDistributor.sol";
 
+/**
+ * @title Crikz Protocol Token
+ * @notice ERC20 token with staking, yield generation, and Fibonacci-based tier system
+ * @dev Implements meta-transactions (ERC2771), pausability, and reentrancy protection
+ */
 contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
     using CrikzMath for uint256;
+    
+    // === Constants ===
     uint256 public constant INITIAL_SUPPLY = 1_000_000_000 * 10**18;
     address public immutable PANCAKESWAP_V2_ROUTER;
-    address public lpPair;
     
+    // === State Variables ===
+    address public lpPair;
     OrderTypes.OrderType[7] public orderTypes;
     ProductionDistributor.ProductionFund public productionFund;
     
+    // === Mappings ===
     mapping(address => OrderManager.Order[]) internal _activeOrders;
     mapping(address => uint256) public totalCreatorReputation; 
     mapping(address => uint256) public creatorYieldDebt;
-    mapping(address => uint256) public lastClaimTime;
+    // NOTE: lastClaimTime removed - it was unused (gas optimization)
 
+    // === Events ===
     event LPPairSet(address indexed lpPairAddress, uint256 timestamp);
     event OrderCreated(address indexed creator, uint256 amount, uint8 orderType, uint256 timestamp);
     event OrderCompleted(address indexed creator, uint256 amount, uint8 orderType, uint256 timestamp);
     event YieldClaimed(address indexed creator, uint256 amount, uint256 timestamp);
 
+    // === Custom Errors (Gas Efficient) ===
     error InvalidAddress();
     error InvalidAmount();
     error InsufficientOrderType();
@@ -39,6 +50,11 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
     error OrderStillLocked();
     error InvalidOrderIndex();
 
+    /**
+     * @notice Contract constructor
+     * @param initialForwarder Address of trusted forwarder for meta-transactions
+     * @param routerAddress Address of PancakeSwap router
+     */
     constructor(address initialForwarder, address routerAddress) 
         ERC20("Crikz Protocol Token", "CRKZ")
         ERC2771Context(initialForwarder)
@@ -50,8 +66,15 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
         _mint(_msgSender(), INITIAL_SUPPLY);
     }
     
-    function pause() external onlyOwner { _pause(); }
-    function unpause() external onlyOwner { _unpause(); }
+    // === Admin Functions ===
+    
+    function pause() external onlyOwner { 
+        _pause(); 
+    }
+    
+    function unpause() external onlyOwner { 
+        _unpause(); 
+    }
 
     function setLPPairAddress(address _lpPair) external onlyOwner {
         if (_lpPair == address(0)) revert InvalidAddress();
@@ -66,95 +89,159 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
         productionFund.totalReputation = _tr;
     }
 
+    // === Core Functions ===
+
+    /**
+     * @notice Creates a new staking order
+     * @param amount Amount of tokens to stake
+     * @param orderType Tier index (0-6)
+     * @dev Uses anti-dilution mechanism to prevent backdated rewards
+     */
     function createOrder(uint256 amount, uint8 orderType) external nonReentrant whenNotPaused {
         if (amount == 0) revert InvalidAmount();
         if (orderType > OrderTypes.MAX_ORDER_TYPE) revert InsufficientOrderType();
 
-        // 1. Update the global index
+        // 1. Update global yield index
         ProductionDistributor.updateFund(productionFund, block.timestamp);
 
-        // 2. Realize yield for current reputation into debt BEFORE adding new reputation
-        creatorYieldDebt[_msgSender()] += (totalCreatorReputation[_msgSender()] * productionFund.accumulatedYieldPerReputation) / CrikzMath.WAD;
+        // Cache storage reads for gas optimization
+        address creator = _msgSender();
+        uint256 currentReputation = totalCreatorReputation[creator];
+        uint256 aypr = productionFund.accumulatedYieldPerReputation;
 
+        // 2. Realize yield for current reputation BEFORE adding new reputation
+        creatorYieldDebt[creator] += (currentReputation * aypr) / CrikzMath.WAD;
+
+        // 3. Transfer tokens and create order
         OrderTypes.OrderType memory typeInfo = orderTypes[orderType];
-        _transfer(_msgSender(), address(this), amount);
+        _transfer(creator, address(this), amount);
 
-        OrderManager.Order memory newOrder = OrderManager.createOrder(amount, orderType, typeInfo, block.timestamp);
-        _activeOrders[_msgSender()].push(newOrder);
+        OrderManager.Order memory newOrder = OrderManager.createOrder(
+            amount, 
+            orderType, 
+            typeInfo, 
+            block.timestamp
+        );
+        _activeOrders[creator].push(newOrder);
         
-        // 3. Update totals
+        // 4. Update totals
+        uint256 newTotalReputation = currentReputation + newOrder.reputation;
         productionFund.totalReputation += newOrder.reputation;
-        totalCreatorReputation[_msgSender()] += newOrder.reputation;
+        totalCreatorReputation[creator] = newTotalReputation;
         
-        // 4. Re-snapshot debt for the NEW total reputation
-        // This "zeros out" the historical yield for the newly added stake
-        creatorYieldDebt[_msgSender()] = (totalCreatorReputation[_msgSender()] * productionFund.accumulatedYieldPerReputation) / CrikzMath.WAD;
+        // 5. Re-snapshot debt for NEW total reputation
+        // This prevents backdated rewards for the newly added stake
+        creatorYieldDebt[creator] = (newTotalReputation * aypr) / CrikzMath.WAD;
         
-        emit OrderCreated(_msgSender(), amount, orderType, block.timestamp);
+        emit OrderCreated(creator, amount, orderType, block.timestamp);
     }
 
+    /**
+     * @notice Claims accumulated yield for the caller
+     * @dev Implements safety cap to prevent claiming more than fund balance
+     */
     function claimYield() external nonReentrant whenNotPaused {
         ProductionDistributor.updateFund(productionFund, block.timestamp);
         address creator = _msgSender();
 
-        uint256 totalProduct = (totalCreatorReputation[creator] * productionFund.accumulatedYieldPerReputation) / CrikzMath.WAD;
+        // Cache storage reads
+        uint256 aypr = productionFund.accumulatedYieldPerReputation;
+        uint256 reputation = totalCreatorReputation[creator];
+        uint256 totalProduct = (reputation * aypr) / CrikzMath.WAD;
         
-        // Ensure no underflow if index manipulation occurs in tests
-        if (totalProduct <= creatorYieldDebt[creator]) revert ProductionDistributor.NoProductsToClaim();
+        // Check for pending yield
+        if (totalProduct <= creatorYieldDebt[creator]) {
+            revert ProductionDistributor.NoProductsToClaim();
+        }
         
         uint256 pendingYield = totalProduct - creatorYieldDebt[creator];
         
-        // CRITICAL SAFETY: Never attempt to transfer more than the pool actually holds
+        // CRITICAL SAFETY: Cap claim to available balance
         if (pendingYield > productionFund.balance) {
             pendingYield = productionFund.balance;
         }
         
         if (pendingYield == 0) revert InsufficientFundBalance();
         
-        // Realize debt and deduct balance
+        // Update state
         creatorYieldDebt[creator] += pendingYield;
         productionFund.balance -= pendingYield;
         
+        // Transfer yield
         _transfer(address(this), creator, pendingYield);
         emit YieldClaimed(creator, pendingYield, block.timestamp);
     }
 
+    /**
+     * @notice Completes an order and returns staked tokens
+     * @param index Index of the order in caller's active orders array
+     * @dev Uses swap-and-pop for gas-efficient array management
+     */
     function completeOrder(uint256 index) external nonReentrant whenNotPaused {
         OrderManager.Order[] storage orders = _activeOrders[_msgSender()];
         if (index >= orders.length) revert InvalidOrderIndex();
         
         OrderManager.Order memory order = orders[index];
-        if (block.timestamp < order.startTime + order.duration) revert OrderStillLocked();
+        if (block.timestamp < order.startTime + order.duration) {
+            revert OrderStillLocked();
+        }
 
         ProductionDistributor.updateFund(productionFund, block.timestamp);
 
-        creatorYieldDebt[_msgSender()] = (totalCreatorReputation[_msgSender()] * productionFund.accumulatedYieldPerReputation) / CrikzMath.WAD;
+        // Cache values for gas optimization
+        address creator = _msgSender();
+        uint256 currentRep = totalCreatorReputation[creator];
+        uint256 aypr = productionFund.accumulatedYieldPerReputation;
+        uint256 newRep = currentRep - order.reputation;
 
+        // Update state in single batch
         productionFund.totalReputation -= order.reputation;
-        totalCreatorReputation[_msgSender()] -= order.reputation;
-        
-        creatorYieldDebt[_msgSender()] = (totalCreatorReputation[_msgSender()] * productionFund.accumulatedYieldPerReputation) / CrikzMath.WAD;
+        totalCreatorReputation[creator] = newRep;
+        creatorYieldDebt[creator] = (newRep * aypr) / CrikzMath.WAD;
 
+        // Remove order and return tokens
         OrderManager.removeOrder(orders, index);
-        _transfer(address(this), _msgSender(), order.amount);
-        emit OrderCompleted(_msgSender(), order.amount, order.orderType, block.timestamp);
+        _transfer(address(this), creator, order.amount);
+        
+        emit OrderCompleted(creator, order.amount, order.orderType, block.timestamp);
     }
 
+    /**
+     * @notice Adds tokens to the production fund for yield distribution
+     * @param amount Amount of tokens to add
+     */
     function fundProductionPool(uint256 amount) external nonReentrant whenNotPaused {
         _transfer(_msgSender(), address(this), amount);
         ProductionDistributor.updateFund(productionFund, block.timestamp);
         productionFund.balance += amount;
     }
 
+    // === View Functions ===
+
+    /**
+     * @notice Gets all active orders for a creator
+     * @param creator Address of the creator
+     * @return Array of active orders
+     */
     function getActiveOrders(address creator) external view returns (OrderManager.Order[] memory) {
         return _activeOrders[creator];
     }
     
+    // === Internal Overrides ===
+
     function _transfer(address from, address to, uint256 amount) internal override(ERC20) {
         super._transfer(from, to, amount);
     }
 
-    function _msgSender() internal view override(Context, ERC2771Context) returns (address) { return super._msgSender(); }
-    function _contextSuffixLength() internal view virtual override(Context, ERC2771Context) returns (uint256) { return super._contextSuffixLength(); }
-    function _msgData() internal view virtual override(Context, ERC2771Context) returns (bytes calldata) { return super._msgData(); }
+    function _msgSender() internal view override(Context, ERC2771Context) returns (address) { 
+        return super._msgSender(); 
+    }
+    
+    function _contextSuffixLength() internal view virtual override(Context, ERC2771Context) returns (uint256) { 
+        return super._contextSuffixLength(); 
+    }
+    
+    function _msgData() internal view virtual override(Context, ERC2771Context) returns (bytes calldata) { 
+        return super._msgData(); 
+    }
 }

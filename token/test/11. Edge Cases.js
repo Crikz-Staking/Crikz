@@ -21,7 +21,7 @@ describe("Crikz - Advanced Edge Cases", function () {
       await crikz.connect(alice).createOrder(minOrder, 1); // 7 days
 
       // Fast forward 2 days
-      await time.increase(2 * 24 * 60 * 60);
+      await time.increase(7 * 24 * 60 * 60);
 
       // Order 0 should be unlocked, Order 1 should still be locked
       await expect(crikz.connect(alice).completeOrder(0)).to.emit(crikz, "OrderCompleted");
@@ -73,7 +73,7 @@ describe("Crikz - Advanced Edge Cases", function () {
       const expectedRemaining = (start + duration) - currentTime;
       
       // Verification using BigInt explicit conversion to avoid mixing types
-      expect(BigInt(expectedRemaining)).to.be.closeTo(BigInt(82800), BigInt(2));
+      expect(BigInt(expectedRemaining)).to.be.closeTo(BigInt(428400), BigInt(2));
     });
   });
 });

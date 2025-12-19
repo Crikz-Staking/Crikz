@@ -2399,3 +2399,684 @@ describe("Crikz - Access and Security", function () {
     expect(await crikz.balanceOf(owner.address)).to.equal(expectedSupply);
   });
 });
+
+const { expect } = require("chai");
+const { ethers } = require("hardhat");
+const { time } = require("@nomicfoundation/hardhat-network-helpers");
+
+describe("Crikz - Complete Order Types Coverage", function () {
+  let crikz, owner, user;
+
+  beforeEach(async function () {
+    [owner, user] = await ethers.getSigners();
+    const Crikz = await ethers.getContractFactory("Crikz");
+    crikz = await Crikz.connect(owner).deploy(ethers.ZeroAddress, owner.address);
+    await crikz.waitForDeployment();
+    await crikz.connect(owner).transfer(user.address, ethers.parseUnits("100000", 18));
+  });
+
+  it("Should enforce correct lock durations for all 7 order types", async function () {
+    const orderTypeData = [
+      { type: 0, duration: 1 * 24 * 60 * 60, name: "Prototype" },
+      { type: 1, duration: 7 * 24 * 60 * 60, name: "Short Run" },
+      { type: 2, duration: 30 * 24 * 60 * 60, name: "Standard Run" },
+      { type: 3, duration: 90 * 24 * 60 * 60, name: "Extended Production" },
+      { type: 4, duration: 180 * 24 * 60 * 60, name: "Industrial" },
+      { type: 5, duration: 365 * 24 * 60 * 60, name: "Annual Contract" },
+      { type: 6, duration: 730 * 24 * 60 * 60, name: "Multi-Year" }
+    ];
+
+    for (let i = 0; i < orderTypeData.length; i++) {
+      const orderData = orderTypeData[i];
+      const amount = ethers.parseUnits("1000", 18);
+      
+      // Create order
+      await crikz.connect(user).createOrder(amount, orderData.type);
+      
+      const orders = await crikz.getActiveOrders(user.address);
+      const currentOrder = orders[i]; // Get the i-th order (not last, since we're accumulating)
+      
+      // Verify duration matches
+      expect(currentOrder.duration).to.equal(orderData.duration, 
+        `${orderData.name} should have duration ${orderData.duration}`);
+      
+      console.log(`      ✓ ${orderData.name}: ${orderData.duration}s verified`);
+    }
+    
+    // Now test completion timing for first order (shortest duration)
+    const orders = await crikz.getActiveOrders(user.address);
+    
+    // Try to complete order 0 before duration - should fail
+    await expect(crikz.connect(user).completeOrder(0))
+      .to.be.revertedWithCustomError(crikz, "OrderStillLocked");
+    
+    // Wait for order 0 duration to pass
+    await time.increase(orderTypeData[0].duration + 1);
+    
+    // Complete order 0 - should succeed
+    await expect(crikz.connect(user).completeOrder(0))
+      .to.emit(crikz, "OrderCompleted");
+  });
+
+  it("Should apply consistent 0.618 reputation multiplier across all tiers", async function () {
+    const amount = ethers.parseUnits("1000", 18);
+    const expectedRep = (amount * 618n) / 1000n;
+
+    for (let i = 0; i <= 6; i++) {
+      await crikz.connect(user).createOrder(amount, i);
+      const orders = await crikz.getActiveOrders(user.address);
+      expect(orders[i].reputation).to.equal(expectedRep);
+    }
+  });
+});
+
+const { expect } = require("chai");
+const { ethers } = require("hardhat");
+const { time } = require("@nomicfoundation/hardhat-network-helpers");
+
+describe("Crikz - Yield Debt Manipulation Resistance", function () {
+  let crikz, owner, alice, bob, attacker;
+
+  beforeEach(async function () {
+    [owner, alice, bob, attacker] = await ethers.getSigners();
+    const Crikz = await ethers.getContractFactory("Crikz");
+    crikz = await Crikz.connect(owner).deploy(ethers.ZeroAddress, owner.address);
+    await crikz.waitForDeployment();
+    
+    await crikz.connect(owner).transfer(alice.address, ethers.parseUnits("10000", 18));
+    await crikz.connect(owner).transfer(bob.address, ethers.parseUnits("10000", 18));
+    await crikz.connect(owner).transfer(attacker.address, ethers.parseUnits("100000", 18));
+  });
+
+  it("Should prevent front-running yield claims through flash staking", async function () {
+    // Scenario: Alice stakes, time passes, attacker tries to front-run her claim
+    
+    // 1. Alice stakes legitimately
+    await crikz.connect(alice).createOrder(ethers.parseUnits("1000", 18), 0);
+    await crikz.connect(owner).fundProductionPool(ethers.parseUnits("10000", 18));
+    
+    // 2. Time passes - Alice accumulates yield
+    await time.increase(100 * 24 * 60 * 60);
+    
+    // 3. Attacker sees Alice's pending transaction and stakes a huge amount
+    await crikz.connect(attacker).createOrder(ethers.parseUnits("50000", 18), 0);
+    
+    // 4. Both claim in same block (attacker first due to gas price)
+    const aliceDebtBefore = await crikz.creatorYieldDebt(alice.address);
+    const attackerDebtBefore = await crikz.creatorYieldDebt(attacker.address);
+    
+    const aliceBalBefore = await crikz.balanceOf(alice.address);
+    const attackerBalBefore = await crikz.balanceOf(attacker.address);
+    
+    // Attacker tries to claim immediately
+    await expect(crikz.connect(attacker).claimYield())
+      .to.be.revertedWithCustomError(crikz, "NoProductsToClaim");
+    
+    // Alice should be able to claim her accumulated yield
+    await crikz.connect(alice).claimYield();
+    const aliceBalAfter = await crikz.balanceOf(alice.address);
+    
+    // Alice should have significant yield
+    expect(aliceBalAfter).to.be.gt(aliceBalBefore);
+  });
+
+  it("Should correctly handle yield debt when user creates multiple orders at different times", async function () {
+    // Create initial order
+    await crikz.connect(alice).createOrder(ethers.parseUnits("1000", 18), 0);
+    await crikz.connect(owner).fundProductionPool(ethers.parseUnits("5000", 18));
+    
+    // Wait and accumulate yield
+    await time.increase(30 * 24 * 60 * 60);
+    
+    // Create second order - should snapshot debt correctly
+    const debtBefore = await crikz.creatorYieldDebt(alice.address);
+    await crikz.connect(alice).createOrder(ethers.parseUnits("2000", 18), 0);
+    const debtAfter = await crikz.creatorYieldDebt(alice.address);
+    
+    // Debt should be updated to reflect new total reputation
+    expect(debtAfter).to.be.gt(debtBefore);
+    
+    // Wait more time
+    await time.increase(30 * 24 * 60 * 60);
+    
+    // Claim yield - should work correctly
+    await expect(crikz.connect(alice).claimYield()).to.not.be.reverted;
+  });
+
+  it("Should maintain debt integrity across order completions", async function () {
+    // Create 3 orders at different times
+    await crikz.connect(alice).createOrder(ethers.parseUnits("1000", 18), 0);
+    await crikz.connect(owner).fundProductionPool(ethers.parseUnits("10000", 18));
+    
+    await time.increase(10 * 24 * 60 * 60);
+    await crikz.connect(alice).createOrder(ethers.parseUnits("2000", 18), 0);
+    
+    await time.increase(10 * 24 * 60 * 60);
+    await crikz.connect(alice).createOrder(ethers.parseUnits("3000", 18), 0);
+    
+    await time.increase(10 * 24 * 60 * 60);
+    
+    // Complete middle order
+    await crikz.connect(alice).completeOrder(1);
+    
+    // Verify debt is still correct
+    const totalRep = await crikz.totalCreatorReputation(alice.address);
+    const fund = await crikz.productionFund();
+    const expectedDebt = (totalRep * fund.accumulatedYieldPerReputation) / ethers.parseUnits("1", 18);
+    const actualDebt = await crikz.creatorYieldDebt(alice.address);
+    
+    expect(actualDebt).to.equal(expectedDebt);
+  });
+});
+
+const { expect } = require("chai");
+const { ethers } = require("hardhat");
+const { time } = require("@nomicfoundation/hardhat-network-helpers");
+
+describe("Crikz - Production Fund Accounting", function () {
+  let crikz, owner, users;
+
+  beforeEach(async function () {
+    const signers = await ethers.getSigners();
+    owner = signers[0];
+    users = signers.slice(1, 11); // 10 users
+    
+    const Crikz = await ethers.getContractFactory("Crikz");
+    crikz = await Crikz.connect(owner).deploy(ethers.ZeroAddress, owner.address);
+    await crikz.waitForDeployment();
+    
+    // Fund all users
+    for (const user of users) {
+      await crikz.connect(owner).transfer(user.address, ethers.parseUnits("10000", 18));
+    }
+  });
+
+  it("Should maintain perfect balance between fund and distributed yield", async function () {
+    const initialFund = ethers.parseUnits("50000", 18);
+    await crikz.connect(owner).fundProductionPool(initialFund);
+    
+    // Multiple users stake
+    for (let i = 0; i < 5; i++) {
+      await crikz.connect(users[i]).createOrder(ethers.parseUnits("1000", 18), i % 3);
+    }
+    
+    // Time passes
+    await time.increase(100 * 24 * 60 * 60);
+    
+    let totalClaimed = 0n;
+    
+    // All users claim
+    for (let i = 0; i < 5; i++) {
+      const balBefore = await crikz.balanceOf(users[i].address);
+      await crikz.connect(users[i]).claimYield();
+      const balAfter = await crikz.balanceOf(users[i].address);
+      totalClaimed += (balAfter - balBefore);
+    }
+    
+    // Verify fund balance
+    const fundAfter = await crikz.productionFund();
+    const expectedBalance = initialFund - totalClaimed;
+    
+    expect(fundAfter.balance).to.be.closeTo(expectedBalance, ethers.parseUnits("0.001", 18));
+  });
+
+  it("Should handle concurrent funding and claiming correctly", async function () {
+    // Initial funding
+    await crikz.connect(owner).fundProductionPool(ethers.parseUnits("10000", 18));
+    
+    // User stakes
+    await crikz.connect(users[0]).createOrder(ethers.parseUnits("5000", 18), 0);
+    
+    // Time passes
+    await time.increase(30 * 24 * 60 * 60);
+    
+    // Record state before operations
+    const fundBefore = await crikz.productionFund();
+    
+    // Additional funding
+    await crikz.connect(owner).fundProductionPool(ethers.parseUnits("5000", 18));
+    
+    // User claims
+    await crikz.connect(users[0]).claimYield();
+    
+    // Verify fund state is consistent
+    const fundAfter = await crikz.productionFund();
+    expect(fundAfter.lastUpdateTime).to.be.gte(fundBefore.lastUpdateTime);
+    expect(fundAfter.balance).to.be.gt(0);
+  });
+
+  it("Should prevent integer overflow in accumulated yield calculation", async function () {
+    // Fund with maximum safe amount
+    const hugeFund = ethers.parseUnits("100000000", 18); // 100M tokens
+    await crikz.connect(owner).fundProductionPool(hugeFund);
+    
+    // Create order with large amount
+    await crikz.connect(users[0]).createOrder(ethers.parseUnits("10000", 18), 0);
+    
+    // Wait maximum reasonable time (10 years)
+    await time.increase(10 * 365 * 24 * 60 * 60);
+    
+    // Should not revert on claim
+    await expect(crikz.connect(users[0]).claimYield()).to.not.be.reverted;
+    
+    // Verify fund didn't overflow
+    const fund = await crikz.productionFund();
+    expect(fund.accumulatedYieldPerReputation).to.be.gt(0);
+  });
+
+  it("Should handle fund depletion and refunding correctly", async function () {
+    // Small initial fund
+    await crikz.connect(owner).fundProductionPool(ethers.parseUnits("100", 18));
+    
+    // User stakes large amount
+    await crikz.connect(users[0]).createOrder(ethers.parseUnits("10000", 18), 4);
+    
+    // Wait long time to deplete fund
+    await time.increase(50 * 365 * 24 * 60 * 60);
+    
+    // Claim should deplete fund
+    await crikz.connect(users[0]).claimYield();
+    let fund = await crikz.productionFund();
+    expect(fund.balance).to.be.lt(ethers.parseUnits("0.1", 18));
+    
+    // Refund
+    await crikz.connect(owner).fundProductionPool(ethers.parseUnits("1000", 18));
+    fund = await crikz.productionFund();
+    expect(fund.balance).to.be.closeTo(ethers.parseUnits("1000", 18), ethers.parseUnits("0.1", 18));
+    
+    // Wait and claim again
+    await time.increase(30 * 24 * 60 * 60);
+    await expect(crikz.connect(users[0]).claimYield()).to.not.be.reverted;
+  });
+});
+
+const { expect } = require("chai");
+const { ethers } = require("hardhat");
+
+describe("Crikz - ERC2771 Meta-Transaction Security", function () {
+  let crikz, owner, trustedForwarder, user, attacker;
+
+  beforeEach(async function () {
+    [owner, trustedForwarder, user, attacker] = await ethers.getSigners();
+    const Crikz = await ethers.getContractFactory("Crikz");
+    crikz = await Crikz.connect(owner).deploy(trustedForwarder.address, owner.address);
+    await crikz.waitForDeployment();
+    
+    await crikz.connect(owner).transfer(user.address, ethers.parseUnits("1000", 18));
+    await crikz.connect(owner).transfer(attacker.address, ethers.parseUnits("1000", 18));
+  });
+
+  it("Should correctly extract sender from trusted forwarder calldata", async function () {
+    const amount = ethers.parseUnits("100", 18);
+    const orderType = 0;
+    
+    // Encode the function call
+    const functionData = crikz.interface.encodeFunctionData("createOrder", [amount, orderType]);
+    
+    // Append user address (ERC2771 format)
+    const dataWithSender = ethers.solidityPacked(
+      ["bytes", "address"],
+      [functionData, user.address]
+    );
+    
+    // Send from trusted forwarder
+    await trustedForwarder.sendTransaction({
+      to: await crikz.getAddress(),
+      data: dataWithSender
+    });
+    
+    // Verify order was created for the correct user
+    const orders = await crikz.getActiveOrders(user.address);
+    expect(orders.length).to.equal(1);
+    expect(orders[0].amount).to.equal(amount);
+    
+    // Verify forwarder doesn't have the order
+    const forwarderOrders = await crikz.getActiveOrders(trustedForwarder.address);
+    expect(forwarderOrders.length).to.equal(0);
+  });
+
+  it("Should reject spoofed sender from non-trusted forwarder", async function () {
+    const amount = ethers.parseUnits("100", 18);
+    const orderType = 0;
+    
+    // Attacker tries to spoof user's address
+    const functionData = crikz.interface.encodeFunctionData("createOrder", [amount, orderType]);
+    const spoofedData = ethers.solidityPacked(
+      ["bytes", "address"],
+      [functionData, user.address]
+    );
+    
+    // Send from attacker (not trusted forwarder)
+    await attacker.sendTransaction({
+      to: await crikz.getAddress(),
+      data: spoofedData
+    });
+    
+    // Order should belong to attacker, not user
+    const userOrders = await crikz.getActiveOrders(user.address);
+    expect(userOrders.length).to.equal(0);
+    
+    const attackerOrders = await crikz.getActiveOrders(attacker.address);
+    expect(attackerOrders.length).to.equal(1);
+  });
+
+  it("Should handle malformed calldata gracefully", async function () {
+    // Send malformed data
+    const malformedData = "0x1234567890";
+    
+    await expect(
+      trustedForwarder.sendTransaction({
+        to: await crikz.getAddress(),
+        data: malformedData
+      })
+    ).to.be.reverted;
+  });
+});
+
+const { expect } = require("chai");
+const { ethers } = require("hardhat");
+const { time } = require("@nomicfoundation/hardhat-network-helpers");
+
+describe("Crikz - Reentrancy Protection", function () {
+  let crikz, owner, attacker;
+
+  beforeEach(async function () {
+    [owner, attacker] = await ethers.getSigners();
+    
+    const Crikz = await ethers.getContractFactory("Crikz");
+    crikz = await Crikz.connect(owner).deploy(ethers.ZeroAddress, owner.address);
+    await crikz.waitForDeployment();
+    
+    await crikz.connect(owner).transfer(attacker.address, ethers.parseUnits("10000", 18));
+  });
+
+  it("Should prevent reentrancy in claimYield", async function () {
+    // Setup: Fund attacker and create order
+    await crikz.connect(attacker).createOrder(ethers.parseUnits("500", 18), 0);
+    await crikz.connect(owner).fundProductionPool(ethers.parseUnits("5000", 18));
+    
+    await time.increase(30 * 24 * 60 * 60);
+    
+    // First claim should succeed
+    await crikz.connect(attacker).claimYield();
+    
+    // Immediate second claim should fail (no yield accumulated yet)
+    await expect(crikz.connect(attacker).claimYield())
+      .to.be.revertedWithCustomError(crikz, "NoProductsToClaim");
+  });
+
+  it("Should prevent reentrancy in completeOrder", async function () {
+    await crikz.connect(attacker).createOrder(ethers.parseUnits("500", 18), 0);
+    
+    await time.increase(2 * 24 * 60 * 60);
+    
+    // Complete order
+    await crikz.connect(attacker).completeOrder(0);
+    
+    // Try to complete same order again - should fail
+    await expect(crikz.connect(attacker).completeOrder(0))
+      .to.be.revertedWithCustomError(crikz, "InvalidOrderIndex");
+  });
+
+  it("Should prevent reentrancy in fundProductionPool", async function () {
+    const amount = ethers.parseUnits("1000", 18);
+    
+    // Fund once
+    await crikz.connect(owner).fundProductionPool(amount);
+    
+    // Verify ReentrancyGuard is in place by checking modifier exists
+    // We can't directly test reentrancy without a malicious contract,
+    // but we can verify the function completes correctly
+    const fund = await crikz.productionFund();
+    expect(fund.balance).to.equal(amount);
+  });
+
+  it("Should maintain state consistency after rapid successive calls", async function () {
+    // Create multiple orders rapidly
+    await crikz.connect(attacker).createOrder(ethers.parseUnits("100", 18), 0);
+    await crikz.connect(attacker).createOrder(ethers.parseUnits("200", 18), 0);
+    await crikz.connect(attacker).createOrder(ethers.parseUnits("300", 18), 0);
+    
+    const orders = await crikz.getActiveOrders(attacker.address);
+    expect(orders.length).to.equal(3);
+    
+    // Fund pool
+    await crikz.connect(owner).fundProductionPool(ethers.parseUnits("5000", 18));
+    await time.increase(2 * 24 * 60 * 60);
+    
+    // Complete orders rapidly (tests reentrancy guard)
+    await crikz.connect(attacker).completeOrder(0);
+    await crikz.connect(attacker).completeOrder(0); // Index 0 again due to swap-and-pop
+    await crikz.connect(attacker).completeOrder(0);
+    
+    // Verify all orders completed
+    const remainingOrders = await crikz.getActiveOrders(attacker.address);
+    expect(remainingOrders.length).to.equal(0);
+  });
+
+  it("Should handle multiple users claiming simultaneously without state corruption", async function () {
+    const [, user1, user2, user3] = await ethers.getSigners();
+    
+    // Fund users
+    await crikz.connect(owner).transfer(user1.address, ethers.parseUnits("1000", 18));
+    await crikz.connect(owner).transfer(user2.address, ethers.parseUnits("1000", 18));
+    await crikz.connect(owner).transfer(user3.address, ethers.parseUnits("1000", 18));
+    
+    // All create orders
+    await crikz.connect(user1).createOrder(ethers.parseUnits("500", 18), 0);
+    await crikz.connect(user2).createOrder(ethers.parseUnits("500", 18), 0);
+    await crikz.connect(user3).createOrder(ethers.parseUnits("500", 18), 0);
+    
+    // Fund pool
+    await crikz.connect(owner).fundProductionPool(ethers.parseUnits("10000", 18));
+    await time.increase(30 * 24 * 60 * 60);
+    
+    // All claim (simulates concurrent transactions)
+    await crikz.connect(user1).claimYield();
+    await crikz.connect(user2).claimYield();
+    await crikz.connect(user3).claimYield();
+    
+    // Verify fund integrity
+    const fund = await crikz.productionFund();
+    expect(fund.balance).to.be.gte(0);
+  });
+});
+
+const { expect } = require("chai");
+const { ethers } = require("hardhat");
+const { time } = require("@nomicfoundation/hardhat-network-helpers");
+
+describe("Crikz - Gas Optimization & Scalability", function () {
+  let crikz, owner, whale;
+
+  beforeEach(async function () {
+    [owner, whale] = await ethers.getSigners();
+    const Crikz = await ethers.getContractFactory("Crikz");
+    crikz = await Crikz.connect(owner).deploy(ethers.ZeroAddress, owner.address);
+    await crikz.waitForDeployment();
+    
+    await crikz.connect(owner).transfer(whale.address, ethers.parseUnits("500000", 18));
+  });
+
+  it("Should handle 50 orders without exceeding reasonable gas limits", async function () {
+    const orderCount = 50;
+    
+    // Create 50 orders
+    for (let i = 0; i < orderCount; i++) {
+      await crikz.connect(whale).createOrder(ethers.parseUnits("100", 18), i % 7);
+    }
+    
+    // Fund pool
+    await crikz.connect(owner).fundProductionPool(ethers.parseUnits("100000", 18));
+    
+    // Wait
+    await time.increase(365 * 24 * 60 * 60);
+    
+    // Claim yield - should be O(1) operation
+    const tx = await crikz.connect(whale).claimYield();
+    const receipt = await tx.wait();
+    
+    console.log(`      [GAS] claimYield with 50 orders: ${receipt.gasUsed.toString()}`);
+    
+    // Should be under 500k gas (O(1) operation)
+    expect(receipt.gasUsed).to.be.lt(500000n);
+  });
+
+  it("Should efficiently handle getActiveOrders for large arrays", async function () {
+    // Create 100 orders
+    for (let i = 0; i < 100; i++) {
+      await crikz.connect(whale).createOrder(ethers.parseUnits("10", 18), i % 7);
+    }
+    
+    // View call should not fail
+    const orders = await crikz.getActiveOrders(whale.address);
+    expect(orders.length).to.equal(100);
+  });
+
+  it("Should maintain reasonable gas for yield calculations regardless of fund size", async function () {
+    // Test 1: Small fund
+    await crikz.connect(owner).fundProductionPool(ethers.parseUnits("1000", 18));
+    await crikz.connect(whale).createOrder(ethers.parseUnits("100", 18), 0);
+    await time.increase(30 * 24 * 60 * 60);
+    
+    const tx1 = await crikz.connect(whale).claimYield();
+    const receipt1 = await tx1.wait();
+    const gas1 = receipt1.gasUsed;
+    
+    console.log(`      [GAS] Small fund claim: ${gas1.toString()}`);
+    
+    // Test 2: Large fund
+    await crikz.connect(whale).createOrder(ethers.parseUnits("100", 18), 0);
+    await crikz.connect(owner).fundProductionPool(ethers.parseUnits("1000000", 18));
+    await time.increase(30 * 24 * 60 * 60);
+    
+    const tx2 = await crikz.connect(whale).claimYield();
+    const receipt2 = await tx2.wait();
+    const gas2 = receipt2.gasUsed;
+    
+    console.log(`      [GAS] Large fund claim: ${gas2.toString()}`);
+    
+    // Gas should be similar - both should be under 200k
+    expect(gas1).to.be.lt(200000n);
+    expect(gas2).to.be.lt(200000n);
+    
+    // Calculate percentage difference
+    const gasDiff = gas2 > gas1 ? gas2 - gas1 : gas1 - gas2;
+    const percentDiff = (gasDiff * 100n) / gas1;
+    
+    console.log(`      [GAS] Difference: ${percentDiff.toString()}%`);
+    
+    // Gas difference should be reasonable (within 50%)
+    expect(percentDiff).to.be.lt(50n);
+  });
+
+  it("Should profile gas usage across common operations", async function () {
+    const amount = ethers.parseUnits("1000", 18);
+    
+    // 1. Create Order
+    const tx1 = await crikz.connect(whale).createOrder(amount, 2);
+    const receipt1 = await tx1.wait();
+    console.log(`      [GAS] createOrder: ${receipt1.gasUsed.toString()}`);
+    expect(receipt1.gasUsed).to.be.lt(300000n);
+    
+    // 2. Fund Pool
+    const tx2 = await crikz.connect(owner).fundProductionPool(ethers.parseUnits("10000", 18));
+    const receipt2 = await tx2.wait();
+    console.log(`      [GAS] fundPool: ${receipt2.gasUsed.toString()}`);
+    expect(receipt2.gasUsed).to.be.lt(200000n);
+    
+    // 3. Claim Yield
+    await time.increase(30 * 24 * 60 * 60);
+    const tx3 = await crikz.connect(whale).claimYield();
+    const receipt3 = await tx3.wait();
+    console.log(`      [GAS] claimYield: ${receipt3.gasUsed.toString()}`);
+    expect(receipt3.gasUsed).to.be.lt(200000n);
+    
+    // 4. Complete Order
+    await time.increase(30 * 24 * 60 * 60);
+    const tx4 = await crikz.connect(whale).completeOrder(0);
+    const receipt4 = await tx4.wait();
+    console.log(`      [GAS] completeOrder: ${receipt4.gasUsed.toString()}`);
+    expect(receipt4.gasUsed).to.be.lt(200000n);
+  });
+});
+
+const { expect } = require("chai");
+const { ethers } = require("hardhat");
+const { time } = require("@nomicfoundation/hardhat-network-helpers");
+
+describe("Crikz - Yield Mathematics Edge Cases", function () {
+  let crikz, owner, user;
+
+  beforeEach(async function () {
+    [owner, user] = await ethers.getSigners();
+    const Crikz = await ethers.getContractFactory("Crikz");
+    crikz = await Crikz.connect(owner).deploy(ethers.ZeroAddress, owner.address);
+    await crikz.waitForDeployment();
+    
+    await crikz.connect(owner).transfer(user.address, ethers.parseUnits("10000", 18));
+  });
+
+  it("Should handle 1 second time intervals correctly", async function () {
+    await crikz.connect(user).createOrder(ethers.parseUnits("1000", 18), 0);
+    await crikz.connect(owner).fundProductionPool(ethers.parseUnits("10000", 18));
+    
+    // Wait exactly 1 second
+    await time.increase(1);
+    
+    // Should be able to claim tiny amount without reverting
+    await expect(crikz.connect(user).claimYield()).to.not.be.reverted;
+  });
+
+  it("Should correctly calculate yield for sub-day time periods", async function () {
+    await crikz.connect(user).createOrder(ethers.parseUnits("1000", 18), 0);
+    await crikz.connect(owner).fundProductionPool(ethers.parseUnits("100000", 18));
+    
+    // Wait 6 hours
+    await time.increase(6 * 60 * 60);
+    
+    const balBefore = await crikz.balanceOf(user.address);
+    await crikz.connect(user).claimYield();
+    const balAfter = await crikz.balanceOf(user.address);
+    
+    const yield1 = balAfter - balBefore;
+    expect(yield1).to.be.gt(0);
+    
+    // Wait another 6 hours
+    await time.increase(6 * 60 * 60);
+    
+    const balBefore2 = await crikz.balanceOf(user.address);
+    await crikz.connect(user).claimYield();
+    const balAfter2 = await crikz.balanceOf(user.address);
+    
+    const yield2 = balAfter2 - balBefore2;
+    
+    // Yields should be approximately equal
+    expect(yield2).to.be.closeTo(yield1, ethers.parseUnits("0.1", 18));
+  });
+
+  it("Should handle maximum timestamp (year 2106) without overflow", async function () {
+    await crikz.connect(user).createOrder(ethers.parseUnits("1000", 18), 0);
+    await crikz.connect(owner).fundProductionPool(ethers.parseUnits("10000", 18));
+    
+    // Jump to near maximum uint256 timestamp (year 2106)
+    // Note: This might not work in practice, but tests the math
+    const maxReasonableTime = 50 * 365 * 24 * 60 * 60; // 50 years
+    await time.increase(maxReasonableTime);
+    
+    // Should not overflow
+    await expect(crikz.connect(user).claimYield()).to.not.be.reverted;
+  });
+
+  it("Should maintain precision with very small reputation values", async function () {
+    // Create order with minimum amount that gives reputation > 0
+    const minAmount = ethers.parseUnits("2", 18); // 2 tokens gives 1.236 reputation
+    await crikz.connect(user).createOrder(minAmount, 0);
+    await crikz.connect(owner).fundProductionPool(ethers.parseUnits("1000000", 18));
+    
+    await time.increase(365 * 24 * 60 * 60);
+    
+    // Should accumulate some yield
+    await expect(crikz.connect(user).claimYield()).to.not.be.reverted;
+  });
+});
