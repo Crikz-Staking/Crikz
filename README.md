@@ -25,7 +25,7 @@
 | Phase | Tasks | Status | Key Focus |
 | :--- | :--- | :---: | :--- |
 | **Contract Core** 🧠 | Architecture design, core logic implementation, and **Integration Testing** | ✅ | Security & Logic |
-| **Branding** 🎨 | Naming, logo design, theme selection, social community setup, and legal prep | ⏳ | Community Foundation |
+| **Branding** 🎨 | Naming, logo design, theme selection, social community setup, and legal prep | ✅ | Community Foundation |
 | **DApp Development** 💻 | Frontend setup, UI/UX implementation, optimizations, and contract integration | ⏳ | User Interface |
 | **Testnet** 🧪 | BSC Testnet Launch, community testing, and feedback integration | ⏳ | Blockchain Validation |
 | **Audit & Fix** 🛡️ | Audit firm selection, code review, and security fixes | ⏳ | Validation & Visibility |
@@ -43,7 +43,7 @@
 | Faza | Detyrat | Statusi | Qëllimi |
 | :--- | :--- | :---: | :--- |
 | **Bërthama e Kontratës** 🧠 | Dizajni i arkitekturës, zbatimi i logjikës bazë, dhe **Testimi i Integrimit** | ✅ | Siguria & Logjika |
-| **Brendimi** 🎨 | Emërtimi, dizajni i logos, zgjedhja e temës, krijimi i komunitetit dhe përgatitja ligjore | ⏳ | Themelimi i Komunitetit |
+| **Brendimi** 🎨 | Emërtimi, dizajni i logos, zgjedhja e temës, krijimi i komunitetit dhe përgatitja ligjore | ✅ | Themelimi i Komunitetit |
 | **Zhvillimi i DApp** 💻 | Krijimi i ndërfaqes (frontend), zbatimi i UI/UX, optimizimet dhe integrimi me kontratat | ⏳ | Ndërfaqja e Përdoruesit |
 | **Rrjeti Testues** 🧪 | Lançimi në Rrjetin Testues (BSC Testnet), testimi nga komuniteti dhe integrimi i reagimeve | ⏳ | Vërtetimi në Blockchain |
 | **Auditimi & Korrigjimet** 🛡️ | Përzgjedhja e studios së auditimit, rishikimi i kodit dhe rregullimet e sigurisë | ⏳ | Validimi & Transparenca |
@@ -51,6 +51,7 @@
 | **Zgjerimi** 📈 | Integrimi i **Tregut NFT**, **Lojërave Blockchain**, dhe komponentëve të tjerë të Ekosistemit | ⏳ | Rritja & Dobishmëria |
 
 ---
+
 
 
 
