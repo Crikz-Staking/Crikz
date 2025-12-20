@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>Code coverage report for contracts/Crikz.sol</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../prettify.css" />
+    <link rel="stylesheet" href="../base.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+<body>
+<div class='wrapper'>
+  <div class='pad1'>
+    <h1>
+      <a href="../index.html">all files</a> / <a href="index.html">contracts/</a> Crikz.sol
+    </h1>
+    <div class='clearfix'>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">97.87% </span>
+        <span class="quiet">Statements</span>
+        <span class='fraction'>46/47</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">87.5% </span>
+        <span class="quiet">Branches</span>
+        <span class='fraction'>35/40</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">92.86% </span>
+        <span class="quiet">Functions</span>
+        <span class='fraction'>13/14</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">98.51% </span>
+        <span class="quiet">Lines</span>
+        <span class='fraction'>66/67</span>
+      </div>
+    </div>
+  </div>
+  <div class='status-line high'></div>
+<pre><table class="coverage">
+<tr><td class="line-count quiet">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116
+117
+118
+119
+120
+121
+122
+123
+124
+125
+126
+127
+128
+129
+130
+131
+132
+133
+134
+135
+136
+137
+138
+139
+140
+141
+142
+143
+144
+145
+146
+147
+148
+149
+150
+151
+152
+153
+154
+155
+156
+157
+158
+159
+160
+161
+162
+163
+164
+165
+166
+167
+168
+169
+170
+171
+172
+173
+174
+175
+176
+177
+178
+179
+180
+181
+182
+183
+184</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">211×</span>
+<span class="cline-any cline-yes">209×</span>
+<span class="cline-any cline-yes">209×</span>
+<span class="cline-any cline-yes">209×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">11×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8×</span>
+<span class="cline-any cline-yes">6×</span>
+<span class="cline-any cline-yes">6×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4×</span>
+<span class="cline-any cline-yes">4×</span>
+<span class="cline-any cline-yes">4×</span>
+<span class="cline-any cline-yes">4×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">252×</span>
+<span class="cline-any cline-yes">248×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">239×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">239×</span>
+<span class="cline-any cline-yes">239×</span>
+<span class="cline-any cline-yes">239×</span>
+<span class="cline-any cline-yes">239×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">239×</span>
+<span class="cline-any cline-yes">239×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">239×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">239×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">239×</span>
+<span class="cline-any cline-yes">239×</span>
+<span class="cline-any cline-yes">239×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">239×</span>
+<span class="cline-any cline-yes">239×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">66×</span>
+<span class="cline-any cline-yes">66×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">66×</span>
+<span class="cline-any cline-yes">66×</span>
+<span class="cline-any cline-yes">66×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">66×</span>
+<span class="cline-any cline-yes">7×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">59×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">59×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">59×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">59×</span>
+<span class="cline-any cline-yes">59×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">59×</span>
+<span class="cline-any cline-yes">59×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">56×</span>
+<span class="cline-any cline-yes">56×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">48×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">48×</span>
+<span class="cline-any cline-yes">6×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">42×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">42×</span>
+<span class="cline-any cline-yes">42×</span>
+<span class="cline-any cline-yes">42×</span>
+<span class="cline-any cline-yes">42×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">42×</span>
+<span class="cline-any cline-yes">42×</span>
+<span class="cline-any cline-yes">42×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">42×</span>
+<span class="cline-any cline-yes">42×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">42×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">76×</span>
+<span class="cline-any cline-yes">76×</span>
+<span class="cline-any cline-yes">76×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">105×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">726×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1261×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1261×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.28;
+&nbsp;
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts/metatx/ERC2771Context.sol";
+import "@openzeppelin/contracts/utils/Context.sol";
+&nbsp;
+import "./libraries/CrikzMath.sol";
+import "./libraries/OrderTypes.sol";
+import "./libraries/OrderManager.sol";      
+import "./libraries/ProductionDistributor.sol";
+&nbsp;
+contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
+    using CrikzMath for uint256;
+    using OrderManager for OrderManager.Order;
+&nbsp;
+    uint256 public constant INITIAL_SUPPLY = 1_000_000_000 * 10**18;
+    address public immutable PANCAKESWAP_V2_ROUTER;
+&nbsp;
+    address public lpPair;
+    OrderTypes.OrderType[7] public orderTypes;
+    ProductionDistributor.ProductionFund public productionFund;
+&nbsp;
+    mapping(address =&gt; OrderManager.Order[]) internal _activeOrders;
+    mapping(address =&gt; uint256) public totalCreatorReputation;
+    mapping(address =&gt; uint256) public creatorYieldDebt;
+&nbsp;
+    event LPPairSet(address indexed lpPairAddress, uint256 timestamp);
+    event OrderCreated(address indexed creator, uint256 amount, uint8 orderType, uint256 timestamp);
+    event OrderCompleted(address indexed creator, uint256 amount, uint8 orderType, uint256 timestamp);
+    event YieldClaimed(address indexed creator, uint256 amount, uint256 timestamp);
+&nbsp;
+    error InvalidAddress();
+    error InvalidAmount();
+    error InsufficientOrderType();
+    error InsufficientFundBalance();
+    error OrderStillLocked();
+    error InvalidOrderIndex();
+&nbsp;
+    constructor(address initialForwarder, address routerAddress) 
+        ERC20("Crikz Protocol Token", "CRKZ")
+        ERC2771Context(initialForwarder)
+        Ownable()
+    {
+        if (routerAddress == address(0)) revert InvalidAddress();
+        PANCAKESWAP_V2_ROUTER = routerAddress;
+        orderTypes = OrderTypes.initializeOrderTypes();
+        _mint(_msgSender(), INITIAL_SUPPLY);
+    }
+    
+    function pause() external onlyOwner { 
+        _pause();
+    }
+    
+    function unpause() external onlyOwner { 
+        _unpause();
+    }
+&nbsp;
+    function setLPPairAddress(address _lpPair) external onlyOwner {
+        if (_lpPair == address(0)) revert InvalidAddress();
+        lpPair = _lpPair;
+        emit LPPairSet(_lpPair, block.timestamp);
+    }
+&nbsp;
+    function setProductionFundForTest(uint256 _bal, uint256 _aypr, uint256 _lut, uint256 _tr) external onlyOwner {
+        productionFund.balance = _bal;
+        productionFund.accumulatedYieldPerReputation = _aypr;
+        productionFund.lastUpdateTime = _lut;
+        productionFund.totalReputation = _tr;
+    }
+&nbsp;
+    function createOrder(uint256 amount, uint8 orderType) external <span class="missing-if-branch" title="else path not taken" >E</span>nonReentrant whenNotPaused {
+        if (amount == 0) revert InvalidAmount();
+        if (orderType &gt; OrderTypes.MAX_ORDER_TYPE) revert InsufficientOrderType();
+&nbsp;
+        ProductionDistributor.updateFund(productionFund, block.timestamp);
+&nbsp;
+        address creator = _msgSender();
+        uint256 currentReputation = totalCreatorReputation[creator];
+        uint256 aypr = productionFund.accumulatedYieldPerReputation;
+        creatorYieldDebt[creator] += (currentReputation * aypr) / CrikzMath.WAD;
+&nbsp;
+        OrderTypes.OrderType memory typeInfo = orderTypes[orderType];
+        _transfer(creator, address(this), amount);
+        
+        OrderManager.Order memory newOrder = OrderManager.createOrder(
+            amount, 
+            orderType, 
+            typeInfo, 
+            block.timestamp
+        );
+        _activeOrders[creator].push(newOrder);
+        
+        uint256 newTotalReputation = currentReputation + newOrder.reputation;
+        productionFund.totalReputation += newOrder.reputation;
+        totalCreatorReputation[creator] = newTotalReputation;
+        
+        creatorYieldDebt[creator] = (newTotalReputation * aypr) / CrikzMath.WAD;
+        emit OrderCreated(creator, amount, orderType, block.timestamp);
+    }
+&nbsp;
+    function claimYield() external <span class="missing-if-branch" title="else path not taken" >E</span>nonReentrant whenNotPaused {
+        ProductionDistributor.updateFund(productionFund, block.timestamp);
+        address creator = _msgSender();
+&nbsp;
+        uint256 aypr = productionFund.accumulatedYieldPerReputation;
+        uint256 reputation = totalCreatorReputation[creator];
+        uint256 totalProduct = (reputation * aypr) / CrikzMath.WAD;
+&nbsp;
+        if (totalProduct &lt;= creatorYieldDebt[creator]) {
+            revert ProductionDistributor.NoProductsToClaim();
+        }
+        
+        uint256 pendingYield = totalProduct - creatorYieldDebt[creator];
+        
+        // Use Library for coverage
+        pendingYield = pendingYield.min(productionFund.balance);
+        
+        <span class="missing-if-branch" title="if path not taken" >I</span>if (pendingYield == 0) revert InsufficientFundBalance();
+&nbsp;
+        creatorYieldDebt[creator] += pendingYield;
+        productionFund.balance -= pendingYield;
+&nbsp;
+        _transfer(address(this), creator, pendingYield);
+        emit YieldClaimed(creator, pendingYield, block.timestamp);
+    }
+&nbsp;
+    function completeOrder(uint256 index) external <span class="missing-if-branch" title="else path not taken" >E</span>nonReentrant whenNotPaused {
+        OrderManager.Order[] storage orders = _activeOrders[_msgSender()];
+        if (index &gt;= orders.length) revert InvalidOrderIndex();
+        
+        OrderManager.Order memory order = orders[index];
+        
+        // Use Library for coverage
+        if (!order.isUnlocked(block.timestamp)) {
+            revert OrderStillLocked();
+        }
+&nbsp;
+        ProductionDistributor.updateFund(productionFund, block.timestamp);
+&nbsp;
+        address creator = _msgSender();
+        uint256 currentRep = totalCreatorReputation[creator];
+        uint256 aypr = productionFund.accumulatedYieldPerReputation;
+        uint256 newRep = currentRep - order.reputation;
+&nbsp;
+        productionFund.totalReputation -= order.reputation;
+        totalCreatorReputation[creator] = newRep;
+        creatorYieldDebt[creator] = (newRep * aypr) / CrikzMath.WAD;
+&nbsp;
+        OrderManager.removeOrder(orders, index);
+        _transfer(address(this), creator, order.amount);
+        
+        emit OrderCompleted(creator, order.amount, order.orderType, block.timestamp);
+    }
+&nbsp;
+    function fundProductionPool(uint256 amount) external <span class="missing-if-branch" title="else path not taken" >E</span>nonReentrant whenNotPaused {
+        _transfer(_msgSender(), address(this), amount);
+        ProductionDistributor.updateFund(productionFund, block.timestamp);
+        productionFund.balance += amount;
+    }
+&nbsp;
+    function getActiveOrders(address creator) external view returns (OrderManager.Order[] memory) {
+        return _activeOrders[creator];
+    }
+&nbsp;
+    function _transfer(address from, address to, uint256 amount) internal override(ERC20) {
+        super._transfer(from, to, amount);
+    }
+&nbsp;
+    function _msgSender() internal view override(Context, ERC2771Context) returns (address) {
+        return ERC2771Context._msgSender();
+    }
+&nbsp;
+<span class="fstat-no" title="function not covered" >    function _msgData() internal view override(Context, ERC2771Context) returns (bytes calldata) {</span>
+<span class="cstat-no" title="statement not covered" >        return ERC2771Context._msgData();</span>
+    }
+&nbsp;
+    function _contextSuffixLength() internal view override(Context, ERC2771Context) returns (uint256) {
+        return ERC2771Context._contextSuffixLength();
+    }
+}</pre></td></tr>
+</table></pre>
+<div class='push'></div><!-- for sticky footer -->
+</div><!-- /wrapper -->
+<div class='footer quiet pad2 space-top1 center small'>
+  Code coverage
+  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Sat Dec 20 2025 14:07:03 GMT+0200 (Eastern European Standard Time)
+</div>
+</div>
+<script src="../prettify.js"></script>
+<script>
+window.onload = function () {
+        if (typeof prettyPrint === 'function') {
+            prettyPrint();
+        }
+};
+</script>
+<script src="../sorter.js"></script>
+</body>
+</html>

@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>Code coverage report for contracts/libraries/OrderTypes.sol</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../../prettify.css" />
+    <link rel="stylesheet" href="../../base.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+<body>
+<div class='wrapper'>
+  <div class='pad1'>
+    <h1>
+      <a href="../../index.html">all files</a> / <a href="index.html">contracts/libraries/</a> OrderTypes.sol
+    </h1>
+    <div class='clearfix'>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">100% </span>
+        <span class="quiet">Statements</span>
+        <span class='fraction'>14/14</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">62.5% </span>
+        <span class="quiet">Branches</span>
+        <span class='fraction'>5/8</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">100% </span>
+        <span class="quiet">Functions</span>
+        <span class='fraction'>5/5</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">100% </span>
+        <span class="quiet">Lines</span>
+        <span class='fraction'>21/21</span>
+      </div>
+    </div>
+  </div>
+  <div class='status-line high'></div>
+<pre><table class="coverage">
+<tr><td class="line-count quiet">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">230×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">230×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">230×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">230×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">230×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">230×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">230×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">230×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">230×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">21×</span>
+<span class="cline-any cline-yes">21×</span>
+<span class="cline-any cline-yes">21×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">7×</span>
+<span class="cline-any cline-yes">7×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">7×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">7×</span>
+<span class="cline-any cline-yes">7×</span>
+<span class="cline-any cline-yes">7×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8×</span>
+<span class="cline-any cline-yes">7×</span>
+<span class="cline-any cline-yes">7×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.28;
+&nbsp;
+library OrderTypes {
+    struct OrderType {
+        uint256 lockDuration;          // Lock period in seconds
+        uint256 reputationMultiplier;  // Multiplier with 18 decimals (e.g., 1.001 = 1001 * 10^15)
+        string name;                   // Human-readable tier name
+    }
+&nbsp;
+    uint8 public constant MAX_ORDER_TYPE = 6;
+&nbsp;
+    /**
+     * @notice Initializes order types with Fibonacci-based lock durations
+     * @dev Lock durations follow Fibonacci sequence: 5, 13, 34, 89, 233, 610, 1597 days
+     * @dev Reputation multipliers scale with golden ratio principles
+     * @return types Array of 7 order types with increasing commitment levels
+     */
+    function initializeOrderTypes() internal pure returns (OrderType[7] memory) {
+        OrderType[7] memory types;
+        
+        types[0] = OrderType({
+            lockDuration: 5 days,                // 5 days (Fibonacci)
+            reputationMultiplier: 618 * 10**15,  // 0.618x (Golden Ratio φ - 1)
+            name: "Prototype"
+        });
+        
+        types[1] = OrderType({
+            lockDuration: 13 days,               // 13 days (Fibonacci)
+            reputationMultiplier: 787 * 10**15,  // 0.787x (√φ)
+            name: "Small Batch"
+        });
+        
+        types[2] = OrderType({
+            lockDuration: 34 days,               // 34 days (Fibonacci)
+            reputationMultiplier: 1001 * 10**15, // 1.001x (Just over parity)
+            name: "Standard Run"
+        });
+        
+        types[3] = OrderType({
+            lockDuration: 89 days,               // 89 days (Fibonacci)
+            reputationMultiplier: 1273 * 10**15, // 1.273x (Fibonacci ratio)
+            name: "Mass Production"
+        });
+        
+        types[4] = OrderType({
+            lockDuration: 233 days,              // 233 days (Fibonacci)
+            reputationMultiplier: 1619 * 10**15, // 1.619x (Close to φ)
+            name: "Industrial"
+        });
+        
+        types[5] = OrderType({
+            lockDuration: 610 days,              // 610 days (Fibonacci)
+            reputationMultiplier: 2059 * 10**15, // 2.059x (φ²/√2)
+            name: "Global Scale"
+        });
+        
+        types[6] = OrderType({
+            lockDuration: 1597 days,             // 1597 days (Fibonacci)
+            reputationMultiplier: 2618 * 10**15, // 2.618x (φ²)
+            name: "Monopoly"
+        });
+        
+        return types;
+    }
+&nbsp;
+    /**
+     * @notice Gets a specific order type by index
+     * @dev Helper function to retrieve order type details
+     * @param index The tier index (0-6)
+     * @return OrderType struct for the specified tier
+     */
+    function getOrderType(uint8 index) internal pure returns (OrderType memory) {
+        <span class="missing-if-branch" title="else path not taken" >E</span>require(index &lt;= MAX_ORDER_TYPE, "Invalid order type");
+        OrderType[7] memory types = initializeOrderTypes();
+        return types[index];
+    }
+&nbsp;
+    /**
+     * @notice Calculates reputation for a given amount and tier
+     * @dev Uses the tier's reputation multiplier (18 decimals precision)
+     * @param amount The staking amount in wei
+     * @param orderTypeIndex The tier index (0-6)
+     * @return reputation The calculated reputation value
+     */
+    function calculateReputation(uint256 amount, uint8 orderTypeIndex) internal pure returns (uint256) {
+        <span class="missing-if-branch" title="else path not taken" >E</span>require(orderTypeIndex &lt;= MAX_ORDER_TYPE, "Invalid order type");
+        OrderType memory orderType = getOrderType(orderTypeIndex);
+        
+        // Formula: reputation = (amount * multiplier) / 10^18
+        // Example: 1000 tokens * 1.001 = (1000 * 10^18 * 1001 * 10^15) / 10^18 = 1001 * 10^18
+        return (amount * orderType.reputationMultiplier) / 1e18;
+    }
+&nbsp;
+    /**
+     * @notice Returns lock duration for a specific tier
+     * @param orderTypeIndex The tier index (0-6)
+     * @return duration Lock duration in seconds
+     */
+    function getLockDuration(uint8 orderTypeIndex) internal pure returns (uint256) {
+        <span class="missing-if-branch" title="else path not taken" >E</span>require(orderTypeIndex &lt;= MAX_ORDER_TYPE, "Invalid order type");
+        OrderType memory orderType = getOrderType(orderTypeIndex);
+        return orderType.lockDuration;
+    }
+&nbsp;
+    /**
+     * @notice Returns human-readable name for a tier
+     * @param orderTypeIndex The tier index (0-6)
+     * @return name The tier name
+     */
+    function getTierName(uint8 orderTypeIndex) internal pure returns (string memory) {
+        require(orderTypeIndex &lt;= MAX_ORDER_TYPE, "Invalid order type");
+        OrderType memory orderType = getOrderType(orderTypeIndex);
+        return orderType.name;
+    }
+}</pre></td></tr>
+</table></pre>
+<div class='push'></div><!-- for sticky footer -->
+</div><!-- /wrapper -->
+<div class='footer quiet pad2 space-top1 center small'>
+  Code coverage
+  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Sat Dec 20 2025 14:07:03 GMT+0200 (Eastern European Standard Time)
+</div>
+</div>
+<script src="../../prettify.js"></script>
+<script>
+window.onload = function () {
+        if (typeof prettyPrint === 'function') {
+            prettyPrint();
+        }
+};
+</script>
+<script src="../../sorter.js"></script>
+</body>
+</html>
