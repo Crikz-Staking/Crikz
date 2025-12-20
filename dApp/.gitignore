@@ -1,24 +1,71 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+.nyc_output
+
+# Production
+dist/
+build/
+
+# Environment
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
 # Logs
-logs
-*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+# Cache
+.cache/
+.parcel-cache/
+.eslintcache
+*.tsbuildinfo
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+# Temporary
+*.tmp
+*.temp
+
+# Build outputs
+*.js.map
+*.css.map
+
+# Smart Contract Build Artifacts
+artifacts/
+cache/
+typechain/
+typechain-types/
+
+# Hardhat
+.hardhat/
+
+# Foundry
+out/
+cache_forge/
+
+# Private keys (NEVER COMMIT THESE)
+*.key
+.secret
+*.pem
+
+# WalletConnect
+.walletconnect/

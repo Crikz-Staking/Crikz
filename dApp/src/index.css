@@ -1,23 +1,158 @@
 /* src/index.css */
 
-/* 1. Tailwind Layers MUST come first to initialize the utility classes */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* 2. AGGRESSIVE RESET: Ensure HTML and Body fill the viewport and remove all default margins/paddings. */
-html, body {
-    margin: 0;
-    padding: 0;
-    height: 100%; /* Force height explicitly */
-    width: 100%;  /* Force width explicitly */
-    overflow-x: hidden; /* Prevent horizontal scrollbar from layout issues */
+/* Global Reset */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
-/* 3. ROOT ELEMENT FIX: Ensure the React root fills the entire viewport */
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  overflow-x: hidden;
+  background: #000;
+  color: #e0e0e0;
+  font-family: 'SF Mono', 'Roboto Mono', Consolas, monospace;
+}
+
 #root {
-    min-height: 100vh;
-    height: 100%;
-    /* Aggressively force display block in case a framework is overriding it */
-    display: block; 
+  min-height: 100vh;
+  height: 100%;
+  display: block;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #000;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 255, 136, 0.4);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 255, 136, 0.6);
+}
+
+/* Animations */
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 10px rgba(0, 255, 136, 0.2); }
+  50% { box-shadow: 0 0 30px rgba(0, 255, 136, 0.4); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes blockFade {
+  0% { opacity: 0; transform: translateY(-30%) rotate(45deg); }
+  20% { opacity: 0.5; transform: translateY(-50%) rotate(45deg); }
+  80% { opacity: 0.5; transform: translateY(-50%) rotate(45deg); }
+  100% { opacity: 0; transform: translateY(-70%) rotate(45deg); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -1000px 0; }
+  100% { background-position: 1000px 0; }
+}
+
+/* Utility Classes */
+.animate-pulse-glow {
+  animation: pulseGlow 4s infinite;
+}
+
+.animate-float {
+  animation: float 6s infinite ease-in-out;
+}
+
+.animate-block-fade {
+  animation: blockFade 8s infinite;
+}
+
+/* Card Styles */
+.card-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(0, 255, 136, 0.2);
+}
+
+/* Button Styles */
+.btn-primary {
+  background: linear-gradient(135deg, #00ff88 0%, #00d4ff 100%);
+  color: #000;
+  font-weight: 900;
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: scale(1.05);
+  box-shadow: 0 5px 20px rgba(0, 255, 136, 0.4);
+}
+
+.btn-primary:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Input Styles */
+.input-custom {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid #333;
+  color: #fff;
+  font-family: 'SF Mono', monospace;
+  font-size: 36px;
+  outline: none;
+  transition: border-color 0.3s ease;
+}
+
+.input-custom:focus {
+  border-bottom-color: #00ff88;
+}
+
+/* Glassmorphism */
+.glass {
+  background: rgba(10, 10, 10, 0.8);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(0, 255, 136, 0.2);
+}
+
+/* Grid Pattern Background */
+.grid-bg {
+  background-image: 
+    linear-gradient(rgba(0, 255, 136, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 255, 136, 0.05) 1px, transparent 1px);
+  background-size: 50px 50px;
+}
+
+/* Text Glow */
+.text-glow {
+  text-shadow: 0 0 10px currentColor;
+}
+
+/* Fibonacci Spiral (decorative) */
+.fibonacci-spiral {
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    rgba(0, 255, 136, 0.1) 137.5deg,
+    transparent 137.5deg
+  );
 }
