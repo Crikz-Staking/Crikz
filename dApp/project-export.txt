@@ -1,0 +1,4609 @@
+# PROJECT STRUCTURE
+
+.
+./index.html
+./project-export.txt
+./.env
+./hardhat.config.js
+./scripts
+./tsconfig.node.json
+./package-lock.json
+./src
+./src/config.ts
+./src/types
+./src/types/index.ts
+./src/main.tsx
+./src/utils
+./src/utils/animations.ts
+./src/utils/calculations.ts
+./src/utils/formatters.ts
+./src/components
+./src/components/Analytics.tsx
+./src/components/NavigationTabs.tsx
+./src/components/TierCard.tsx
+./src/components/TransactionModal.tsx
+./src/components/OrderCreation.tsx
+./src/components/OrderCard.tsx
+./src/components/StatsPanel.tsx
+./src/components/Hero.tsx
+./src/components/BackgroundEffects.tsx
+./src/components/ActiveOrders.tsx
+./src/components/Footer.tsx
+./src/components/ParticleBackground.tsx
+./src/components/ProductionFund.tsx
+./src/components/LoadingSpinner.tsx
+./src/index.css
+./src/hooks
+./src/hooks/useContractData.ts
+./src/hooks/useContractWrite.ts
+./src/hooks/useOrderCalculations.ts
+./src/hooks/useTheme.ts
+./src/App.tsx
+./tailwind.config.cjs
+./export-project.sh
+./node_modules
+./package.json
+./contracts
+./contracts/libraries
+./contracts/libraries/ProductionDistributor.sol
+./contracts/libraries/OrderTypes.sol
+./contracts/libraries/CrikzMath.sol
+./contracts/libraries/OrderManager.sol
+./contracts/Crikz.sol
+./test
+./.env.local
+./vite.config.ts
+./tsconfig.json
+./.gitignore
+./postcss.config.cjs
+
+
+================================================================================
+# FILE CONTENTS
+================================================================================
+
+
+================================================================================
+FILE: ./index.html
+================================================================================
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Crikz Protocol - Fibonacci-based Production Order System" />
+    <title>Crikz Protocol | Φ</title>
+    <link rel="icon" type="image/svg+xml" href="/crikz-icon.svg" />
+  </head>
+  <body class="bg-black text-white">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+================================================================================
+FILE: ./project-export.txt
+================================================================================
+[Binary or unreadable file]
+
+================================================================================
+FILE: ./.env
+================================================================================
+# ====================
+# Crikz Protocol Environment Variables (TEMPLATE)
+# Copy this file to .env.local and fill in your actual values
+# ====================
+
+# ==================== CONTRACT DEPLOYMENT ====================
+# Deployer private key (NEVER commit this file with real keys!)
+# Get from MetaMask: Settings → Security & Privacy → Export Private Key
+PRIVATE_KEY=
+
+# Contract Addresses (fill after deployment)
+VITE_CRIKZ_TOKEN_ADDRESS=0x0000000000000000000000000000000000000000
+
+# PancakeSwap Router (BSC Testnet default)
+VITE_PANCAKESWAP_ROUTER=0xD99D1c33F9fC3444f8101754aBC46c52416550D1
+
+# Trusted Forwarder for gasless transactions (optional)
+VITE_TRUSTED_FORWARDER=0x0000000000000000000000000000000000000000
+
+# ==================== NETWORK CONFIGURATION ====================
+# Chain ID: 31337=localhost, 97=BSC Testnet, 56=BSC Mainnet
+VITE_EXPECTED_CHAIN_ID=31337
+
+# RPC URLs
+BSC_TESTNET_RPC=https://data-seed-prebsc-1-s1.binance.org:8545
+BSC_MAINNET_RPC=https://bsc-dataseed1.binance.org
+
+# ==================== API KEYS ====================
+# WalletConnect Project ID (get from https://cloud.walletconnect.com/)
+VITE_WALLETCONNECT_PROJECT_ID=cdf8dadd25a1999d03bcb554e82147f8
+
+# BSCScan API Key (for contract verification - get from https://bscscan.com/apis)
+BSCSCAN_API_KEY=
+
+# CoinMarketCap API Key (optional, for gas reporting in USD)
+COINMARKETCAP_API_KEY=
+
+# ==================== DEVELOPMENT OPTIONS ====================
+# Enable gas reporting
+REPORT_GAS=false
+
+# Gas report output file (optional)
+# REPORT_GAS_FILE=gas-report.txt
+================================================================================
+FILE: ./hardhat.config.js
+================================================================================
+require("@nomicfoundation/hardhat-toolbox");
+require("dotenv").config();
+
+/** @type import('hardhat/config').HardhatUserConfig */
+module.exports = {
+  solidity: {
+    version: "0.8.28",
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 200,
+      },
+      evmVersion: "cancun", // Latest EVM version for 0.8.28
+      viaIR: false, // Disable if you encounter stack too deep errors
+    },
+  },
+  
+  networks: {
+    // Localhost - for testing with Hardhat node
+    localhost: {
+      url: "http://127.0.0.1:8545",
+      chainId: 31337,
+      accounts: {
+        mnemonic: "test test test test test test test test test test test junk",
+        count: 10,
+      },
+      gas: "auto",
+      gasPrice: "auto",
+      timeout: 40000,
+    },
+    
+    // Hardhat Network - built-in network for testing
+    hardhat: {
+      chainId: 31337,
+      forking: {
+        // Optionally fork BSC Testnet for more realistic testing
+        url: process.env.BSC_TESTNET_RPC || "https://data-seed-prebsc-1-s1.binance.org:8545",
+        enabled: false, // Set to true to enable forking
+      },
+      accounts: {
+        mnemonic: "test test test test test test test test test test test junk",
+        count: 10,
+        accountsBalance: "10000000000000000000000", // 10000 ETH each
+      },
+      mining: {
+        auto: true,
+        interval: 0,
+      },
+    },
+    
+    // BSC Testnet - for actual testnet deployment
+    bscTestnet: {
+      url: process.env.BSC_TESTNET_RPC || "https://data-seed-prebsc-1-s1.binance.org:8545",
+      chainId: 97,
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      gasPrice: 10000000000, // 10 gwei
+      gas: "auto",
+      timeout: 60000,
+    },
+    
+    // BSC Mainnet - for production
+    bscMainnet: {
+      url: process.env.BSC_MAINNET_RPC || "https://bsc-dataseed1.binance.org",
+      chainId: 56,
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      gasPrice: 3000000000, // 3 gwei (check https://bscscan.com/gastracker)
+      gas: "auto",
+      timeout: 60000,
+    },
+  },
+  
+  paths: {
+    sources: "./contracts",
+    tests: "./test",
+    cache: "./cache",
+    artifacts: "./artifacts",
+  },
+  
+  // Etherscan/BSCScan verification
+  etherscan: {
+    apiKey: {
+      bscTestnet: process.env.BSCSCAN_API_KEY || "",
+      bsc: process.env.BSCSCAN_API_KEY || "",
+    },
+    customChains: [
+      {
+        network: "bscTestnet",
+        chainId: 97,
+        urls: {
+          apiURL: "https://api-testnet.bscscan.com/api",
+          browserURL: "https://testnet.bscscan.com"
+        }
+      }
+    ]
+  },
+  
+  // Gas reporting
+  gasReporter: {
+    enabled: process.env.REPORT_GAS === "true",
+    currency: "USD",
+    coinmarketcap: process.env.COINMARKETCAP_API_KEY,
+    token: "BNB",
+    gasPriceApi: "https://api.bscscan.com/api?module=proxy&action=eth_gasPrice",
+    showTimeSpent: true,
+    showMethodSig: true,
+    outputFile: process.env.REPORT_GAS_FILE || undefined,
+  },
+  
+  // Mocha test configuration
+  mocha: {
+    timeout: 40000,
+    color: true,
+    reporter: process.env.CI ? "json" : "spec",
+  },
+
+  // TypeChain configuration
+  typechain: {
+    outDir: "typechain-types",
+    target: "ethers-v6",
+  },
+};
+================================================================================
+FILE: ./tsconfig.node.json
+================================================================================
+{
+  "compilerOptions": {
+    "composite": true,
+    "skipLibCheck": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true
+  },
+  "include": ["vite.config.ts"]
+}
+================================================================================
+FILE: ./src/config.ts
+================================================================================
+// src/config.ts
+import { createConfig, http } from 'wagmi';
+import { bscTestnet, localhost } from 'wagmi/chains';
+import { getDefaultConfig } from '@rainbow-me/rainbowkit';
+
+// ==================== ENVIRONMENT VARIABLES ====================
+export const CRIKZ_TOKEN_ADDRESS = (import.meta.env.VITE_CRIKZ_TOKEN_ADDRESS || '0x0000000000000000000000000000000000000000') as `0x${string}`;
+export const PANCAKESWAP_ROUTER = (import.meta.env.VITE_PANCAKESWAP_ROUTER || '0xD99D1c33F9fC3444f8101754aBC46c52416550D1') as `0x${string}`;
+export const TRUSTED_FORWARDER = (import.meta.env.VITE_TRUSTED_FORWARDER || '0x0000000000000000000000000000000000000000') as `0x${string}`;
+export const EXPECTED_CHAIN_ID = Number(import.meta.env.VITE_EXPECTED_CHAIN_ID) || 31337;
+export const WALLETCONNECT_PROJECT_ID = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'cdf8dadd25a1999d03bcb554e82147f8';
+
+// Determine which chains to use based on environment
+const chains = EXPECTED_CHAIN_ID === 31337 
+  ? [localhost, bscTestnet] 
+  : [bscTestnet];
+
+// ==================== CONTRACT ABIS ====================
+
+// Crikz Token ABI (ERC20 + Custom Functions)
+export const CRIKZ_TOKEN_ABI = [
+  // ERC20 Standard
+  { name: 'balanceOf', inputs: [{ type: 'address' }], outputs: [{ type: 'uint256' }], stateMutability: 'view', type: 'function' },
+  { name: 'allowance', inputs: [{ type: 'address' }, { type: 'address' }], outputs: [{ type: 'uint256' }], stateMutability: 'view', type: 'function' },
+  { name: 'approve', inputs: [{ type: 'address' }, { type: 'uint256' }], outputs: [{ type: 'bool' }], stateMutability: 'nonpayable', type: 'function' },
+  { name: 'transfer', inputs: [{ type: 'address' }, { type: 'uint256' }], outputs: [{ type: 'bool' }], stateMutability: 'nonpayable', type: 'function' },
+  { name: 'totalSupply', inputs: [], outputs: [{ type: 'uint256' }], stateMutability: 'view', type: 'function' },
+  
+  // Crikz Protocol Functions
+  { name: 'createOrder', inputs: [{ name: 'amount', type: 'uint256' }, { name: 'orderType', type: 'uint8' }], outputs: [], stateMutability: 'nonpayable', type: 'function' },
+  { name: 'completeOrder', inputs: [{ name: 'index', type: 'uint256' }], outputs: [], stateMutability: 'nonpayable', type: 'function' },
+  { name: 'claimYield', inputs: [], outputs: [], stateMutability: 'nonpayable', type: 'function' },
+  { name: 'fundProductionPool', inputs: [{ name: 'amount', type: 'uint256' }], outputs: [], stateMutability: 'nonpayable', type: 'function' },
+  
+  // View Functions
+  { name: 'getActiveOrders', inputs: [{ type: 'address' }], outputs: [{ type: 'tuple[]', components: [
+    { name: 'amount', type: 'uint256' },
+    { name: 'reputation', type: 'uint256' },
+    { name: 'orderType', type: 'uint8' },
+    { name: 'startTime', type: 'uint256' },
+    { name: 'duration', type: 'uint256' }
+  ]}], stateMutability: 'view', type: 'function' },
+  { name: 'totalCreatorReputation', inputs: [{ type: 'address' }], outputs: [{ type: 'uint256' }], stateMutability: 'view', type: 'function' },
+  { name: 'creatorYieldDebt', inputs: [{ type: 'address' }], outputs: [{ type: 'uint256' }], stateMutability: 'view', type: 'function' },
+  { name: 'productionFund', inputs: [], outputs: [{ 
+    type: 'tuple',
+    components: [
+      { name: 'balance', type: 'uint256' },
+      { name: 'totalReputation', type: 'uint256' },
+      { name: 'accumulatedYieldPerReputation', type: 'uint256' },
+      { name: 'lastUpdateTime', type: 'uint256' }
+    ]
+  }], stateMutability: 'view', type: 'function' },
+  { name: 'orderTypes', inputs: [{ type: 'uint256' }], outputs: [{ 
+    type: 'tuple',
+    components: [
+      { name: 'lockDuration', type: 'uint256' },
+      { name: 'reputationMultiplier', type: 'uint256' },
+      { name: 'name', type: 'string' }
+    ]
+  }], stateMutability: 'view', type: 'function' },
+  { name: 'lpPair', inputs: [], outputs: [{ type: 'address' }], stateMutability: 'view', type: 'function' },
+  
+  // Admin Functions
+  { name: 'pause', inputs: [], outputs: [], stateMutability: 'nonpayable', type: 'function' },
+  { name: 'unpause', inputs: [], outputs: [], stateMutability: 'nonpayable', type: 'function' },
+  { name: 'setLPPairAddress', inputs: [{ type: 'address' }], outputs: [], stateMutability: 'nonpayable', type: 'function' },
+  
+  // Events
+  { name: 'OrderCreated', type: 'event', inputs: [
+    { name: 'creator', type: 'address', indexed: true },
+    { name: 'amount', type: 'uint256', indexed: false },
+    { name: 'orderType', type: 'uint8', indexed: false },
+    { name: 'timestamp', type: 'uint256', indexed: false }
+  ]},
+  { name: 'OrderCompleted', type: 'event', inputs: [
+    { name: 'creator', type: 'address', indexed: true },
+    { name: 'amount', type: 'uint256', indexed: false },
+    { name: 'orderType', type: 'uint8', indexed: false },
+    { name: 'timestamp', type: 'uint256', indexed: false }
+  ]},
+  { name: 'YieldClaimed', type: 'event', inputs: [
+    { name: 'creator', type: 'address', indexed: true },
+    { name: 'amount', type: 'uint256', indexed: false },
+    { name: 'timestamp', type: 'uint256', indexed: false }
+  ]},
+] as const;
+
+// ==================== ORDER TYPES ====================
+export const ORDER_TYPES = [
+  { index: 0, days: 5, multiplier: 0.618, name: "Prototype", description: "Quick test production run" },
+  { index: 1, days: 13, multiplier: 0.787, name: "Small Batch", description: "Limited production cycle" },
+  { index: 2, days: 34, multiplier: 1.001, name: "Standard Run", description: "Regular production order" },
+  { index: 3, days: 89, multiplier: 1.273, name: "Mass Production", description: "High volume output" },
+  { index: 4, days: 233, multiplier: 1.619, name: "Industrial", description: "Large-scale manufacturing" },
+  { index: 5, days: 610, multiplier: 2.059, name: "Global Scale", description: "Worldwide distribution" },
+  { index: 6, days: 1597, multiplier: 2.618, name: "Monopoly", description: "Market dominance" },
+] as const;
+
+// ==================== WAGMI CONFIGURATION ====================
+export const wagmiConfig = getDefaultConfig({
+  appName: 'Crikz Protocol',
+  projectId: WALLETCONNECT_PROJECT_ID,
+  chains: chains as any,
+  transports: {
+    [localhost.id]: http('http://127.0.0.1:8545'),
+    [bscTestnet.id]: http('https://data-seed-prebsc-1-s1.binance.org:8545'),
+  },
+});
+
+// ==================== CONSTANTS ====================
+export const WAD = BigInt(1e18);
+export const MIN_ORDER_AMOUNT = BigInt(10) * WAD;
+
+// APR Configuration (6.182% from ProductionDistributor.sol)
+export const BASE_APR = 6.182; // 6.182%
+export const SECONDS_PER_YEAR = 365 * 24 * 60 * 60;
+
+// ==================== HELPER FUNCTIONS ====================
+
+/**
+ * Calculate expected yield for an order
+ */
+export function calculateExpectedYield(
+  amount: bigint,
+  orderTypeIndex: number,
+  fundBalance: bigint,
+  totalReputation: bigint
+): bigint {
+  if (totalReputation === 0n || fundBalance === 0n) return 0n;
+  
+  const orderType = ORDER_TYPES[orderTypeIndex];
+  const multiplier = BigInt(Math.floor(orderType.multiplier * 1000));
+  const reputation = (amount * multiplier) / 1000n;
+  
+  // Calculate yield based on 6.182% APR
+  const durationInSeconds = BigInt(orderType.days * 24 * 60 * 60);
+  const yieldGenerated = (fundBalance * durationInSeconds * 6182n) / (100000n * BigInt(SECONDS_PER_YEAR));
+  
+  // Calculate share based on reputation
+  const yieldPerReputation = (yieldGenerated * WAD) / totalReputation;
+  const expectedYield = (reputation * yieldPerReputation) / WAD;
+  
+  return expectedYield;
+}
+
+/**
+ * Calculate pending yield for a user
+ */
+export function calculatePendingYield(
+  reputation: bigint,
+  accumulatedYieldPerReputation: bigint,
+  yieldDebt: bigint
+): bigint {
+  const totalProduct = (reputation * accumulatedYieldPerReputation) / WAD;
+  if (totalProduct <= yieldDebt) return 0n;
+  return totalProduct - yieldDebt;
+}
+
+/**
+ * Format time remaining
+ */
+export function formatTimeRemaining(seconds: number): string {
+  if (seconds <= 0) return 'Unlocked';
+  
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+}
+
+/**
+ * Get order status
+ */
+export function getOrderStatus(startTime: bigint, duration: bigint): {
+  isUnlocked: boolean;
+  timeRemaining: number;
+  progress: number;
+} {
+  const now = BigInt(Math.floor(Date.now() / 1000));
+  const unlockTime = startTime + duration;
+  const isUnlocked = now >= unlockTime;
+  
+  const timeRemaining = isUnlocked ? 0 : Number(unlockTime - now);
+  const elapsed = now - startTime;
+  const progress = duration > 0n ? Math.min(Number((elapsed * 100n) / duration), 100) : 0;
+  
+  return { isUnlocked, timeRemaining, progress };
+}
+================================================================================
+FILE: ./src/types/index.ts
+================================================================================
+// src/types/index.ts
+
+export interface Order {
+  amount: bigint;
+  reputation: bigint;
+  orderType: number;
+  startTime: bigint;
+  duration: bigint;
+}
+
+export interface ProductionFund {
+  balance: bigint;
+  totalReputation: bigint;
+  accumulatedYieldPerReputation: bigint;
+  lastUpdateTime: bigint;
+}
+
+export interface OrderStatus {
+  isUnlocked: boolean;
+  timeRemaining: number;
+  progress: number;
+  unlockTime: bigint;
+}
+
+export interface TierInfo {
+  index: number;
+  days: number;
+  multiplier: number;
+  name: string;
+  description: string;
+}
+
+export type TabType = 'create' | 'orders' | 'fund' | 'analytics';
+
+export interface TransactionStatus {
+  status: 'idle' | 'pending' | 'success' | 'error';
+  message?: string;
+}
+================================================================================
+FILE: ./src/main.tsx
+================================================================================
+// src/main.tsx
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App.tsx';
+import './index.css';
+
+import { wagmiConfig } from './config.ts';
+import { WagmiProvider } from 'wagmi';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
+import '@rainbow-me/rainbowkit/styles.css';
+
+// Initialize React Query client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+      staleTime: 5000,
+    },
+  },
+});
+
+// Render the application
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <WagmiProvider config={wagmiConfig}>
+      <QueryClientProvider client={queryClient}>
+        <RainbowKitProvider>
+          <App />
+        </RainbowKitProvider>
+      </QueryClientProvider>
+    </WagmiProvider>
+  </React.StrictMode>
+);
+================================================================================
+FILE: ./src/utils/animations.ts
+================================================================================
+// src/utils/animations.ts
+import { Variants } from 'framer-motion';
+
+export const fadeInUp: Variants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0 }
+};
+
+export const fadeIn: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1 }
+};
+
+export const scaleIn: Variants = {
+  hidden: { opacity: 0, scale: 0.8 },
+  visible: { opacity: 1, scale: 1 }
+};
+
+export const slideInLeft: Variants = {
+  hidden: { opacity: 0, x: -50 },
+  visible: { opacity: 1, x: 0 }
+};
+
+export const slideInRight: Variants = {
+  hidden: { opacity: 0, x: 50 },
+  visible: { opacity: 1, x: 0 }
+};
+
+export const staggerContainer: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1
+    }
+  }
+};
+
+export const cardHover = {
+  scale: 1.02,
+  y: -5,
+  transition: { duration: 0.2 }
+};
+
+export const buttonTap = {
+  scale: 0.95
+};
+================================================================================
+FILE: ./src/utils/calculations.ts
+================================================================================
+// src/utils/calculations.ts
+import { ORDER_TYPES, WAD } from '../config';
+
+export function calculateOrderReputation(amount: bigint, orderTypeIndex: number): bigint {
+  const orderType = ORDER_TYPES[orderTypeIndex];
+  const multiplier = BigInt(Math.floor(orderType.multiplier * 1000));
+  return (amount * multiplier) / 1000n;
+}
+
+export function calculateExpectedYield(
+  reputation: bigint,
+  fundBalance: bigint,
+  totalReputation: bigint,
+  durationDays: number
+): bigint {
+  if (totalReputation === 0n || fundBalance === 0n) return 0n;
+  
+  const durationSeconds = BigInt(durationDays * 24 * 60 * 60);
+  const yieldGenerated = (fundBalance * durationSeconds * 6182n) / (100000n * BigInt(365 * 24 * 60 * 60));
+  const yieldPerReputation = (yieldGenerated * WAD) / totalReputation;
+  
+  return (reputation * yieldPerReputation) / WAD;
+}
+
+export function getOrderStatus(startTime: bigint, duration: bigint) {
+  const now = BigInt(Math.floor(Date.now() / 1000));
+  const unlockTime = startTime + duration;
+  const isUnlocked = now >= unlockTime;
+  
+  const timeRemaining = isUnlocked ? 0 : Number(unlockTime - now);
+  const elapsed = now - startTime;
+  const progress = duration > 0n ? Math.min(Number((elapsed * 100n) / duration), 100) : 0;
+  
+  return { isUnlocked, timeRemaining, progress, unlockTime };
+}
+
+export function calculatePendingYield(
+  reputation: bigint,
+  accumulatedYieldPerReputation: bigint,
+  yieldDebt: bigint
+): bigint {
+  const totalProduct = (reputation * accumulatedYieldPerReputation) / WAD;
+  if (totalProduct <= yieldDebt) return 0n;
+  return totalProduct - yieldDebt;
+}
+================================================================================
+FILE: ./src/utils/formatters.ts
+================================================================================
+// src/utils/formatters.ts
+
+export function formatTokenAmount(value: string | bigint, decimals: number = 2): string {
+  const num = typeof value === 'bigint' ? Number(value) / 1e18 : parseFloat(value);
+  
+  if (num >= 1_000_000_000) {
+    return `${(num / 1_000_000_000).toFixed(decimals)}B`;
+  } else if (num >= 1_000_000) {
+    return `${(num / 1_000_000).toFixed(decimals)}M`;
+  } else if (num >= 1_000) {
+    return `${(num / 1_000).toFixed(decimals)}K`;
+  }
+  
+  return num.toFixed(decimals);
+}
+
+export function formatTimeRemaining(seconds: number): string {
+  if (seconds <= 0) return 'Unlocked';
+  
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+}
+
+export function formatTimeRemainingFull(seconds: number): string {
+  if (seconds <= 0) return 'Unlocked';
+  
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  
+  const parts = [];
+  if (days > 0) parts.push(`${days}d`);
+  if (hours > 0) parts.push(`${hours}h`);
+  if (minutes > 0) parts.push(`${minutes}m`);
+  if (secs > 0 && days === 0) parts.push(`${secs}s`);
+  
+  return parts.join(' ');
+}
+
+export function formatAddress(address: string): string {
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
+export function formatPercentage(value: number, decimals: number = 2): string {
+  return `${value.toFixed(decimals)}%`;
+}
+
+export function formatDate(timestamp: bigint | number): string {
+  const date = new Date(Number(timestamp) * 1000);
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+================================================================================
+FILE: ./src/components/Analytics.tsx
+================================================================================
+// src/components/Analytics.tsx
+import React, { useMemo } from 'react';
+import { motion } from 'framer-motion';
+import { formatEther } from 'viem';
+import { BarChart3, PieChart, TrendingUp, Package, Activity, Zap } from 'lucide-react';
+import { ORDER_TYPES } from '../config';
+import { formatTokenAmount } from '../utils/formatters';
+import { fadeInUp, staggerContainer } from '../utils/animations';
+import type { Order, ProductionFund } from '../types';
+
+interface AnalyticsProps {
+  orders: Order[] | undefined;
+  totalReputation: bigint | undefined;
+  productionFund: ProductionFund | undefined;
+  currentAPR: number;
+  dynamicColor: string;
+}
+
+export default function Analytics({
+  orders,
+  totalReputation,
+  productionFund,
+  currentAPR,
+  dynamicColor
+}: AnalyticsProps) {
+  const analytics = useMemo(() => {
+    if (!orders || orders.length === 0) {
+      return {
+        totalLocked: 0n,
+        averageDuration: 0,
+        tierDistribution: [] as { tier: string; count: number; percentage: number; color: string }[],
+        reputationShare: 0
+      };
+    }
+
+    const totalLocked = orders.reduce((sum, order) => sum + order.amount, 0n);
+    const averageDuration = orders.reduce((sum, order) => sum + Number(order.duration), 0) / orders.length / 86400;
+
+    // Tier distribution with colors
+    const tierCounts = new Map<number, number>();
+    orders.forEach((order) => {
+      tierCounts.set(order.orderType, (tierCounts.get(order.orderType) || 0) + 1);
+    });
+
+    const colors = ['#FFA500', '#FFB733', '#00D4FF', '#10B981', '#A78BFA', '#F59E0B', '#FB7185'];
+    const tierDistribution = Array.from(tierCounts.entries()).map(([tierIndex, count]) => ({
+      tier: ORDER_TYPES[tierIndex].name,
+      count,
+      percentage: (count / orders.length) * 100,
+      color: colors[tierIndex]
+    }));
+
+    // Reputation share
+    const myReputation = totalReputation ? Number(formatEther(totalReputation)) : 0;
+    const totalSystemReputation = productionFund ? Number(formatEther(productionFund.totalReputation)) : 0;
+    const reputationShare = totalSystemReputation > 0 ? (myReputation / totalSystemReputation) * 100 : 0;
+
+    return {
+      totalLocked,
+      averageDuration,
+      tierDistribution,
+      reputationShare
+    };
+  }, [orders, totalReputation, productionFund]);
+
+  return (
+    <motion.div
+      variants={staggerContainer}
+      initial="hidden"
+      animate="visible"
+      className="space-y-6"
+    >
+      {/* Header */}
+      <div>
+        <h2 className="text-3xl sm:text-4xl font-black mb-2 text-gradient">
+          Analytics Dashboard
+        </h2>
+        <p className="text-sm text-gray-400">Your production performance metrics and insights</p>
+      </div>
+
+      {/* Key Metrics */}
+      <motion.div variants={fadeInUp} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          {
+            label: 'Total Locked',
+            value: formatTokenAmount(formatEther(analytics.totalLocked)),
+            suffix: 'CRIKZ',
+            icon: Package,
+            color: dynamicColor
+          },
+          {
+            label: 'Avg Duration',
+            value: analytics.averageDuration.toFixed(0),
+            suffix: 'Days',
+            icon: Activity,
+            color: '#00D4FF'
+          },
+          {
+            label: 'Rep Share',
+            value: analytics.reputationShare.toFixed(2),
+            suffix: '%',
+            icon: PieChart,
+            color: '#A78BFA'
+          },
+          {
+            label: 'APR',
+            value: currentAPR.toFixed(3),
+            suffix: '%',
+            icon: TrendingUp,
+            color: '#10B981'
+          }
+        ].map((metric, index) => (
+          <motion.div
+            key={metric.label}
+whileHover={{ scale: 1.05, y: -4 }}
+className="glass-card p-6 rounded-2xl border border-white/10 relative overflow-hidden group"
+>
+<div className="relative z-10">
+<div className="flex items-center justify-between mb-4">
+<div
+className="w-12 h-12 rounded-xl flex items-center justify-center transition-all group-hover:scale-110"
+style={{
+  background: `${metric.color}20`,
+  boxShadow: `0 0 20px ${metric.color}20`
+}}
+>
+<metric.icon size={24} style={{ color: metric.color }} />
+</div>
+<div className="text-xs text-gray-500 uppercase tracking-wider">
+{metric.label}
+</div>
+</div>          <div className="flex items-baseline gap-2">
+            <div className="text-4xl font-black" style={{ color: metric.color }}>
+              {metric.value}
+            </div>
+            <div className="text-xs text-gray-600 font-mono">
+              {metric.suffix}
+            </div>
+          </div>
+        </div>        <motion.div
+          className="absolute -bottom-10 -right-10 w-32 h-32 rounded-full blur-3xl opacity-0 group-hover:opacity-20"
+          style={{ background: metric.color }}
+        />
+      </motion.div>
+    ))}
+  </motion.div>  {/* Tier Distribution */}
+  <motion.div
+    variants={fadeInUp}
+    className="glass-card p-6 sm:p-8 rounded-3xl border border-white/10"
+  >
+    <h3 className="text-2xl font-black mb-6 flex items-center gap-2">
+      <PieChart size={24} style={{ color: dynamicColor }} />
+      Tier Distribution
+    </h3>    {analytics.tierDistribution.length === 0 ? (
+      <div className="text-center py-16 text-gray-500">
+        <BarChart3 size={60} className="mx-auto mb-4 opacity-20" />
+        <p className="text-lg font-bold mb-2">No orders to analyze</p>
+        <p className="text-sm">Create your first order to see analytics</p>
+      </div>
+    ) : (
+      <div className="space-y-4">
+        {analytics.tierDistribution.map((item, index) => (
+          <motion.div
+            key={item.tier}
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: index * 0.1 }}
+            className="space-y-2"
+          >
+            <div className="flex justify-between items-center text-sm">
+              <span className="font-bold flex items-center gap-2">
+                <div 
+                  className="w-3 h-3 rounded-full"
+                  style={{ background: item.color }}
+                />
+                {item.tier}
+              </span>
+              <span className="text-gray-400 font-mono">
+                {item.count} order{item.count !== 1 ? 's' : ''} ({item.percentage.toFixed(1)}%)
+              </span>
+            </div>            <div className="h-3 bg-background-elevated rounded-full overflow-hidden">
+              <motion.div
+                className="h-full rounded-full relative overflow-hidden"
+                initial={{ width: 0 }}
+                animate={{ width: `${item.percentage}%` }}
+                transition={{ duration: 0.8, delay: index * 0.1, ease: 'easeOut' }}
+                style={{ background: item.color }}
+              >
+                <motion.div
+                  className="absolute inset-0 opacity-50"
+                  animate={{
+                    x: ['-100%', '100%']
+                  }}
+                  transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: 'linear'
+                  }}
+                  style={{
+                    background: 'linear-gradient(90deg, transparent, white, transparent)'
+                  }}
+                />
+              </motion.div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    )}
+  </motion.div>  {/* Production Fund Status */}
+  {productionFund && (
+    <motion.div
+      variants={fadeInUp}
+      className="glass-card p-6 sm:p-8 rounded-3xl border border-white/10"
+    >
+      <h3 className="text-2xl font-black mb-6 flex items-center gap-2">
+        <Zap size={24} style={{ color: dynamicColor }} />
+        Production Fund Status
+      </h3>      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <div className="p-6 bg-background-elevated rounded-xl border border-white/5">
+          <div className="text-sm text-gray-400 mb-3 uppercase tracking-wider">Fund Balance</div>
+          <div className="text-4xl font-black mb-2" style={{ color: dynamicColor }}>
+            {formatTokenAmount(formatEther(productionFund.balance))}
+          </div>
+          <div className="text-xs text-gray-600">CRIKZ available for yield</div>
+        </div>        <div className="p-6 bg-background-elevated rounded-xl border border-white/5">
+          <div className="text-sm text-gray-400 mb-3 uppercase tracking-wider">System Reputation</div>
+          <div className="text-4xl font-black text-accent-cyan mb-2">
+            {formatTokenAmount(formatEther(productionFund.totalReputation))}
+          </div>
+          <div className="text-xs text-gray-600">REP across all users</div>
+        </div>
+      </div>      {/* Live APR Indicator */}
+      <motion.div 
+        className="mt-6 p-4 rounded-xl border flex items-center justify-between"
+        style={{
+          background: `${dynamicColor}10`,
+          borderColor: `${dynamicColor}30`
+        }}
+      >
+        <div className="flex items-center gap-3">
+          <motion.div
+            animate={{
+              scale: [1, 1.2, 1],
+              opacity: [0.5, 1, 0.5]
+            }}
+            transition={{
+              duration: 2,
+              repeat: Infinity,
+              ease: 'easeInOut'
+            }}
+            className="w-3 h-3 rounded-full"
+            style={{ background: dynamicColor }}
+          />
+          <span className="text-sm font-bold">Live APR Generation</span>
+        </div>
+        <div className="text-2xl font-black" style={{ color: dynamicColor }}>
+          6.182%
+        </div>
+      </motion.div>
+    </motion.div>
+  )}
+</motion.div>
+);
+}
+
+================================================================================
+FILE: ./src/components/NavigationTabs.tsx
+================================================================================
+// src/components/NavigationTabs.tsx
+import React from 'react';
+import { motion } from 'framer-motion';
+import { Plus, Package, Droplets, BarChart3 } from 'lucide-react';
+import type { TabType } from '../types';
+
+interface NavigationTabsProps {
+  activeTab: TabType;
+  setActiveTab: (tab: TabType) => void;
+  dynamicColor: string;
+}
+
+export default function NavigationTabs({ activeTab, setActiveTab, dynamicColor }: NavigationTabsProps) {
+  const tabs: { id: TabType; label: string; icon: React.ElementType }[] = [
+    { id: 'create', label: 'Create', icon: Plus },
+    { id: 'orders', label: 'Orders', icon: Package },
+    { id: 'fund', label: 'Fund', icon: Droplets },
+    { id: 'analytics', label: 'Analytics', icon: BarChart3 }
+  ];
+
+  return (
+    <div className="flex gap-2">
+      {tabs.map((tab) => {
+        const isActive = activeTab === tab.id;
+        return (
+          <motion.button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="relative px-4 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 flex-1 sm:flex-initial"
+            style={{
+              background: isActive ? `${dynamicColor}20` : 'rgba(26, 26, 36, 0.6)',
+              border: `1px solid ${isActive ? `${dynamicColor}60` : 'rgba(255, 255, 255, 0.1)'}`,
+              color: isActive ? '#fff' : '#888',
+              boxShadow: isActive ? `0 0 20px ${dynamicColor}25` : 'none'
+            }}
+          >
+            {isActive && (
+              <motion.div
+                layoutId="activeTab"
+                className="absolute inset-0 opacity-10 rounded-xl"
+                style={{ background: dynamicColor }}
+                transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+              />
+            )}
+            
+            <tab.icon size={16} className="relative z-10" />
+            <span className="hidden sm:inline relative z-10">{tab.label}</span>
+
+            {isActive && (
+              <motion.div
+                layoutId="activeIndicator"
+                className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full"
+                style={{ background: dynamicColor }}
+                transition={{ type: 'spring', bounce: 0.2 }}
+              />
+            )}
+          </motion.button>
+        );
+      })}
+    </div>
+  );
+}
+================================================================================
+FILE: ./src/components/TierCard.tsx
+================================================================================
+// src/components/TierCard.tsx
+import React from 'react';
+import { motion } from 'framer-motion';
+import { Clock, Award, CheckCircle } from 'lucide-react';
+import type { TierInfo } from '../types';
+
+interface TierCardProps {
+  tier: TierInfo;
+  isSelected: boolean;
+  onClick: () => void;
+  dynamicColor: string;
+}
+
+export default function TierCard({ tier, isSelected, onClick, dynamicColor }: TierCardProps) {
+  return (
+    <motion.div
+      onClick={onClick}
+      whileHover={{ scale: 1.05, y: -4 }}
+      whileTap={{ scale: 0.95 }}
+      className="cursor-pointer p-4 rounded-xl border-2 transition-all relative overflow-hidden group"
+      style={{
+        background: isSelected ? `${dynamicColor}15` : 'rgba(26, 26, 36, 0.4)',
+        borderColor: isSelected ? dynamicColor : 'rgba(255, 255, 255, 0.1)',
+        boxShadow: isSelected ? `0 0 30px ${dynamicColor}30, 0 8px 16px rgba(0,0,0,0.3)` : 'none'
+      }}
+    >
+      {/* Glow Effect */}
+      {isSelected && (
+        <motion.div
+          className="absolute inset-0 opacity-20 blur-xl"
+          animate={{
+            scale: [1, 1.1, 1],
+            opacity: [0.2, 0.3, 0.2]
+          }}
+          transition={{
+            duration: 2,
+            repeat: Infinity,
+            ease: 'easeInOut'
+          }}
+          style={{
+            background: `radial-gradient(circle, ${dynamicColor} 0%, transparent 70%)`
+          }}
+        />
+      )}
+
+      <div className="relative z-10 space-y-3">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="text-[10px] text-gray-500 font-mono uppercase tracking-wider">
+            Tier {tier.index}
+          </div>
+          {isSelected && (
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+            >
+              <CheckCircle size={14} style={{ color: dynamicColor }} />
+            </motion.div>
+          )}
+        </div>
+
+        {/* Name */}
+        <div className="text-base font-black leading-tight" style={{ color: isSelected ? dynamicColor : undefined }}>
+          {tier.name}
+        </div>
+
+        {/* Stats */}
+        <div className="space-y-2 text-xs">
+          <div className="flex items-center gap-1.5 text-gray-400">
+            <Clock size={10} />
+            <span>{tier.days}d</span>
+          </div>
+          <div className="flex items-center gap-1.5" style={{ color: isSelected ? dynamicColor : '#888' }}>
+            <Award size={10} />
+            <span className="font-bold">{tier.multiplier}x</span>
+          </div>
+        </div>
+
+        {/* Progress Bar (Selected) */}
+        {isSelected && (
+          <motion.div
+            layoutId="selectedTier"
+            className="absolute bottom-0 left-0 right-0 h-1 rounded-full"
+            style={{ background: dynamicColor }}
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: 1 }}
+            transition={{ duration: 0.3 }}
+          />
+        )}
+      </div>
+    </motion.div>
+  );
+}
+================================================================================
+FILE: ./src/components/TransactionModal.tsx
+================================================================================
+// src/components/TransactionModal.tsx
+import React from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Loader, CheckCircle, XCircle, ExternalLink, Zap } from 'lucide-react';
+
+interface TransactionModalProps {
+  isOpen: boolean;
+  txHash: `0x${string}` | undefined;
+  status: 'idle' | 'pending' | 'success' | 'error';
+  dynamicColor: string;
+}
+
+export default function TransactionModal({ isOpen, txHash, status, dynamicColor }: TransactionModalProps) {
+  const getStatusConfig = () => {
+    switch (status) {
+      case 'pending':
+        return {
+          icon: Loader,
+          title: 'Transaction Pending',
+          description: 'Please wait while your transaction is being processed on the blockchain...',
+          color: dynamicColor,
+          animate: true
+        };
+      case 'success':
+        return {
+          icon: CheckCircle,
+          title: 'Transaction Successful',
+          description: 'Your transaction has been confirmed on the blockchain!',
+          color: '#10B981',
+          animate: false
+        };
+      case 'error':
+        return {
+          icon: XCircle,
+          title: 'Transaction Failed',
+          description: 'Something went wrong with your transaction. Please try again.',
+          color: '#EF4444',
+          animate: false
+        };
+      default:
+        return null;
+    }
+  };
+
+  const config = getStatusConfig();
+  if (!config || !isOpen) return null;
+
+  const Icon = config.icon;
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          style={{
+            background: 'rgba(0, 0, 0, 0.8)',
+            backdropFilter: 'blur(8px)'
+          }}
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+            transition={{ type: 'spring', duration: 0.5 }}
+            className="glass-card p-8 sm:p-10 rounded-3xl border border-white/10 max-w-md w-full relative overflow-hidden"
+          >
+            {/* Background Glow */}
+            <motion.div
+              className="absolute inset-0 opacity-10 blur-3xl"
+              animate={config.animate ? {
+                scale: [1, 1.2, 1],
+                opacity: [0.1, 0.2, 0.1]
+              } : {}}
+              transition={{
+                duration: 2,
+                repeat: Infinity,
+                ease: 'easeInOut'
+              }}
+              style={{
+                background: `radial-gradient(circle, ${config.color} 0%, transparent 70%)`
+              }}
+            />
+
+            <div className="relative z-10 flex flex-col items-center text-center space-y-6">
+              {/* Icon */}
+              <motion.div
+                animate={config.animate ? { rotate: 360 } : { scale: [1, 1.1, 1] }}
+                transition={config.animate ? {
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: 'linear'
+                } : {
+                  duration: 0.5,
+                  times: [0, 0.5, 1]
+                }}
+                className="w-20 h-20 rounded-full flex items-center justify-center"
+                style={{
+                  background: `${config.color}20`,
+                  boxShadow: `0 0 40px ${config.color}40`
+                }}
+              >
+                <Icon size={40} style={{ color: config.color }} />
+              </motion.div>
+
+              {/* Title */}
+              <h3 className="text-2xl sm:text-3xl font-black">{config.title}</h3>
+
+              {/* Description */}
+              <p className="text-sm text-gray-400 leading-relaxed">
+                {config.description}
+              </p>
+
+              {/* Transaction Hash */}
+              {txHash && (
+                <motion.a
+                  href={`https://testnet.bscscan.com/tx/${txHash}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="flex items-center gap-3 px-6 py-3 rounded-xl transition-all font-bold text-sm"
+                  style={{
+                    background: `${config.color}20`,
+                    color: config.color,
+                    border: `1px solid ${config.color}40`
+                  }}
+                >
+                  <Zap size={16} />
+                  <span>View on BSCScan</span>
+                  <ExternalLink size={14} />
+                </motion.a>
+              )}
+
+              {/* Status Indicator */}
+              {status === 'pending' && (
+                <div className="flex items-center gap-2 text-xs text-gray-500 font-mono">
+                  <motion.div
+                    animate={{ opacity: [0.5, 1, 0.5] }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                    className="w-2 h-2 rounded-full"
+                    style={{ background: config.color }}
+                  />
+                  <span>Awaiting confirmation...</span>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+================================================================================
+FILE: ./src/components/OrderCreation.tsx
+================================================================================
+// src/components/OrderCreation.tsx
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { formatEther, parseEther } from 'viem';
+import { Info, Zap, Clock, Award, AlertCircle, Sparkles } from 'lucide-react';
+import TierCard from './TierCard';
+import { ORDER_TYPES } from '../config';
+import { useOrderCalculations } from '../hooks/useOrderCalculations';
+import { formatTokenAmount } from '../utils/formatters';
+import { fadeInUp, staggerContainer } from '../utils/animations';
+import type { ProductionFund } from '../types';
+
+interface OrderCreationProps {
+  balance: bigint | undefined;
+  productionFund: ProductionFund | undefined;
+  onCreateOrder: (amount: string, orderType: number) => void;
+  isPending: boolean;
+  dynamicColor: string;
+}
+
+export default function OrderCreation({
+  balance,
+  productionFund,
+  onCreateOrder,
+  isPending,
+  dynamicColor
+}: OrderCreationProps) {
+  const [amount, setAmount] = useState('');
+  const [selectedTier, setSelectedTier] = useState(2);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  
+  const { reputation, expectedYield, tierInfo } = useOrderCalculations(
+    amount,
+    selectedTier,
+    productionFund
+  );
+
+  const handleMaxClick = () => {
+    if (balance) {
+      setAmount(formatEther(balance));
+    }
+  };
+
+  const handleCreate = () => {
+    if (!amount || parseFloat(amount) <= 0) return;
+    onCreateOrder(amount, selectedTier);
+    setAmount('');
+  };
+
+  const isValidAmount = amount && parseFloat(amount) > 0 && balance && parseEther(amount) <= balance;
+
+  return (
+    <motion.div
+      variants={staggerContainer}
+      initial="hidden"
+      animate="visible"
+      className="glass-card p-6 sm:p-8 rounded-3xl border border-white/10 space-y-8"
+    >
+      {/* Header */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 className="text-3xl sm:text-4xl font-black mb-2 text-gradient">
+            Create Production Order
+          </h2>
+          <p className="text-sm text-gray-400">
+            Lock tokens to earn reputation and yield based on Fibonacci tiers
+          </p>
+        </div>
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setShowAdvanced(!showAdvanced)}
+          className="px-4 py-2 rounded-lg text-xs font-bold transition-all"
+          style={{
+            background: `${dynamicColor}20`,
+            color: dynamicColor,
+            border: `1px solid ${dynamicColor}40`
+          }}
+        >
+          {showAdvanced ? 'Simple' : 'Advanced'}
+        </motion.button>
+      </div>
+
+      {/* Tier Selection */}
+      <motion.div variants={fadeInUp}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+            <Sparkles size={14} style={{ color: dynamicColor }} />
+            Select Production Tier
+          </h3>
+          <span className="text-xs text-gray-500 font-mono">
+            {tierInfo.days} days • {tierInfo.multiplier}x multiplier
+          </span>
+        </div>
+        
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+          {ORDER_TYPES.map((tier) => (
+            <TierCard
+              key={tier.index}
+              tier={tier}
+              isSelected={selectedTier === tier.index}
+              onClick={() => setSelectedTier(tier.index)}
+              dynamicColor={dynamicColor}
+            />
+          ))}
+        </div>
+      </motion.div>
+
+      {/* Amount Input */}
+      <motion.div variants={fadeInUp} className="space-y-3">
+        <div className="flex justify-between items-center">
+          <label className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+            <Info size={14} />
+            Order Amount
+          </label>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={handleMaxClick}
+            className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+            style={{
+              background: `${dynamicColor}15`,
+              color: dynamicColor,
+              border: `1px solid ${dynamicColor}30`
+            }}
+          >
+            MAX: {balance ? formatTokenAmount(formatEther(balance)) : '0'}
+          </motion.button>
+        </div>
+
+        <div className="relative group">
+          <input
+            type="text"
+            value={amount}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                setAmount(val);
+              }
+            }}
+            placeholder="0.00"
+            className="w-full bg-background-surface border-2 transition-all rounded-2xl px-6 py-5 text-4xl font-black focus:outline-none"
+            style={{
+              borderColor: amount ? `${dynamicColor}60` : 'rgba(255, 255, 255, 0.1)',
+              color: isValidAmount ? dynamicColor : amount ? '#EF4444' : '#666',
+              boxShadow: amount ? `0 0 40px ${dynamicColor}20` : 'none'
+            }}
+          />
+          <div className="absolute right-6 top-1/2 -translate-y-1/2 flex items-center gap-2">
+            <span className="text-sm text-gray-500 font-bold">CRIKZ</span>
+          </div>
+
+          {/* Warning */}
+          {amount && !isValidAmount && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="absolute -bottom-6 left-0 flex items-center gap-2 text-xs text-error"
+            >
+              <AlertCircle size={12} />
+              <span>Insufficient balance</span>
+            </motion.div>
+          )}
+        </div>
+      </motion.div>
+
+      {/* Order Preview */}
+      <AnimatePresence>
+        {amount && parseFloat(amount) > 0 && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.3 }}
+            variants={fadeInUp}
+            className="overflow-hidden"
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-6 bg-background-elevated rounded-2xl border border-white/5">
+              <div className="space-y-2">
+                <div className="text-xs text-gray-400 flex items-center gap-1.5">
+                  <Clock size={12} />
+                  Lock Duration
+                </div>
+                <div className="text-2xl font-black">{tierInfo.days}</div>
+                <div className="text-xs text-gray-600">Days</div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-xs text-gray-400 flex items-center gap-1.5">
+                  <Award size={12} />
+                  Reputation Gain
+                </div>
+                <div className="text-2xl font-black text-accent-cyan">
+                  {formatTokenAmount(formatEther(reputation))}
+                </div>
+                <div className="text-xs text-gray-600">REP</div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-xs text-gray-400 flex items-center gap-1.5">
+                  <TrendingUp size={12} />
+                  Expected Yield
+                </div>
+                <div className="text-2xl font-black text-accent-emerald">
+                  {formatTokenAmount(formatEther(expectedYield))}
+                </div>
+                <div className="text-xs text-gray-600">CRIKZ</div>
+              </div>
+            </div>
+
+            {/* Advanced Info */}
+            {showAdvanced && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-4 p-4 bg-background-elevated rounded-xl border border-white/5 space-y-2 text-xs"
+              >
+                <div className="flex justify-between text-gray-500">
+                  <span>Tier Multiplier:</span>
+                  <span className="font-mono" style={{ color: dynamicColor }}>
+                    {tierInfo.multiplier}x
+                  </span>
+                </div>
+                <div className="flex justify-between text-gray-500">
+                  <span>Unlock Date:</span>
+                  <span className="font-mono">
+                    {new Date(Date.now() + tierInfo.days * 86400000).toLocaleDateString()}
+                  </span>
+                </div>
+                <div className="flex justify-between text-gray-500">
+                  <span>APR:</span>
+                  <span className="font-mono text-accent-emerald">6.182%</span>
+                </div>
+              </motion.div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Create Button */}
+      <motion.button
+        variants={fadeInUp}
+        onClick={handleCreate}
+        disabled={!isValidAmount || isPending}
+        whileHover={isValidAmount ? { scale: 1.02 } : {}}
+        whileTap={isValidAmount ? { scale: 0.98 } : {}}
+        className="w-full py-6 rounded-2xl font-black text-xl disabled:opacity-30 disabled:cursor-not-allowed transition-all relative overflow-hidden group"
+        style={{
+          background: isValidAmount 
+            ? `linear-gradient(135deg, ${dynamicColor} 0%, ${dynamicColor}CC 100%)` 
+            : '#333',
+          color: isValidAmount ? '#000' : '#666',
+          boxShadow: isValidAmount ? `0 10px 40px ${dynamicColor}40` : 'none'
+        }}
+      >
+        <span className="relative z-10 flex items-center justify-center gap-2">
+          {isPending ? (
+            <>
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+              >
+                <Zap size={20} />
+              </motion.div>
+              PROCESSING...
+            </>
+          ) : (
+            <>
+              <Sparkles size={20} />
+              CREATE PRODUCTION ORDER
+            </>
+          )}
+        </span>
+        
+        {/* Shine Effect */}
+        {isValidAmount && !isPending && (
+          <motion.div
+            className="absolute inset-0 opacity-0 group-hover:opacity-30"
+            animate={{
+              x: ['-200%', '200%']
+            }}
+            transition={{
+              duration: 1.5,
+              repeat: Infinity,
+              ease: 'linear'
+            }}
+            style={{
+              background: 'linear-gradient(90deg, transparent, white, transparent)'
+            }}
+          />
+        )}
+      </motion.button>
+    </motion.div>
+  );
+}
+================================================================================
+FILE: ./src/components/OrderCard.tsx
+================================================================================
+// src/components/OrderCard.tsx
+import React, { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
+import { formatEther } from 'viem';
+import { Clock, Award, Package, Unlock, Zap } from 'lucide-react';
+import { ORDER_TYPES } from '../config';
+import { getOrderStatus } from '../utils/calculations';
+import { formatTimeRemaining, formatTokenAmount } from '../utils/formatters';
+import { fadeInUp } from '../utils/animations';
+import type { Order } from '../types';
+
+interface OrderCardProps {
+  order: Order;
+  index: number;
+  onComplete: () => void;
+  isPending: boolean;
+  dynamicColor: string;
+}
+
+export default function OrderCard({ order, index, onComplete, isPending, dynamicColor }: OrderCardProps) {
+  const [status, setStatus] = useState(getOrderStatus(order.startTime, order.duration));
+  const tierInfo = ORDER_TYPES[order.orderType];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setStatus(getOrderStatus(order.startTime, order.duration));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [order]);
+
+  // SVG Circle Progress
+  const radius = 40;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (status.progress / 100) * circumference;
+
+  return (
+    <motion.div
+      variants={fadeInUp}
+      layout
+      className="p-6 rounded-2xl border-2 transition-all relative overflow-hidden group"
+      style={{
+        background: 'rgba(26, 26, 36, 0.6)',
+        borderColor: status.isUnlocked ? `${dynamicColor}60` : 'rgba(255, 255, 255, 0.1)',
+        boxShadow: status.isUnlocked ? `0 0 30px ${dynamicColor}30` : 'none'
+      }}
+    >
+      {/* Background Glow */}
+      {status.isUnlocked && (
+        <motion.div
+          className="absolute inset-0 opacity-10"
+          animate={{
+            scale: [1, 1.05, 1],
+            opacity: [0.1, 0.15, 0.1]
+          }}
+          transition={{
+            duration: 2,
+            repeat: Infinity,
+            ease: 'easeInOut'
+          }}
+          style={{
+            background: `radial-gradient(circle at center, ${dynamicColor} 0%, transparent 70%)`
+          }}
+        />
+      )}
+
+      <div className="relative z-10 space-y-4">
+        {/* Header */}
+        <div className="flex justify-between items-start">
+          <div className="flex items-start gap-4 flex-1">
+            {/* Progress Circle */}
+            <div className="relative w-20 h-20 flex-shrink-0">
+              <svg className="w-20 h-20 transform -rotate-90">
+                {/* Background Circle */}
+                <circle
+                  cx="40"
+                  cy="40"
+                  r={radius}
+                  stroke="rgba(255, 255, 255, 0.1)"
+                  strokeWidth="6"
+                  fill="none"
+                />
+                {/* Progress Circle */}
+                <motion.circle
+                  cx="40"
+                  cy="40"
+                  r={radius}
+                  stroke={status.isUnlocked ? dynamicColor : '#666'}
+                  strokeWidth="6"
+                  fill="none"
+                  strokeDasharray={circumference}
+                  strokeDashoffset={strokeDashoffset}
+                  strokeLinecap="round"
+                  initial={{ strokeDashoffset: circumference }}
+                  animate={{ strokeDashoffset }}
+                  transition={{ duration: 0.5, ease: 'easeOut' }}
+                  style={{
+                    filter: status.isUnlocked ? `drop-shadow(0 0 6px ${dynamicColor})` : 'none'
+                  }}
+                />
+              </svg>
+              {/* Center Icon */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                {status.isUnlocked ? (
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                  >
+                    <Unlock size={24} style={{ color: dynamicColor }} />
+                  </motion.div>
+                ) : (
+                  <Package size={24} className="text-gray-500" />
+                )}
+              </div>
+            </div>
+
+            {/* Info */}
+            <div className="flex-1 min-w-0">
+              <h3 className="text-xl font-black mb-1 truncate">{tierInfo.name}</h3>
+              <p className="text-sm text-gray-400 mb-3">{tierInfo.description}</p>
+              
+              <div className="flex items-center gap-4 text-xs">
+                <div className="flex items-center gap-1.5 text-gray-500">
+                  <Clock size={12} />
+                  <span className="font-mono">{tierInfo.days}d</span>
+                </div>
+                <div className="flex items-center gap-1.5" style={{ color: dynamicColor }}>
+                  <Award size={12} />
+                  <span className="font-mono">{tierInfo.multiplier}x</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Amount Badge */}
+          <div className="text-right ml-4">
+            <div className="text-xs text-gray-500 mb-1">Amount</div>
+            <div className="text-xl font-black" style={{ color: dynamicColor }}>
+              {formatTokenAmount(formatEther(order.amount))}
+            </div>
+          </div>
+        </div>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-3 gap-3 p-4 bg-background-elevated rounded-xl border border-white/5">
+          <div>
+            <div className="text-[10px] text-gray-500 mb-1 uppercase tracking-wider">Reputation</div>
+            <div className="text-lg font-bold text-accent-cyan">
+              {formatTokenAmount(formatEther(order.reputation))}
+            </div>
+          </div>
+
+          <div>
+            <div className="text-[10px] text-gray-500 mb-1 uppercase tracking-wider">Progress</div>
+            <div className="text-lg font-bold">{status.progress}%</div>
+          </div>
+
+          <div>
+            <div className="text-[10px] text-gray-500 mb-1 uppercase tracking-wider">
+              {status.isUnlocked ? 'Status' : 'Remaining'}
+            </div>
+            <div 
+              className="text-lg font-bold font-mono"
+              style={{ color: status.isUnlocked ? dynamicColor : undefined }}
+            >
+              {status.isUnlocked ? 'Ready!' : formatTimeRemaining(status.timeRemaining)}
+            </div>
+          </div>
+        </div>
+
+        {/* Progress Bar */}
+        <div>
+          <div className="h-2 bg-background-elevated rounded-full overflow-hidden">
+            <motion.div
+              className="h-full rounded-full"
+              initial={{ width: 0 }}
+              animate={{ width: `${status.progress}%` }}
+              transition={{ duration: 0.5, ease: 'easeOut' }}
+              style={{
+                background: status.isUnlocked
+                  ? `linear-gradient(90deg, ${dynamicColor}, ${dynamicColor}CC)`
+                  : 'linear-gradient(90deg, #666, #444)'
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Complete Button */}
+        <motion.button
+          onClick={onComplete}
+          disabled={!status.isUnlocked || isPending}
+          whileHover={status.isUnlocked ? { scale: 1.02 } : {}}
+          whileTap={status.isUnlocked ? { scale: 0.98 } : {}}
+          className="w-full py-4 rounded-xl font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed relative overflow-hidden group/btn"
+          style={{
+            background: status.isUnlocked ? dynamicColor : '#333',
+            color: status.isUnlocked ? '#000' : '#666',
+            boxShadow: status.isUnlocked ? `0 4px 20px ${dynamicColor}40` : 'none'
+          }}
+        >
+          {status.isUnlocked ? (
+            <>
+              <Zap size={18} />
+              <span>COMPLETE ORDER</span>
+            </>
+          ) : (
+            <>
+              <Clock size={18} />
+              <span>LOCKED</span>
+            </>
+          )}
+
+          {/* Shimmer Effect */}
+          {status.isUnlocked && (
+            <motion.div
+              className="absolute inset-0 opacity-0 group-hover/btn:opacity-30"
+              animate={{
+                x: ['-200%', '200%']
+              }}
+              transition={{
+                duration: 1.5,
+                repeat: Infinity,
+                ease: 'linear'
+              }}
+              style={{
+                background: 'linear-gradient(90deg, transparent, white, transparent)'
+              }}
+            />
+          )}
+        </motion.button>
+      </div>
+    </motion.div>
+  );
+}
+================================================================================
+FILE: ./src/components/StatsPanel.tsx
+================================================================================
+// src/components/StatsPanel.tsx
+import React from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { formatEther } from 'viem';
+import {
+  Wallet,
+  Award,
+  TrendingUp,
+  Package,
+  Percent,
+  Zap
+} from 'lucide-react';
+import { formatTokenAmount } from '../utils/formatters';
+
+interface StatsPanelProps {
+  balance: bigint | undefined;
+  totalReputation: bigint | undefined;
+  pendingYield: bigint;
+  activeOrdersCount: number;
+  currentAPR: number;
+  onClaimYield: () => void;
+  isPending: boolean;
+  dynamicColor: string;
+  isLoading: boolean;
+}
+
+export default function StatsPanel({
+  balance,
+  totalReputation,
+  pendingYield,
+  activeOrdersCount,
+  currentAPR,
+  onClaimYield,
+  isPending,
+  dynamicColor,
+  isLoading
+}: StatsPanelProps) {
+  
+  const stats = [
+    {
+      label: 'Balance',
+      value: balance ? formatEther(balance) : '0',
+      icon: Wallet,
+      color: dynamicColor,
+      suffix: 'CRIKZ'
+    },
+    {
+      label: 'Reputation',
+      value: totalReputation ? formatEther(totalReputation) : '0',
+      icon: Award,
+      color: '#00D4FF',
+      suffix: 'REP'
+    },
+    {
+      label: 'Pending Yield',
+      value: formatEther(pendingYield),
+      icon: TrendingUp,
+      color: '#10B981',
+      suffix: 'CRIKZ',
+      isYield: true
+    },
+    {
+      label: 'Active Orders',
+      value: activeOrdersCount.toString(),
+      icon: Package,
+      color: '#A78BFA',
+      suffix: ''
+    },
+    {
+      label: 'APR',
+      value: currentAPR.toFixed(3),
+      icon: Percent,
+      color: '#F59E0B',
+      suffix: '%'
+    }
+  ];
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      {stats.map((stat, index) => (
+        <motion.div
+          key={stat.label}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: index * 0.05 }}
+          whileHover={{ y: -4, scale: 1.02 }}
+          className="glass-card p-4 rounded-xl border border-white/10 relative overflow-hidden group cursor-pointer"
+        >
+          {/* Content */}
+          <div className="relative z-10">
+            {/* Icon & Label */}
+            <div className="flex items-center justify-between mb-3">
+              <div 
+                className="w-8 h-8 rounded-lg flex items-center justify-center transition-transform group-hover:scale-110"
+                style={{ 
+                  background: `${stat.color}20`,
+                  boxShadow: `0 0 15px ${stat.color}15`
+                }}
+              >
+                <stat.icon size={16} style={{ color: stat.color }} />
+              </div>
+              <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">
+                {stat.label}
+              </span>
+            </div>
+
+            {/* Value */}
+            {isLoading ? (
+              <div className="h-8 w-full bg-white/5 animate-pulse rounded-lg" />
+            ) : (
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={stat.value}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="flex items-baseline gap-1.5"
+                >
+                  <span 
+                    className="text-2xl font-black tracking-tighter truncate"
+                    style={{ color: stat.color }}
+                  >
+                    {parseFloat(stat.value) > 1000 
+                      ? formatTokenAmount(stat.value, 2)
+                      : parseFloat(stat.value).toFixed(2)
+                    }
+                  </span>
+                  {stat.suffix && (
+                    <span className="text-[8px] font-bold text-gray-600 font-mono">
+                      {stat.suffix}
+                    </span>
+                  )}
+                </motion.div>
+              </AnimatePresence>
+            )}
+
+            {/* Yield Claim */}
+            {stat.isYield && pendingYield > 0n && (
+              <motion.button
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={onClaimYield}
+                disabled={isPending}
+                className="mt-2 w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[9px] font-bold transition-all disabled:opacity-50"
+                style={{
+                  background: `${stat.color}20`,
+                  color: stat.color,
+                  border: `1px solid ${stat.color}40`
+                }}
+              >
+                <Zap size={10} />
+                CLAIM
+              </motion.button>
+            )}
+          </div>
+
+          {/* Hover Glow */}
+          <motion.div
+            className="absolute -bottom-4 -right-4 w-16 h-16 rounded-full blur-2xl opacity-0 group-hover:opacity-30 transition-opacity"
+            style={{ background: stat.color }}
+          />
+        </motion.div>
+      ))}
+    </div>
+  );
+}
+================================================================================
+FILE: ./src/components/Hero.tsx
+================================================================================
+// src/components/Hero.tsx
+import React from 'react';
+import { motion } from 'framer-motion';
+import {
+  Sparkles,
+  TrendingUp,
+  Shield,
+  Lock
+} from 'lucide-react';
+
+interface HeroProps {
+  dynamicColor: string;
+}
+
+export default function Hero({ dynamicColor }: HeroProps) {
+  const features = [
+    { icon: Sparkles, title: 'Fibonacci Tiers', desc: '7 production levels', color: '#FFA500' },
+    { icon: TrendingUp, title: '6.182% APR', desc: 'Continuous yield', color: '#10B981' },
+    { icon: Shield, title: 'Reputation System', desc: 'Build influence', color: '#A78BFA' },
+    { icon: Lock, title: 'Time-Locked', desc: '5-1597 days', color: '#00D4FF' },
+  ];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="relative flex flex-col items-center justify-center min-h-[75vh] gap-8 text-center py-12"
+    >
+      {/* Phi Symbol */}
+      <motion.div
+        initial={{ scale: 0, rotate: -180 }}
+        animate={{ scale: 1, rotate: 0 }}
+        transition={{ duration: 1, type: 'spring' }}
+        className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl flex items-center justify-center"
+        style={{
+          background: `linear-gradient(135deg, ${dynamicColor}30 0%, ${dynamicColor}10 100%)`,
+          boxShadow: `0 0 60px ${dynamicColor}30`
+        }}
+      >
+        <motion.span
+          className="text-6xl sm:text-7xl font-black"
+          style={{ color: dynamicColor }}
+          animate={{ scale: [1, 1.05, 1] }}
+          transition={{ duration: 2, repeat: Infinity }}
+        >
+          Φ
+        </motion.span>
+      </motion.div>
+
+      {/* Heading */}
+      <div className="space-y-4 max-w-3xl px-4">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tighter mb-2">
+            <span className="text-gradient">CRIKZ</span>
+            <br />
+            <span className="text-primary-500">PROTOCOL</span>
+          </h1>
+          
+          <motion.div
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: 1 }}
+            transition={{ delay: 0.4, duration: 0.6 }}
+            className="h-1 w-24 mx-auto rounded-full"
+            style={{ background: dynamicColor }}
+          />
+        </motion.div>
+
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.4 }}
+          className="text-lg sm:text-xl text-gray-400 font-light"
+        >
+          Fibonacci-Powered Production Order System
+        </motion.p>
+
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.6 }}
+          className="text-sm text-gray-500 max-w-xl mx-auto leading-relaxed"
+        >
+          Lock tokens in production orders, earn reputation-based yields
+        </motion.p>
+      </div>
+
+      {/* Feature Cards - Compact */}
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.8 }}
+        className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 w-full max-w-4xl px-4"
+      >
+        {features.map((feature, index) => (
+          <motion.div
+            key={feature.title}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.9 + index * 0.1 }}
+            whileHover={{ scale: 1.05, y: -4 }}
+            className="glass-card p-4 rounded-xl border border-white/10 group"
+          >
+            <div
+              className="w-10 h-10 rounded-lg flex items-center justify-center mb-3 mx-auto group-hover:scale-110 transition-transform"
+              style={{ background: `${feature.color}20` }}
+            >
+              <feature.icon size={20} style={{ color: feature.color }} />
+            </div>
+            
+            <h3 className="font-bold text-sm mb-1">{feature.title}</h3>
+            <p className="text-xs text-gray-400">{feature.desc}</p>
+          </motion.div>
+        ))}
+      </motion.div>
+    </motion.div>
+  );
+}
+================================================================================
+FILE: ./src/components/BackgroundEffects.tsx
+================================================================================
+// src/components/BackgroundEffects.tsx
+import React, { useRef, useEffect } from 'react';
+import { motion } from 'framer-motion';
+
+export default function BackgroundEffects() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const resize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    resize();
+    window.addEventListener('resize', resize);
+
+    // Fibonacci Spiral Particles
+    class FibonacciParticle {
+      x: number;
+      y: number;
+      angle: number;
+      radius: number;
+      speed: number;
+      size: number;
+      opacity: number;
+      color: string;
+
+      constructor() {
+        this.angle = Math.random() * Math.PI * 2;
+        this.radius = Math.random() * Math.min(canvas.width, canvas.height) / 2;
+        this.speed = 0.0005 + Math.random() * 0.001;
+        this.size = 1 + Math.random() * 2;
+        this.opacity = Math.random() * 0.5 + 0.2;
+        
+        const hue = 38 + Math.random() * 40; // Orange to Cyan range
+        this.color = `hsla(${hue}, 80%, 60%, ${this.opacity})`;
+        
+        this.updatePosition();
+      }
+
+      updatePosition() {
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        
+        // Fibonacci spiral equation: r = a * e^(b*θ)
+        const a = 1;
+        const b = 0.3;
+        const spiralRadius = a * Math.exp(b * this.angle) * this.radius / 10;
+        
+        this.x = centerX + spiralRadius * Math.cos(this.angle);
+        this.y = centerY + spiralRadius * Math.sin(this.angle);
+      }
+
+      update() {
+        this.angle += this.speed;
+        this.updatePosition();
+
+        // Fade in/out
+        this.opacity += (Math.random() - 0.5) * 0.01;
+        this.opacity = Math.max(0.1, Math.min(0.6, this.opacity));
+      }
+
+      draw() {
+        if (!ctx) return;
+        
+        ctx.fillStyle = this.color;
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+    }
+
+    const particles: FibonacciParticle[] = [];
+    for (let i = 0; i < 80; i++) {
+      particles.push(new FibonacciParticle());
+    }
+
+    function animate() {
+      if (!ctx || !canvas) return;
+      
+      ctx.fillStyle = 'rgba(10, 10, 15, 0.05)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      particles.forEach((particle, i) => {
+        particle.update();
+        particle.draw();
+
+        // Connect nearby particles
+        particles.slice(i + 1).forEach((otherParticle) => {
+          const dx = particle.x - otherParticle.x;
+          const dy = particle.y - otherParticle.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+
+          if (distance < 120) {
+            ctx.strokeStyle = `rgba(255, 165, 0, ${0.1 * (1 - distance / 120)})`;
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.moveTo(particle.x, particle.y);
+            ctx.lineTo(otherParticle.x, otherParticle.y);
+            ctx.stroke();
+          }
+        });
+      });
+
+      requestAnimationFrame(animate);
+    }
+
+    animate();
+
+    return () => {
+      window.removeEventListener('resize', resize);
+    };
+  }, []);
+
+  return (
+    <>
+      {/* Animated Canvas */}
+      <canvas
+        ref={canvasRef}
+        className="fixed inset-0 pointer-events-none z-0"
+        style={{ opacity: 0.4 }}
+      />
+
+      {/* Gradient Orbs */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        <motion.div
+          className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full blur-[120px] opacity-20"
+          style={{
+            background: 'radial-gradient(circle, #FFA500 0%, transparent 70%)'
+          }}
+          animate={{
+            scale: [1, 1.2, 1],
+            opacity: [0.15, 0.25, 0.15],
+            x: [0, 50, 0],
+            y: [0, 30, 0],
+          }}
+          transition={{
+            duration: 8,
+            repeat: Infinity,
+            ease: 'easeInOut'
+          }}
+        />
+        
+        <motion.div
+          className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full blur-[120px] opacity-20"
+          style={{
+            background: 'radial-gradient(circle, #00D4FF 0%, transparent 70%)'
+          }}
+          animate={{
+            scale: [1, 1.3, 1],
+            opacity: [0.15, 0.3, 0.15],
+            x: [0, -50, 0],
+            y: [0, -30, 0],
+          }}
+          transition={{
+            duration: 10,
+            repeat: Infinity,
+            ease: 'easeInOut',
+            delay: 1
+          }}
+        />
+
+        <motion.div
+          className="absolute top-1/2 left-1/2 w-[600px] h-[600px] rounded-full blur-[150px] opacity-10"
+          style={{
+            background: 'radial-gradient(circle, #A78BFA 0%, transparent 70%)',
+            transform: 'translate(-50%, -50%)'
+          }}
+          animate={{
+            scale: [1, 1.1, 1],
+            opacity: [0.1, 0.2, 0.1],
+            rotate: [0, 180, 360],
+          }}
+          transition={{
+            duration: 20,
+            repeat: Infinity,
+            ease: 'linear'
+          }}
+        />
+      </div>
+
+      {/* Grid Pattern */}
+      <div 
+        className="fixed inset-0 pointer-events-none z-0 opacity-[0.02]"
+        style={{
+          backgroundImage: `
+            linear-gradient(rgba(255, 165, 0, 0.5) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 165, 0, 0.5) 1px, transparent 1px)
+          `,
+          backgroundSize: '50px 50px',
+        }}
+      />
+    </>
+  );
+}
+================================================================================
+FILE: ./src/components/ActiveOrders.tsx
+================================================================================
+// src/components/ActiveOrders.tsx
+import React from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Package, Filter } from 'lucide-react';
+import OrderCard from './OrderCard';
+import LoadingSpinner from './LoadingSpinner';
+import { fadeInUp, staggerContainer } from '../utils/animations';
+import type { Order } from '../types';
+
+interface ActiveOrdersProps {
+  orders: Order[] | undefined;
+  onCompleteOrder: (index: number) => void;
+  isPending: boolean;
+  dynamicColor: string;
+  isLoading: boolean;
+}
+
+export default function ActiveOrders({
+  orders,
+  onCompleteOrder,
+  isPending,
+  dynamicColor,
+  isLoading
+}: ActiveOrdersProps) {
+  const [filter, setFilter] = React.useState<'all' | 'locked' | 'unlocked'>('all');
+
+  const filteredOrders = React.useMemo(() => {
+    if (!orders) return [];
+    
+    const now = BigInt(Math.floor(Date.now() / 1000));
+    
+    if (filter === 'locked') {
+      return orders.filter((order, idx) => now < order.startTime + order.duration).map((order, idx) => ({ order, originalIndex: orders.indexOf(order) }));
+    } else if (filter === 'unlocked') {
+      return orders.filter((order, idx) => now >= order.startTime + order.duration).map((order, idx) => ({ order, originalIndex: orders.indexOf(order) }));
+    }
+    
+    return orders.map((order, idx) => ({ order, originalIndex: idx }));
+  }, [orders, filter]);
+
+  if (isLoading) {
+    return (
+      <div className="glass-card p-8 rounded-3xl border border-white/10 min-h-[400px] flex items-center justify-center">
+        <LoadingSpinner color={dynamicColor} size={60} />
+      </div>
+    );
+  }
+
+  return (
+    <motion.div
+      variants={staggerContainer}
+      initial="hidden"
+      animate="visible"
+      className="glass-card p-6 sm:p-8 rounded-3xl border border-white/10 space-y-6"
+    >
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-3xl sm:text-4xl font-black mb-2 text-gradient">
+            Active Production Orders
+          </h2>
+          <p className="text-sm text-gray-400">
+            {orders?.length || 0} order{orders?.length !== 1 ? 's' : ''} in production
+          </p>
+        </div>
+
+        {/* Filter */}
+        {orders && orders.length > 0 && (
+          <div className="flex items-center gap-2">
+            <Filter size={16} className="text-gray-500" />
+            <div className="flex gap-2">
+              {(['all', 'locked', 'unlocked'] as const).map((f) => (
+                <motion.button
+                  key={f}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setFilter(f)}
+                  className="px-4 py-2 rounded-lg text-xs font-bold capitalize transition-all"
+                  style={{
+                    background: filter === f ? `${dynamicColor}20` : 'rgba(255, 255, 255, 0.05)',
+                    color: filter === f ? dynamicColor : '#888',
+                    border: `1px solid ${filter === f ? `${dynamicColor}40` : 'rgba(255, 255, 255, 0.1)'}`
+                  }}
+                >
+                  {f}
+                </motion.button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Orders List */}
+      <AnimatePresence mode="popLayout">
+        {!orders || orders.length === 0 ? (
+          <motion.div
+            key="empty"
+            variants={fadeInUp}
+            initial="hidden"
+            animate="visible"
+            exit="hidden"
+            className="flex flex-col items-center justify-center py-20 text-gray-500"
+          >
+            <motion.div
+              animate={{
+                y: [0, -10, 0],
+              }}
+              transition={{
+                duration: 3,
+                repeat: Infinity,
+                ease: 'easeInOut'
+              }}
+            >
+              <Package size={80} className="mb-6 opacity-20" />
+            </motion.div>
+            <p className="text-xl font-bold mb-2">No Active Orders</p>
+            <p className="text-sm">Create your first production order to get started</p>
+          </motion.div>
+        ) : filteredOrders.length === 0 ? (
+          <motion.div
+            key="no-filter-results"
+            variants={fadeInUp}
+            initial="hidden"
+            animate="visible"
+            exit="hidden"
+            className="flex flex-col items-center justify-center py-20 text-gray-500"
+          >
+            <Package size={60} className="mb-6 opacity-20" />
+            <p className="text-lg font-bold mb-2">No {filter} orders</p>
+            <p className="text-sm">Try a different filter</p>
+          </motion.div>
+        ) : (
+          <motion.div 
+            key="orders-list"
+            variants={staggerContainer} 
+            className="grid grid-cols-1 lg:grid-cols-2 gap-4"
+          >
+            {filteredOrders.map(({ order, originalIndex }) => (
+              <OrderCard
+                key={`${order.startTime}-${originalIndex}`}
+                order={order}
+                index={originalIndex}
+                onComplete={() => onCompleteOrder(originalIndex)}
+                isPending={isPending}
+                dynamicColor={dynamicColor}
+              />
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+================================================================================
+FILE: ./src/components/Footer.tsx
+================================================================================
+// src/components/Footer.tsx
+import React from 'react';
+import { motion } from 'framer-motion';
+
+interface FooterProps {
+  dynamicColor: string;
+}
+
+export default function Footer({ dynamicColor }: FooterProps) {
+  return (
+    <footer className="relative mt-12 border-t border-white/5">
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+          {/* Brand */}
+          <div className="flex items-center gap-2">
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center"
+              style={{
+                background: `linear-gradient(135deg, ${dynamicColor}40 0%, ${dynamicColor}10 100%)`
+              }}
+            >
+              <span className="text-lg font-black">Φ</span>
+            </div>
+            <span className="text-sm font-black">CRIKZ PROTOCOL</span>
+          </div>
+
+          {/* Info */}
+          <div className="flex items-center gap-4 text-xs text-gray-600">
+            <span>© 2024 Crikz Protocol</span>
+            <span className="hidden sm:inline">•</span>
+            <span className="font-mono" style={{ color: dynamicColor }}>
+              Fibonacci Sequence
+            </span>
+          </div>
+        </div>
+      </div>
+    </footer>
+  );
+}
+================================================================================
+FILE: ./src/components/ParticleBackground.tsx
+================================================================================
+import React, { useEffect, useRef } from 'react';
+
+export default function ParticleBackground() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Set canvas size
+    const resize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    resize();
+    window.addEventListener('resize', resize);
+
+    // Particle class
+    class Particle {
+      x: number;
+      y: number;
+      size: number;
+      speedX: number;
+      speedY: number;
+      opacity: number;
+
+      constructor() {
+        this.x = Math.random() * canvas.width;
+        this.y = Math.random() * canvas.height;
+        this.size = Math.random() * 2 + 0.5;
+        this.speedX = (Math.random() - 0.5) * 0.5;
+        this.speedY = (Math.random() - 0.5) * 0.5;
+        this.opacity = Math.random() * 0.5 + 0.2;
+      }
+
+      update() {
+        this.x += this.speedX;
+        this.y += this.speedY;
+
+        if (this.x > canvas.width) this.x = 0;
+        if (this.x < 0) this.x = canvas.width;
+        if (this.y > canvas.height) this.y = 0;
+        if (this.y < 0) this.y = canvas.height;
+      }
+
+      draw() {
+        if (!ctx) return;
+        ctx.fillStyle = `rgba(0, 255, 136, ${this.opacity})`;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // Create particles
+    const particles: Particle[] = [];
+    for (let i = 0; i < 50; i++) {
+      particles.push(new Particle());
+    }
+
+    // Animation loop
+    function animate() {
+      if (!ctx || !canvas) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      particles.forEach((particle) => {
+        particle.update();
+        particle.draw();
+      });
+
+      // Draw connections
+      particles.forEach((a, i) => {
+        particles.slice(i + 1).forEach((b) => {
+          const dx = a.x - b.x;
+          const dy = a.y - b.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+
+          if (distance < 150) {
+            ctx.strokeStyle = `rgba(0, 255, 136, ${0.1 * (1 - distance / 150)})`;
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(b.x, b.y);
+            ctx.stroke();
+          }
+        });
+      });
+
+      requestAnimationFrame(animate);
+    }
+
+    animate();
+
+    return () => {
+      window.removeEventListener('resize', resize);
+    };
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="fixed inset-0 pointer-events-none z-0"
+      style={{ opacity: 0.3 }}
+    />
+  );
+}
+================================================================================
+FILE: ./src/components/ProductionFund.tsx
+================================================================================
+// src/components/ProductionFund.tsx
+import React, { useState } from 'react';
+import { motion } from 'framer-motion';
+import { formatEther, parseEther } from 'viem';
+import { Droplets, TrendingUp, Users, Info, Sparkles, AlertCircle } from 'lucide-react';
+import { formatTokenAmount } from '../utils/formatters';
+import { fadeInUp, staggerContainer } from '../utils/animations';
+import type { ProductionFund as ProductionFundType } from '../types';
+
+interface ProductionFundProps {
+  productionFund: ProductionFundType | undefined;
+  onFundPool: (amount: string) => void;
+  isPending: boolean;
+  dynamicColor: string;
+}
+
+export default function ProductionFund({
+  productionFund,
+  onFundPool,
+  isPending,
+  dynamicColor
+}: ProductionFundProps) {
+  const [fundAmount, setFundAmount] = useState('');
+
+  const handleFund = () => {
+    if (!fundAmount || parseFloat(fundAmount) <= 0) return;
+    onFundPool(fundAmount);
+    setFundAmount('');
+  };
+
+  const isValidAmount = fundAmount && parseFloat(fundAmount) > 0;
+
+  return (
+    <motion.div
+      variants={staggerContainer}
+      initial="hidden"
+      animate="visible"
+      className="glass-card p-6 sm:p-8 rounded-3xl border border-white/10 space-y-8"
+    >
+      {/* Header */}
+      <div>
+        <h2 className="text-3xl sm:text-4xl font-black mb-2 text-gradient">
+          Production Fund
+        </h2>
+        <p className="text-sm text-gray-400">
+          Fund the production pool to generate yields for all reputation holders
+        </p>
+      </div>
+
+      {/* Fund Stats */}
+      <motion.div variants={fadeInUp} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <motion.div 
+          whileHover={{ scale: 1.02, y: -4 }}
+          className="p-6 bg-background-elevated rounded-2xl border border-white/10 relative overflow-hidden group"
+        >
+          <div className="relative z-10">
+            <div className="flex items-center gap-3 mb-4">
+              <div
+                className="w-14 h-14 rounded-xl flex items-center justify-center transition-all group-hover:scale-110"
+                style={{
+                  background: `${dynamicColor}20`,
+                  boxShadow: `0 0 20px ${dynamicColor}20`
+                }}
+              >
+                <Droplets size={28} style={{ color: dynamicColor }} />
+              </div>
+              <div>
+                <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Fund Balance</div>
+                <div className="text-3xl font-black" style={{ color: dynamicColor }}>
+                  {productionFund ? formatTokenAmount(formatEther(productionFund.balance)) : '0'}
+                </div>
+              </div>
+            </div>
+            <div className="text-xs text-gray-600">Available for distribution</div>
+          </div>
+          
+          <motion.div
+            className="absolute -bottom-10 -right-10 w-32 h-32 rounded-full blur-3xl opacity-0 group-hover:opacity-20"
+            style={{ background: dynamicColor }}
+          />
+        </motion.div>
+
+        <motion.div 
+          whileHover={{ scale: 1.02, y: -4 }}
+          className="p-6 bg-background-elevated rounded-2xl border border-white/10 relative overflow-hidden group"
+        >
+          <div className="relative z-10">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-accent-cyan/20 transition-all group-hover:scale-110">
+                <Users size={28} className="text-accent-cyan" />
+              </div>
+              <div>
+                <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Total Reputation</div>
+                <div className="text-3xl font-black text-accent-cyan">
+                  {productionFund ? formatTokenAmount(formatEther(productionFund.totalReputation)) : '0'}
+                </div>
+              </div>
+            </div>
+            <div className="text-xs text-gray-600">System-wide reputation</div>
+          </div>
+          
+          <motion.div
+            className="absolute -bottom-10 -right-10 w-32 h-32 rounded-full bg-accent-cyan blur-3xl opacity-0 group-hover:opacity-20"
+          />
+        </motion.div>
+
+        <motion.div 
+          whileHover={{ scale: 1.02, y: -4 }}
+          className="p-6 bg-background-elevated rounded-2xl border border-white/10 relative overflow-hidden group"
+        >
+          <div className="relative z-10">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-accent-emerald/20 transition-all group-hover:scale-110">
+                <TrendingUp size={28} className="text-accent-emerald" />
+              </div>
+              <div>
+                <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">APR</div>
+                <div className="text-3xl font-black text-accent-emerald">6.182%</div>
+              </div>
+            </div>
+            <div className="text-xs text-gray-600">Annual percentage rate</div>
+          </div>
+          
+          <motion.div
+            className="absolute -bottom-10 -right-10 w-32 h-32 rounded-full bg-accent-emerald blur-3xl opacity-0 group-hover:opacity-20"
+          />
+        </motion.div>
+      </motion.div>
+
+      {/* Info Box */}
+      <motion.div
+        variants={fadeInUp}
+        className="p-6 bg-accent-cyan/10 border border-accent-cyan/30 rounded-2xl"
+      >
+        <div className="flex items-start gap-3">
+          <Info size={20} className="text-accent-cyan flex-shrink-0 mt-1" />
+          <div className="text-sm text-accent-cyan/90">
+            <p className="font-bold mb-3 flex items-center gap-2">
+              <Sparkles size={16} />
+              How Production Fund Works
+            </p>
+            <ul className="space-y-2 list-disc list-inside text-accent-cyan/80">
+              <li>Funding increases the total yield pool for all participants</li>
+              <li>Yields are distributed proportionally based on reputation</li>
+              <li>The fund generates 6.182% APR continuously (Fibonacci-aligned)</li>
+              <li>Higher reputation = larger share of generated yields</li>
+            </ul>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Fund Input */}
+      <motion.div variants={fadeInUp} className="space-y-4">
+        <label className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+          <Droplets size={14} />
+          Fund Amount (CRIKZ)
+        </label>
+
+        <div className="relative group">
+          <input
+            type="text"
+            value={fundAmount}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                setFundAmount(val);
+              }
+            }}
+            placeholder="0.00"
+            className="w-full bg-background-surface border-2 transition-all rounded-2xl px-6 py-5 text-4xl font-black focus:outline-none"
+            style={{
+              borderColor: fundAmount ? `${dynamicColor}60` : 'rgba(255, 255, 255, 0.1)',
+              color: isValidAmount ? dynamicColor : fundAmount ? '#EF4444' : '#666',
+              boxShadow: fundAmount ? `0 0 40px ${dynamicColor}20` : 'none'
+            }}
+          />
+          <div className="absolute right-6 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-bold">
+            CRIKZ
+          </div>
+
+          {fundAmount && !isValidAmount && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="absolute -bottom-6 left-0 flex items-center gap-2 text-xs text-error"
+            >
+              <AlertCircle size={12} />
+              <span>Invalid amount</span>
+            </motion.div>
+          )}
+        </div>
+
+        <motion.button
+          onClick={handleFund}
+          disabled={!isValidAmount || isPending}
+          whileHover={isValidAmount ? { scale: 1.02 } : {}}
+          whileTap={isValidAmount ? { scale: 0.98 } : {}}
+          className="w-full py-6 rounded-2xl font-black text-xl disabled:opacity-30 disabled:cursor-not-allowed transition-all relative overflow-hidden group"
+          style={{
+            background: isValidAmount
+              ? `linear-gradient(135deg, ${dynamicColor} 0%, ${dynamicColor}CC 100%)`
+              : '#333',
+            color: isValidAmount ? '#000' : '#666',
+            boxShadow: isValidAmount ? `0 10px 40px ${dynamicColor}40` : 'none'
+          }}
+        >
+          <span className="relative z-10 flex items-center justify-center gap-2">
+            {isPending ? (
+              <>
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                >
+                  <Droplets size={20} />
+                </motion.div>
+                PROCESSING...
+              </>
+            ) : (
+              <>
+                <Sparkles size={20} />
+                FUND PRODUCTION POOL
+              </>
+            )}
+          </span>
+
+          {isValidAmount && !isPending && (
+            <motion.div
+              className="absolute inset-0 opacity-0 group-hover:opacity-30"
+              animate={{
+                x: ['-200%', '200%']
+              }}
+              transition={{
+                duration: 1.5,
+                repeat: Infinity,
+                ease: 'linear'
+              }}
+              style={{
+                background: 'linear-gradient(90deg, transparent, white, transparent)'
+              }}
+            />
+          )}
+        </motion.button>
+      </motion.div>
+    </motion.div>
+  );
+}
+================================================================================
+FILE: ./src/components/LoadingSpinner.tsx
+================================================================================
+// src/components/LoadingSpinner.tsx
+import React from 'react';
+import { motion } from 'framer-motion';
+
+interface LoadingSpinnerProps {
+  color?: string;
+  size?: number;
+}
+
+export default function LoadingSpinner({ color = '#FFA500', size = 40 }: LoadingSpinnerProps) {
+  return (
+    <div className="flex items-center justify-center">
+      <motion.div
+        className="rounded-full border-4 border-transparent"
+        style={{
+          width: size,
+          height: size,
+          borderTopColor: color,
+          borderRightColor: color,
+          boxShadow: `0 0 20px ${color}40`
+        }}
+        animate={{ rotate: 360 }}
+        transition={{
+          duration: 1,
+          repeat: Infinity,
+          ease: 'linear'
+        }}
+      />
+    </div>
+  );
+}
+================================================================================
+FILE: ./src/index.css
+================================================================================
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+/* In Tailwind v4, this one import replaces base, components, and utilities */
+@import "tailwindcss";
+
+@theme {
+  /* COLORS */
+  --color-primary-400: #38bdf8;
+  --color-primary-500: #0ea5e9;
+  --color-primary-600: #0284c7;
+  --color-accent-cyan: #22d3ee;
+  
+  /* Define 'background' so ring-offset-background works */
+  --color-background: #0A0A0F;
+  --color-background-surface: #1a1a24;
+  --color-background-hover: #252533;
+
+  /* SHADOWS */
+  --shadow-glow-sm: 0 0 15px -3px var(--color-primary-500), 0 0 6px -2px var(--color-primary-500);
+  --shadow-glow-md: 0 0 20px -5px var(--color-primary-500), 0 0 10px -3px var(--color-primary-500);
+  --shadow-glow-lg: 0 0 30px -10px var(--color-primary-500), 0 0 15px -5px var(--color-primary-500);
+
+  /* KEYFRAMES */
+  @keyframes shimmer {
+    from { background-position: 200% 0; }
+    to { background-position: -200% 0; }
+  }
+
+  /* ANIMATIONS */
+  --animate-shimmer: shimmer 2s infinite linear;
+}
+
+:root {
+  /* Custom Properties */
+  --glass-bg: rgba(26, 26, 36, 0.6);
+  --glass-border: rgba(255, 255, 255, 0.06);
+  --glass-highlight: rgba(255, 255, 255, 0.02);
+  
+  /* Fibonacci Golden Ratio */
+  --phi: 1.618;
+  --spacing-phi: calc(1rem * var(--phi));
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background: #0A0A0F;
+  color: #E5E7EB;
+  font-family: 'Inter', system-ui, sans-serif;
+  overflow-x: hidden;
+  
+  /* Subtle texture overlay */
+  background-image: 
+    radial-gradient(at 40% 20%, rgba(255, 165, 0, 0.05) 0px, transparent 50%),
+    radial-gradient(at 80% 0%, rgba(0, 212, 255, 0.05) 0px, transparent 50%),
+    radial-gradient(at 0% 50%, rgba(167, 139, 250, 0.05) 0px, transparent 50%),
+    url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.02'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* Enhanced Glass Morphism - REDUCED BLUR */
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px) saturate(180%);
+  -webkit-backdrop-filter: blur(10px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 var(--glass-highlight);
+  position: relative;
+  overflow: hidden;
+}
+
+.glass-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 165, 0, 0.1),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.glass-card:hover::before {
+  left: 100%;
+}
+
+/* Premium Button Styles */
+.btn-primary {
+  @apply relative overflow-hidden;
+  @apply bg-gradient-to-r from-primary-500 via-primary-600 to-primary-500;
+  @apply bg-[length:200%_100%] bg-left;
+  @apply text-black font-bold;
+  @apply transition-all duration-300;
+  @apply shadow-glow-sm hover:shadow-glow-md;
+}
+
+.btn-primary:hover {
+  @apply bg-right;
+  @apply scale-[1.02];
+}
+
+.btn-primary:active {
+  @apply scale-[0.98];
+}
+
+/* Fibonacci Progress Rings */
+.progress-ring {
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+}
+
+.progress-ring-circle {
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #12121A;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #FFA500, #FF8C00);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #FFB733, #FFA500);
+}
+
+/* Selection Styles */
+::selection {
+  background: rgba(255, 165, 0, 0.3);
+  color: #FFFFFF;
+}
+
+::-moz-selection {
+  background: rgba(255, 165, 0, 0.3);
+  color: #FFFFFF;
+}
+
+/* Typography Enhancements */
+h1, h2, h3, h4, h5, h6 {
+  letter-spacing: -0.02em;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+/* Utility Classes */
+.text-gradient {
+  @apply bg-clip-text text-transparent;
+  @apply bg-gradient-to-r from-primary-400 via-primary-500 to-accent-cyan;
+}
+
+.border-gradient {
+  border-image: linear-gradient(135deg, #FFA500, #00D4FF) 1;
+}
+
+/* Animations */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-20px); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s cubic-
+}
+
+/* Better scrollbar for compact view */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+/* Compact spacing utilities */
+@layer utilities {
+  .compact-spacing {
+    @apply space-y-4;
+  }
+  
+  .compact-padding {
+    @apply p-4 sm:p-6;
+  }
+}
+
+/* Improved glass effect for compact cards */
+.glass-card {
+  background: rgba(26, 26, 36, 0.7);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+}
+
+/* Better text truncation */
+.truncate-2-lines {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+================================================================================
+FILE: ./src/hooks/useContractData.ts
+================================================================================
+// src/hooks/useContractData.ts
+import { useEffect, useMemo } from 'react';
+import {
+  useReadContract,
+  useBlockNumber
+} from 'wagmi';
+import { CRIKZ_TOKEN_ADDRESS, CRIKZ_TOKEN_ABI, BASE_APR } from '../config';
+import { calculatePendingYield } from '../utils/calculations';
+import type { Order, ProductionFund } from '../types';
+
+export function useContractData(address: `0x${string}` | undefined, blockNumber: bigint | undefined) {
+  const isConnected = !!address;
+
+  // Balance
+  const { data: balance, refetch: refetchBalance } = useReadContract({
+    address: CRIKZ_TOKEN_ADDRESS,
+    abi: CRIKZ_TOKEN_ABI,
+    functionName: 'balanceOf',
+    args: [address || '0x0000000000000000000000000000000000000000'],
+    query: { enabled: isConnected }
+  });
+
+  // Allowance
+  const { data: allowance, refetch: refetchAllowance } = useReadContract({
+    address: CRIKZ_TOKEN_ADDRESS,
+    abi: CRIKZ_TOKEN_ABI,
+    functionName: 'allowance',
+    args: [address || '0x0000000000000000000000000000000000000000', CRIKZ_TOKEN_ADDRESS],
+    query: { enabled: isConnected }
+  });
+
+  // Active Orders
+  const { data: activeOrders, refetch: refetchOrders } = useReadContract({
+    address: CRIKZ_TOKEN_ADDRESS,
+    abi: CRIKZ_TOKEN_ABI,
+    functionName: 'getActiveOrders',
+    args: [address || '0x0000000000000000000000000000000000000000'],
+    query: { enabled: isConnected }
+  }) as { data: Order[] | undefined; refetch: () => void };
+
+  // Total Reputation
+  const { data: totalReputation, refetch: refetchReputation } = useReadContract({
+    address: CRIKZ_TOKEN_ADDRESS,
+    abi: CRIKZ_TOKEN_ABI,
+    functionName: 'totalCreatorReputation',
+    args: [address || '0x0000000000000000000000000000000000000000'],
+    query: { enabled: isConnected }
+  });
+
+  // Yield Debt
+  const { data: yieldDebt, refetch: refetchYieldDebt } = useReadContract({
+    address: CRIKZ_TOKEN_ADDRESS,
+    abi: CRIKZ_TOKEN_ABI,
+    functionName: 'creatorYieldDebt',
+    args: [address || '0x0000000000000000000000000000000000000000'],
+    query: { enabled: isConnected }
+  });
+
+  // Production Fund
+  const { data: productionFund, refetch: refetchFund } = useReadContract({
+    address: CRIKZ_TOKEN_ADDRESS,
+    abi: CRIKZ_TOKEN_ABI,
+    functionName: 'productionFund',
+    query: { enabled: true }
+  }) as { data: ProductionFund | undefined; refetch: () => void };
+
+  // Calculate pending yield
+  const pendingYield = useMemo(() => {
+    if (!totalReputation || !productionFund || !yieldDebt) return 0n;
+    return calculatePendingYield(
+      totalReputation as bigint,
+      productionFund.accumulatedYieldPerReputation,
+      yieldDebt as bigint
+    );
+  }, [totalReputation, productionFund, yieldDebt, blockNumber]);
+
+  // Current APR
+  const currentAPR = useMemo(() => {
+    if (!productionFund || productionFund.totalReputation === 0n) return 0;
+    return BASE_APR;
+  }, [productionFund]);
+
+  // Refetch on block change
+  useEffect(() => {
+    if (blockNumber) {
+      refetchOrders();
+      refetchFund();
+      refetchBalance();
+      refetchReputation();
+      refetchYieldDebt();
+    }
+  }, [blockNumber]);
+
+  const refetchAll = () => {
+    refetchBalance();
+    refetchAllowance();
+    refetchOrders();
+    refetchReputation();
+    refetchYieldDebt();
+    refetchFund();
+  };
+
+  return {
+    balance: balance as bigint | undefined,
+    allowance: allowance as bigint | undefined,
+    activeOrders,
+    totalReputation: totalReputation as bigint | undefined,
+    yieldDebt: yieldDebt as bigint | undefined,
+    productionFund,
+    pendingYield,
+    currentAPR,
+    refetchAll,
+    isLoading: false
+  };
+}
+================================================================================
+FILE: ./src/hooks/useContractWrite.ts
+================================================================================
+// src/hooks/useContractWrite.ts
+import { useState, useEffect } from 'react';
+import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { parseEther } from 'viem';
+import toast from 'react-hot-toast';
+import { CRIKZ_TOKEN_ADDRESS, CRIKZ_TOKEN_ABI } from '../config';
+
+export function useContractWrite(refetchAll: () => void) {
+  const [txStatus, setTxStatus] = useState<'idle' | 'pending' | 'success' | 'error'>('idle');
+  
+  const { writeContract, data: hash, isPending: isWritePending } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess: isConfirmed, isError } = useWaitForTransactionReceipt({ hash });
+
+  const isPending = isWritePending || isConfirming;
+
+  useEffect(() => {
+    if (isConfirmed) {
+      setTxStatus('success');
+      toast.success('Transaction successful!');
+      refetchAll();
+    }
+  }, [isConfirmed, refetchAll]);
+
+  useEffect(() => {
+    if (isError) {
+      setTxStatus('error');
+      toast.error('Transaction failed');
+    }
+  }, [isError]);
+
+  const createOrder = async (amount: string, orderType: number, allowance: bigint | undefined) => {
+    try {
+      const val = parseEther(amount || '0');
+      if (val === 0n) {
+        toast.error('Please enter an amount');
+        return;
+      }
+
+      if (!allowance || allowance < val) {
+        setTxStatus('pending');
+        writeContract({
+          address: CRIKZ_TOKEN_ADDRESS,
+          abi: CRIKZ_TOKEN_ABI,
+          functionName: 'approve',
+          args: [CRIKZ_TOKEN_ADDRESS, val]
+        });
+        toast.loading('Approving tokens...');
+      } else {
+        setTxStatus('pending');
+        writeContract({
+          address: CRIKZ_TOKEN_ADDRESS,
+          abi: CRIKZ_TOKEN_ABI,
+          functionName: 'createOrder',
+          args: [val, orderType]
+        });
+        toast.loading('Creating production order...');
+      }
+    } catch (error) {
+      toast.error('Invalid amount');
+      setTxStatus('error');
+    }
+  };
+
+  const completeOrder = async (index: number) => {
+    setTxStatus('pending');
+    writeContract({
+      address: CRIKZ_TOKEN_ADDRESS,
+      abi: CRIKZ_TOKEN_ABI,
+      functionName: 'completeOrder',
+      args: [BigInt(index)]
+    });
+    toast.loading('Completing order...');
+  };
+
+  const claimYield = async () => {
+    setTxStatus('pending');
+    writeContract({
+      address: CRIKZ_TOKEN_ADDRESS,
+      abi: CRIKZ_TOKEN_ABI,
+      functionName: 'claimYield'
+    });
+    toast.loading('Claiming yield...');
+  };
+
+  const fundPool = async (amount: string, allowance: bigint | undefined) => {
+    try {
+      const val = parseEther(amount || '0');
+      if (val === 0n) {
+        toast.error('Please enter an amount');
+        return;
+      }
+
+      if (!allowance || allowance < val) {
+        setTxStatus('pending');
+        writeContract({
+          address: CRIKZ_TOKEN_ADDRESS,
+          abi: CRIKZ_TOKEN_ABI,
+          functionName: 'approve',
+          args: [CRIKZ_TOKEN_ADDRESS, val]
+        });
+        toast.loading('Approving tokens...');
+      } else {
+        setTxStatus('pending');
+        writeContract({
+          address: CRIKZ_TOKEN_ADDRESS,
+          abi: CRIKZ_TOKEN_ABI,
+          functionName: 'fundProductionPool',
+          args: [val]
+        });
+        toast.loading('Funding production pool...');
+      }
+    } catch (error) {
+      toast.error('Invalid amount');
+      setTxStatus('error');
+    }
+  };
+
+  return {
+    createOrder,
+    completeOrder,
+    claimYield,
+    fundPool,
+    isPending,
+    txHash: hash,
+    txStatus
+  };
+}
+================================================================================
+FILE: ./src/hooks/useOrderCalculations.ts
+================================================================================
+// src/hooks/useOrderCalculations.ts
+import { useMemo } from 'react';
+import { calculateOrderReputation, calculateExpectedYield } from '../utils/calculations';
+import { ORDER_TYPES } from '../config';
+import type { ProductionFund } from '../types';
+
+export function useOrderCalculations(
+  amount: string,
+  selectedTier: number,
+  productionFund: ProductionFund | undefined
+) {
+  return useMemo(() => {
+    try {
+      const amountBigInt = BigInt(Math.floor(parseFloat(amount || '0') * 1e18));
+      
+      if (amountBigInt === 0n || !productionFund) {
+        return {
+          reputation: 0n,
+          expectedYield: 0n,
+          tierInfo: ORDER_TYPES[selectedTier]
+        };
+      }
+
+      const reputation = calculateOrderReputation(amountBigInt, selectedTier);
+      const expectedYield = calculateExpectedYield(
+        reputation,
+        productionFund.balance,
+        productionFund.totalReputation + reputation,
+        ORDER_TYPES[selectedTier].days
+      );
+
+      return {
+        reputation,
+        expectedYield,
+        tierInfo: ORDER_TYPES[selectedTier]
+      };
+    } catch {
+      return {
+        reputation: 0n,
+        expectedYield: 0n,
+        tierInfo: ORDER_TYPES[selectedTier]
+      };
+    }
+  }, [amount, selectedTier, productionFund]);
+}
+================================================================================
+FILE: ./src/hooks/useTheme.ts
+================================================================================
+// src/hooks/useTheme.ts
+import { useState, useEffect } from 'react';
+
+export function useTheme() {
+  const [themeColor, setThemeColor] = useState('#00ff88');
+  const [gradientColors, setGradientColors] = useState({
+    from: '#00ff88',
+    to: '#00d4ff'
+  });
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const hue = (Date.now() / 50) % 360;
+      const color = `hsl(${hue}, 100%, 55%)`;
+      const secondaryHue = (hue + 60) % 360;
+      const secondaryColor = `hsl(${secondaryHue}, 100%, 55%)`;
+      
+      setThemeColor(color);
+      setGradientColors({
+        from: color,
+        to: secondaryColor
+      });
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  return { themeColor, gradientColors };
+}
+================================================================================
+FILE: ./src/App.tsx
+================================================================================
+// src/App.tsx
+import React, { useState, useEffect } from 'react';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { useAccount, useBlockNumber } from 'wagmi';
+import { Toaster } from 'react-hot-toast';
+import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
+
+// Components
+import Hero from './components/Hero';
+import StatsPanel from './components/StatsPanel';
+import OrderCreation from './components/OrderCreation';
+import ActiveOrders from './components/ActiveOrders';
+import ProductionFund from './components/ProductionFund';
+import Analytics from './components/Analytics';
+import BackgroundEffects from './components/BackgroundEffects';
+import NavigationTabs from './components/NavigationTabs';
+import TransactionModal from './components/TransactionModal';
+import Footer from './components/Footer';
+
+// Hooks
+import { useContractData } from './hooks/useContractData';
+import { useContractWrite } from './hooks/useContractWrite';
+
+// Types
+import type { TabType } from './types';
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState<TabType>('create');
+  const { address, isConnected } = useAccount();
+  const { data: blockNumber } = useBlockNumber({ watch: true });
+  
+  const { scrollYProgress } = useScroll();
+  const headerOpacity = useTransform(scrollYProgress, [0, 0.2], [1, 0.98]);
+
+  // Contract data
+  const {
+    balance,
+    allowance,
+    activeOrders,
+    totalReputation,
+    pendingYield,
+    productionFund,
+    currentAPR,
+    refetchAll,
+    isLoading
+  } = useContractData(address, blockNumber);
+
+  // Contract interactions
+  const {
+    createOrder,
+    completeOrder,
+    claimYield,
+    fundPool,
+    isPending,
+    txHash,
+    txStatus
+  } = useContractWrite(refetchAll);
+
+  // Theme color animation
+  const [themeHue, setThemeHue] = useState(38);
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setThemeHue((prev) => (prev + 0.5) % 360);
+    }, 100);
+    return () => clearInterval(interval);
+  }, []);
+
+  const dynamicColor = `hsl(${themeHue}, 100%, 50%)`;
+
+  return (
+    <div className="min-h-screen bg-background text-gray-100 selection:bg-primary-500/30 selection:text-white">
+      {/* Toast Notifications */}
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          className: 'glass-card',
+          style: {
+            background: 'rgba(26, 26, 36, 0.95)',
+            color: '#E5E7EB',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            backdropFilter: 'blur(16px)',
+            padding: '16px',
+            borderRadius: '16px',
+          },
+          success: {
+            iconTheme: {
+              primary: '#10B981',
+              secondary: '#000',
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: '#EF4444',
+              secondary: '#000',
+            },
+          },
+        }}
+      />
+
+      {/* Background Effects */}
+      <BackgroundEffects />
+
+      {/* Compact Header */}
+      <motion.header 
+        className="sticky top-3 z-50 px-4"
+        style={{ opacity: headerOpacity }}
+      >
+        <div className="max-w-7xl mx-auto">
+          <motion.div 
+            initial={{ y: -50, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.5 }}
+            className="glass-card px-4 py-3 rounded-xl border border-white/10"
+          >
+            <div className="flex justify-between items-center gap-4">
+              {/* Compact Logo */}
+              <div className="flex items-center gap-3">
+                <motion.div
+                  whileHover={{ rotate: 180 }}
+                  transition={{ duration: 0.6 }}
+                  className="w-10 h-10 rounded-lg flex items-center justify-center"
+                  style={{
+                    background: `linear-gradient(135deg, ${dynamicColor}40 0%, ${dynamicColor}10 100%)`
+                  }}
+                >
+                  <span className="text-xl font-black">Φ</span>
+                </motion.div>
+
+                <div className="hidden sm:block">
+                  <h1 className="text-lg font-black tracking-tighter leading-none">
+                    <span className="text-gradient">CRIKZ</span>
+                    <span className="text-primary-500 ml-1.5">PROTOCOL</span>
+                  </h1>
+                </div>
+              </div>
+
+              {/* Network Info & Connect Button */}
+              <div className="flex items-center gap-4">
+                {isConnected && blockNumber && (
+                  <div className="hidden md:flex items-center gap-2 text-xs">
+                    <div className="w-1.5 h-1.5 rounded-full bg-accent-emerald animate-pulse-glow" />
+                    <span className="text-gray-500 font-mono">
+                      Block: <span className="text-accent-cyan">{blockNumber.toString()}</span>
+                    </span>
+                  </div>
+                )}
+                
+                <ConnectButton
+                  chainStatus="icon"
+                  showBalance={{
+                    smallScreen: false,
+                    largeScreen: true,
+                  }}
+                />
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </motion.header>
+
+      {/* Main Content - Better Spacing */}
+      <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+        <AnimatePresence mode="wait">
+          {!isConnected ? (
+            <Hero key="hero" dynamicColor={dynamicColor} />
+          ) : (
+            <motion.div
+              key="connected"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.5 }}
+              className="space-y-6"
+            >
+              {/* Compact Stats Panel */}
+              <section>
+                <StatsPanel
+                  balance={balance}
+                  totalReputation={totalReputation}
+                  pendingYield={pendingYield}
+                  activeOrdersCount={activeOrders?.length || 0}
+                  currentAPR={currentAPR}
+                  onClaimYield={claimYield}
+                  isPending={isPending}
+                  dynamicColor={dynamicColor}
+                  isLoading={isLoading}
+                />
+              </section>
+
+              {/* Navigation & Content */}
+              <section className="space-y-4">
+                <NavigationTabs
+                  activeTab={activeTab}
+                  setActiveTab={setActiveTab}
+                  dynamicColor={dynamicColor}
+                />
+
+                <AnimatePresence mode="wait">
+                  {activeTab === 'create' && (
+                    <OrderCreation
+                      key="create"
+                      balance={balance}
+                      productionFund={productionFund}
+                      onCreateOrder={(amount, orderType) => createOrder(amount, orderType, allowance)}
+                      isPending={isPending}
+                      dynamicColor={dynamicColor}
+                    />
+                  )}
+
+                  {activeTab === 'orders' && (
+                    <ActiveOrders
+                      key="orders"
+                      orders={activeOrders}
+                      onCompleteOrder={completeOrder}
+                      isPending={isPending}
+                      dynamicColor={dynamicColor}
+                      isLoading={isLoading}
+                    />
+                  )}
+
+                  {activeTab === 'fund' && (
+                    <ProductionFund
+                      key="fund"
+                      productionFund={productionFund}
+                      onFundPool={(amount) => fundPool(amount, allowance)}
+                      isPending={isPending}
+                      dynamicColor={dynamicColor}
+                    />
+                  )}
+
+                  {activeTab === 'analytics' && (
+                    <Analytics
+                      key="analytics"
+                      orders={activeOrders}
+                      totalReputation={totalReputation}
+                      productionFund={productionFund}
+                      currentAPR={currentAPR}
+                      dynamicColor={dynamicColor}
+                    />
+                  )}
+                </AnimatePresence>
+              </section>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </main>
+
+      {/* Compact Footer */}
+      <Footer dynamicColor={dynamicColor} />
+
+      {/* Transaction Modal */}
+      <TransactionModal
+        isOpen={isPending}
+        txHash={txHash}
+        status={txStatus}
+        dynamicColor={dynamicColor}
+      />
+    </div>
+  );
+}
+================================================================================
+FILE: ./tailwind.config.cjs
+================================================================================
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
+  theme: {
+    extend: {
+      colors: {
+        // Sophisticated Dark Palette
+        background: {
+          DEFAULT: '#0A0A0F',
+          elevated: '#12121A',
+          surface: '#1A1A24',
+          hover: '#22222E',
+        },
+        
+        // Fibonacci-Inspired Brand Colors
+        primary: {
+          50: '#FFF7E6',
+          100: '#FFE9B8',
+          200: '#FFD88A',
+          300: '#FFC75C',
+          400: '#FFB62E',
+          500: '#FFA500', // Golden Orange
+          600: '#E69400',
+          700: '#CC8300',
+          800: '#B37200',
+          900: '#996100',
+        },
+        
+        accent: {
+          cyan: '#00D4FF',
+          purple: '#A78BFA',
+          emerald: '#10B981',
+          amber: '#F59E0B',
+          rose: '#FB7185',
+        },
+        
+        // Semantic Colors
+        success: '#10B981',
+        warning: '#F59E0B',
+        error: '#EF4444',
+        info: '#3B82F6',
+      },
+      
+      fontFamily: {
+        sans: ['Inter Variable', 'Inter', 'system-ui', 'sans-serif'],
+        mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
+        display: ['Cal Sans', 'Inter', 'sans-serif'],
+      },
+      
+      fontSize: {
+        'display-2xl': ['4.5rem', { lineHeight: '1', letterSpacing: '-0.02em' }],
+        'display-xl': ['3.75rem', { lineHeight: '1', letterSpacing: '-0.02em' }],
+        'display-lg': ['3rem', { lineHeight: '1.1', letterSpacing: '-0.02em' }],
+      },
+      
+      boxShadow: {
+        'glow-sm': '0 0 20px rgba(255, 165, 0, 0.15)',
+        'glow-md': '0 0 40px rgba(255, 165, 0, 0.2)',
+        'glow-lg': '0 0 60px rgba(255, 165, 0, 0.25)',
+        'inner-glow': 'inset 0 0 20px rgba(255, 165, 0, 0.1)',
+        'elevation-1': '0 2px 8px rgba(0, 0, 0, 0.4)',
+        'elevation-2': '0 4px 16px rgba(0, 0, 0, 0.5)',
+        'elevation-3': '0 8px 32px rgba(0, 0, 0, 0.6)',
+      },
+      
+      backgroundImage: {
+        'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
+        'gradient-conic': 'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
+        'mesh-gradient': 'radial-gradient(at 40% 20%, hsla(28,100%,74%,0.3) 0px, transparent 50%), radial-gradient(at 80% 0%, hsla(189,100%,56%,0.3) 0px, transparent 50%), radial-gradient(at 0% 50%, hsla(355,100%,93%,0.3) 0px, transparent 50%)',
+      },
+      
+      animation: {
+        'float': 'float 6s ease-in-out infinite',
+        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'glow': 'glow 2s ease-in-out infinite alternate',
+        'shimmer': 'shimmer 2s linear infinite',
+        'gradient': 'gradient 8s linear infinite',
+      },
+      
+      keyframes: {
+        float: {
+          '0%, 100%': { transform: 'translateY(0px)' },
+          '50%': { transform: 'translateY(-20px)' },
+        },
+        glow: {
+          'from': { boxShadow: '0 0 20px rgba(255, 165, 0, 0.5)' },
+          'to': { boxShadow: '0 0 40px rgba(255, 165, 0, 0.8)' },
+        },
+        shimmer: {
+          '0%': { backgroundPosition: '-1000px 0' },
+          '100%': { backgroundPosition: '1000px 0' },
+        },
+        gradient: {
+          '0%, 100%': { backgroundPosition: '0% 50%' },
+          '50%': { backgroundPosition: '100% 50%' },
+        },
+      },
+      
+      backdropBlur: {
+        xs: '2px',
+      },
+    },
+  },
+  plugins: [],
+}
+================================================================================
+FILE: ./export-project.sh
+================================================================================
+#!/bin/bash
+
+OUTPUT_FILE="project-export.txt"
+
+echo "# PROJECT STRUCTURE" > "$OUTPUT_FILE"
+echo "" >> "$OUTPUT_FILE"
+
+tree -I 'node_modules|.git|dist|build|coverage|.next|.cache|artifacts|*.log' >> "$OUTPUT_FILE" 2>/dev/null || find . -not -path '*/node_modules/*' -not -path '*/.git/*' -not -path '*/dist/*' -not -path '*/build/*' >> "$OUTPUT_FILE"
+
+echo -e "\n\n================================================================================\n# FILE CONTENTS\n================================================================================\n" >> "$OUTPUT_FILE"
+
+find . -type f \
+  -not -path '*/node_modules/*' \
+  -not -path '*/.git/*' \
+  -not -path '*/dist/*' \
+  -not -path '*/build/*' \
+  -not -path '*/coverage/*' \
+  -not -path '*/.next/*' \
+  -not -path '*/artifacts/*' \
+  -not -path '*/*.log' \
+  -not -name 'package-lock.json' \
+  -not -name 'yarn.lock' \
+  | while read file; do
+    echo -e "\n================================================================================\nFILE: $file\n================================================================================" >> "$OUTPUT_FILE"
+    cat "$file" >> "$OUTPUT_FILE" 2>/dev/null || echo "[Binary or unreadable file]" >> "$OUTPUT_FILE"
+done
+
+echo "✅ Project exported to $OUTPUT_FILE"
+================================================================================
+FILE: ./package.json
+================================================================================
+{
+  "name": "crikz-protocol-dapp",
+  "version": "1.0.0",
+  "description": "Crikz Protocol - Fibonacci-based Production Order System",
+  "type": "module",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "node": "hardhat node",
+    "deploy:localhost": "hardhat run scripts/deploy.js --network localhost",
+    "deploy:testnet": "hardhat run scripts/deploy.js --network bscTestnet",
+    "deploy:mainnet": "hardhat run scripts/deploy.js --network bscMainnet",
+    "test": "hardhat test",
+    "test:coverage": "hardhat coverage",
+    "compile": "hardhat compile",
+    "verify:testnet": "hardhat verify --network bscTestnet",
+    "clean": "hardhat clean && rm -rf dist cache artifacts",
+    "setup": "npm install && npm run compile"
+  },
+  "dependencies": {
+    "@rainbow-me/rainbowkit": "^2.2.10",
+    "@tanstack/react-query": "^5.90.12",
+    "clsx": "^2.1.1",
+    "framer-motion": "^12.23.26",
+    "lucide-react": "^0.562.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "react-hot-toast": "^2.6.0",
+    "tailwind-merge": "^3.4.0",
+    "viem": "^2.43.2",
+    "wagmi": "^3.1.0"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-chai-matchers": "^2.1.0",
+    "@nomicfoundation/hardhat-ethers": "^4.0.3",
+    "@nomicfoundation/hardhat-network-helpers": "^3.0.3",
+    "@nomicfoundation/hardhat-toolbox": "^6.1.0",
+    "@nomicfoundation/hardhat-verify": "^3.0.8",
+    "@openzeppelin/contracts": "^5.4.0",
+    "@tailwindcss/postcss": "^4.1.18",
+    "@typechain/ethers-v6": "^0.5.1",
+    "@typechain/hardhat": "^9.1.0",
+    "@types/chai": "^5.2.3",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^25.0.3",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.2",
+    "autoprefixer": "^10.4.23",
+    "chai": "^6.2.1",
+    "daisyui": "^5.5.14",
+    "dotenv": "^17.2.3",
+    "ethers": "^6.16.0",
+    "hardhat": "^3.1.0",
+    "hardhat-gas-reporter": "^2.3.0",
+    "postcss": "^8.5.6",
+    "solidity-coverage": "^0.8.17",
+    "tailwindcss": "^4.1.18",
+    "typechain": "^8.3.2",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.0",
+    "vite-plugin-node-polyfills": "^0.24.0"
+  }
+}
+================================================================================
+FILE: ./contracts/libraries/ProductionDistributor.sol
+================================================================================
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.28;
+
+import "./CrikzMath.sol";
+
+library ProductionDistributor {
+    struct ProductionFund {
+        uint256 balance;
+        uint256 totalReputation;
+        uint256 accumulatedYieldPerReputation;
+        uint256 lastUpdateTime;
+    }
+
+    error NoProductsToClaim();
+
+    function updateFund(ProductionFund storage fund, uint256 currentTime) internal {
+        if (fund.totalReputation == 0 || fund.balance == 0) {
+            fund.lastUpdateTime = currentTime;
+            return;
+        }
+
+        uint256 timePassed = currentTime - fund.lastUpdateTime;
+        if (timePassed == 0) return;
+
+        // Yield calculation aligned with 6.182% APR test
+        // APR = (YieldPerSec * SecondsPerYear) / Principal
+        uint256 yieldGenerated = (fund.balance * timePassed * 6182) / (100000 * 365 days);
+        
+        fund.accumulatedYieldPerReputation += (yieldGenerated * CrikzMath.WAD) / fund.totalReputation;
+        fund.lastUpdateTime = currentTime;
+    }
+}
+================================================================================
+FILE: ./contracts/libraries/OrderTypes.sol
+================================================================================
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.28;
+
+library OrderTypes {
+    struct OrderType {
+        uint256 lockDuration;          // Lock period in seconds
+        uint256 reputationMultiplier;  // Multiplier with 18 decimals (e.g., 1.001 = 1001 * 10^15)
+        string name;                   // Human-readable tier name
+    }
+
+    uint8 public constant MAX_ORDER_TYPE = 6;
+
+    /**
+     * @notice Initializes order types with Fibonacci-based lock durations
+     * @dev Lock durations follow Fibonacci sequence: 5, 13, 34, 89, 233, 610, 1597 days
+     * @dev Reputation multipliers scale with golden ratio principles
+     * @return types Array of 7 order types with increasing commitment levels
+     */
+    function initializeOrderTypes() internal pure returns (OrderType[7] memory) {
+        OrderType[7] memory types;
+        
+        types[0] = OrderType({
+            lockDuration: 5 days,                // 5 days (Fibonacci)
+            reputationMultiplier: 618 * 10**15,  // 0.618x (Golden Ratio φ - 1)
+            name: "Prototype"
+        });
+        
+        types[1] = OrderType({
+            lockDuration: 13 days,               // 13 days (Fibonacci)
+            reputationMultiplier: 787 * 10**15,  // 0.787x (√φ)
+            name: "Small Batch"
+        });
+        
+        types[2] = OrderType({
+            lockDuration: 34 days,               // 34 days (Fibonacci)
+            reputationMultiplier: 1001 * 10**15, // 1.001x (Just over parity)
+            name: "Standard Run"
+        });
+        
+        types[3] = OrderType({
+            lockDuration: 89 days,               // 89 days (Fibonacci)
+            reputationMultiplier: 1273 * 10**15, // 1.273x (Fibonacci ratio)
+            name: "Mass Production"
+        });
+        
+        types[4] = OrderType({
+            lockDuration: 233 days,              // 233 days (Fibonacci)
+            reputationMultiplier: 1619 * 10**15, // 1.619x (Close to φ)
+            name: "Industrial"
+        });
+        
+        types[5] = OrderType({
+            lockDuration: 610 days,              // 610 days (Fibonacci)
+            reputationMultiplier: 2059 * 10**15, // 2.059x (φ²/√2)
+            name: "Global Scale"
+        });
+        
+        types[6] = OrderType({
+            lockDuration: 1597 days,             // 1597 days (Fibonacci)
+            reputationMultiplier: 2618 * 10**15, // 2.618x (φ²)
+            name: "Monopoly"
+        });
+        
+        return types;
+    }
+
+    /**
+     * @notice Gets a specific order type by index
+     * @dev Helper function to retrieve order type details
+     * @param index The tier index (0-6)
+     * @return OrderType struct for the specified tier
+     */
+    function getOrderType(uint8 index) internal pure returns (OrderType memory) {
+        require(index <= MAX_ORDER_TYPE, "Invalid order type");
+        OrderType[7] memory types = initializeOrderTypes();
+        return types[index];
+    }
+
+    /**
+     * @notice Calculates reputation for a given amount and tier
+     * @dev Uses the tier's reputation multiplier (18 decimals precision)
+     * @param amount The staking amount in wei
+     * @param orderTypeIndex The tier index (0-6)
+     * @return reputation The calculated reputation value
+     */
+    function calculateReputation(uint256 amount, uint8 orderTypeIndex) internal pure returns (uint256) {
+        require(orderTypeIndex <= MAX_ORDER_TYPE, "Invalid order type");
+        OrderType memory orderType = getOrderType(orderTypeIndex);
+        
+        // Formula: reputation = (amount * multiplier) / 10^18
+        // Example: 1000 tokens * 1.001 = (1000 * 10^18 * 1001 * 10^15) / 10^18 = 1001 * 10^18
+        return (amount * orderType.reputationMultiplier) / 1e18;
+    }
+
+    /**
+     * @notice Returns lock duration for a specific tier
+     * @param orderTypeIndex The tier index (0-6)
+     * @return duration Lock duration in seconds
+     */
+    function getLockDuration(uint8 orderTypeIndex) internal pure returns (uint256) {
+        require(orderTypeIndex <= MAX_ORDER_TYPE, "Invalid order type");
+        OrderType memory orderType = getOrderType(orderTypeIndex);
+        return orderType.lockDuration;
+    }
+
+    /**
+     * @notice Returns human-readable name for a tier
+     * @param orderTypeIndex The tier index (0-6)
+     * @return name The tier name
+     */
+    function getTierName(uint8 orderTypeIndex) internal pure returns (string memory) {
+        require(orderTypeIndex <= MAX_ORDER_TYPE, "Invalid order type");
+        OrderType memory orderType = getOrderType(orderTypeIndex);
+        return orderType.name;
+    }
+}
+================================================================================
+FILE: ./contracts/libraries/CrikzMath.sol
+================================================================================
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.28;
+
+library CrikzMath {
+    uint256 public constant WAD = 1e18;
+    uint256 public constant MIN_ORDER_AMOUNT = 10 * 1e18;
+
+    function min(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a < b ? a : b;
+    }
+}
+================================================================================
+FILE: ./contracts/libraries/OrderManager.sol
+================================================================================
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.28;
+
+import "./OrderTypes.sol";
+
+library OrderManager {
+    struct Order {
+        uint256 amount;        // Staked amount in wei
+        uint256 reputation;    // Calculated reputation based on multiplier
+        uint8 orderType;       // Tier index (0-6)
+        uint256 startTime;     // Timestamp when order was created
+        uint256 duration;      // Lock duration in seconds
+    }
+
+    /**
+     * @notice Creates a new order with reputation calculated from tier multiplier
+     * @dev Uses OrderTypes library to get multiplier and calculate reputation
+     * @param amount The staking amount
+     * @param oType The order type index (0-6)
+     * @param info The OrderType struct containing duration and multiplier
+     * @param startTime The block timestamp when order is created
+     * @return Order struct with calculated reputation
+     */
+    function createOrder(
+        uint256 amount, 
+        uint8 oType, 
+        OrderTypes.OrderType memory info, 
+        uint256 startTime
+    ) internal pure returns (Order memory) {
+        // Calculate reputation using tier-specific multiplier
+        // Formula: reputation = (amount * multiplier) / 10^18
+        // Example Tier 2 (Standard Run): 1000 tokens * 1.001 = 1001 tokens reputation
+        uint256 reputation = (amount * info.reputationMultiplier) / 1e18;
+        
+        return Order({
+            amount: amount,
+            reputation: reputation,
+            orderType: oType,
+            startTime: startTime,
+            duration: info.lockDuration
+        });
+    }
+
+    /**
+     * @notice Removes an order using swap-and-pop for gas efficiency
+     * @dev Moves last element to deleted position, then pops
+     * @param orders Storage array of orders
+     * @param index Index of order to remove
+     */
+    function removeOrder(Order[] storage orders, uint256 index) internal {
+        require(index < orders.length, "Invalid index");
+        
+        // Swap with last element and pop (gas efficient)
+        orders[index] = orders[orders.length - 1];
+        orders.pop();
+    }
+
+    /**
+     * @notice Calculates time remaining until order unlock
+     * @param order The order to check
+     * @param currentTime The current block timestamp
+     * @return timeRemaining Seconds until unlock (0 if already unlocked)
+     */
+    function getTimeRemaining(Order memory order, uint256 currentTime) 
+        internal 
+        pure 
+        returns (uint256) 
+    {
+        uint256 unlockTime = order.startTime + order.duration;
+        
+        if (currentTime >= unlockTime) {
+            return 0;
+        }
+        
+        return unlockTime - currentTime;
+    }
+
+    /**
+     * @notice Checks if an order is unlocked
+     * @param order The order to check
+     * @param currentTime The current block timestamp
+     * @return bool True if order can be completed
+     */
+    function isUnlocked(Order memory order, uint256 currentTime) 
+        internal 
+        pure 
+        returns (bool) 
+    {
+        return currentTime >= order.startTime + order.duration;
+    }
+
+    /**
+     * @notice Gets the unlock timestamp for an order
+     * @param order The order to check
+     * @return unlockTime The timestamp when order can be completed
+     */
+    function getUnlockTime(Order memory order) internal pure returns (uint256) {
+        return order.startTime + order.duration;
+    }
+}
+================================================================================
+FILE: ./contracts/Crikz.sol
+================================================================================
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.28;
+
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts/metatx/ERC2771Context.sol";
+import "@openzeppelin/contracts/utils/Context.sol";
+
+import "./libraries/CrikzMath.sol";
+import "./libraries/OrderTypes.sol";
+import "./libraries/OrderManager.sol";      
+import "./libraries/ProductionDistributor.sol";
+
+contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
+    using CrikzMath for uint256;
+    using OrderManager for OrderManager.Order;
+
+    uint256 public constant INITIAL_SUPPLY = 1_000_000_000 * 10**18;
+    address public immutable PANCAKESWAP_V2_ROUTER;
+
+    address public lpPair;
+    OrderTypes.OrderType[7] public orderTypes;
+    ProductionDistributor.ProductionFund public productionFund;
+
+    mapping(address => OrderManager.Order[]) internal _activeOrders;
+    mapping(address => uint256) public totalCreatorReputation;
+    mapping(address => uint256) public creatorYieldDebt;
+
+    event LPPairSet(address indexed lpPairAddress, uint256 timestamp);
+    event OrderCreated(address indexed creator, uint256 amount, uint8 orderType, uint256 timestamp);
+    event OrderCompleted(address indexed creator, uint256 amount, uint8 orderType, uint256 timestamp);
+    event YieldClaimed(address indexed creator, uint256 amount, uint256 timestamp);
+
+    error InvalidAddress();
+    error InvalidAmount();
+    error InsufficientOrderType();
+    error InsufficientFundBalance();
+    error OrderStillLocked();
+    error InvalidOrderIndex();
+
+    constructor(address initialForwarder, address routerAddress) 
+        ERC20("Crikz Protocol Token", "CRKZ")
+        ERC2771Context(initialForwarder)
+        Ownable()
+    {
+        if (routerAddress == address(0)) revert InvalidAddress();
+        PANCAKESWAP_V2_ROUTER = routerAddress;
+        orderTypes = OrderTypes.initializeOrderTypes();
+        _mint(_msgSender(), INITIAL_SUPPLY);
+    }
+    
+    function pause() external onlyOwner { 
+        _pause();
+    }
+    
+    function unpause() external onlyOwner { 
+        _unpause();
+    }
+
+    function setLPPairAddress(address _lpPair) external onlyOwner {
+        if (_lpPair == address(0)) revert InvalidAddress();
+        lpPair = _lpPair;
+        emit LPPairSet(_lpPair, block.timestamp);
+    }
+
+    function setProductionFundForTest(uint256 _bal, uint256 _aypr, uint256 _lut, uint256 _tr) external onlyOwner {
+        productionFund.balance = _bal;
+        productionFund.accumulatedYieldPerReputation = _aypr;
+        productionFund.lastUpdateTime = _lut;
+        productionFund.totalReputation = _tr;
+    }
+
+    function createOrder(uint256 amount, uint8 orderType) external nonReentrant whenNotPaused {
+        if (amount == 0) revert InvalidAmount();
+        if (orderType > OrderTypes.MAX_ORDER_TYPE) revert InsufficientOrderType();
+
+        ProductionDistributor.updateFund(productionFund, block.timestamp);
+
+        address creator = _msgSender();
+        uint256 currentReputation = totalCreatorReputation[creator];
+        uint256 aypr = productionFund.accumulatedYieldPerReputation;
+        creatorYieldDebt[creator] += (currentReputation * aypr) / CrikzMath.WAD;
+
+        OrderTypes.OrderType memory typeInfo = orderTypes[orderType];
+        _transfer(creator, address(this), amount);
+        
+        OrderManager.Order memory newOrder = OrderManager.createOrder(
+            amount, 
+            orderType, 
+            typeInfo, 
+            block.timestamp
+        );
+        _activeOrders[creator].push(newOrder);
+        
+        uint256 newTotalReputation = currentReputation + newOrder.reputation;
+        productionFund.totalReputation += newOrder.reputation;
+        totalCreatorReputation[creator] = newTotalReputation;
+        
+        creatorYieldDebt[creator] = (newTotalReputation * aypr) / CrikzMath.WAD;
+        emit OrderCreated(creator, amount, orderType, block.timestamp);
+    }
+
+    function claimYield() external nonReentrant whenNotPaused {
+        ProductionDistributor.updateFund(productionFund, block.timestamp);
+        address creator = _msgSender();
+
+        uint256 aypr = productionFund.accumulatedYieldPerReputation;
+        uint256 reputation = totalCreatorReputation[creator];
+        uint256 totalProduct = (reputation * aypr) / CrikzMath.WAD;
+
+        if (totalProduct <= creatorYieldDebt[creator]) {
+            revert ProductionDistributor.NoProductsToClaim();
+        }
+        
+        uint256 pendingYield = totalProduct - creatorYieldDebt[creator];
+        
+        // Use Library for coverage
+        pendingYield = pendingYield.min(productionFund.balance);
+        
+        if (pendingYield == 0) revert InsufficientFundBalance();
+
+        creatorYieldDebt[creator] += pendingYield;
+        productionFund.balance -= pendingYield;
+
+        _transfer(address(this), creator, pendingYield);
+        emit YieldClaimed(creator, pendingYield, block.timestamp);
+    }
+
+    function completeOrder(uint256 index) external nonReentrant whenNotPaused {
+        OrderManager.Order[] storage orders = _activeOrders[_msgSender()];
+        if (index >= orders.length) revert InvalidOrderIndex();
+        
+        OrderManager.Order memory order = orders[index];
+        
+        // Use Library for coverage
+        if (!order.isUnlocked(block.timestamp)) {
+            revert OrderStillLocked();
+        }
+
+        ProductionDistributor.updateFund(productionFund, block.timestamp);
+
+        address creator = _msgSender();
+        uint256 currentRep = totalCreatorReputation[creator];
+        uint256 aypr = productionFund.accumulatedYieldPerReputation;
+        uint256 newRep = currentRep - order.reputation;
+
+        productionFund.totalReputation -= order.reputation;
+        totalCreatorReputation[creator] = newRep;
+        creatorYieldDebt[creator] = (newRep * aypr) / CrikzMath.WAD;
+
+        OrderManager.removeOrder(orders, index);
+        _transfer(address(this), creator, order.amount);
+        
+        emit OrderCompleted(creator, order.amount, order.orderType, block.timestamp);
+    }
+
+    function fundProductionPool(uint256 amount) external nonReentrant whenNotPaused {
+        _transfer(_msgSender(), address(this), amount);
+        ProductionDistributor.updateFund(productionFund, block.timestamp);
+        productionFund.balance += amount;
+    }
+
+    function getActiveOrders(address creator) external view returns (OrderManager.Order[] memory) {
+        return _activeOrders[creator];
+    }
+
+    function _transfer(address from, address to, uint256 amount) internal override(ERC20) {
+        super._transfer(from, to, amount);
+    }
+
+    function _msgSender() internal view override(Context, ERC2771Context) returns (address) {
+        return ERC2771Context._msgSender();
+    }
+
+    function _msgData() internal view override(Context, ERC2771Context) returns (bytes calldata) {
+        return ERC2771Context._msgData();
+    }
+
+    function _contextSuffixLength() internal view override(Context, ERC2771Context) returns (uint256) {
+        return ERC2771Context._contextSuffixLength();
+    }
+}
+================================================================================
+FILE: ./.env.local
+================================================================================
+# ====================
+# Crikz Protocol - UI Development Mode
+# ====================
+
+# Use BSC Testnet for wallet connection (no actual transactions)
+VITE_EXPECTED_CHAIN_ID=97
+
+# Placeholder addresses (won't be used for actual calls)
+VITE_CRIKZ_TOKEN_ADDRESS=0x0000000000000000000000000000000000000000
+VITE_PANCAKESWAP_ROUTER=0xD99D1c33F9fC3444f8101754aBC46c52416550D1
+VITE_TRUSTED_FORWARDER=0x0000000000000000000000000000000000000000
+
+# WalletConnect Project ID (this will work for wallet connection)
+VITE_WALLETCONNECT_PROJECT_ID=cdf8dadd25a1999d03bcb554e82147f8
+================================================================================
+FILE: ./vite.config.ts
+================================================================================
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import { nodePolyfills } from 'vite-plugin-node-polyfills'
+
+export default defineConfig({
+  plugins: [
+    react(),
+    nodePolyfills({
+      // Enable polyfills for Node.js built-ins
+      include: ['buffer', 'process'],
+      globals: {
+        Buffer: true,
+        global: true,
+        process: true,
+      },
+    }),
+  ],
+  resolve: {
+    alias: {
+      // Add any path aliases here if needed
+      '@': '/src',
+    },
+  },
+  define: {
+    // Polyfill for global process in browser
+    'process.env': {},
+  },
+  server: {
+    port: 3000,
+    open: true,
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          wagmi: ['wagmi', 'viem'],
+          rainbow: ['@rainbow-me/rainbowkit'],
+        },
+      },
+    },
+  },
+})
+================================================================================
+FILE: ./tsconfig.json
+================================================================================
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+
+    /* Path aliases */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src"],
+  "references": [{ "path": "./tsconfig.node.json" }]
+}
+================================================================================
+FILE: ./.gitignore
+================================================================================
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+.nyc_output
+
+# Production
+dist/
+build/
+
+# Environment
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Cache
+.cache/
+.parcel-cache/
+.eslintcache
+*.tsbuildinfo
+
+# Temporary
+*.tmp
+*.temp
+
+# Build outputs
+*.js.map
+*.css.map
+
+# Smart Contract Build Artifacts
+artifacts/
+cache/
+typechain/
+typechain-types/
+
+# Hardhat
+.hardhat/
+
+# Foundry
+out/
+cache_forge/
+
+# Private keys (NEVER COMMIT THESE)
+*.key
+.secret
+*.pem
+
+# WalletConnect
+.walletconnect/
+================================================================================
+FILE: ./postcss.config.cjs
+================================================================================
+// postcss.config.cjs
+module.exports = {
+  plugins: {
+    '@tailwindcss/postcss': {},
+    autoprefixer: {},
+  },
+}

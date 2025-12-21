@@ -1,88 +1,79 @@
 // src/components/Hero.tsx
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Activity, Zap, TrendingUp, Shield } from 'lucide-react';
+import {
+  Sparkles,
+  TrendingUp,
+  Shield,
+  Lock
+} from 'lucide-react';
 
 interface HeroProps {
-  themeColor: string;
+  dynamicColor: string;
 }
 
-export default function Hero({ themeColor }: HeroProps) {
+export default function Hero({ dynamicColor }: HeroProps) {
   const features = [
-    {
-      icon: Zap,
-      title: 'Fibonacci-Based Tiers',
-      description: '7 production tiers with golden ratio multipliers'
-    },
-    {
-      icon: TrendingUp,
-      title: '6.182% APR Yield',
-      description: 'Earn passive income on locked orders'
-    },
-    {
-      icon: Shield,
-      title: 'Reputation System',
-      description: 'Build reputation through production commitments'
-    },
-    {
-      icon: Activity,
-      title: 'Time-Locked Orders',
-      description: 'From 5 days to 1597 days lock periods'
-    }
+    { icon: Sparkles, title: 'Fibonacci Tiers', desc: '7 production levels', color: '#FFA500' },
+    { icon: TrendingUp, title: '6.182% APR', desc: 'Continuous yield', color: '#10B981' },
+    { icon: Shield, title: 'Reputation System', desc: 'Build influence', color: '#A78BFA' },
+    { icon: Lock, title: 'Time-Locked', desc: '5-1597 days', color: '#00D4FF' },
   ];
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="flex flex-col items-center justify-center min-h-[70vh] gap-8 text-center"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="relative flex flex-col items-center justify-center min-h-[75vh] gap-8 text-center py-12"
     >
-      {/* Main Logo */}
+      {/* Phi Symbol */}
       <motion.div
-        animate={{
-          rotate: [0, 360],
-          scale: [1, 1.1, 1]
+        initial={{ scale: 0, rotate: -180 }}
+        animate={{ scale: 1, rotate: 0 }}
+        transition={{ duration: 1, type: 'spring' }}
+        className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl flex items-center justify-center"
+        style={{
+          background: `linear-gradient(135deg, ${dynamicColor}30 0%, ${dynamicColor}10 100%)`,
+          boxShadow: `0 0 60px ${dynamicColor}30`
         }}
-        transition={{
-          duration: 20,
-          repeat: Infinity,
-          ease: "linear"
-        }}
-        className="relative"
       >
-        <div
-          className="w-32 h-32 rounded-full flex items-center justify-center text-6xl font-black"
-          style={{
-            background: `linear-gradient(135deg, ${themeColor}40 0%, ${themeColor}10 100%)`,
-            boxShadow: `0 0 60px ${themeColor}40, 0 0 120px ${themeColor}20`
-          }}
+        <motion.span
+          className="text-6xl sm:text-7xl font-black"
+          style={{ color: dynamicColor }}
+          animate={{ scale: [1, 1.05, 1] }}
+          transition={{ duration: 2, repeat: Infinity }}
         >
           Φ
-        </div>
+        </motion.span>
       </motion.div>
 
       {/* Heading */}
-      <div className="space-y-4 max-w-3xl">
-        <motion.h1
+      <div className="space-y-4 max-w-3xl px-4">
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="text-5xl md:text-7xl font-black tracking-tighter"
         >
-          CRIKZ
-          <span
-            style={{ color: themeColor }}
-            className="block md:inline md:ml-4"
-          >
-            PROTOCOL
-          </span>
-        </motion.h1>
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tighter mb-2">
+            <span className="text-gradient">CRIKZ</span>
+            <br />
+            <span className="text-primary-500">PROTOCOL</span>
+          </h1>
+          
+          <motion.div
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: 1 }}
+            transition={{ delay: 0.4, duration: 0.6 }}
+            className="h-1 w-24 mx-auto rounded-full"
+            style={{ background: dynamicColor }}
+          />
+        </motion.div>
 
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.4 }}
-          className="text-xl md:text-2xl text-gray-400 font-light"
+          className="text-lg sm:text-xl text-gray-400 font-light"
         >
           Fibonacci-Powered Production Order System
         </motion.p>
@@ -91,54 +82,39 @@ export default function Hero({ themeColor }: HeroProps) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.6 }}
-          className="text-sm text-gray-500 max-w-2xl mx-auto"
+          className="text-sm text-gray-500 max-w-xl mx-auto leading-relaxed"
         >
-          Lock tokens in production orders, earn reputation-based yields, and participate
-          in a mathematically elegant DeFi protocol built on golden ratio principles.
+          Lock tokens in production orders, earn reputation-based yields
         </motion.p>
       </div>
 
-      {/* Features Grid */}
+      {/* Feature Cards - Compact */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.8 }}
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full max-w-6xl mt-12"
+        className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 w-full max-w-4xl px-4"
       >
         {features.map((feature, index) => (
           <motion.div
             key={feature.title}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.8 + index * 0.1 }}
-            whileHover={{ scale: 1.05, y: -5 }}
-            className="glass-card p-6 rounded-2xl border border-white/10 backdrop-blur-xl"
-            style={{
-              background: 'rgba(255, 255, 255, 0.02)'
-            }}
+            transition={{ delay: 0.9 + index * 0.1 }}
+            whileHover={{ scale: 1.05, y: -4 }}
+            className="glass-card p-4 rounded-xl border border-white/10 group"
           >
-            <feature.icon
-              size={32}
-              className="mb-4 mx-auto"
-              style={{ color: themeColor }}
-            />
-            <h3 className="font-bold text-lg mb-2">{feature.title}</h3>
-            <p className="text-sm text-gray-400">{feature.description}</p>
+            <div
+              className="w-10 h-10 rounded-lg flex items-center justify-center mb-3 mx-auto group-hover:scale-110 transition-transform"
+              style={{ background: `${feature.color}20` }}
+            >
+              <feature.icon size={20} style={{ color: feature.color }} />
+            </div>
+            
+            <h3 className="font-bold text-sm mb-1">{feature.title}</h3>
+            <p className="text-xs text-gray-400">{feature.desc}</p>
           </motion.div>
         ))}
-      </motion.div>
-
-      {/* CTA */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 1.2 }}
-        className="mt-8"
-      >
-        <p className="text-gray-400 flex items-center gap-2 text-sm">
-          <Activity size={16} style={{ color: themeColor }} />
-          Connect your wallet to begin
-        </p>
       </motion.div>
     </motion.div>
   );

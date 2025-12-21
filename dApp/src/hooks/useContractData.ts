@@ -1,115 +1,109 @@
 // src/hooks/useContractData.ts
 import { useEffect, useMemo } from 'react';
-import {
-  useReadContract,
-  useBlockNumber
-} from 'wagmi';
+import { useReadContracts, useBlockNumber, useAccount } from 'wagmi';
 import { CRIKZ_TOKEN_ADDRESS, CRIKZ_TOKEN_ABI, BASE_APR } from '../config';
 import { calculatePendingYield } from '../utils/calculations';
 import type { Order, ProductionFund } from '../types';
 
-export function useContractData(address: `0x${string}` | undefined, blockNumber: bigint | undefined) {
+export function useContractData() {
+  const { address } = useAccount();
+  const { data: blockNumber } = useBlockNumber({ watch: true });
   const isConnected = !!address;
+  const targetAddress = address || '0x0000000000000000000000000000000000000000';
 
-  // Balance
-  const { data: balance, refetch: refetchBalance } = useReadContract({
-    address: CRIKZ_TOKEN_ADDRESS,
-    abi: CRIKZ_TOKEN_ABI,
-    functionName: 'balanceOf',
-    args: [address || '0x0000000000000000000000000000000000000000'],
-    query: { enabled: isConnected }
+  // ==================== MULTICALL FETCHING ====================
+  // We fetch all critical data in one batched RPC call for performance
+  const { 
+    data, 
+    refetch, 
+    isLoading: isReadLoading, 
+    isRefetching 
+  } = useReadContracts({
+    contracts: [
+      {
+        address: CRIKZ_TOKEN_ADDRESS,
+        abi: CRIKZ_TOKEN_ABI,
+        functionName: 'balanceOf',
+        args: [targetAddress],
+      },
+      {
+        address: CRIKZ_TOKEN_ADDRESS,
+        abi: CRIKZ_TOKEN_ABI,
+        functionName: 'allowance',
+        args: [targetAddress, CRIKZ_TOKEN_ADDRESS],
+      },
+      {
+        address: CRIKZ_TOKEN_ADDRESS,
+        abi: CRIKZ_TOKEN_ABI,
+        functionName: 'totalCreatorReputation',
+        args: [targetAddress],
+      },
+      {
+        address: CRIKZ_TOKEN_ADDRESS,
+        abi: CRIKZ_TOKEN_ABI,
+        functionName: 'creatorYieldDebt',
+        args: [targetAddress],
+      },
+      {
+        address: CRIKZ_TOKEN_ADDRESS,
+        abi: CRIKZ_TOKEN_ABI,
+        functionName: 'productionFund',
+      },
+      {
+        address: CRIKZ_TOKEN_ADDRESS,
+        abi: CRIKZ_TOKEN_ABI,
+        functionName: 'getActiveOrders',
+        args: [targetAddress],
+      },
+    ],
+    query: {
+      enabled: isConnected,
+      staleTime: 5000, // Data remains fresh for 5s
+    }
   });
 
-  // Allowance
-  const { data: allowance, refetch: refetchAllowance } = useReadContract({
-    address: CRIKZ_TOKEN_ADDRESS,
-    abi: CRIKZ_TOKEN_ABI,
-    functionName: 'allowance',
-    args: [address || '0x0000000000000000000000000000000000000000', CRIKZ_TOKEN_ADDRESS],
-    query: { enabled: isConnected }
-  });
+  // ==================== DATA PARSING ====================
+  const balance = data?.[0]?.result as bigint | undefined;
+  const allowance = data?.[1]?.result as bigint | undefined;
+  const totalReputation = data?.[2]?.result as bigint | undefined;
+  const yieldDebt = data?.[3]?.result as bigint | undefined;
+  const productionFund = data?.[4]?.result as ProductionFund | undefined;
+  const activeOrders = data?.[5]?.result as Order[] | undefined;
 
-  // Active Orders
-  const { data: activeOrders, refetch: refetchOrders } = useReadContract({
-    address: CRIKZ_TOKEN_ADDRESS,
-    abi: CRIKZ_TOKEN_ABI,
-    functionName: 'getActiveOrders',
-    args: [address || '0x0000000000000000000000000000000000000000'],
-    query: { enabled: isConnected }
-  }) as { data: Order[] | undefined; refetch: () => void };
-
-  // Total Reputation
-  const { data: totalReputation, refetch: refetchReputation } = useReadContract({
-    address: CRIKZ_TOKEN_ADDRESS,
-    abi: CRIKZ_TOKEN_ABI,
-    functionName: 'totalCreatorReputation',
-    args: [address || '0x0000000000000000000000000000000000000000'],
-    query: { enabled: isConnected }
-  });
-
-  // Yield Debt
-  const { data: yieldDebt, refetch: refetchYieldDebt } = useReadContract({
-    address: CRIKZ_TOKEN_ADDRESS,
-    abi: CRIKZ_TOKEN_ABI,
-    functionName: 'creatorYieldDebt',
-    args: [address || '0x0000000000000000000000000000000000000000'],
-    query: { enabled: isConnected }
-  });
-
-  // Production Fund
-  const { data: productionFund, refetch: refetchFund } = useReadContract({
-    address: CRIKZ_TOKEN_ADDRESS,
-    abi: CRIKZ_TOKEN_ABI,
-    functionName: 'productionFund',
-    query: { enabled: true }
-  }) as { data: ProductionFund | undefined; refetch: () => void };
-
-  // Calculate pending yield
+  // ==================== DERIVED STATE ====================
+  
   const pendingYield = useMemo(() => {
     if (!totalReputation || !productionFund || !yieldDebt) return 0n;
     return calculatePendingYield(
-      totalReputation as bigint,
+      totalReputation,
       productionFund.accumulatedYieldPerReputation,
-      yieldDebt as bigint
+      yieldDebt
     );
-  }, [totalReputation, productionFund, yieldDebt, blockNumber]);
+  }, [totalReputation, productionFund, yieldDebt]);
 
-  // Current APR
   const currentAPR = useMemo(() => {
     if (!productionFund || productionFund.totalReputation === 0n) return 0;
     return BASE_APR;
   }, [productionFund]);
 
-  // Refetch on block change
+  // Auto-refetch on new blocks
   useEffect(() => {
     if (blockNumber) {
-      refetchOrders();
-      refetchFund();
-      refetchBalance();
-      refetchReputation();
-      refetchYieldDebt();
+      refetch();
     }
-  }, [blockNumber]);
-
-  const refetchAll = () => {
-    refetchBalance();
-    refetchAllowance();
-    refetchOrders();
-    refetchReputation();
-    refetchYieldDebt();
-    refetchFund();
-  };
+  }, [blockNumber, refetch]);
 
   return {
-    balance: balance as bigint | undefined,
-    allowance: allowance as bigint | undefined,
+    balance,
+    allowance,
     activeOrders,
-    totalReputation: totalReputation as bigint | undefined,
-    yieldDebt: yieldDebt as bigint | undefined,
+    totalReputation,
+    yieldDebt,
     productionFund,
     pendingYield,
     currentAPR,
-    refetchAll,
-    isLoading: false
+    refetchAll: refetch,
+    isLoading: isReadLoading || isRefetching,
+    isConnected
   };
 }

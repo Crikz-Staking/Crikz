@@ -1,73 +1,153 @@
 // src/components/ActiveOrders.tsx
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Package } from 'lucide-react';
+import { Package, Filter } from 'lucide-react';
 import OrderCard from './OrderCard';
 import LoadingSpinner from './LoadingSpinner';
 import { fadeInUp, staggerContainer } from '../utils/animations';
-import type { Order } from '../types';interface ActiveOrdersProps {
-orders: Order[] | undefined;
-onCompleteOrder: (index: number) => void;
-isPending: boolean;
-themeColor: string;
-isLoading: boolean;
-}export default function ActiveOrders({
-orders,
-onCompleteOrder,
-isPending,
-themeColor,
-isLoading
+import type { Order } from '../types';
+
+interface ActiveOrdersProps {
+  orders: Order[] | undefined;
+  onCompleteOrder: (index: number) => void;
+  isPending: boolean;
+  dynamicColor: string;
+  isLoading: boolean;
+}
+
+export default function ActiveOrders({
+  orders,
+  onCompleteOrder,
+  isPending,
+  dynamicColor,
+  isLoading
 }: ActiveOrdersProps) {
-if (isLoading) {
-return (
-<div className="glass-card p-8 rounded-3xl border border-white/10 min-h-[400px] flex items-center justify-center">
-<LoadingSpinner color={themeColor} />
-</div>
-);
-}return (
-<motion.div
-variants={staggerContainer}
-initial="hidden"
-animate="visible"
-className="glass-card p-6 md:p-8 rounded-3xl border border-white/10 space-y-6"
->
-{/* Header */}
-<div className="flex items-center justify-between">
-<div>
-<h2 className="text-3xl font-black mb-2">Active Production Orders</h2>
-<p className="text-gray-400 text-sm">
-{orders?.length || 0} order{orders?.length !== 1 ? 's' : ''} in production
-</p>
-</div>
-</div>  {/* Orders List */}
-  <AnimatePresence mode="popLayout">
-    {!orders || orders.length === 0 ? (
-      <motion.div
-        variants={fadeInUp}
-        initial="hidden"
-        animate="visible"
-        exit="hidden"
-        className="flex flex-col items-center justify-center py-20 text-gray-500"
-      >
-        <Package size={80} className="mb-6 opacity-20" />
-        <p className="text-xl font-bold mb-2">No Active Orders</p>
-        <p className="text-sm">Create your first production order to get started</p>
-      </motion.div>
-    ) : (
-      <motion.div variants={staggerContainer} className="space-y-4">
-        {orders.map((order, index) => (
-          <OrderCard
-            key={`${order.startTime}-${index}`}
-            order={order}
-            index={index}
-            onComplete={() => onCompleteOrder(index)}
-            isPending={isPending}
-            themeColor={themeColor}
-          />
-        ))}
-      </motion.div>
-    )}
-  </AnimatePresence>
-</motion.div>
-);
+  const [filter, setFilter] = React.useState<'all' | 'locked' | 'unlocked'>('all');
+
+  const filteredOrders = React.useMemo(() => {
+    if (!orders) return [];
+    
+    const now = BigInt(Math.floor(Date.now() / 1000));
+    
+    if (filter === 'locked') {
+      return orders.filter((order, idx) => now < order.startTime + order.duration).map((order, idx) => ({ order, originalIndex: orders.indexOf(order) }));
+    } else if (filter === 'unlocked') {
+      return orders.filter((order, idx) => now >= order.startTime + order.duration).map((order, idx) => ({ order, originalIndex: orders.indexOf(order) }));
+    }
+    
+    return orders.map((order, idx) => ({ order, originalIndex: idx }));
+  }, [orders, filter]);
+
+  if (isLoading) {
+    return (
+      <div className="glass-card p-8 rounded-3xl border border-white/10 min-h-[400px] flex items-center justify-center">
+        <LoadingSpinner color={dynamicColor} size={60} />
+      </div>
+    );
+  }
+
+  return (
+    <motion.div
+      variants={staggerContainer}
+      initial="hidden"
+      animate="visible"
+      className="glass-card p-6 sm:p-8 rounded-3xl border border-white/10 space-y-6"
+    >
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-3xl sm:text-4xl font-black mb-2 text-gradient">
+            Active Production Orders
+          </h2>
+          <p className="text-sm text-gray-400">
+            {orders?.length || 0} order{orders?.length !== 1 ? 's' : ''} in production
+          </p>
+        </div>
+
+        {/* Filter */}
+        {orders && orders.length > 0 && (
+          <div className="flex items-center gap-2">
+            <Filter size={16} className="text-gray-500" />
+            <div className="flex gap-2">
+              {(['all', 'locked', 'unlocked'] as const).map((f) => (
+                <motion.button
+                  key={f}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setFilter(f)}
+                  className="px-4 py-2 rounded-lg text-xs font-bold capitalize transition-all"
+                  style={{
+                    background: filter === f ? `${dynamicColor}20` : 'rgba(255, 255, 255, 0.05)',
+                    color: filter === f ? dynamicColor : '#888',
+                    border: `1px solid ${filter === f ? `${dynamicColor}40` : 'rgba(255, 255, 255, 0.1)'}`
+                  }}
+                >
+                  {f}
+                </motion.button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Orders List */}
+      <AnimatePresence mode="popLayout">
+        {!orders || orders.length === 0 ? (
+          <motion.div
+            key="empty"
+            variants={fadeInUp}
+            initial="hidden"
+            animate="visible"
+            exit="hidden"
+            className="flex flex-col items-center justify-center py-20 text-gray-500"
+          >
+            <motion.div
+              animate={{
+                y: [0, -10, 0],
+              }}
+              transition={{
+                duration: 3,
+                repeat: Infinity,
+                ease: 'easeInOut'
+              }}
+            >
+              <Package size={80} className="mb-6 opacity-20" />
+            </motion.div>
+            <p className="text-xl font-bold mb-2">No Active Orders</p>
+            <p className="text-sm">Create your first production order to get started</p>
+          </motion.div>
+        ) : filteredOrders.length === 0 ? (
+          <motion.div
+            key="no-filter-results"
+            variants={fadeInUp}
+            initial="hidden"
+            animate="visible"
+            exit="hidden"
+            className="flex flex-col items-center justify-center py-20 text-gray-500"
+          >
+            <Package size={60} className="mb-6 opacity-20" />
+            <p className="text-lg font-bold mb-2">No {filter} orders</p>
+            <p className="text-sm">Try a different filter</p>
+          </motion.div>
+        ) : (
+          <motion.div 
+            key="orders-list"
+            variants={staggerContainer} 
+            className="grid grid-cols-1 lg:grid-cols-2 gap-4"
+          >
+            {filteredOrders.map(({ order, originalIndex }) => (
+              <OrderCard
+                key={`${order.startTime}-${originalIndex}`}
+                order={order}
+                index={originalIndex}
+                onComplete={() => onCompleteOrder(originalIndex)}
+                isPending={isPending}
+                dynamicColor={dynamicColor}
+              />
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
 }

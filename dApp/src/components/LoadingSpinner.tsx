@@ -7,7 +7,7 @@ interface LoadingSpinnerProps {
   size?: number;
 }
 
-export default function LoadingSpinner({ color = '#00ff88', size = 40 }: LoadingSpinnerProps) {
+export default function LoadingSpinner({ color = '#FFA500', size = 40 }: LoadingSpinnerProps) {
   return (
     <div className="flex items-center justify-center">
       <motion.div
@@ -16,7 +16,8 @@ export default function LoadingSpinner({ color = '#00ff88', size = 40 }: Loading
           width: size,
           height: size,
           borderTopColor: color,
-          borderRightColor: color
+          borderRightColor: color,
+          boxShadow: `0 0 20px ${color}40`
         }}
         animate={{ rotate: 360 }}
         transition={{

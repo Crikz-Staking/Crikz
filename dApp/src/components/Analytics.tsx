@@ -2,7 +2,7 @@
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { formatEther } from 'viem';
-import { BarChart3, PieChart, TrendingUp, Package } from 'lucide-react';
+import { BarChart3, PieChart, TrendingUp, Package, Activity, Zap } from 'lucide-react';
 import { ORDER_TYPES } from '../config';
 import { formatTokenAmount } from '../utils/formatters';
 import { fadeInUp, staggerContainer } from '../utils/animations';
@@ -13,7 +13,7 @@ interface AnalyticsProps {
   totalReputation: bigint | undefined;
   productionFund: ProductionFund | undefined;
   currentAPR: number;
-  themeColor: string;
+  dynamicColor: string;
 }
 
 export default function Analytics({
@@ -21,14 +21,14 @@ export default function Analytics({
   totalReputation,
   productionFund,
   currentAPR,
-  themeColor
+  dynamicColor
 }: AnalyticsProps) {
   const analytics = useMemo(() => {
     if (!orders || orders.length === 0) {
       return {
         totalLocked: 0n,
         averageDuration: 0,
-        tierDistribution: [] as { tier: string; count: number; percentage: number }[],
+        tierDistribution: [] as { tier: string; count: number; percentage: number; color: string }[],
         reputationShare: 0
       };
     }
@@ -36,16 +36,18 @@ export default function Analytics({
     const totalLocked = orders.reduce((sum, order) => sum + order.amount, 0n);
     const averageDuration = orders.reduce((sum, order) => sum + Number(order.duration), 0) / orders.length / 86400;
 
-    // Tier distribution
+    // Tier distribution with colors
     const tierCounts = new Map<number, number>();
     orders.forEach((order) => {
       tierCounts.set(order.orderType, (tierCounts.get(order.orderType) || 0) + 1);
     });
 
+    const colors = ['#FFA500', '#FFB733', '#00D4FF', '#10B981', '#A78BFA', '#F59E0B', '#FB7185'];
     const tierDistribution = Array.from(tierCounts.entries()).map(([tierIndex, count]) => ({
       tier: ORDER_TYPES[tierIndex].name,
       count,
-      percentage: (count / orders.length) * 100
+      percentage: (count / orders.length) * 100,
+      color: colors[tierIndex]
     }));
 
     // Reputation share
@@ -70,124 +72,193 @@ export default function Analytics({
     >
       {/* Header */}
       <div>
-        <h2 className="text-3xl font-black mb-2">Analytics Dashboard</h2>
-        <p className="text-gray-400 text-sm">Your production performance metrics</p>
+        <h2 className="text-3xl sm:text-4xl font-black mb-2 text-gradient">
+          Analytics Dashboard
+        </h2>
+        <p className="text-sm text-gray-400">Your production performance metrics and insights</p>
       </div>
 
       {/* Key Metrics */}
-      <motion.div variants={fadeInUp} className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="glass-card p-6 rounded-2xl border border-white/10">
-          <div className="flex items-center gap-3 mb-3">
-            <Package size={20} style={{ color: themeColor }} />
-            <div className="text-xs text-gray-400 uppercase">Total Locked</div>
+      <motion.div variants={fadeInUp} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          {
+            label: 'Total Locked',
+            value: formatTokenAmount(formatEther(analytics.totalLocked)),
+            suffix: 'CRIKZ',
+            icon: Package,
+            color: dynamicColor
+          },
+          {
+            label: 'Avg Duration',
+            value: analytics.averageDuration.toFixed(0),
+            suffix: 'Days',
+            icon: Activity,
+            color: '#00D4FF'
+          },
+          {
+            label: 'Rep Share',
+            value: analytics.reputationShare.toFixed(2),
+            suffix: '%',
+            icon: PieChart,
+            color: '#A78BFA'
+          },
+          {
+            label: 'APR',
+            value: currentAPR.toFixed(3),
+            suffix: '%',
+            icon: TrendingUp,
+            color: '#10B981'
+          }
+        ].map((metric, index) => (
+          <motion.div
+            key={metric.label}
+whileHover={{ scale: 1.05, y: -4 }}
+className="glass-card p-6 rounded-2xl border border-white/10 relative overflow-hidden group"
+>
+<div className="relative z-10">
+<div className="flex items-center justify-between mb-4">
+<div
+className="w-12 h-12 rounded-xl flex items-center justify-center transition-all group-hover:scale-110"
+style={{
+  background: `${metric.color}20`,
+  boxShadow: `0 0 20px ${metric.color}20`
+}}
+>
+<metric.icon size={24} style={{ color: metric.color }} />
+</div>
+<div className="text-xs text-gray-500 uppercase tracking-wider">
+{metric.label}
+</div>
+</div>          <div className="flex items-baseline gap-2">
+            <div className="text-4xl font-black" style={{ color: metric.color }}>
+              {metric.value}
+            </div>
+            <div className="text-xs text-gray-600 font-mono">
+              {metric.suffix}
+            </div>
           </div>
-          <div className="text-3xl font-black" style={{ color: themeColor }}>
-            {formatTokenAmount(formatEther(analytics.totalLocked))}
-          </div>
-          <div className="text-xs text-gray-500 mt-1">CRIKZ</div>
-        </div>
-
-        <div className="glass-card p-6 rounded-2xl border border-white/10">
-          <div className="flex items-center gap-3 mb-3">
-            <BarChart3 size={20} className="text-blue-400" />
-            <div className="text-xs text-gray-400 uppercase">Avg Duration</div>
-          </div>
-          <div className="text-3xl font-black text-blue-400">
-            {analytics.averageDuration.toFixed(0)}
-          </div>
-          <div className="text-xs text-gray-500 mt-1">Days</div>
-        </div>
-
-        <div className="glass-card p-6 rounded-2xl border border-white/10">
-          <div className="flex items-center gap-3 mb-3">
-            <PieChart size={20} className="text-purple-400" />
-            <div className="text-xs text-gray-400 uppercase">Rep Share</div>
-          </div>
-          <div className="text-3xl font-black text-purple-400">
-            {analytics.reputationShare.toFixed(2)}%
-          </div>
-          <div className="text-xs text-gray-500 mt-1">Of total</div>
-        </div>
-
-        <div className="glass-card p-6 rounded-2xl border border-white/10">
-          <div className="flex items-center gap-3 mb-3">
-            <TrendingUp size={20} className="text-green-400" />
-            <div className="text-xs text-gray-400 uppercase">APR</div>
-          </div>
-          <div className="text-3xl font-black text-green-400">{currentAPR.toFixed(3)}%</div>
-          <div className="text-xs text-gray-500 mt-1">Annual</div>
-        </div>
+        </div>        <motion.div
+          className="absolute -bottom-10 -right-10 w-32 h-32 rounded-full blur-3xl opacity-0 group-hover:opacity-20"
+          style={{ background: metric.color }}
+        />
       </motion.div>
-
-      {/* Tier Distribution */}
-      <motion.div
-        variants={fadeInUp}
-        className="glass-card p-6 md:p-8 rounded-3xl border border-white/10"
+    ))}
+  </motion.div>  {/* Tier Distribution */}
+  <motion.div
+    variants={fadeInUp}
+    className="glass-card p-6 sm:p-8 rounded-3xl border border-white/10"
+  >
+    <h3 className="text-2xl font-black mb-6 flex items-center gap-2">
+      <PieChart size={24} style={{ color: dynamicColor }} />
+      Tier Distribution
+    </h3>    {analytics.tierDistribution.length === 0 ? (
+      <div className="text-center py-16 text-gray-500">
+        <BarChart3 size={60} className="mx-auto mb-4 opacity-20" />
+        <p className="text-lg font-bold mb-2">No orders to analyze</p>
+        <p className="text-sm">Create your first order to see analytics</p>
+      </div>
+    ) : (
+      <div className="space-y-4">
+        {analytics.tierDistribution.map((item, index) => (
+          <motion.div
+            key={item.tier}
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: index * 0.1 }}
+            className="space-y-2"
+          >
+            <div className="flex justify-between items-center text-sm">
+              <span className="font-bold flex items-center gap-2">
+                <div 
+                  className="w-3 h-3 rounded-full"
+                  style={{ background: item.color }}
+                />
+                {item.tier}
+              </span>
+              <span className="text-gray-400 font-mono">
+                {item.count} order{item.count !== 1 ? 's' : ''} ({item.percentage.toFixed(1)}%)
+              </span>
+            </div>            <div className="h-3 bg-background-elevated rounded-full overflow-hidden">
+              <motion.div
+                className="h-full rounded-full relative overflow-hidden"
+                initial={{ width: 0 }}
+                animate={{ width: `${item.percentage}%` }}
+                transition={{ duration: 0.8, delay: index * 0.1, ease: 'easeOut' }}
+                style={{ background: item.color }}
+              >
+                <motion.div
+                  className="absolute inset-0 opacity-50"
+                  animate={{
+                    x: ['-100%', '100%']
+                  }}
+                  transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: 'linear'
+                  }}
+                  style={{
+                    background: 'linear-gradient(90deg, transparent, white, transparent)'
+                  }}
+                />
+              </motion.div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    )}
+  </motion.div>  {/* Production Fund Status */}
+  {productionFund && (
+    <motion.div
+      variants={fadeInUp}
+      className="glass-card p-6 sm:p-8 rounded-3xl border border-white/10"
+    >
+      <h3 className="text-2xl font-black mb-6 flex items-center gap-2">
+        <Zap size={24} style={{ color: dynamicColor }} />
+        Production Fund Status
+      </h3>      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <div className="p-6 bg-background-elevated rounded-xl border border-white/5">
+          <div className="text-sm text-gray-400 mb-3 uppercase tracking-wider">Fund Balance</div>
+          <div className="text-4xl font-black mb-2" style={{ color: dynamicColor }}>
+            {formatTokenAmount(formatEther(productionFund.balance))}
+          </div>
+          <div className="text-xs text-gray-600">CRIKZ available for yield</div>
+        </div>        <div className="p-6 bg-background-elevated rounded-xl border border-white/5">
+          <div className="text-sm text-gray-400 mb-3 uppercase tracking-wider">System Reputation</div>
+          <div className="text-4xl font-black text-accent-cyan mb-2">
+            {formatTokenAmount(formatEther(productionFund.totalReputation))}
+          </div>
+          <div className="text-xs text-gray-600">REP across all users</div>
+        </div>
+      </div>      {/* Live APR Indicator */}
+      <motion.div 
+        className="mt-6 p-4 rounded-xl border flex items-center justify-between"
+        style={{
+          background: `${dynamicColor}10`,
+          borderColor: `${dynamicColor}30`
+        }}
       >
-        <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
-          <PieChart size={20} style={{ color: themeColor }} />
-          Tier Distribution
-        </h3>
-
-        {analytics.tierDistribution.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">
-            <p>No orders to analyze</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {analytics.tierDistribution.map((item, index) => (
-              <div key={item.tier} className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="font-bold">{item.tier}</span>
-                  <span className="text-gray-400">
-                    {item.count} order{item.count !== 1 ? 's' : ''} ({item.percentage.toFixed(1)}%)
-                  </span>
-                </div>
-                <div className="h-3 bg-black/50 rounded-full overflow-hidden">
-                  <motion.div
-                    className="h-full rounded-full"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${item.percentage}%` }}
-                    transition={{ duration: 0.5, delay: index * 0.1 }}
-                    style={{
-                      background: `hsl(${(index * 60) % 360}, 70%, 50%)`
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          <motion.div
+            animate={{
+              scale: [1, 1.2, 1],
+              opacity: [0.5, 1, 0.5]
+            }}
+            transition={{
+              duration: 2,
+              repeat: Infinity,
+              ease: 'easeInOut'
+            }}
+            className="w-3 h-3 rounded-full"
+            style={{ background: dynamicColor }}
+          />
+          <span className="text-sm font-bold">Live APR Generation</span>
+        </div>
+        <div className="text-2xl font-black" style={{ color: dynamicColor }}>
+          6.182%
+        </div>
       </motion.div>
-
-      {/* Production Fund Status */}
-      {productionFund && (
-        <motion.div
-          variants={fadeInUp}
-          className="glass-card p-6 md:p-8 rounded-3xl border border-white/10"
-        >
-          <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
-            <TrendingUp size={20} style={{ color: themeColor }} />
-            Production Fund Status
-          </h3>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <div className="text-sm text-gray-400 mb-2">Fund Balance</div>
-              <div className="text-3xl font-black" style={{ color: themeColor }}>
-                {formatTokenAmount(formatEther(productionFund.balance))} CRIKZ
-              </div>
-            </div>
-
-            <div>
-              <div className="text-sm text-gray-400 mb-2">Total System Reputation</div>
-              <div className="text-3xl font-black text-blue-400">
-                {formatTokenAmount(formatEther(productionFund.totalReputation))} REP
-              </div>
-            </div>
-          </div>
-        </motion.div>
-      )}
     </motion.div>
-  );
+  )}
+</motion.div>
+);
 }

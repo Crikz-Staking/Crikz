@@ -1,6 +1,6 @@
 // src/components/StatsPanel.tsx
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { formatEther } from 'viem';
 import {
   Wallet,
@@ -10,6 +10,7 @@ import {
   Percent,
   Zap
 } from 'lucide-react';
+import { formatTokenAmount } from '../utils/formatters';
 
 interface StatsPanelProps {
   balance: bigint | undefined;
@@ -19,7 +20,7 @@ interface StatsPanelProps {
   currentAPR: number;
   onClaimYield: () => void;
   isPending: boolean;
-  themeColor: string;
+  dynamicColor: string;
   isLoading: boolean;
 }
 
@@ -31,7 +32,7 @@ export default function StatsPanel({
   currentAPR,
   onClaimYield,
   isPending,
-  themeColor,
+  dynamicColor,
   isLoading
 }: StatsPanelProps) {
   
@@ -40,21 +41,21 @@ export default function StatsPanel({
       label: 'Balance',
       value: balance ? formatEther(balance) : '0',
       icon: Wallet,
-      color: themeColor,
+      color: dynamicColor,
       suffix: 'CRIKZ'
     },
     {
       label: 'Reputation',
       value: totalReputation ? formatEther(totalReputation) : '0',
       icon: Award,
-      color: '#38bdf8', // Light Blue
+      color: '#00D4FF',
       suffix: 'REP'
     },
     {
       label: 'Pending Yield',
       value: formatEther(pendingYield),
       icon: TrendingUp,
-      color: '#fbbf24', // Amber
+      color: '#10B981',
       suffix: 'CRIKZ',
       isYield: true
     },
@@ -62,87 +63,101 @@ export default function StatsPanel({
       label: 'Active Orders',
       value: activeOrdersCount.toString(),
       icon: Package,
-      color: '#e879f9', // Purple
-      suffix: 'ORDERS'
+      color: '#A78BFA',
+      suffix: ''
     },
     {
-      label: 'Current APR',
+      label: 'APR',
       value: currentAPR.toFixed(3),
       icon: Percent,
-      color: '#4ade80', // Green
+      color: '#F59E0B',
       suffix: '%'
     }
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
       {stats.map((stat, index) => (
         <motion.div
           key={stat.label}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: index * 0.1, duration: 0.5 }}
+          transition={{ delay: index * 0.05 }}
           whileHover={{ y: -4, scale: 1.02 }}
-          className="glass-card p-6 relative overflow-hidden group transition-all duration-300"
+          className="glass-card p-4 rounded-xl border border-white/10 relative overflow-hidden group cursor-pointer"
         >
-          {/* Header: Label & Icon */}
-          <div className="flex justify-between items-start mb-4">
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">
-              {stat.label}
-            </span>
-            <div 
-              className="p-2 rounded-lg bg-white/5 backdrop-blur-sm transition-colors group-hover:bg-white/10"
-              style={{ color: stat.color }}
-            >
-              <stat.icon size={16} />
-            </div>
-          </div>
-
-          {/* Body: Value */}
+          {/* Content */}
           <div className="relative z-10">
-            {isLoading ? (
-              <div className="h-10 w-24 bg-white/5 animate-pulse rounded-lg" />
-            ) : (
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-3xl font-black tracking-tighter text-white">
-                  {parseFloat(stat.value) > 1000 
-                    ? (parseFloat(stat.value) / 1000).toFixed(2) + 'k'
-                    : parseFloat(stat.value).toFixed(2)
-                  }
-                </span>
-                <span className="text-[10px] font-bold text-gray-500 font-mono mt-1">
-                  {stat.suffix}
-                </span>
+            {/* Icon & Label */}
+            <div className="flex items-center justify-between mb-3">
+              <div 
+                className="w-8 h-8 rounded-lg flex items-center justify-center transition-transform group-hover:scale-110"
+                style={{ 
+                  background: `${stat.color}20`,
+                  boxShadow: `0 0 15px ${stat.color}15`
+                }}
+              >
+                <stat.icon size={16} style={{ color: stat.color }} />
               </div>
+              <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">
+                {stat.label}
+              </span>
+            </div>
+
+            {/* Value */}
+            {isLoading ? (
+              <div className="h-8 w-full bg-white/5 animate-pulse rounded-lg" />
+            ) : (
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={stat.value}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="flex items-baseline gap-1.5"
+                >
+                  <span 
+                    className="text-2xl font-black tracking-tighter truncate"
+                    style={{ color: stat.color }}
+                  >
+                    {parseFloat(stat.value) > 1000 
+                      ? formatTokenAmount(stat.value, 2)
+                      : parseFloat(stat.value).toFixed(2)
+                    }
+                  </span>
+                  {stat.suffix && (
+                    <span className="text-[8px] font-bold text-gray-600 font-mono">
+                      {stat.suffix}
+                    </span>
+                  )}
+                </motion.div>
+              </AnimatePresence>
+            )}
+
+            {/* Yield Claim */}
+            {stat.isYield && pendingYield > 0n && (
+              <motion.button
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={onClaimYield}
+                disabled={isPending}
+                className="mt-2 w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[9px] font-bold transition-all disabled:opacity-50"
+                style={{
+                  background: `${stat.color}20`,
+                  color: stat.color,
+                  border: `1px solid ${stat.color}40`
+                }}
+              >
+                <Zap size={10} />
+                CLAIM
+              </motion.button>
             )}
           </div>
 
-          {/* Conditional Footer: Yield Claim */}
-          {stat.isYield && (
-            <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
-               <div className="flex items-center gap-2">
-                 <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                 <span className="text-xs text-amber-400/80 font-medium">Accumulating</span>
-               </div>
-               
-               {pendingYield > 0n && (
-                 <motion.button
-                   whileHover={{ scale: 1.05 }}
-                   whileTap={{ scale: 0.95 }}
-                   onClick={onClaimYield}
-                   disabled={isPending}
-                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-bold transition-all border border-amber-500/20"
-                 >
-                   <Zap size={10} />
-                   CLAIM
-                 </motion.button>
-               )}
-            </div>
-          )}
-
-          {/* Decorative Gradient Glow */}
-          <div
-            className="absolute -bottom-10 -right-10 w-32 h-32 rounded-full blur-[60px] opacity-0 group-hover:opacity-20 transition-opacity duration-500 pointer-events-none"
+          {/* Hover Glow */}
+          <motion.div
+            className="absolute -bottom-4 -right-4 w-16 h-16 rounded-full blur-2xl opacity-0 group-hover:opacity-30 transition-opacity"
             style={{ background: stat.color }}
           />
         </motion.div>

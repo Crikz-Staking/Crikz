@@ -2,117 +2,109 @@
 import { useState, useEffect } from 'react';
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseEther } from 'viem';
-import toast from 'react-hot-toast';
 import { CRIKZ_TOKEN_ADDRESS, CRIKZ_TOKEN_ABI } from '../config';
+import toast from 'react-hot-toast';
 
-export function useContractWrite(refetchAll: () => void) {
-  const [txStatus, setTxStatus] = useState<'idle' | 'pending' | 'success' | 'error'>('idle');
+export function useContractWrite(onSuccessCallback?: () => void) {
+  const [txHash, setTxHash] = useState<`0x${string}` | undefined>(undefined);
   
-  const { writeContract, data: hash, isPending: isWritePending } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess: isConfirmed, isError } = useWaitForTransactionReceipt({ hash });
+  const { 
+    writeContract, 
+    data: writeData, 
+    error: writeError,
+    isPending: isWritePending 
+  } = useWriteContract();
 
-  const isPending = isWritePending || isConfirming;
+  const { 
+    isLoading: isConfirming, 
+    isSuccess: isConfirmed,
+    error: receiptError
+  } = useWaitForTransactionReceipt({
+    hash: txHash,
+  });
 
+  // Watch for Write Data (when user signs in wallet)
+  useEffect(() => {
+    if (writeData) {
+      setTxHash(writeData);
+      toast.loading('Transaction submitted...', { id: 'tx-toast' });
+    }
+  }, [writeData]);
+
+  // Watch for Receipt (when block is mined)
   useEffect(() => {
     if (isConfirmed) {
-      setTxStatus('success');
-      toast.success('Transaction successful!');
-      refetchAll();
+      toast.success('Confirmed!', { id: 'tx-toast' });
+      setTxHash(undefined);
+      if (onSuccessCallback) onSuccessCallback();
     }
-  }, [isConfirmed, refetchAll]);
-
-  useEffect(() => {
-    if (isError) {
-      setTxStatus('error');
-      toast.error('Transaction failed');
+    if (receiptError || writeError) {
+      toast.error('Transaction failed.', { id: 'tx-toast' });
     }
-  }, [isError]);
+  }, [isConfirmed, receiptError, writeError, onSuccessCallback]);
 
-  const createOrder = async (amount: string, orderType: number, allowance: bigint | undefined) => {
-    try {
-      const val = parseEther(amount || '0');
-      if (val === 0n) {
-        toast.error('Please enter an amount');
-        return;
-      }
-
-      if (!allowance || allowance < val) {
-        setTxStatus('pending');
+  const createOrder = (amount: string, orderType: number, currentAllowance: bigint = 0n) => {
+    const amountWei = parseEther(amount);
+    
+    // Check Allowance
+    if (currentAllowance < amountWei) {
+        toast('Approving tokens...', { icon: '🔐' });
         writeContract({
-          address: CRIKZ_TOKEN_ADDRESS,
-          abi: CRIKZ_TOKEN_ABI,
-          functionName: 'approve',
-          args: [CRIKZ_TOKEN_ADDRESS, val]
+            address: CRIKZ_TOKEN_ADDRESS,
+            abi: CRIKZ_TOKEN_ABI,
+            functionName: 'approve',
+            args: [CRIKZ_TOKEN_ADDRESS, amountWei],
         });
-        toast.loading('Approving tokens...');
-      } else {
-        setTxStatus('pending');
-        writeContract({
-          address: CRIKZ_TOKEN_ADDRESS,
-          abi: CRIKZ_TOKEN_ABI,
-          functionName: 'createOrder',
-          args: [val, orderType]
-        });
-        toast.loading('Creating production order...');
-      }
-    } catch (error) {
-      toast.error('Invalid amount');
-      setTxStatus('error');
+        return; 
     }
+
+    // Call createOrder (matches Solidity)
+    writeContract({
+      address: CRIKZ_TOKEN_ADDRESS,
+      abi: CRIKZ_TOKEN_ABI,
+      functionName: 'createOrder',
+      args: [amountWei, orderType],
+    });
   };
 
-  const completeOrder = async (index: number) => {
-    setTxStatus('pending');
+  const completeOrder = (index: number) => {
     writeContract({
       address: CRIKZ_TOKEN_ADDRESS,
       abi: CRIKZ_TOKEN_ABI,
       functionName: 'completeOrder',
-      args: [BigInt(index)]
+      args: [BigInt(index)],
     });
-    toast.loading('Completing order...');
   };
 
-  const claimYield = async () => {
-    setTxStatus('pending');
+  const claimYield = () => {
     writeContract({
       address: CRIKZ_TOKEN_ADDRESS,
       abi: CRIKZ_TOKEN_ABI,
-      functionName: 'claimYield'
+      functionName: 'claimYield',
+      args: [],
     });
-    toast.loading('Claiming yield...');
   };
 
-  const fundPool = async (amount: string, allowance: bigint | undefined) => {
-    try {
-      const val = parseEther(amount || '0');
-      if (val === 0n) {
-        toast.error('Please enter an amount');
+  const fundPool = (amount: string, currentAllowance: bigint = 0n) => {
+    const amountWei = parseEther(amount);
+    
+    if (currentAllowance < amountWei) {
+        toast('Approving tokens...', { icon: '🔐' });
+        writeContract({
+            address: CRIKZ_TOKEN_ADDRESS,
+            abi: CRIKZ_TOKEN_ABI,
+            functionName: 'approve',
+            args: [CRIKZ_TOKEN_ADDRESS, amountWei],
+        });
         return;
-      }
-
-      if (!allowance || allowance < val) {
-        setTxStatus('pending');
-        writeContract({
-          address: CRIKZ_TOKEN_ADDRESS,
-          abi: CRIKZ_TOKEN_ABI,
-          functionName: 'approve',
-          args: [CRIKZ_TOKEN_ADDRESS, val]
-        });
-        toast.loading('Approving tokens...');
-      } else {
-        setTxStatus('pending');
-        writeContract({
-          address: CRIKZ_TOKEN_ADDRESS,
-          abi: CRIKZ_TOKEN_ABI,
-          functionName: 'fundProductionPool',
-          args: [val]
-        });
-        toast.loading('Funding production pool...');
-      }
-    } catch (error) {
-      toast.error('Invalid amount');
-      setTxStatus('error');
     }
+
+    writeContract({
+        address: CRIKZ_TOKEN_ADDRESS,
+        abi: CRIKZ_TOKEN_ABI,
+        functionName: 'fundProductionPool',
+        args: [amountWei],
+    });
   };
 
   return {
@@ -120,8 +112,8 @@ export function useContractWrite(refetchAll: () => void) {
     completeOrder,
     claimYield,
     fundPool,
-    isPending,
-    txHash: hash,
-    txStatus
+    isPending: isWritePending || isConfirming,
+    txHash,
+    txStatus: isConfirmed ? 'success' : (receiptError || writeError ? 'error' : 'idle')
   };
 }

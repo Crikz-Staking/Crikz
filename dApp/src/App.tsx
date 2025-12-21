@@ -1,223 +1,92 @@
 // src/App.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { useAccount, useBlockNumber } from 'wagmi';
+import { useAccount } from 'wagmi';
 import { Toaster } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Components
 import Hero from './components/Hero';
-import StatsPanel from './components/StatsPanel';
-import OrderCreation from './components/OrderCreation';
-import ActiveOrders from './components/ActiveOrders';
-import ProductionFund from './components/ProductionFund';
-import Analytics from './components/Analytics';
-import ParticleBackground from './components/ParticleBackground';
-import NavigationTabs from './components/NavigationTabs';
-import TransactionModal from './components/TransactionModal';
-
-// Hooks
-import { useContractData } from './hooks/useContractData';
-import { useContractWrite } from './hooks/useContractWrite';
-import { useTheme } from './hooks/useTheme';
-
-// Types
-import type { TabType } from './types';
+import Dashboard from './components/Dashboard';
+import BackgroundEffects from './components/BackgroundEffects';
+import Footer from './components/Footer';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<TabType>('create');
-  const { address, isConnected } = useAccount();
-  const { data: blockNumber } = useBlockNumber({ watch: true });
-  const { themeColor, gradientColors } = useTheme();
+  const { isConnected } = useAccount();
 
-  // Contract data
-  const {
-    balance,
-    allowance,
-    activeOrders,
-    totalReputation,
-    pendingYield,
-    productionFund,
-    currentAPR,
-    refetchAll,
-    isLoading
-  } = useContractData(address, blockNumber);
-
-  // Contract interactions
-  const {
-    createOrder,
-    completeOrder,
-    claimYield,
-    fundPool,
-    isPending,
-    txHash,
-    txStatus
-  } = useContractWrite(refetchAll);
+  // Dynamic Theme Generator (Subtle Pulse)
+  const [themeHue, setThemeHue] = useState(38); // Starts at Gold/Orange
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setThemeHue((prev) => (prev + 0.1) % 360);
+    }, 200); // Slower, more professional pulse
+    return () => clearInterval(interval);
+  }, []);
+  
+  const dynamicColor = `hsl(${themeHue}, 100%, 50%)`;
 
   return (
-    <div className="min-h-screen bg-[#050505] text-[#E5E5E5] selection:bg-[#FFD700] selection:text-black">
-      {/* Toast Notifications */}
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          duration: 4000,
-          style: {
-            background: 'rgba(10, 10, 10, 0.95)',
-            color: themeColor,
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            backdropFilter: 'blur(16px)',
-            fontFamily: 'var(--font-mono)',
-            fontWeight: '500'
-          },
-          success: {
-            iconTheme: {
-              primary: themeColor,
-              secondary: '#000',
-            },
-          },
-        }}
-      />
+    <div className="min-h-screen bg-background text-gray-100 font-sans selection:bg-primary-500/30 selection:text-white overflow-x-hidden">
+      <Toaster position="bottom-right" />
+      <BackgroundEffects />
 
-      {/* Background Effects */}
-      <ParticleBackground />
-
-      {/* Floating Island Header */}
-      <header className="sticky top-6 z-50 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <motion.div 
-            initial={{ y: -20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            className="glass-card px-6 py-4 flex justify-between items-center rounded-2xl border border-white/5 shadow-2xl"
-          >
-            <div className="flex items-center gap-4">
-              <div
-                className="w-10 h-10 rounded-lg flex items-center justify-center shadow-lg"
-                style={{
-                  background: `linear-gradient(135deg, ${gradientColors.from} 0%, ${gradientColors.to} 100%)`
-                }}
-              >
-                <span className="text-xl font-black text-black">Φ</span>
-              </div>
-              <div className="hidden sm:block">
-                <h1 className="text-xl font-black tracking-tighter leading-none">
-                  CRIKZ
-                  <span style={{ color: themeColor }} className="ml-1">PROTOCOL</span>
-                </h1>
-                <p className="text-[10px] text-gray-500 font-mono uppercase tracking-widest mt-0.5">
-                  Fibonacci Production System
-                </p>
-              </div>
+      {/* Top Navigation Bar */}
+      <header className="sticky top-0 z-50 w-full border-b border-white/5 bg-background/80 backdrop-blur-xl">
+        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+          
+          {/* Brand Identity */}
+          <div className="flex items-center gap-3">
+            <div 
+              className="w-8 h-8 rounded bg-gradient-to-br from-primary-500 to-accent-purple flex items-center justify-center text-black font-black text-lg shadow-glow-sm"
+              style={{ filter: `hue-rotate(${themeHue - 38}deg)` }}
+            >
+              Φ
             </div>
+            <span className="font-bold tracking-tight text-lg hidden sm:block">
+              CRIKZ <span className="text-gray-500 font-normal">PROTOCOL</span>
+            </span>
+          </div>
 
-            <div>
-              <ConnectButton
-                chainStatus="icon"
-                showBalance={{
-                  smallScreen: false,
-                  largeScreen: true,
-                }}
-              />
-            </div>
-          </motion.div>
+          {/* Wallet Connection */}
+          <div className="flex items-center gap-4">
+            <ConnectButton 
+              chainStatus="icon"
+              accountStatus={{
+                smallScreen: 'avatar',
+                largeScreen: 'full',
+              }}
+              showBalance={false} 
+            />
+          </div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 py-12 space-y-12">
+      {/* Main Content Area */}
+      <main className="flex-1 w-full px-4 py-8 sm:py-12">
         <AnimatePresence mode="wait">
           {!isConnected ? (
-            <Hero key="hero" themeColor={themeColor} />
+            <motion.div
+              key="hero"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <Hero dynamicColor={dynamicColor} />
+            </motion.div>
           ) : (
             <motion.div
-              key="connected"
+              key="dashboard"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.4 }}
-              className="space-y-10"
+              className="w-full"
             >
-              {/* Stats Overview */}
-              <section>
-                <StatsPanel
-                  balance={balance}
-                  totalReputation={totalReputation}
-                  pendingYield={pendingYield}
-                  activeOrdersCount={activeOrders?.length || 0}
-                  currentAPR={currentAPR}
-                  onClaimYield={claimYield}
-                  isPending={isPending}
-                  themeColor={themeColor}
-                  isLoading={isLoading}
-                />
-              </section>
-
-              {/* Navigation & Content Area */}
-              <section className="space-y-6">
-                <NavigationTabs
-                  activeTab={activeTab}
-                  setActiveTab={setActiveTab}
-                  themeColor={themeColor}
-                />
-
-                <AnimatePresence mode="wait">
-                  {activeTab === 'create' && (
-                    <OrderCreation
-                      key="create"
-                      balance={balance}
-                      productionFund={productionFund}
-                      onCreateOrder={(amount, orderType) => createOrder(amount, orderType, allowance)}
-                      isPending={isPending}
-                      themeColor={themeColor}
-                      gradientColors={gradientColors}
-                    />
-                  )}
-
-                  {activeTab === 'orders' && (
-                    <ActiveOrders
-                      key="orders"
-                      orders={activeOrders}
-                      onCompleteOrder={completeOrder}
-                      isPending={isPending}
-                      themeColor={themeColor}
-                      isLoading={isLoading}
-                    />
-                  )}
-
-                  {activeTab === 'fund' && (
-                    <ProductionFund
-                      key="fund"
-                      productionFund={productionFund}
-                      onFundPool={(amount) => fundPool(amount, allowance)}
-                      isPending={isPending}
-                      themeColor={themeColor}
-                      gradientColors={gradientColors}
-                    />
-                  )}
-
-                  {activeTab === 'analytics' && (
-                    <Analytics
-                      key="analytics"
-                      orders={activeOrders}
-                      totalReputation={totalReputation}
-                      productionFund={productionFund}
-                      currentAPR={currentAPR}
-                      themeColor={themeColor}
-                    />
-                  )}
-                </AnimatePresence>
-              </section>
+              <Dashboard dynamicColor={dynamicColor} />
             </motion.div>
           )}
         </AnimatePresence>
       </main>
 
-      {/* Transaction Modal */}
-      <TransactionModal
-        isOpen={isPending}
-        txHash={txHash}
-        status={txStatus}
-        themeColor={themeColor}
-      />
+      <Footer dynamicColor={dynamicColor} />
     </div>
   );
 }

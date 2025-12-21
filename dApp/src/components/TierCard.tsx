@@ -1,34 +1,35 @@
 // src/components/TierCard.tsx
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Clock, Award } from 'lucide-react';
+import { Clock, Award, CheckCircle } from 'lucide-react';
 import type { TierInfo } from '../types';
 
 interface TierCardProps {
   tier: TierInfo;
   isSelected: boolean;
   onClick: () => void;
-  themeColor: string;
+  dynamicColor: string;
 }
 
-export default function TierCard({ tier, isSelected, onClick, themeColor }: TierCardProps) {
+export default function TierCard({ tier, isSelected, onClick, dynamicColor }: TierCardProps) {
   return (
     <motion.div
       onClick={onClick}
-      whileHover={{ scale: 1.05, y: -5 }}
+      whileHover={{ scale: 1.05, y: -4 }}
       whileTap={{ scale: 0.95 }}
       className="cursor-pointer p-4 rounded-xl border-2 transition-all relative overflow-hidden group"
       style={{
-        background: isSelected ? `${themeColor}15` : 'rgba(0, 0, 0, 0.3)',
-        borderColor: isSelected ? themeColor : 'rgba(255, 255, 255, 0.1)'
+        background: isSelected ? `${dynamicColor}15` : 'rgba(26, 26, 36, 0.4)',
+        borderColor: isSelected ? dynamicColor : 'rgba(255, 255, 255, 0.1)',
+        boxShadow: isSelected ? `0 0 30px ${dynamicColor}30, 0 8px 16px rgba(0,0,0,0.3)` : 'none'
       }}
     >
-      {/* Background Glow */}
+      {/* Glow Effect */}
       {isSelected && (
         <motion.div
-          className="absolute inset-0 opacity-20"
+          className="absolute inset-0 opacity-20 blur-xl"
           animate={{
-            scale: [1, 1.2, 1],
+            scale: [1, 1.1, 1],
             opacity: [0.2, 0.3, 0.2]
           }}
           transition={{
@@ -37,35 +38,54 @@ export default function TierCard({ tier, isSelected, onClick, themeColor }: Tier
             ease: 'easeInOut'
           }}
           style={{
-            background: `radial-gradient(circle, ${themeColor} 0%, transparent 70%)`
+            background: `radial-gradient(circle, ${dynamicColor} 0%, transparent 70%)`
           }}
         />
       )}
 
       <div className="relative z-10 space-y-3">
-        {/* Duration */}
-        <div className="flex items-center gap-2 text-xs text-gray-400">
-          <Clock size={12} />
-          <span>{tier.days} Days</span>
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="text-[10px] text-gray-500 font-mono uppercase tracking-wider">
+            Tier {tier.index}
+          </div>
+          {isSelected && (
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+            >
+              <CheckCircle size={14} style={{ color: dynamicColor }} />
+            </motion.div>
+          )}
         </div>
 
         {/* Name */}
-        <div className="text-lg font-black">{tier.name}</div>
-
-        {/* Multiplier */}
-        <div className="flex items-center gap-2">
-          <Award size={14} style={{ color: themeColor }} />
-          <span className="text-sm font-bold" style={{ color: themeColor }}>
-            {tier.multiplier}x REP
-          </span>
+        <div className="text-base font-black leading-tight" style={{ color: isSelected ? dynamicColor : undefined }}>
+          {tier.name}
         </div>
 
-        {/* Selection Indicator */}
+        {/* Stats */}
+        <div className="space-y-2 text-xs">
+          <div className="flex items-center gap-1.5 text-gray-400">
+            <Clock size={10} />
+            <span>{tier.days}d</span>
+          </div>
+          <div className="flex items-center gap-1.5" style={{ color: isSelected ? dynamicColor : '#888' }}>
+            <Award size={10} />
+            <span className="font-bold">{tier.multiplier}x</span>
+          </div>
+        </div>
+
+        {/* Progress Bar (Selected) */}
         {isSelected && (
           <motion.div
             layoutId="selectedTier"
-            className="absolute bottom-0 left-0 right-0 h-1"
-            style={{ background: themeColor }}
+            className="absolute bottom-0 left-0 right-0 h-1 rounded-full"
+            style={{ background: dynamicColor }}
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: 1 }}
+            transition={{ duration: 0.3 }}
           />
         )}
       </div>

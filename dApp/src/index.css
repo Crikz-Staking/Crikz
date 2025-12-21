@@ -1,51 +1,56 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  /* Core Colors */
+  --color-primary-400: #fbbf24;
+  --color-primary-500: #f59e0b;
+  --color-primary-600: #d97706;
+  
+  --color-accent-cyan: #22d3ee;
+  --color-accent-purple: #a78bfa;
+  --color-accent-emerald: #10b981;
+
+  --color-background: #0a0a0f;
+  --color-background-surface: #13131a;
+  --color-background-elevated: #1c1c26;
+
+  /* Shadows */
+  --shadow-glow-sm: 0 0 10px -2px rgba(245, 158, 11, 0.3);
+  --shadow-glow-md: 0 0 20px -4px rgba(245, 158, 11, 0.4);
+}
 
 :root {
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --glass-surface: rgba(10, 10, 10, 0.6);
-  --glass-highlight: rgba(255, 255, 255, 0.03);
+  color-scheme: dark;
 }
 
 body {
-  background-color: #050505;
-  color: #E5E5E5;
+  background-color: var(--color-background);
+  color: #e5e7eb;
   font-family: 'Inter', sans-serif;
-  /* Premium noise texture overlay for less "flat" look */
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
-  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  /* Subtle Grid Texture */
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
 }
 
-/* === THE PREMIUM GLASS CARD === */
-/* This replaces the old clunky card. 
-   It uses an inner shadow for the border (inset) instead of a css border, 
-   which looks much cleaner. */
+/* --- Professional Glass Card --- */
 .glass-card {
-  background: var(--glass-surface);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  /* Subtle top highlight */
-  box-shadow: 
-    inset 0 1px 0 0 var(--glass-border), 
-    inset 0 0 0 1px rgba(255,255,255,0.02),
-    0 20px 40px -10px rgba(0,0,0,0.5);
-  border-radius: 24px; /* Larger radius = more modern */
+  background: rgba(23, 23, 30, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 24px -1px rgba(0, 0, 0, 0.2);
 }
 
-/* === TYPOGRAPHY POLISH === */
-h1, h2, h3, h4, h5, h6 {
-  letter-spacing: -0.02em; /* Tight tracking is key for "Corporate" look */
-  font-weight: 700;
-}
-
-/* === BUTTONS === */
-button {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-button:active {
-  transform: scale(0.98);
+.text-gradient {
+  background: linear-gradient(135deg, var(--color-primary-400), var(--color-accent-cyan));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 /* Scrollbar */
@@ -53,9 +58,12 @@ button:active {
   width: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #050505;
+  background: var(--color-background);
 }
 ::-webkit-scrollbar-thumb {
   background: #333;
-  border-radius: 10px;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary-600);
 }
