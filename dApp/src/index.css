@@ -1,158 +1,61 @@
-/* src/index.css */
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Global Reset */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+:root {
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-surface: rgba(10, 10, 10, 0.6);
+  --glass-highlight: rgba(255, 255, 255, 0.03);
 }
 
-html, body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-  width: 100%;
-  overflow-x: hidden;
-  background: #000;
-  color: #e0e0e0;
-  font-family: 'SF Mono', 'Roboto Mono', Consolas, monospace;
+body {
+  background-color: #050505;
+  color: #E5E5E5;
+  font-family: 'Inter', sans-serif;
+  /* Premium noise texture overlay for less "flat" look */
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
+  -webkit-font-smoothing: antialiased;
 }
 
-#root {
-  min-height: 100vh;
-  height: 100%;
-  display: block;
+/* === THE PREMIUM GLASS CARD === */
+/* This replaces the old clunky card. 
+   It uses an inner shadow for the border (inset) instead of a css border, 
+   which looks much cleaner. */
+.glass-card {
+  background: var(--glass-surface);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  /* Subtle top highlight */
+  box-shadow: 
+    inset 0 1px 0 0 var(--glass-border), 
+    inset 0 0 0 1px rgba(255,255,255,0.02),
+    0 20px 40px -10px rgba(0,0,0,0.5);
+  border-radius: 24px; /* Larger radius = more modern */
 }
 
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* === TYPOGRAPHY POLISH === */
+h1, h2, h3, h4, h5, h6 {
+  letter-spacing: -0.02em; /* Tight tracking is key for "Corporate" look */
+  font-weight: 700;
 }
 
-::-webkit-scrollbar-track {
-  background: #000;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(0, 255, 136, 0.4);
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 255, 136, 0.6);
-}
-
-/* Animations */
-@keyframes pulseGlow {
-  0%, 100% { box-shadow: 0 0 10px rgba(0, 255, 136, 0.2); }
-  50% { box-shadow: 0 0 30px rgba(0, 255, 136, 0.4); }
-}
-
-@keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
-}
-
-@keyframes blockFade {
-  0% { opacity: 0; transform: translateY(-30%) rotate(45deg); }
-  20% { opacity: 0.5; transform: translateY(-50%) rotate(45deg); }
-  80% { opacity: 0.5; transform: translateY(-50%) rotate(45deg); }
-  100% { opacity: 0; transform: translateY(-70%) rotate(45deg); }
-}
-
-@keyframes shimmer {
-  0% { background-position: -1000px 0; }
-  100% { background-position: 1000px 0; }
-}
-
-/* Utility Classes */
-.animate-pulse-glow {
-  animation: pulseGlow 4s infinite;
-}
-
-.animate-float {
-  animation: float 6s infinite ease-in-out;
-}
-
-.animate-block-fade {
-  animation: blockFade 8s infinite;
-}
-
-/* Card Styles */
-.card-hover {
+/* === BUTTONS === */
+button {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.card-hover:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 30px rgba(0, 255, 136, 0.2);
+button:active {
+  transform: scale(0.98);
 }
 
-/* Button Styles */
-.btn-primary {
-  background: linear-gradient(135deg, #00ff88 0%, #00d4ff 100%);
-  color: #000;
-  font-weight: 900;
-  transition: all 0.3s ease;
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
 }
-
-.btn-primary:hover:not(:disabled) {
-  transform: scale(1.05);
-  box-shadow: 0 5px 20px rgba(0, 255, 136, 0.4);
+::-webkit-scrollbar-track {
+  background: #050505;
 }
-
-.btn-primary:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-/* Input Styles */
-.input-custom {
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid #333;
-  color: #fff;
-  font-family: 'SF Mono', monospace;
-  font-size: 36px;
-  outline: none;
-  transition: border-color 0.3s ease;
-}
-
-.input-custom:focus {
-  border-bottom-color: #00ff88;
-}
-
-/* Glassmorphism */
-.glass {
-  background: rgba(10, 10, 10, 0.8);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(0, 255, 136, 0.2);
-}
-
-/* Grid Pattern Background */
-.grid-bg {
-  background-image: 
-    linear-gradient(rgba(0, 255, 136, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 255, 136, 0.05) 1px, transparent 1px);
-  background-size: 50px 50px;
-}
-
-/* Text Glow */
-.text-glow {
-  text-shadow: 0 0 10px currentColor;
-}
-
-/* Fibonacci Spiral (decorative) */
-.fibonacci-spiral {
-  background: conic-gradient(
-    from 0deg,
-    transparent 0deg,
-    rgba(0, 255, 136, 0.1) 137.5deg,
-    transparent 137.5deg
-  );
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 10px;
 }

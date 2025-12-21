@@ -1,5 +1,5 @@
 // src/App.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useBlockNumber } from 'wagmi';
 import { Toaster } from 'react-hot-toast';
@@ -22,7 +22,7 @@ import { useContractWrite } from './hooks/useContractWrite';
 import { useTheme } from './hooks/useTheme';
 
 // Types
-export type TabType = 'create' | 'orders' | 'fund' | 'analytics';
+import type { TabType } from './types';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('create');
@@ -33,6 +33,7 @@ export default function App() {
   // Contract data
   const {
     balance,
+    allowance,
     activeOrders,
     totalReputation,
     pendingYield,
@@ -54,18 +55,18 @@ export default function App() {
   } = useContractWrite(refetchAll);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white">
+    <div className="min-h-screen bg-[#050505] text-[#E5E5E5] selection:bg-[#FFD700] selection:text-black">
       {/* Toast Notifications */}
       <Toaster
         position="top-right"
         toastOptions={{
           duration: 4000,
           style: {
-            background: 'rgba(0, 20, 40, 0.95)',
+            background: 'rgba(10, 10, 10, 0.95)',
             color: themeColor,
-            border: `1px solid ${themeColor}40`,
-            backdropFilter: 'blur(10px)',
-            fontFamily: 'monospace',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            backdropFilter: 'blur(16px)',
+            fontFamily: 'var(--font-mono)',
             fontWeight: '500'
           },
           success: {
@@ -80,35 +81,35 @@ export default function App() {
       {/* Background Effects */}
       <ParticleBackground />
 
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-black/40 backdrop-blur-xl border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="flex items-center gap-3"
-            >
+      {/* Floating Island Header */}
+      <header className="sticky top-6 z-50 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <motion.div 
+            initial={{ y: -20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="glass-card px-6 py-4 flex justify-between items-center rounded-2xl border border-white/5 shadow-2xl"
+          >
+            <div className="flex items-center gap-4">
               <div
-                className="w-12 h-12 rounded-xl bg-gradient-to-br flex items-center justify-center"
+                className="w-10 h-10 rounded-lg flex items-center justify-center shadow-lg"
                 style={{
                   background: `linear-gradient(135deg, ${gradientColors.from} 0%, ${gradientColors.to} 100%)`
                 }}
               >
-                <span className="text-2xl font-black">Φ</span>
+                <span className="text-xl font-black text-black">Φ</span>
               </div>
-              <div>
-                <h1 className="text-2xl font-black tracking-tight">
-                  CRIKZ<span style={{ color: themeColor }}>PROTOCOL</span>
+              <div className="hidden sm:block">
+                <h1 className="text-xl font-black tracking-tighter leading-none">
+                  CRIKZ
+                  <span style={{ color: themeColor }} className="ml-1">PROTOCOL</span>
                 </h1>
-                <p className="text-xs text-gray-400">Fibonacci Production System</p>
+                <p className="text-[10px] text-gray-500 font-mono uppercase tracking-widest mt-0.5">
+                  Fibonacci Production System
+                </p>
               </div>
-            </motion.div>
+            </div>
 
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-            >
+            <div>
               <ConnectButton
                 chainStatus="icon"
                 showBalance={{
@@ -116,90 +117,95 @@ export default function App() {
                   largeScreen: true,
                 }}
               />
-            </motion.div>
-          </div>
+            </div>
+          </motion.div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 py-12 space-y-12">
         <AnimatePresence mode="wait">
           {!isConnected ? (
-            <Hero themeColor={themeColor} />
+            <Hero key="hero" themeColor={themeColor} />
           ) : (
             <motion.div
               key="connected"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="space-y-6"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.4 }}
+              className="space-y-10"
             >
               {/* Stats Overview */}
-              <StatsPanel
-                balance={balance}
-                totalReputation={totalReputation}
-                pendingYield={pendingYield}
-                activeOrdersCount={activeOrders?.length || 0}
-                currentAPR={currentAPR}
-                onClaimYield={claimYield}
-                isPending={isPending}
-                themeColor={themeColor}
-                isLoading={isLoading}
-              />
+              <section>
+                <StatsPanel
+                  balance={balance}
+                  totalReputation={totalReputation}
+                  pendingYield={pendingYield}
+                  activeOrdersCount={activeOrders?.length || 0}
+                  currentAPR={currentAPR}
+                  onClaimYield={claimYield}
+                  isPending={isPending}
+                  themeColor={themeColor}
+                  isLoading={isLoading}
+                />
+              </section>
 
-              {/* Navigation Tabs */}
-              <NavigationTabs
-                activeTab={activeTab}
-                setActiveTab={setActiveTab}
-                themeColor={themeColor}
-              />
+              {/* Navigation & Content Area */}
+              <section className="space-y-6">
+                <NavigationTabs
+                  activeTab={activeTab}
+                  setActiveTab={setActiveTab}
+                  themeColor={themeColor}
+                />
 
-              {/* Tab Content */}
-              <AnimatePresence mode="wait">
-                {activeTab === 'create' && (
-                  <OrderCreation
-                    key="create"
-                    balance={balance}
-                    onCreateOrder={createOrder}
-                    isPending={isPending}
-                    themeColor={themeColor}
-                    gradientColors={gradientColors}
-                  />
-                )}
+                <AnimatePresence mode="wait">
+                  {activeTab === 'create' && (
+                    <OrderCreation
+                      key="create"
+                      balance={balance}
+                      productionFund={productionFund}
+                      onCreateOrder={(amount, orderType) => createOrder(amount, orderType, allowance)}
+                      isPending={isPending}
+                      themeColor={themeColor}
+                      gradientColors={gradientColors}
+                    />
+                  )}
 
-                {activeTab === 'orders' && (
-                  <ActiveOrders
-                    key="orders"
-                    orders={activeOrders}
-                    onCompleteOrder={completeOrder}
-                    isPending={isPending}
-                    themeColor={themeColor}
-                    isLoading={isLoading}
-                  />
-                )}
+                  {activeTab === 'orders' && (
+                    <ActiveOrders
+                      key="orders"
+                      orders={activeOrders}
+                      onCompleteOrder={completeOrder}
+                      isPending={isPending}
+                      themeColor={themeColor}
+                      isLoading={isLoading}
+                    />
+                  )}
 
-                {activeTab === 'fund' && (
-                  <ProductionFund
-                    key="fund"
-                    productionFund={productionFund}
-                    onFundPool={fundPool}
-                    isPending={isPending}
-                    themeColor={themeColor}
-                    gradientColors={gradientColors}
-                  />
-                )}
+                  {activeTab === 'fund' && (
+                    <ProductionFund
+                      key="fund"
+                      productionFund={productionFund}
+                      onFundPool={(amount) => fundPool(amount, allowance)}
+                      isPending={isPending}
+                      themeColor={themeColor}
+                      gradientColors={gradientColors}
+                    />
+                  )}
 
-                {activeTab === 'analytics' && (
-                  <Analytics
-                    key="analytics"
-                    orders={activeOrders}
-                    totalReputation={totalReputation}
-                    productionFund={productionFund}
-                    currentAPR={currentAPR}
-                    themeColor={themeColor}
-                  />
-                )}
-              </AnimatePresence>
+                  {activeTab === 'analytics' && (
+                    <Analytics
+                      key="analytics"
+                      orders={activeOrders}
+                      totalReputation={totalReputation}
+                      productionFund={productionFund}
+                      currentAPR={currentAPR}
+                      themeColor={themeColor}
+                    />
+                  )}
+                </AnimatePresence>
+              </section>
             </motion.div>
           )}
         </AnimatePresence>

@@ -7,57 +7,38 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Crikz brand colors
-        crikzGold: '#FFD700',
-        crikzAccent: '#00ff88',
-        crikzDark: '#050505',
-        crikzGray: '#1a1a1a',
+        // Premium Dark Theme Palette
+        background: '#050505', // Almost black, deeper than pure black
+        surface: '#0F0F0F',    // Slightly lighter for cards
+        surfaceHighlight: '#1A1A1A',
+        
+        // Brand Colors (Sophisticated Gold & Emerald)
+        primary: {
+          DEFAULT: '#FFD700',
+          dim: 'rgba(255, 215, 0, 0.1)',
+          glow: 'rgba(255, 215, 0, 0.5)',
+        },
+        accent: {
+          DEFAULT: '#10B981', // Emerald
+          glow: 'rgba(16, 185, 129, 0.4)',
+        }
       },
       fontFamily: {
-        mono: ['"SF Mono"', '"Roboto Mono"', 'Consolas', 'monospace'],
+        // 'Inter' is the industry standard for clean UI. Ensure it's imported or available.
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        mono: ['JetBrains Mono', 'SF Mono', 'monospace'], // Tech feel
       },
-      animation: {
-        'pulse-glow': 'pulseGlow 4s infinite',
-        'float': 'float 6s infinite ease-in-out',
-        'block-fade': 'blockFade 8s infinite',
+      boxShadow: {
+        'glow-sm': '0 0 10px rgba(255, 215, 0, 0.1)',
+        'glow-md': '0 0 20px rgba(255, 215, 0, 0.15)',
+        'glow-lg': '0 0 40px rgba(255, 215, 0, 0.2)',
+        'inner-light': 'inset 0 1px 0 0 rgba(255, 255, 255, 0.05)',
       },
-      keyframes: {
-        pulseGlow: {
-          '0%, 100%': { boxShadow: '0 0 10px rgba(0, 255, 136, 0.2)' },
-          '50%': { boxShadow: '0 0 30px rgba(0, 255, 136, 0.4)' },
-        },
-        float: {
-          '0%, 100%': { transform: 'translateY(0px)' },
-          '50%': { transform: 'translateY(-10px)' },
-        },
-        blockFade: {
-          '0%': { opacity: '0', transform: 'translateY(-30%) rotate(45deg)' },
-          '20%': { opacity: '0.5', transform: 'translateY(-50%) rotate(45deg)' },
-          '80%': { opacity: '0.5', transform: 'translateY(-50%) rotate(45deg)' },
-          '100%': { opacity: '0', transform: 'translateY(-70%) rotate(45deg)' },
-        },
-      },
+      backgroundImage: {
+        'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
+        'premium-gradient': 'linear-gradient(135deg, #FFD700 0%, #FDB931 100%)', // Gold gradient
+      }
     },
   },
-  plugins: [require("daisyui")],
-  daisyui: {
-    themes: [
-      {
-        crikz: {
-          ...require("daisyui/src/theming/themes")["dark"],
-          "primary": "#FFD700",
-          "secondary": "#00ff88",
-          "accent": "#00d4ff",
-          "base-100": "#000000",
-          "base-200": "#111111",
-          "base-300": "#1a1a1a",
-          "neutral": "#333333",
-          "info": "#00d4ff",
-          "success": "#00ff88",
-          "warning": "#ffaa00",
-          "error": "#ff3333",
-        },
-      },
-    ],
-  },
+  plugins: [],
 }
