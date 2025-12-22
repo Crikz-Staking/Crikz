@@ -5,7 +5,6 @@
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
-"types": ["vite/client"],
 
     /* Bundler mode */
     "moduleResolution": "bundler",
@@ -15,11 +14,10 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
-    /* Linting - RELAXED FOR BUILD */
+    /* Linting */
     "strict": true,
-    "noUnusedLocals": false,      
-    "noUnusedParameters": false,
-    "strictNullChecks": false,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
 
     /* Path aliases */

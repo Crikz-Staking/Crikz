@@ -1,53 +1,48 @@
 // src/components/LearningHub.tsx
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BarChart2, BookOpen } from 'lucide-react';
+import { BarChart2, Newspaper } from 'lucide-react';
 import TokenAnalytics from './learning/TokenAnalytics';
-import Reading from './learning/Reading';
-import type { Language } from '../App';
+import CommunityNews from './learning/CommunityNews';
 
 interface LearningHubProps {
   dynamicColor: string;
-  lang: Language;
 }
 
-export default function LearningHub({ dynamicColor, lang }: LearningHubProps) {
-  // Default set to 'reading' as requested
-  const [activeSection, setActiveSection] = useState<'reading' | 'analytics'>('reading');
-
-  const t = {
-    en: { analytics: "Token Analytics", reading: "Reading" },
-    sq: { analytics: "Analitika e Tokenit", reading: "Leximi" }
-  }[lang];
+export default function LearningHub({ dynamicColor }: LearningHubProps) {
+  const [activeSection, setActiveSection] = useState<'analytics' | 'news'>('analytics');
 
   return (
     <div className="w-full max-w-7xl mx-auto">
-      {/* Sub-Navigation */}
-      <div className="flex items-center gap-8 mb-8 border-b border-white/10 px-4">
-        <button
-          onClick={() => setActiveSection('reading')}
-          className={`pb-4 text-sm font-bold flex items-center gap-2 transition-all border-b-2`}
-          style={{ 
-            borderColor: activeSection === 'reading' ? dynamicColor : 'transparent',
-            color: activeSection === 'reading' ? 'white' : '#6b7280'
-          }}
-        >
-          <BookOpen size={18} />
-          {t.reading}
-        </button>
+      {/* Sub-Navigation for Learning Mode */}
+      <div className="flex items-center gap-6 mb-8 border-b border-white/10 px-4">
         <button
           onClick={() => setActiveSection('analytics')}
-          className={`pb-4 text-sm font-bold flex items-center gap-2 transition-all border-b-2`}
-          style={{ 
-            borderColor: activeSection === 'analytics' ? dynamicColor : 'transparent',
-            color: activeSection === 'analytics' ? 'white' : '#6b7280'
-          }}
+          className={`pb-4 text-sm font-bold flex items-center gap-2 transition-all border-b-2 ${
+            activeSection === 'analytics' 
+              ? `text-white border-[${dynamicColor}]` 
+              : 'text-gray-500 border-transparent hover:text-gray-300'
+          }`}
+          style={{ borderColor: activeSection === 'analytics' ? dynamicColor : 'transparent' }}
         >
           <BarChart2 size={18} />
-          {t.analytics}
+          Token Analytics
+        </button>
+        <button
+          onClick={() => setActiveSection('news')}
+          className={`pb-4 text-sm font-bold flex items-center gap-2 transition-all border-b-2 ${
+            activeSection === 'news' 
+              ? `text-white border-[${dynamicColor}]` 
+              : 'text-gray-500 border-transparent hover:text-gray-300'
+          }`}
+          style={{ borderColor: activeSection === 'news' ? dynamicColor : 'transparent' }}
+        >
+          <Newspaper size={18} />
+          Protocol News & Reading
         </button>
       </div>
 
+      {/* Content Area */}
       <AnimatePresence mode="wait">
         {activeSection === 'analytics' ? (
           <motion.div
@@ -57,17 +52,17 @@ export default function LearningHub({ dynamicColor, lang }: LearningHubProps) {
             exit={{ opacity: 0, x: 20 }}
             transition={{ duration: 0.2 }}
           >
-            <TokenAnalytics dynamicColor={dynamicColor} lang={lang} />
+            <TokenAnalytics dynamicColor={dynamicColor} />
           </motion.div>
         ) : (
           <motion.div
-            key="reading"
+            key="news"
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 20 }}
             transition={{ duration: 0.2 }}
           >
-            <Reading dynamicColor={dynamicColor} lang={lang} />
+            <CommunityNews dynamicColor={dynamicColor} />
           </motion.div>
         )}
       </AnimatePresence>

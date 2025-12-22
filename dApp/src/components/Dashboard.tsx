@@ -11,6 +11,7 @@ import OrderCreation from './OrderCreation';
 import ActiveOrders from './ActiveOrders';
 import Analytics from './Analytics';
 import TransactionModal from './TransactionModal';
+
 import type { TabType } from '../types';
 import type { Language } from '../App';
 
@@ -21,7 +22,7 @@ interface DashboardProps {
 
 export default function Dashboard({ dynamicColor, lang }: DashboardProps) {
   const [activeTab, setActiveTab] = useState<TabType>('create');
-  
+
   const {
     balance,
     allowance,
@@ -123,7 +124,6 @@ export default function Dashboard({ dynamicColor, lang }: DashboardProps) {
                   totalReputation={totalReputation}
                   productionFund={productionFund}
                   currentAPR={currentAPR}
-                  isUserView={true} // Restricts to user only
                   {...commonProps}
                 />
               </motion.div>
@@ -136,7 +136,7 @@ export default function Dashboard({ dynamicColor, lang }: DashboardProps) {
       <TransactionModal
         isOpen={isPending || txStatus === 'success' || txStatus === 'error'}
         txHash={txHash}
-        status={txStatus as 'idle' | 'pending' | 'success' | 'error'} // <--- FIXED TYPE CASTING
+        status={txStatus}
         dynamicColor={dynamicColor}
       />
     </div>
