@@ -9,20 +9,19 @@ import StatsPanel from './StatsPanel';
 import NavigationTabs from './NavigationTabs';
 import OrderCreation from './OrderCreation';
 import ActiveOrders from './ActiveOrders';
-import ProductionFund from './ProductionFund';
 import Analytics from './Analytics';
 import TransactionModal from './TransactionModal';
-
 import type { TabType } from '../types';
+import type { Language } from '../App';
 
 interface DashboardProps {
   dynamicColor: string;
+  lang: Language;
 }
 
-export default function Dashboard({ dynamicColor }: DashboardProps) {
+export default function Dashboard({ dynamicColor, lang }: DashboardProps) {
   const [activeTab, setActiveTab] = useState<TabType>('create');
-
-  // Unified Data Hook
+  
   const {
     balance,
     allowance,
@@ -35,25 +34,23 @@ export default function Dashboard({ dynamicColor }: DashboardProps) {
     isLoading
   } = useContractData();
 
-  // Unified Write Hook
   const {
     createOrder,
     completeOrder,
     claimYield,
-    fundPool,
     isPending,
     txHash,
     txStatus
   } = useContractWrite(refetchAll);
 
-  // Common Props for sub-components
   const commonProps = {
     isPending,
     dynamicColor,
+    lang
   };
 
   return (
-    <div className="space-y-8 w-full max-w-7xl mx-auto">
+    <div className="space-y-8 w-full">
       {/* 1. High-Level Protocol Stats */}
       <section className="relative z-10">
         <StatsPanel
@@ -74,6 +71,7 @@ export default function Dashboard({ dynamicColor }: DashboardProps) {
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           dynamicColor={dynamicColor}
+          lang={lang}
         />
 
         <div className="relative min-h-[500px]">
@@ -89,7 +87,6 @@ export default function Dashboard({ dynamicColor }: DashboardProps) {
                 <OrderCreation
                   balance={balance}
                   productionFund={productionFund}
-                  // Logic to check allowance before creating order can be handled inside useContractWrite or here
                   onCreateOrder={(amount, orderType) => createOrder(amount, orderType, allowance)}
                   {...commonProps}
                 />
@@ -113,22 +110,6 @@ export default function Dashboard({ dynamicColor }: DashboardProps) {
               </motion.div>
             )}
 
-            {activeTab === 'fund' && (
-              <motion.div
-                key="fund"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                transition={{ duration: 0.2 }}
-              >
-                <ProductionFund
-                  productionFund={productionFund}
-                  onFundPool={(amount) => fundPool(amount, allowance)}
-                  {...commonProps}
-                />
-              </motion.div>
-            )}
-
             {activeTab === 'analytics' && (
               <motion.div
                 key="analytics"
@@ -142,6 +123,7 @@ export default function Dashboard({ dynamicColor }: DashboardProps) {
                   totalReputation={totalReputation}
                   productionFund={productionFund}
                   currentAPR={currentAPR}
+                  isUserView={true} // Restricts to user only
                   {...commonProps}
                 />
               </motion.div>
@@ -154,7 +136,7 @@ export default function Dashboard({ dynamicColor }: DashboardProps) {
       <TransactionModal
         isOpen={isPending || txStatus === 'success' || txStatus === 'error'}
         txHash={txHash}
-        status={txStatus}
+        status={txStatus as 'idle' | 'pending' | 'success' | 'error'} // <--- FIXED TYPE CASTING
         dynamicColor={dynamicColor}
       />
     </div>

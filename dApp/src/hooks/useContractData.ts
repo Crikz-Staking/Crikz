@@ -12,7 +12,6 @@ export function useContractData() {
   const targetAddress = address || '0x0000000000000000000000000000000000000000';
 
   // ==================== MULTICALL FETCHING ====================
-  // We fetch all critical data in one batched RPC call for performance
   const { 
     data, 
     refetch, 
@@ -58,7 +57,7 @@ export function useContractData() {
     ],
     query: {
       enabled: isConnected,
-      staleTime: 5000, // Data remains fresh for 5s
+      staleTime: 5000, 
     }
   });
 
@@ -67,11 +66,19 @@ export function useContractData() {
   const allowance = data?.[1]?.result as bigint | undefined;
   const totalReputation = data?.[2]?.result as bigint | undefined;
   const yieldDebt = data?.[3]?.result as bigint | undefined;
-  const productionFund = data?.[4]?.result as ProductionFund | undefined;
+  
+  // FIX: Manually map the tuple to the object
+  const fundResult = data?.[4]?.result as [bigint, bigint, bigint, bigint] | undefined;
+  const productionFund: ProductionFund | undefined = fundResult ? {
+      balance: fundResult[0],
+      totalReputation: fundResult[1],
+      accumulatedYieldPerReputation: fundResult[2],
+      lastUpdateTime: fundResult[3]
+  } : undefined;
+
   const activeOrders = data?.[5]?.result as Order[] | undefined;
 
   // ==================== DERIVED STATE ====================
-  
   const pendingYield = useMemo(() => {
     if (!totalReputation || !productionFund || !yieldDebt) return 0n;
     return calculatePendingYield(

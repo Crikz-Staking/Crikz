@@ -27,7 +27,7 @@ export interface TierInfo {
   days: number;
   multiplier: number;
   name: string;
-  description: string;
+  description?: string; // <--- Changed to optional (?) to fix build error
 }
 
 export type TabType = 'create' | 'orders' | 'fund' | 'analytics';
