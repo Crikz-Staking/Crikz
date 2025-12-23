@@ -35,7 +35,8 @@ export default function TopNavigation({ currentMode, setMode, dynamicColor, lang
             <button
               key={mode.id}
               onClick={() => setMode(mode.id as ViewMode)}
-              className="relative px-5 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 whitespace-nowrap"
+              title={mode.label} // Shows name only on hover to prevent bloating
+              className="relative p-2.5 rounded-xl transition-all flex items-center justify-center min-w-[44px]"
               style={{
                 color: isActive ? '#fff' : '#9ca3af',
               }}
@@ -49,11 +50,12 @@ export default function TopNavigation({ currentMode, setMode, dynamicColor, lang
                 />
               )}
               <mode.icon 
-                size={16} 
+                size={20} // Slightly larger for better icon-only visibility
                 strokeWidth={isActive ? 2.5 : 2}
                 style={{ color: isActive ? dynamicColor : 'inherit' }}
+                className="relative z-10"
               />
-              <span className="relative z-10">{mode.label}</span>
+              {/* Text label removed to evade site bloating */}
             </button>
           );
         })}
