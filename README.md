@@ -1,6 +1,6 @@
 ﻿# 🔱 Decentralized Production & Yield Ecosystem
 
- 🌍 **Website(dApp)** Coming Soon
+ 🌍 **Website(dApp)** www.crikz.cc
 
 📘 **Facebook** [https://www.facebook.com/crikztoken](https://www.facebook.com/crikztoken)
 
