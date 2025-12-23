@@ -1,8 +1,9 @@
 // src/components/learning/TokenAnalytics.tsx
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, Activity, Users, ArrowUpRight, ArrowDownRight } from 'lucide-react';
-import type { Language } from '../../App';
+import { TrendingUp, Activity, Users, ArrowUpRight } from 'lucide-react';
+// FIX: Correct import
+import type { Language } from '@/types';
 
 interface TokenAnalyticsProps {
   dynamicColor: string;
@@ -74,6 +75,7 @@ export default function TokenAnalytics({ dynamicColor, lang }: TokenAnalyticsPro
         ))}
       </div>
 
+      
       {/* 2. Interactive Chart Area */}
       <motion.div className="glass-card p-6 rounded-3xl border border-white/10 bg-background-elevated">
         <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
@@ -123,7 +125,7 @@ export default function TokenAnalytics({ dynamicColor, lang }: TokenAnalyticsPro
               </linearGradient>
             </defs>
             <path 
-              d={`M 0,100 L 0,${100 - (data[0]/maxVal)*100} ${points.split(' ').map((p,i) => `L ${p}`).join(' ')} L 100,100 Z`}
+              d={`M 0,100 L 0,${100 - (data[0]/maxVal)*100} ${points.split(' ').map((p) => `L ${p}`).join(' ')} L 100,100 Z`}
               fill="url(#chartGradient)"
             />
             <motion.path 

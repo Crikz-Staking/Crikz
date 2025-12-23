@@ -2,7 +2,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Clock, Award, CheckCircle } from 'lucide-react';
-import type { TierInfo } from '../types';
+// FIX: Correct import path
+import type { TierInfo } from '@/types';
 
 interface TierCardProps {
   tier: TierInfo;
@@ -49,6 +50,7 @@ export default function TierCard({ tier, isSelected, onClick, dynamicColor }: Ti
           <div className="text-[10px] text-gray-500 font-mono uppercase tracking-wider">
             Tier {tier.index}
           </div>
+          
           {isSelected && (
             <motion.div
               initial={{ scale: 0 }}

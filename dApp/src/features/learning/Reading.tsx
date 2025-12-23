@@ -3,7 +3,8 @@ import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShieldCheck, User, ThumbsUp, ChevronDown } from 'lucide-react';
 import { useAccount } from 'wagmi';
-import type { Language } from '../../App';
+// FIX: Correct import
+import type { Language } from '@/types';
 
 interface ReadingProps {
   dynamicColor: string;
@@ -91,7 +92,7 @@ export default function Reading({ dynamicColor, lang }: ReadingProps) {
 
           {/* Expanded Content */}
           <AnimatePresence>
-            {expandedPost === post.id && (
+             {expandedPost === post.id && (
               <motion.div 
                 initial={{ height: 0, opacity: 0 }} 
                 animate={{ height: 'auto', opacity: 1 }} 

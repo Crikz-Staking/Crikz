@@ -8,7 +8,7 @@ import { Lock } from 'lucide-react';
 import CustomConnectButton from '@/components/common/CustomConnectButton';
 import Footer from '@/components/layout/Footer';
 import BackgroundEffects from '@/components/layout/BackgroundEffects';
-import TopNavigation, { ViewMode } from '@/components/layout/TopNavigation';
+import TopNavigation from '@/components/layout/TopNavigation';
 
 // Features
 import Dashboard from '@/features/dashboard/Dashboard';
@@ -16,11 +16,12 @@ import NFTMarket from '@/features/nft/NFTMarket';
 import LearningHub from '@/features/learning/LearningHub';
 import BlockchainGames from '@/features/games/BlockchainGames';
 
-export type Language = 'en' | 'sq';
+// Types
+import type { Language, ViewMode } from '@/types';
 
 export default function App() {
   const { isConnected, address } = useAccount();
-  const [viewMode, setViewMode] = useState<ViewMode>('nft'); 
+  const [viewMode, setViewMode] = useState<ViewMode>('nft');
   const [lang, setLang] = useState<Language>('en');
 
   const dynamicColor = '#F59E0B'; 

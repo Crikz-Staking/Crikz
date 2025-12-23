@@ -1,7 +1,8 @@
 // src/components/BlockchainGames.tsx
 import React, { useState } from 'react';
 import { Gamepad2, Trophy, Zap, RefreshCw } from 'lucide-react';
-import type { Language } from '../App';
+// FIX: Correct import
+import type { Language } from '@/types';
 
 interface BlockchainGamesProps {
     dynamicColor: string;
@@ -10,11 +11,10 @@ interface BlockchainGamesProps {
 
 export default function BlockchainGames({ dynamicColor, lang }: BlockchainGamesProps) {
   const [activeGame, setActiveGame] = useState<string | null>(null);
-  
   // Tic Tac Toe State
   const [board, setBoard] = useState(Array(9).fill(null));
   const [xIsNext, setXIsNext] = useState(true);
-  
+
   const calculateWinner = (squares: any[]) => {
     const lines = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]];
     for (let i = 0; i < lines.length; i++) {
@@ -32,7 +32,6 @@ export default function BlockchainGames({ dynamicColor, lang }: BlockchainGamesP
     setBoard(nextSquares);
     setXIsNext(!xIsNext);
   };
-  
   const resetGame = () => { setBoard(Array(9).fill(null)); setXIsNext(true); };
 
   const t = {

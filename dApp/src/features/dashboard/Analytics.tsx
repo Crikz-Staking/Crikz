@@ -7,7 +7,8 @@ import { ORDER_TYPES } from "@/config";
 import { formatTokenAmount } from "@/utils/formatters";
 import { fadeInUp, staggerContainer } from '@/utils/animations';
 import type { Order } from '@/types';
-import type { Language } from '@/App';
+// FIX: Correct import
+import type { Language } from '@/types';
 
 interface AnalyticsProps {
   orders: Order[] | undefined;

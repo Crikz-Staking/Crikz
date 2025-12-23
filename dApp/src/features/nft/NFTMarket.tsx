@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ShoppingBag, PlusCircle, Zap, Grid, Search } from 'lucide-react';
-
-// Hooks & Global State
-import { useContractData } from '@/hooks/useContractData';
-import { Language } from '@/App';
+// FIX: Correct import
+import { Language } from '@/types';
 
 interface NFTMarketProps {
   dynamicColor: string;
@@ -24,7 +22,7 @@ export default function NFTMarket({ dynamicColor, lang, address }: NFTMarketProp
         <div className="absolute top-0 right-0 w-96 h-96 bg-primary-500/20 blur-[120px] rounded-full"></div>
         
         <div className="relative z-10 flex flex-col md:flex-row justify-between items-end gap-6">
-          <div>
+           <div>
             <h1 className="text-4xl md:text-6xl font-black text-white mb-4 tracking-tight">
               CRIKZ <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-400 to-primary-600">Artifacts</span>
             </h1>
@@ -57,7 +55,7 @@ export default function NFTMarket({ dynamicColor, lang, address }: NFTMarketProp
           {/* Filters Bar */}
           <div className="flex flex-wrap gap-4 items-center justify-between">
             <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
                 <input 
                     type="text" 
                     placeholder="Search artifacts..." 
@@ -82,7 +80,7 @@ export default function NFTMarket({ dynamicColor, lang, address }: NFTMarketProp
                     <div className="absolute top-3 right-3 bg-black/50 backdrop-blur-md px-2 py-1 rounded text-[10px] font-bold text-white border border-white/10">
                         #{i.toString().padStart(3, '0')}
                     </div>
-                 </div>
+                  </div>
                  <div className="p-5">
                     <div className="text-[10px] font-bold text-primary-500 mb-1 uppercase tracking-wider">Genesis Collection</div>
                     <h3 className="font-bold text-white text-lg mb-4">Crikz Artifact #{i}</h3>
@@ -93,7 +91,7 @@ export default function NFTMarket({ dynamicColor, lang, address }: NFTMarketProp
                         </div>
                         <button className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-xs font-bold text-white transition-colors border border-white/5">
                             Details
-                        </button>
+                         </button>
                     </div>
                  </div>
                </div>

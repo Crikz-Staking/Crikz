@@ -28,6 +28,7 @@ export interface TransactionStatus {
   message?: string;
 }
 
-// Navigation Types
+// Navigation & Global Types
 export type DashboardTab = 'create' | 'orders' | 'analytics';
 export type ViewMode = 'dashboard' | 'learning' | 'nft' | 'games';
+export type Language = 'en' | 'sq';

@@ -1,8 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { PlusCircle, List, BarChart2 } from 'lucide-react';
-import { DashboardTab } from './Dashboard';
-import { Language } from '../../App';
+import { PlusCircle, List, BarChart2, LucideIcon } from 'lucide-react';
+// FIX: Import from types, not Dashboard
+import { DashboardTab, Language } from '@/types';
 
 interface NavigationTabsProps {
   activeTab: DashboardTab;
@@ -25,11 +25,12 @@ export default function NavigationTabs({
     sq: { create: "Krijo Urdhër", orders: "Urdhërat e Mi", analytics: "Analitika" }
   }[lang];
 
-  const tabs = [
+  // FIX: Explicitly type the array to handle optional 'count' property
+  const tabs: { id: string; label: string; icon: LucideIcon; count?: number }[] = [
     { id: 'create', label: t.create, icon: PlusCircle },
     { id: 'orders', label: t.orders, icon: List, count: orderCount },
     { id: 'analytics', label: t.analytics, icon: BarChart2 },
-  ] as const;
+  ];
 
   return (
     <div className="flex flex-wrap items-center justify-start gap-2 border-b border-white/5 pb-1">
@@ -52,6 +53,7 @@ export default function NavigationTabs({
               {tab.label}
             </span>
             
+            {/* FIX: count is now recognized */}
             {tab.count !== undefined && tab.count > 0 && (
               <span className="ml-1 px-1.5 py-0.5 rounded-md bg-white/5 border border-white/10 text-[10px] font-mono text-gray-400">
                 {tab.count}

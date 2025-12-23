@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, X, Check, AlertCircle, TrendingUp } from 'lucide-react';
-import type { Language } from '../App';
+// FIX: Correct import
+import type { Language } from '@/types';
 
 interface Notification {
   id: string;
@@ -22,7 +23,6 @@ interface NotificationCenterProps {
 export default function NotificationCenter({ isOpen, onToggle, lang, dynamicColor }: NotificationCenterProps) {
   // Start empty to rely on real interactions
   const [notifications, setNotifications] = useState<Notification[]>([]);
-
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const markAsRead = (id: string) => {
@@ -81,6 +81,7 @@ export default function NotificationCenter({ isOpen, onToggle, lang, dynamicColo
               transition={{ type: 'spring', damping: 25 }}
               className="fixed right-0 top-0 h-full w-full max-w-md bg-background-elevated border-l border-white/10 z-[80] overflow-hidden flex flex-col shadow-2xl"
             >
+              
               {/* Header */}
               <div className="p-6 border-b border-white/10 flex items-center justify-between bg-black/20">
                 <div>
@@ -130,7 +131,7 @@ export default function NotificationCenter({ isOpen, onToggle, lang, dynamicColo
                             {!notif.read && (
                                 <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary-500" />
                             )}
-                            <div className="flex items-start gap-3">
+                             <div className="flex items-start gap-3">
                                 <div
                                 className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-1"
                                 style={{ backgroundColor: `${color}20`, color: color }}

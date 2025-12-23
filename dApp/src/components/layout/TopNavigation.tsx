@@ -2,9 +2,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { LayoutDashboard, GraduationCap, ShoppingBag, Gamepad2 } from 'lucide-react';
-import type { Language } from '../App';
-
-export type ViewMode = 'dashboard' | 'learning' | 'nft' | 'games';
+// FIX: Import from types
+import type { Language, ViewMode } from '@/types';
 
 interface TopNavigationProps {
   currentMode: ViewMode;
@@ -18,7 +17,6 @@ export default function TopNavigation({ currentMode, setMode, dynamicColor, lang
     en: { dashboard: "Dashboard", learning: "Learning & Analytics", nft: "NFT Market", games: "Blockchain Games" },
     sq: { dashboard: "Paneli Kryesor", learning: "Mësim & Analitikë", nft: "Tregu i NFT", games: "Lojërat Blockchain" }
   };
-
   const t = content[lang];
 
   const modes = [
