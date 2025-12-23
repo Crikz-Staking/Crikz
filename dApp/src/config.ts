@@ -82,18 +82,6 @@ export const CRIKZ_TOKEN_ABI = [
     outputs: [{ name: '', type: 'uint256' }],
   },
   {
-    name: 'productionFund',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [],
-    outputs: [
-      { name: 'balance', type: 'uint256' },
-      { name: 'totalReputation', type: 'uint256' },
-      { name: 'accumulatedYieldPerReputation', type: 'uint256' },
-      { name: 'lastUpdateTime', type: 'uint256' },
-    ],
-  },
-  {
     name: 'getActiveOrders',
     type: 'function',
     stateMutability: 'view',

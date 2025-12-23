@@ -46,11 +46,6 @@ export function useContractData() {
       {
         address: CRIKZ_TOKEN_ADDRESS,
         abi: CRIKZ_TOKEN_ABI,
-        functionName: 'productionFund',
-      },
-      {
-        address: CRIKZ_TOKEN_ADDRESS,
-        abi: CRIKZ_TOKEN_ABI,
         functionName: 'getActiveOrders',
         args: [targetAddress],
       },
@@ -80,7 +75,7 @@ export function useContractData() {
 
   // ==================== DERIVED STATE ====================
   const pendingYield = useMemo(() => {
-    if (!totalReputation || !productionFund || !yieldDebt) return 0n;
+    if (!totalReputation || !yieldDebt) return 0n;
     return calculatePendingYield(
       totalReputation,
       productionFund.accumulatedYieldPerReputation,

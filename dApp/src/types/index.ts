@@ -8,13 +8,6 @@ export interface Order {
   duration: bigint;
 }
 
-export interface ProductionFund {
-  balance: bigint;
-  totalReputation: bigint;
-  accumulatedYieldPerReputation: bigint;
-  lastUpdateTime: bigint;
-}
-
 export interface OrderStatus {
   isUnlocked: boolean;
   timeRemaining: number;
@@ -30,7 +23,7 @@ export interface TierInfo {
   description?: string; // <--- Changed to optional (?) to fix build error
 }
 
-export type TabType = 'create' | 'orders' | 'fund' | 'analytics';
+export type TabType = 'create' | 'orders' | 'analytics';
 
 export interface TransactionStatus {
   status: 'idle' | 'pending' | 'success' | 'error';
