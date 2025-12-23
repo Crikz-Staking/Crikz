@@ -1,6 +1,6 @@
 ﻿# 🔱 Decentralized Production & Yield Ecosystem
 
- 🌍 **Website(dApp)** [https://www.crikz.cc](https://www.crikz.cc)
+ 🌍 **Website(dApp)** Coming Soon
 
 📘 **Facebook** [https://www.facebook.com/crikztoken](https://www.facebook.com/crikztoken)
 
@@ -50,8 +50,6 @@
 | **Zgjerimi** 📈 | Integrimi i **Tregut NFT**, **Lojërave Blockchain**, dhe komponentëve të tjerë të Ekosistemit | ⏳ | Rritja & Dobishmëria |
 
 ---
-
-
 
 
 

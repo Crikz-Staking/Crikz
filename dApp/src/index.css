@@ -18,7 +18,6 @@
 
   /* Shadows */
   --shadow-glow-sm: 0 0 10px -2px rgba(245, 158, 11, 0.3);
-  --shadow-inner-glow: inset 0 0 20px rgba(255, 255, 255, 0.05);
   --shadow-glow-md: 0 0 20px -4px rgba(245, 158, 11, 0.4);
 }
 

@@ -69,7 +69,3 @@ cache_forge/
 
 # WalletConnect
 .walletconnect/
-
-# Custom Scripts & Export Files
-export-project.sh
-project-export.txt

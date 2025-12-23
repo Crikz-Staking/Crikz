@@ -11,43 +11,42 @@ interface TopNavigationProps {
   setMode: (mode: ViewMode) => void;
   dynamicColor: string;
   lang: Language;
-  isConnected: boolean;
 }
 
-export default function TopNavigation({ currentMode, setMode, dynamicColor, lang, isConnected }: TopNavigationProps) {
+export default function TopNavigation({ currentMode, setMode, dynamicColor, lang }: TopNavigationProps) {
   const content = {
-    en: { dashboard: "Dashboard", learning: "Learning Hub", nft: "NFT Market", games: "Arcade" },
-    sq: { dashboard: "Paneli", learning: "Mësim", nft: "Tregu NFT", games: "Lojëra" }
+    en: { dashboard: "Dashboard", learning: "Learning & Analytics", nft: "NFT Market", games: "Blockchain Games" },
+    sq: { dashboard: "Paneli Kryesor", learning: "Mësim & Analitikë", nft: "Tregu i NFT", games: "Lojërat Blockchain" }
   };
+
   const t = content[lang];
 
-  // Define tabs order: NFT -> Learning -> Gaming. Dashboard added first if connected.
-  const allModes = [
-    { id: 'dashboard', label: t.dashboard, icon: LayoutDashboard, requiresAuth: true },
-    { id: 'nft', label: t.nft, icon: ShoppingBag, requiresAuth: false },
-    { id: 'learning', label: t.learning, icon: GraduationCap, requiresAuth: false },
-    { id: 'games', label: t.games, icon: Gamepad2, requiresAuth: false },
+  const modes = [
+    { id: 'dashboard', label: t.dashboard, icon: LayoutDashboard },
+    { id: 'learning', label: t.learning, icon: GraduationCap },
+    { id: 'nft', label: t.nft, icon: ShoppingBag },
+    { id: 'games', label: t.games, icon: Gamepad2 },
   ] as const;
-
-  const visibleModes = allModes.filter(mode => !mode.requiresAuth || isConnected);
 
   return (
     <div className="flex justify-center mb-8">
-      <div className="flex gap-2 p-1.5 bg-background-elevated/80 backdrop-blur-md rounded-2xl border border-white/5 overflow-x-auto">
-        {visibleModes.map((mode) => {
+      <div className="flex gap-2 p-2 bg-background-elevated/80 backdrop-blur-md rounded-2xl border border-white/5 overflow-x-auto max-w-full">
+        {modes.map((mode) => {
           const isActive = currentMode === mode.id;
           return (
             <button
               key={mode.id}
               onClick={() => setMode(mode.id as ViewMode)}
               className="relative px-5 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 whitespace-nowrap"
-              style={{ color: isActive ? '#fff' : '#6b7280' }}
+              style={{
+                color: isActive ? '#fff' : '#9ca3af',
+              }}
             >
               {isActive && (
                 <motion.div
                   layoutId="topNavHighlight"
                   className="absolute inset-0 rounded-xl"
-                  style={{ background: `${dynamicColor}15`, border: `1px solid ${dynamicColor}30` }}
+                  style={{ background: `${dynamicColor}20`, border: `1px solid ${dynamicColor}40` }}
                   transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
                 />
               )}
