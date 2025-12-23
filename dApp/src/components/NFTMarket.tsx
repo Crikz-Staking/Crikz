@@ -63,16 +63,20 @@ export default function NFTMarket({ dynamicColor, lang, address }: NFTMarketProp
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash });
 
   const handleMintSubmit = () => {
-    // Note: In production, upload image to IPFS -> Get URI. 
+    // Note: In production, upload image to IPFS -> Get URI.
     // Here we assume a placeholder URI for the demo.
     const mockURI = `ipfs://placeholder/${mintData.name}`;
-    const fee = BigInt(Math.floor(mintData.royalty * 100)); // 5% = 500 basis points
+    const fee = BigInt(Math.floor(mintData.royalty * 100));
+    // 5% = 500 basis points
+
+    if (!address) return; // Ensure address exists
 
     writeContract({
       address: NFT_ADDRESS,
       abi: CRIKZ_NFT_ABI,
       functionName: 'mintItem',
-      args: [address!, mockURI, mintData.royaltyRecipient as `0x${string}`, fee],
+      args: [address, mockURI, mintData.royaltyRecipient as `0x${string}`, fee],
+      account: address, // <--- ADD THIS: Fixes the TS2345 error by explicitly providing the account
     });
   };
 
