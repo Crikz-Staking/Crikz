@@ -8,18 +8,16 @@ import OrderCreation from './OrderCreation';
 import ActiveOrders from './ActiveOrders';
 import Analytics from './Analytics';
 import NavigationTabs from './NavigationTabs';
-
-// Hooks & Types (Using Aliases)
+// Hooks & Types
 import { useContractData } from '@/hooks/useContractData';
 import { useContractWrite } from '@/hooks/useContractWrite';
-import { Language } from '@/App';
+import type { Language } from '@/App';
+import type { DashboardTab } from '@/types';
 
 interface DashboardProps {
   dynamicColor: string;
   lang: Language;
 }
-
-export type DashboardTab = 'create' | 'orders' | 'analytics';
 
 export default function Dashboard({ dynamicColor, lang }: DashboardProps) {
   const [activeTab, setActiveTab] = useState<DashboardTab>('create');
@@ -28,7 +26,10 @@ export default function Dashboard({ dynamicColor, lang }: DashboardProps) {
   // Data Fetching
   const { 
     orders, 
-    totalReputation, 
+    activeOrders,
+    totalReputation,
+    pendingYield,
+    currentAPR,
     isLoading 
   } = useContractData();
 
@@ -44,11 +45,15 @@ export default function Dashboard({ dynamicColor, lang }: DashboardProps) {
     <div className="space-y-8 pb-20">
       {/* Top Stats Overview */}
       <StatsPanel
-        userReputation={totalReputation}
+        balance={undefined} 
+        totalReputation={totalReputation}
+        pendingYield={pendingYield}
+        activeOrdersCount={activeOrders?.length || 0}
+        currentAPR={currentAPR}
         onClaimYield={claimYield}
         isPending={isPending}
         dynamicColor={dynamicColor}
-        lang={lang}
+        isLoading={isLoading}
       />
 
       {/* Navigation */}
@@ -71,10 +76,10 @@ export default function Dashboard({ dynamicColor, lang }: DashboardProps) {
               exit={{ opacity: 0, x: 20 }}
             >
               <OrderCreation 
-                onConfirm={createOrder}
+                balance={undefined} // You can get balance from useContractData if needed
+                onCreateOrder={createOrder}
                 isPending={isPending}
                 dynamicColor={dynamicColor}
-                lang={lang}
               />
             </motion.div>
           )}
@@ -87,7 +92,7 @@ export default function Dashboard({ dynamicColor, lang }: DashboardProps) {
               exit={{ opacity: 0, x: 20 }}
             >
               <ActiveOrders 
-                orders={orders}
+                orders={orders} // Note: check if 'orders' or 'activeOrders' is used in useContractData return
                 onCompleteOrder={completeOrder}
                 isPending={isPending}
                 isLoading={isLoading}
@@ -106,7 +111,7 @@ export default function Dashboard({ dynamicColor, lang }: DashboardProps) {
               <Analytics 
                 orders={orders}
                 totalReputation={totalReputation}
-                currentAPR={6.182} // Base Protocol APR
+                currentAPR={currentAPR}
                 dynamicColor={dynamicColor}
                 isUserView={true}
                 lang={lang}

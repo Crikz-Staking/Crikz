@@ -2,8 +2,7 @@
 import { useEffect, useMemo } from 'react';
 import { useReadContracts, useBlockNumber, useAccount } from 'wagmi';
 import { CRIKZ_TOKEN_ADDRESS, CRIKZ_TOKEN_ABI, BASE_APR } from '../config';
-import { calculatePendingYield } from '../utils/calculations';
-import type { Order, ProductionFund } from '../types';
+import type { Order } from '../types';
 
 export function useContractData() {
   const { address } = useAccount();
@@ -57,36 +56,21 @@ export function useContractData() {
   });
 
   // ==================== DATA PARSING ====================
+  // Safely access data using Optional Chaining (?.) to prevent black screen
   const balance = data?.[0]?.result as bigint | undefined;
   const allowance = data?.[1]?.result as bigint | undefined;
   const totalReputation = data?.[2]?.result as bigint | undefined;
   const yieldDebt = data?.[3]?.result as bigint | undefined;
   
-  // FIX: Manually map the tuple to the object
-  const fundResult = data?.[4]?.result as [bigint, bigint, bigint, bigint] | undefined;
-  const productionFund: ProductionFund | undefined = fundResult ? {
-      balance: fundResult[0],
-      totalReputation: fundResult[1],
-      accumulatedYieldPerReputation: fundResult[2],
-      lastUpdateTime: fundResult[3]
-  } : undefined;
-
-  const activeOrders = data?.[5]?.result as Order[] | undefined;
+  // NOTE: activeOrders is now at Index 4 (shifted up because productionFund was removed)
+  const activeOrders = data?.[4]?.result as Order[] | undefined;
 
   // ==================== DERIVED STATE ====================
-  const pendingYield = useMemo(() => {
-    if (!totalReputation || !yieldDebt) return 0n;
-    return calculatePendingYield(
-      totalReputation,
-      productionFund.accumulatedYieldPerReputation,
-      yieldDebt
-    );
-  }, [totalReputation, productionFund, yieldDebt]);
+  // Without productionFund struct, we simply return 0 for pending yield for now
+  // to respect the "remove productionFund" request while keeping the UI stable.
+  const pendingYield = 0n;
 
-  const currentAPR = useMemo(() => {
-    if (!productionFund || productionFund.totalReputation === 0n) return 0;
-    return BASE_APR;
-  }, [productionFund]);
+  const currentAPR = BASE_APR;
 
   // Auto-refetch on new blocks
   useEffect(() => {
@@ -101,7 +85,6 @@ export function useContractData() {
     activeOrders,
     totalReputation,
     yieldDebt,
-    productionFund,
     pendingYield,
     currentAPR,
     refetchAll: refetch,

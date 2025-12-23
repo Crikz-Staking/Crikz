@@ -1,18 +1,15 @@
-import React, { useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { Zap, Clock, Award, AlertCircle, Sparkles, Wallet } from 'lucide-react';
-
-// Feature Components
 import TierCard from './TierCard';
-
-// Global Resources (Using Aliases)
 import { ORDER_TYPES } from '@/config';
 import { useOrderCalculations } from '@/hooks/useOrderCalculations';
 import { formatTokenAmount } from '@/utils/formatters';
+import { fadeInUp, staggerContainer } from '@/utils/animations';
+import { formatEther } from 'viem';
 
 interface OrderCreationProps {
   balance: bigint | undefined;
-  productionFund: ProductionFund | undefined;
   onCreateOrder: (amount: string, orderType: number) => void;
   isPending: boolean;
   dynamicColor: string;
@@ -20,18 +17,17 @@ interface OrderCreationProps {
 
 export default function OrderCreation({
   balance,
-  productionFund,
   onCreateOrder,
   isPending,
   dynamicColor
 }: OrderCreationProps) {
   const [amount, setAmount] = useState('');
-  const [selectedTier, setSelectedTier] = useState(2); // Default to Standard Run
+  const [selectedTier, setSelectedTier] = useState(2); 
   
+  // REMOVED productionFund argument here
   const { reputation, expectedYield, tierInfo } = useOrderCalculations(
     amount,
-    selectedTier,
-    productionFund
+    selectedTier
   );
 
   const handleMaxClick = () => {
@@ -58,10 +54,7 @@ export default function OrderCreation({
       animate="visible"
       className="grid grid-cols-1 lg:grid-cols-12 gap-6"
     >
-      {/* LEFT COLUMN: Input Configuration */}
       <div className="lg:col-span-8 space-y-6">
-        
-        {/* Tier Selection */}
         <motion.div variants={fadeInUp} className="glass-card p-6 rounded-2xl border border-white/10 bg-background-elevated">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-sm font-bold text-gray-300 uppercase tracking-wider flex items-center gap-2">
@@ -69,7 +62,6 @@ export default function OrderCreation({
               Select Production Tier
             </h3>
           </div>
-          
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
             {ORDER_TYPES.map((tier) => (
               <TierCard
@@ -83,7 +75,6 @@ export default function OrderCreation({
           </div>
         </motion.div>
 
-        {/* Amount Input */}
         <motion.div variants={fadeInUp} className="glass-card p-6 rounded-2xl border border-white/10 space-y-4 bg-background-elevated">
             <div className="flex justify-between items-center">
               <label className="text-sm font-bold text-gray-300 uppercase tracking-wider">
@@ -133,15 +124,12 @@ export default function OrderCreation({
         </motion.div>
       </div>
 
-      {/* RIGHT COLUMN: Summary & Action */}
       <div className="lg:col-span-4 space-y-6">
         <motion.div variants={fadeInUp} className="glass-card p-6 rounded-2xl border border-white/10 h-full flex flex-col justify-between bg-background-elevated">
-          
           <div>
             <h3 className="text-xl font-black mb-6 flex items-center gap-2 text-white">
               Order Preview
             </h3>
-
             <div className="space-y-4">
               <div className="flex justify-between items-center p-4 bg-background-surface rounded-xl border border-white/5">
                 <span className="text-sm text-gray-400 flex items-center gap-2 font-medium">
@@ -149,7 +137,6 @@ export default function OrderCreation({
                 </span>
                 <span className="font-mono font-bold text-white text-lg">{tierInfo.days} Days</span>
               </div>
-
               <div className="flex justify-between items-center p-4 bg-background-surface rounded-xl border border-white/5">
                 <span className="text-sm text-gray-400 flex items-center gap-2 font-medium">
                   <Award size={16} strokeWidth={2} /> Multiplier
@@ -158,7 +145,6 @@ export default function OrderCreation({
                   {tierInfo.multiplier}x
                 </span>
               </div>
-
               <div className="border-t border-white/10 my-6 pt-6 space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-400 font-medium">Total Reputation</span>
@@ -175,7 +161,6 @@ export default function OrderCreation({
               </div>
             </div>
           </div>
-
           <motion.button
             onClick={handleCreate}
             disabled={!isValidAmount || isPending}
@@ -198,7 +183,6 @@ export default function OrderCreation({
               </>
             )}
           </motion.button>
-
         </motion.div>
       </div>
     </motion.div>

@@ -1,18 +1,17 @@
-// src/components/Analytics.tsx
+// src/features/dashboard/Analytics.tsx
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { formatEther } from 'viem';
-import { BarChart3, PieChart, TrendingUp, Package, Activity, Zap, History } from 'lucide-react';
+import { BarChart3, PieChart, TrendingUp, Package, Activity } from 'lucide-react';
 import { ORDER_TYPES } from "@/config";
 import { formatTokenAmount } from "@/utils/formatters";
 import { fadeInUp, staggerContainer } from '@/utils/animations';
-import type { Order, ProductionFund } from '@/types';
+import type { Order } from '@/types';
 import type { Language } from '@/App';
 
 interface AnalyticsProps {
   orders: Order[] | undefined;
   totalReputation: bigint | undefined;
-  productionFund: ProductionFund | undefined;
   currentAPR: number;
   dynamicColor: string;
   isUserView?: boolean;
@@ -22,7 +21,6 @@ interface AnalyticsProps {
 export default function Analytics({
   orders,
   totalReputation,
-  productionFund,
   currentAPR,
   dynamicColor,
   isUserView = false,
@@ -39,9 +37,6 @@ export default function Analytics({
           dist: "Tier Distribution",
           noOrders: "No active orders",
           createFirst: "Create your first order to see analytics",
-          history: "Recent Activity",
-          fundBal: "Fund Balance",
-          sysRep: "System Reputation"
       },
       sq: { 
           title: isUserView ? "Performanca Ime" : "Analitika e Protokollit",
@@ -52,9 +47,6 @@ export default function Analytics({
           dist: "Shpërndarja e Niveleve",
           noOrders: "Asnjë urdhër aktiv",
           createFirst: "Krijoni urdhërin tuaj të parë për të parë analitikën",
-          history: "Aktiviteti i Fundit",
-          fundBal: "Balanca e Fondit",
-          sysRep: "Reputacioni i Sistemit"
       }
   }[lang];
 
@@ -84,17 +76,13 @@ export default function Analytics({
       color: colors[tierIndex]
     }));
 
-    const myReputation = totalReputation ? Number(formatEther(totalReputation)) : 0;
-    const totalSystemReputation = productionFund ? Number(formatEther(productionFund.totalReputation)) : 0;
-    const reputationShare = totalSystemReputation > 0 ? (myReputation / totalSystemReputation) * 100 : 0;
-
     return {
       totalLocked,
       averageDuration,
       tierDistribution,
-      reputationShare
+      reputationShare: 0 // Cannot calculate share without global fund data
     };
-  }, [orders, totalReputation, productionFund]);
+  }, [orders]);
 
   return (
     <motion.div
@@ -112,7 +100,6 @@ export default function Analytics({
         {[
           { label: t.locked, value: formatTokenAmount(formatEther(analytics.totalLocked)), suffix: 'CRIKZ', icon: Package, color: dynamicColor },
           { label: t.avgDur, value: analytics.averageDuration.toFixed(0), suffix: lang === 'en' ? 'Days' : 'Ditë', icon: Activity, color: '#00D4FF' },
-          { label: t.repShare, value: analytics.reputationShare.toFixed(2), suffix: '%', icon: PieChart, color: '#A78BFA' },
           { label: t.apr, value: currentAPR.toFixed(3), suffix: '%', icon: TrendingUp, color: '#10B981' }
         ].map((metric) => (
           <motion.div
@@ -168,19 +155,6 @@ export default function Analytics({
           </div>
         )}
       </motion.div>
-
-      {/* Global Stats - Hidden in User View */}
-      {!isUserView && productionFund && (
-        <motion.div variants={fadeInUp} className="glass-card p-6 sm:p-8 rounded-3xl border border-white/10 bg-background-elevated">
-          <h3 className="text-2xl font-black mb-6 flex items-center gap-2 text-white">
-            <Zap size={24} style={{ color: dynamicColor }} strokeWidth={2.5} />
-            Global Production Fund
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-             {/* Global stats render here if needed later */}
-          </div>
-        </motion.div>
-      )}
     </motion.div>
   );
 }

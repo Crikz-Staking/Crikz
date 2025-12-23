@@ -2,18 +2,16 @@
 import { useMemo } from 'react';
 import { calculateOrderReputation, calculateExpectedYield } from '../utils/calculations';
 import { ORDER_TYPES } from '../config';
-import type { ProductionFund } from '../types';
 
 export function useOrderCalculations(
   amount: string,
-  selectedTier: number,
-  productionFund: ProductionFund | undefined
+  selectedTier: number
 ) {
   return useMemo(() => {
     try {
       const amountBigInt = BigInt(Math.floor(parseFloat(amount || '0') * 1e18));
       
-      if (amountBigInt === 0n || !productionFund) {
+      if (amountBigInt === 0n) {
         return {
           reputation: 0n,
           expectedYield: 0n,
@@ -22,10 +20,10 @@ export function useOrderCalculations(
       }
 
       const reputation = calculateOrderReputation(amountBigInt, selectedTier);
+      
+      // Updated to use static calculation (no fund dependency)
       const expectedYield = calculateExpectedYield(
         reputation,
-        productionFund.balance,
-        productionFund.totalReputation + reputation,
         ORDER_TYPES[selectedTier].days
       );
 
@@ -41,5 +39,5 @@ export function useOrderCalculations(
         tierInfo: ORDER_TYPES[selectedTier]
       };
     }
-  }, [amount, selectedTier, productionFund]);
+  }, [amount, selectedTier]);
 }

@@ -6,7 +6,7 @@ import { hardhat, bscTestnet, mainnet } from 'wagmi/chains';
 // ========================================================================
 // 1. WALLET CONNECTION CONFIGURATION
 // ========================================================================
-export const WALLET_CONNECT_PROJECT_ID = '3a8170812b534d0ff9d794f19a901d64'; // Public Testing ID
+export const WALLET_CONNECT_PROJECT_ID = '3a8170812b534d0ff9d794f19a901d64';
 
 export const config = getDefaultConfig({
   appName: 'Crikz Protocol',
@@ -24,13 +24,10 @@ export const config = getDefaultConfig({
 // 2. PROTOCOL CONSTANTS
 // ========================================================================
 
-// Re-added WAD (10^18) as a BigInt for calculations
 export const WAD = 1_000_000_000_000_000_000n;
-
 export const CRIKZ_TOKEN_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3'; 
 
 export const BASE_APR = 6.182; // 6.182%
-export const SECONDS_PER_YEAR = 31536000;
 
 export const ORDER_TYPES = [
   { index: 0, name: 'Prototype', days: 5, multiplier: 0.618 },
@@ -101,14 +98,14 @@ export const CRIKZ_TOKEN_ABI = [
     ],
   },
   {
-    name: 'createOrder', // Updated to match your contract function name exactly
+    name: 'createOrder',
     type: 'function',
     stateMutability: 'nonpayable',
     inputs: [{ name: 'amount', type: 'uint256' }, { name: 'orderType', type: 'uint8' }],
     outputs: [],
   },
   {
-    name: 'completeOrder', // Updated to match your contract function name exactly
+    name: 'completeOrder',
     type: 'function',
     stateMutability: 'nonpayable',
     inputs: [{ name: 'index', type: 'uint256' }],
@@ -119,13 +116,6 @@ export const CRIKZ_TOKEN_ABI = [
     type: 'function',
     stateMutability: 'nonpayable',
     inputs: [],
-    outputs: [],
-  },
-  {
-    name: 'fundProductionPool',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [{ name: 'amount', type: 'uint256' }],
     outputs: [],
   },
 ] as const;

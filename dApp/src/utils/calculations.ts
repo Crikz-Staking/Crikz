@@ -1,37 +1,32 @@
 // src/utils/calculations.ts
-import { ORDER_TYPES, WAD } from '../config';
+import { ORDER_TYPES, WAD, BASE_APR } from '../config';
 
 export function calculateOrderReputation(amount: bigint, orderTypeIndex: number): bigint {
   if (orderTypeIndex < 0 || orderTypeIndex >= ORDER_TYPES.length) return 0n;
-  
   const orderType = ORDER_TYPES[orderTypeIndex];
   // Convert decimal multiplier to BigInt (e.g., 1.001 -> 1001 scaled by 1000)
   const multiplierScaled = BigInt(Math.floor(orderType.multiplier * 1000));
-  
   // amount * multiplier / 1000
   return (amount * multiplierScaled) / 1000n;
 }
 
 export function calculateExpectedYield(
   reputation: bigint,
-  fundBalance: bigint,
-  totalReputation: bigint,
   durationDays: number
 ): bigint {
-  if (totalReputation === 0n || fundBalance === 0n) return 0n;
-
+  if (reputation === 0n) return 0n;
+  
   const durationSeconds = BigInt(durationDays * 24 * 60 * 60);
   const secondsPerYear = BigInt(365 * 24 * 60 * 60);
   
-  // Yield = (Balance * Duration * APR_BASIS) / (100000 * SecondsPerYear)
-  // 6182 represents 6.182%
-  const yieldGenerated = (fundBalance * durationSeconds * 6182n) / (100000n * secondsPerYear);
+  // Static APR Calculation: (Reputation * Duration * APR) / SecondsPerYear
+  // BASE_APR is 6.182, scaled by 1000 for precision => 6182
+  const aprScaled = BigInt(Math.floor(BASE_APR * 1000)); 
   
-  // Share = (YieldGenerated * WAD) / TotalReputation
-  const yieldPerReputation = (yieldGenerated * WAD) / totalReputation;
+  // Result = (Rep * Duration * 6182) / (365 days * 1000 * 100 for percent)
+  const yieldAmount = (reputation * durationSeconds * aprScaled) / (secondsPerYear * 100000n);
   
-  // User Share = (Reputation * YieldPerReputation) / WAD
-  return (reputation * yieldPerReputation) / WAD;
+  return yieldAmount;
 }
 
 export function getOrderStatus(startTime: bigint, duration: bigint) {
@@ -42,7 +37,6 @@ export function getOrderStatus(startTime: bigint, duration: bigint) {
   const timeRemaining = isUnlocked ? 0 : Number(unlockTime - now);
   const elapsed = now - startTime;
   
-  // Avoid division by zero
   const progress = duration > 0n 
     ? Math.min(Number((elapsed * 100n) / duration), 100) 
     : 100;
@@ -55,6 +49,7 @@ export function calculatePendingYield(
   accumulatedYieldPerReputation: bigint,
   yieldDebt: bigint
 ): bigint {
+  // Kept for utility, but currently unused in main flow due to removal request
   const totalProduct = (reputation * accumulatedYieldPerReputation) / WAD;
   if (totalProduct <= yieldDebt) return 0n;
   return totalProduct - yieldDebt;
