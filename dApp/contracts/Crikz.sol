@@ -3,8 +3,8 @@ pragma solidity ^0.8.28;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 import "@openzeppelin/contracts/utils/Context.sol";
 
@@ -43,7 +43,7 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
     constructor(address initialForwarder, address routerAddress) 
         ERC20("Crikz Protocol Token", "CRKZ")
         ERC2771Context(initialForwarder)
-        Ownable()
+        Ownable(msg.sender)
     {
         if (routerAddress == address(0)) revert InvalidAddress();
         PANCAKESWAP_V2_ROUTER = routerAddress;
@@ -166,19 +166,15 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
         return _activeOrders[creator];
     }
 
-    function _transfer(address from, address to, uint256 amount) internal override(ERC20) {
-        super._transfer(from, to, amount);
-    }
-
     function _msgSender() internal view override(Context, ERC2771Context) returns (address) {
-        return ERC2771Context._msgSender();
-    }
+    return ERC2771Context._msgSender();
+}
 
-    function _msgData() internal view override(Context, ERC2771Context) returns (bytes calldata) {
-        return ERC2771Context._msgData();
-    }
+function _msgData() internal view override(Context, ERC2771Context) returns (bytes calldata) {
+    return ERC2771Context._msgData();
+}
 
-    function _contextSuffixLength() internal view override(Context, ERC2771Context) returns (uint256) {
-        return ERC2771Context._contextSuffixLength();
-    }
+function _contextSuffixLength() internal view override(Context, ERC2771Context) returns (uint256) {
+    return ERC2771Context._contextSuffixLength();
+}
 }

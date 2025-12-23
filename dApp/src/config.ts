@@ -2,6 +2,7 @@
 import { getDefaultConfig } from '@rainbow-me/rainbowkit';
 import { http } from 'wagmi';
 import { hardhat, bscTestnet, mainnet } from 'wagmi/chains';
+import { bscTestnet } from 'wagmi/chains';
 
 // ========================================================================
 // 1. WALLET CONNECTION CONFIGURATION
@@ -11,11 +12,10 @@ export const WALLET_CONNECT_PROJECT_ID = '3a8170812b534d0ff9d794f19a901d64';
 export const config = getDefaultConfig({
   appName: 'Crikz Protocol',
   projectId: WALLET_CONNECT_PROJECT_ID,
-  chains: [hardhat, bscTestnet, mainnet],
+  // 1. Make bscTestnet the FIRST chain in the array (Default)
+  chains: [bscTestnet], 
   transports: {
-    [hardhat.id]: http('http://127.0.0.1:8545'),
     [bscTestnet.id]: http('https://data-seed-prebsc-1-s1.binance.org:8545'),
-    [mainnet.id]: http(),
   },
   ssr: false,
 });
@@ -24,8 +24,27 @@ export const config = getDefaultConfig({
 // 2. PROTOCOL CONSTANTS
 // ========================================================================
 
+export const TARGET_CHAIN_ID = 97;
 export const WAD = 1_000_000_000_000_000_000n;
 export const CRIKZ_TOKEN_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3'; 
+export const CRIKZ_NFT_ADDRESS = import.meta.env.VITE_NFT_ADDRESS;
+export const NFT_MARKETPLACE_ADDRESS = import.meta.env.VITE_MARKET_ADDRESS;
+
+export const CRIKZ_NFT_ABI = [
+  "function mint(string _tokenURI) external payable",
+  "function totalSupply() view returns (uint256)",
+  "function tokenURI(uint256 tokenId) view returns (string)",
+  "function balanceOf(address owner) view returns (uint256)",
+  "function ownerOf(uint256 tokenId) view returns (address)",
+  "event NFTMinted(address indexed minter, uint256 indexed tokenId, string tokenURI)"
+] as const;
+
+export const NFT_MARKETPLACE_ABI = [
+  "function listModel(address nftContract, uint256 tokenId, uint256 price) external",
+  "function buyItem(address nftContract, uint256 tokenId) external",
+  "function cancelListing(address nftContract, uint256 tokenId) external",
+  "function listings(address, uint256) view returns (address seller, address nftContract, uint256 tokenId, uint256 price, bool isActive)"
+] as const;
 
 export const BASE_APR = 6.182; // 6.182%
 

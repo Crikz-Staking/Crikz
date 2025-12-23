@@ -2,52 +2,73 @@
 pragma solidity ^0.8.28;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-contract CrikzNFT is ERC721Enumerable, ReentrancyGuard, Ownable {
-    uint256 private _tokenIds;
-    
-    struct Listing {
-        uint256 price;
-        address seller;
-        bool active;
-    }
+contract CrikzNFT is ERC721Enumerable, ERC721URIStorage, Ownable, ReentrancyGuard {
+    uint256 public nextTokenId = 1;
+    uint256 public mintPrice = 0.01 ether; // 0.01 BNB
 
-    mapping(uint256 => Listing) public listings;
+    event NFTMinted(address indexed minter, uint256 indexed tokenId, string tokenURI);
 
-    event NFTMinted(address indexed owner, uint256 indexed tokenId, string name);
-    event ItemListed(uint256 indexed tokenId, uint256 price);
+    constructor() ERC721("Crikz Artifacts", "CRKZ-ART") Ownable(msg.sender) {}
 
-    constructor() ERC721("Crikz Ecosystem Items", "CRIKZ-NFT") {}
-
-    function mintItem() external nonReentrant returns (uint256) {
-        _tokenIds++;
-        uint256 newItemId = _tokenIds;
-        _safeMint(msg.sender, newItemId);
+    // 1. Public Minting (Payable in BNB)
+    function mint(string memory _tokenURI) external payable nonReentrant {
+        require(msg.value >= mintPrice, "Insufficient BNB sent");
         
-        emit NFTMinted(msg.sender, newItemId, string(abi.encodePacked("crikz", uint2str(newItemId))));
-        return newItemId;
+        uint256 tokenId = nextTokenId;
+        nextTokenId++;
+
+        _safeMint(msg.sender, tokenId);
+        _setTokenURI(tokenId, _tokenURI);
+
+        emit NFTMinted(msg.sender, tokenId, _tokenURI);
     }
 
-    function listForItem(uint256 tokenId, uint256 price) external {
-        require(ownerOf(tokenId) == msg.sender, "Nuk jeni pronari");
-        require(price > 0, "Cmimi duhet te jete mbi zero");
-        listings[tokenId] = Listing(price, msg.sender, true);
-        emit ItemListed(tokenId, price);
+    function setMintPrice(uint256 _price) external onlyOwner {
+        mintPrice = _price;
     }
 
-    function uint2str(uint256 _i) internal pure returns (string memory) {
-        if (_i == 0) return "0";
-        uint256 j = _i;
-        uint256 len;
-        while (j != 0) { len++; j /= 10; }
-        bytes memory bstr = new bytes(len);
-        uint256 k = len;
-        while (_i != 0) {
-            bstr[--k] = bytes1(uint8(48 + _i % 10));
-            _i /= 10;
-        }
-        return string(bstr);
+    function withdraw() external onlyOwner {
+        payable(owner()).transfer(address(this).balance);
+    }
+
+    // --- SOLITIDY OVERRIDES (Fixed for OZ v5) ---
+
+    // Enumerable and URIStorage conflict on these, so we define the hierarchy:
+    
+    function _update(address to, uint256 tokenId, address auth) 
+        internal 
+        override(ERC721Enumerable, ERC721) 
+        returns (address) 
+    {
+        return super._update(to, tokenId, auth);
+    }
+
+    function _increaseBalance(address account, uint128 value) 
+        internal 
+        override(ERC721Enumerable, ERC721) 
+    {
+        super._increaseBalance(account, value);
+    }
+
+    function tokenURI(uint256 tokenId) 
+        public 
+        view 
+        override(ERC721, ERC721URIStorage) 
+        returns (string memory) 
+    {
+        return super.tokenURI(tokenId);
+    }
+
+    function supportsInterface(bytes4 interfaceId) 
+        public 
+        view 
+        override(ERC721Enumerable, ERC721URIStorage) 
+        returns (bool) 
+    {
+        return super.supportsInterface(interfaceId);
     }
 }
