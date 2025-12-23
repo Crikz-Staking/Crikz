@@ -5,6 +5,8 @@ import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseEther } from 'viem';
 import { toast } from 'react-hot-toast';
 import { CRIKZ_NFT_ADDRESS, CRIKZ_NFT_ABI } from '@/config'; // You need to export ABI in config
+import { useAccount, useConfig } from 'wagmi';
+
 
 interface Attribute {
   trait_type: string;
@@ -47,6 +49,8 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
     // const finalURI = `data:application/json;base64,${btoa(tokenURI)}`; 
     // Using a placeholder string for simplicity in the contract call:
     const mockIpfsUri = `ipfs://mock-hash/${Date.now()}`; 
+const { chain } = useAccount();
+
 
     writeContract({
       address: CRIKZ_NFT_ADDRESS,

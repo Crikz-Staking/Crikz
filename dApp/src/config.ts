@@ -2,7 +2,6 @@
 import { getDefaultConfig } from '@rainbow-me/rainbowkit';
 import { http } from 'wagmi';
 import { hardhat, bscTestnet, mainnet } from 'wagmi/chains';
-import { bscTestnet } from 'wagmi/chains';
 
 // ========================================================================
 // 1. WALLET CONNECTION CONFIGURATION
