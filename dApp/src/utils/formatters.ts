@@ -1,20 +1,21 @@
 // src/utils/formatters.ts
 
-export const formatTokenAmount = (amount: string | number | bigint): string => {
-  const num = typeof amount === 'bigint' ? parseFloat(amount.toString()) / 1e18 : 
-              typeof amount === 'string' ? parseFloat(amount) : amount;
+export const formatTokenAmount = (amount: string | number | bigint, digits: number = 2): string => {
+  const num = typeof amount === 'bigint' ?
+    parseFloat(amount.toString()) / 1e18 : 
+    typeof amount === 'string' ?
+    parseFloat(amount) : amount;
   
   if (isNaN(num)) return '0.00';
   if (num === 0) return '0.00';
   if (num < 0.001) return '<0.001';
-  
+
   return new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: 2,
+    minimumFractionDigits: digits,
     maximumFractionDigits: 4,
   }).format(num);
 };
 
-// ADD THIS: The missing function causing the crash
 export const formatTimeRemaining = (seconds: number): string => {
   if (seconds <= 0) return "Ready";
   const d = Math.floor(seconds / (3600 * 24));
@@ -26,7 +27,6 @@ export const formatTimeRemaining = (seconds: number): string => {
   return `${m}m left`;
 };
 
-// ADD THIS: To support the professional date display
 export const formatDate = (timestamp: bigint | number): string => {
   const date = new Date(Number(timestamp) * 1000);
   return date.toLocaleDateString('en-US', {

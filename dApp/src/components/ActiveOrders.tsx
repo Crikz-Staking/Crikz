@@ -30,9 +30,9 @@ export default function ActiveOrders({
     const now = BigInt(Math.floor(Date.now() / 1000));
     
     if (filter === 'locked') {
-      return orders.filter((order, idx) => now < order.startTime + order.duration).map((order, idx) => ({ order, originalIndex: orders.indexOf(order) }));
+      return orders.filter((order) => now < order.startTime + order.duration).map((order) => ({ order, originalIndex: orders.indexOf(order) }));
     } else if (filter === 'unlocked') {
-      return orders.filter((order, idx) => now >= order.startTime + order.duration).map((order, idx) => ({ order, originalIndex: orders.indexOf(order) }));
+      return orders.filter((order) => now >= order.startTime + order.duration).map((order) => ({ order, originalIndex: orders.indexOf(order) }));
     }
     
     return orders.map((order, idx) => ({ order, originalIndex: idx }));
@@ -51,24 +51,24 @@ export default function ActiveOrders({
       variants={staggerContainer}
       initial="hidden"
       animate="visible"
-      className="glass-card p-6 sm:p-8 rounded-3xl border border-white/10 space-y-6"
+      className="glass-card p-6 sm:p-8 rounded-3xl border border-white/10 space-y-6 bg-background-elevated"
     >
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl sm:text-4xl font-black mb-2 text-gradient">
-            Active Production Orders
+          <h2 className="text-3xl sm:text-4xl font-black mb-2 text-white">
+            Active Production
           </h2>
-          <p className="text-sm text-gray-400">
-            {orders?.length || 0} order{orders?.length !== 1 ? 's' : ''} in production
+          <p className="text-sm text-gray-300 font-medium">
+            {orders?.length || 0} order{orders?.length !== 1 ? 's' : ''} currently in production
           </p>
         </div>
 
         {/* Filter */}
         {orders && orders.length > 0 && (
-          <div className="flex items-center gap-2">
-            <Filter size={16} className="text-gray-500" />
-            <div className="flex gap-2">
+          <div className="flex items-center gap-3 bg-background-surface p-1.5 rounded-xl border border-white/10">
+            <Filter size={18} className="text-gray-400 ml-2" />
+            <div className="flex gap-1">
               {(['all', 'locked', 'unlocked'] as const).map((f) => (
                 <motion.button
                   key={f}
@@ -77,9 +77,8 @@ export default function ActiveOrders({
                   onClick={() => setFilter(f)}
                   className="px-4 py-2 rounded-lg text-xs font-bold capitalize transition-all"
                   style={{
-                    background: filter === f ? `${dynamicColor}20` : 'rgba(255, 255, 255, 0.05)',
-                    color: filter === f ? dynamicColor : '#888',
-                    border: `1px solid ${filter === f ? `${dynamicColor}40` : 'rgba(255, 255, 255, 0.1)'}`
+                    background: filter === f ? dynamicColor : 'transparent',
+                    color: filter === f ? '#000' : '#9ca3af',
                   }}
                 >
                   {f}
@@ -99,7 +98,7 @@ export default function ActiveOrders({
             initial="hidden"
             animate="visible"
             exit="hidden"
-            className="flex flex-col items-center justify-center py-20 text-gray-500"
+            className="flex flex-col items-center justify-center py-24 text-gray-400"
           >
             <motion.div
               animate={{
@@ -110,11 +109,12 @@ export default function ActiveOrders({
                 repeat: Infinity,
                 ease: 'easeInOut'
               }}
+              className="bg-white/5 p-6 rounded-full mb-6"
             >
-              <Package size={80} className="mb-6 opacity-20" />
+              <Package size={60} className="opacity-50" strokeWidth={1.5} />
             </motion.div>
-            <p className="text-xl font-bold mb-2">No Active Orders</p>
-            <p className="text-sm">Create your first production order to get started</p>
+            <p className="text-xl font-bold mb-2 text-white">No Active Orders</p>
+            <p className="text-sm font-medium">Create your first production order to get started</p>
           </motion.div>
         ) : filteredOrders.length === 0 ? (
           <motion.div
@@ -123,10 +123,10 @@ export default function ActiveOrders({
             initial="hidden"
             animate="visible"
             exit="hidden"
-            className="flex flex-col items-center justify-center py-20 text-gray-500"
+            className="flex flex-col items-center justify-center py-20 text-gray-400"
           >
-            <Package size={60} className="mb-6 opacity-20" />
-            <p className="text-lg font-bold mb-2">No {filter} orders</p>
+            <Package size={60} className="mb-6 opacity-30" />
+            <p className="text-lg font-bold mb-2 text-white">No {filter} orders</p>
             <p className="text-sm">Try a different filter</p>
           </motion.div>
         ) : (
