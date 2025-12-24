@@ -54,7 +54,8 @@ export function useUserNFTs() {
 
     const formatted = validTokenIds.map((id, i) => {
       const uri = tokenURIs[i]?.result as string;
-      let metadata = { name: `Artifact #${id}`, image: '', attributes: [] };
+      let metadata = { name: `Artifact #${id}`, image: '', attributes: [] // Now explicitly typed
+};
       
       try {
         if (uri && uri.startsWith('{')) {

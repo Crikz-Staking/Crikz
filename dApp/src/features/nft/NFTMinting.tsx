@@ -66,7 +66,7 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
 
     try {
       writeContract({
-        address: CRIKZ_NFT_ADDRESS as `0x${string}`,
+        address: CRIKZ_NFT_ADDRESS,
         abi: CRIKZ_NFT_ABI,
         functionName: 'mint',
         args: [tokenURI],

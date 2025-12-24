@@ -110,13 +110,21 @@ export const CRIKZ_TOKEN_ABI = [
 ] as const;
 
 export const CRIKZ_NFT_ABI = [
-  "function mint(string _tokenURI) external payable",
-  "function totalSupply() view returns (uint256)",
-  "function tokenURI(uint256 tokenId) view returns (string)",
-  "function balanceOf(address owner) view returns (uint256)",
-  "function ownerOf(uint256 tokenId) view returns (address)",
-  "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)",
-  "event NFTMinted(address indexed minter, uint256 indexed tokenId, string tokenURI)"
+  {
+    "inputs": [{ "name": "_tokenURI", "type": "string" }],
+    "name": "mint",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "totalSupply",
+    "outputs": [{ "name": "", "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  // ... add the rest of the functions similarly
 ] as const;
 
 export const NFT_MARKETPLACE_ABI = [

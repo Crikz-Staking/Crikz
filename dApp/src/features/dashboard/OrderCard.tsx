@@ -5,6 +5,7 @@ import { Clock, CheckCircle2, Package, Award } from 'lucide-react';
 import { formatTokenAmount, formatTimeRemaining, formatDate } from '@/lib/utils';
 import { ORDER_TYPES } from '@/config/index';
 import type { Order } from '@/types';
+import { getOrderStatus } from '@/lib/utils';
 
 interface OrderCardProps {
   order: Order;
