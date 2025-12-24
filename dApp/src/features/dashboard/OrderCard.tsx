@@ -2,9 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Clock, CheckCircle2, Package, Award } from 'lucide-react';
-import { formatTokenAmount, formatTimeRemaining, formatDate } from '@/utils/formatters';
-import { getOrderStatus } from '@/utils/calculations';
-import { ORDER_TYPES } from '@/config';
+import { formatTokenAmount, formatTimeRemaining, formatDate } from '@/lib/utils';
+import { ORDER_TYPES } from '@/config/index';
 import type { Order } from '@/types';
 
 interface OrderCardProps {

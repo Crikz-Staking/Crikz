@@ -1,7 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { PlusCircle, List, BarChart2, LucideIcon } from 'lucide-react';
-// FIX: Import from types, not Dashboard
 import { DashboardTab, Language } from '@/types';
 
 interface NavigationTabsProps {

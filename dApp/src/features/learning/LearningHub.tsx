@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { BarChart2, BookOpen } from 'lucide-react';
 import TokenAnalytics from '@/features/learning/TokenAnalytics';
 import Reading from '@/features/learning/Reading';
-// FIX: Correct import
 import type { Language } from '@/types';
 
 interface LearningHubProps {

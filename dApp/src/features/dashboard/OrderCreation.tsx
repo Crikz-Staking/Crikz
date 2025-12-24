@@ -2,10 +2,9 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Zap, Clock, Award, AlertCircle, Sparkles, Wallet } from 'lucide-react';
 import TierCard from './TierCard';
-import { ORDER_TYPES } from '@/config';
-import { useOrderCalculations } from '@/hooks/useOrderCalculations';
-import { formatTokenAmount } from '@/utils/formatters';
-import { fadeInUp, staggerContainer } from '@/utils/animations';
+import { ORDER_TYPES } from '@/config/index';
+import { useOrderCalculations } from '@/hooks/web3/useOrderCalculations';
+import { formatTokenAmount } from '@/lib/utils';
 import { formatEther } from 'viem';
 
 interface OrderCreationProps {
@@ -24,11 +23,7 @@ export default function OrderCreation({
   const [amount, setAmount] = useState('');
   const [selectedTier, setSelectedTier] = useState(2); 
   
-  // REMOVED productionFund argument here
-  const { reputation, expectedYield, tierInfo } = useOrderCalculations(
-    amount,
-    selectedTier
-  );
+  const { reputation, expectedYield, tierInfo } = useOrderCalculations(amount, selectedTier);
 
   const handleMaxClick = () => {
     if (balance) {
@@ -44,18 +39,15 @@ export default function OrderCreation({
 
   const balanceNum = balance ? parseFloat(formatEther(balance)) : 0;
   const amountNum = parseFloat(amount || '0');
+  
+  // Logic Fix: Even if balance is 0, allow typing to see calculations, but disable button
   const isValidAmount = amountNum > 0 && amountNum <= balanceNum;
   const isInsufficient = amountNum > balanceNum;
 
   return (
-    <motion.div
-      variants={staggerContainer}
-      initial="hidden"
-      animate="visible"
-      className="grid grid-cols-1 lg:grid-cols-12 gap-6"
-    >
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
       <div className="lg:col-span-8 space-y-6">
-        <motion.div variants={fadeInUp} className="glass-card p-6 rounded-2xl border border-white/10 bg-background-elevated">
+        <div className="glass-card p-6 rounded-2xl border border-white/10 bg-background-elevated">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-sm font-bold text-gray-300 uppercase tracking-wider flex items-center gap-2">
               <Sparkles size={16} style={{ color: dynamicColor }} strokeWidth={2.5} />
@@ -73,19 +65,20 @@ export default function OrderCreation({
               />
             ))}
           </div>
-        </motion.div>
+        </div>
 
-        <motion.div variants={fadeInUp} className="glass-card p-6 rounded-2xl border border-white/10 space-y-4 bg-background-elevated">
+        <div className="glass-card p-6 rounded-2xl border border-white/10 space-y-4 bg-background-elevated">
             <div className="flex justify-between items-center">
               <label className="text-sm font-bold text-gray-300 uppercase tracking-wider">
                 Staking Amount
               </label>
               <div className="flex items-center gap-2 text-xs font-mono text-gray-400 bg-black/20 px-3 py-1 rounded-full">
                 <Wallet size={12} />
-                <span>Balance: {balance ? formatTokenAmount(formatEther(balance)) : '0'}</span>
+                <span>Balance: {balance !== undefined ? formatTokenAmount(formatEther(balance)) : '0.00'}</span>
                 <button 
                   onClick={handleMaxClick}
-                  className="text-primary-500 hover:text-primary-400 font-bold ml-2 transition-colors"
+                  className="text-primary-500 hover:text-primary-400 font-bold ml-2 transition-colors disabled:opacity-50"
+                  disabled={!balance || balance === 0n}
                 >
                   MAX
                 </button>
@@ -121,11 +114,11 @@ export default function OrderCreation({
                 Insufficient balance for this transaction
               </motion.div>
             )}
-        </motion.div>
+        </div>
       </div>
 
       <div className="lg:col-span-4 space-y-6">
-        <motion.div variants={fadeInUp} className="glass-card p-6 rounded-2xl border border-white/10 h-full flex flex-col justify-between bg-background-elevated">
+        <div className="glass-card p-6 rounded-2xl border border-white/10 h-full flex flex-col justify-between bg-background-elevated">
           <div>
             <h3 className="text-xl font-black mb-6 flex items-center gap-2 text-white">
               Order Preview
@@ -178,13 +171,11 @@ export default function OrderCreation({
                 Processing...
               </>
             ) : (
-              <>
-                Confirm Order
-              </>
+              <>Confirm Order</>
             )}
           </motion.button>
-        </motion.div>
+        </div>
       </div>
-    </motion.div>
+    </div>
   );
 }

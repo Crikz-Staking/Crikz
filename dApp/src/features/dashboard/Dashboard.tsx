@@ -8,9 +8,10 @@ import OrderCreation from './OrderCreation';
 import ActiveOrders from './ActiveOrders';
 import Analytics from './Analytics';
 import NavigationTabs from './NavigationTabs';
+
 // Hooks & Types
-import { useContractData } from '@/hooks/useContractData';
-import { useContractWrite } from '@/hooks/useContractWrite';
+import { useContractData } from '@/hooks/web3/useContractData';
+import { useContractWrite } from '@/hooks/web3/useContractWrite';
 import type { Language, DashboardTab } from '@/types';
 
 interface DashboardProps {
@@ -22,11 +23,12 @@ export default function Dashboard({ dynamicColor, lang }: DashboardProps) {
   const [activeTab, setActiveTab] = useState<DashboardTab>('create');
   const { address } = useAccount();
   
-  // Data Fetching - FIX: Aliased activeOrders to orders to match component expectations
+  // Data Fetching
   const { 
     activeOrders: orders, 
     totalReputation,
     pendingYield,
+    globalFund, // <--- New Global Data
     currentAPR,
     isLoading 
   } = useContractData();
@@ -109,6 +111,7 @@ export default function Dashboard({ dynamicColor, lang }: DashboardProps) {
               <Analytics 
                 orders={orders}
                 totalReputation={totalReputation}
+                globalFund={globalFund} // <--- Pass Global Data
                 currentAPR={currentAPR}
                 dynamicColor={dynamicColor}
                 isUserView={true}

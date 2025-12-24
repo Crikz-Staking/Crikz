@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingBag, PlusCircle, LayoutGrid } from 'lucide-react';
 import NFTMinting from './NFTMinting';
 import UserCollection from './UserCollection';
-import MarketListings from './MarketListings'; // (Create this based on UserCollection list logic)
+import MarketListings from './MarketListings'; 
 import { Language } from '@/types';
 
 interface NFTMarketProps {

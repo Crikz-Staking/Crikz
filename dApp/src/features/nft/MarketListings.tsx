@@ -1,5 +1,5 @@
 import React from 'react';
-import { formatTokenAmount, shortenAddress } from '@/utils/formatters';
+import { formatTokenAmount, shortenAddress } from '@/lib/utils';
 
 interface Listing {
   seller: `0x${string}`;

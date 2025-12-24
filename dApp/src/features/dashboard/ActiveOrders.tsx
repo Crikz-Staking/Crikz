@@ -1,13 +1,11 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-// ADDED: Filter import
 import { Package, Clock, CheckCircle2, AlertCircle, Filter } from 'lucide-react';
 
 // Components & Utils
 import OrderCard from './OrderCard';
-import LoadingSpinner from '@/components/common/LoadingSpinner';
-// FIXED: Import correct animation variant
-import { staggerContainer, fadeInUp } from '@/utils/animations';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import { staggerContainer, fadeInUp } from '@/lib/animations';
 import type { Order } from '@/types';
 
 interface ActiveOrdersProps {

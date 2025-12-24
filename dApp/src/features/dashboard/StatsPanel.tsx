@@ -10,7 +10,7 @@ import {
   Percent,
   Zap
 } from 'lucide-react';
-import { formatTokenAmount } from '@/utils/formatters';
+import { formatTokenAmount } from '@/lib/utils';
 
 interface StatsPanelProps {
   balance: bigint | undefined;

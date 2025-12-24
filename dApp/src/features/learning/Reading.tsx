@@ -1,112 +1,136 @@
-// src/components/learning/Reading.tsx
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldCheck, User, ThumbsUp, ChevronDown } from 'lucide-react';
-import { useAccount } from 'wagmi';
-// FIX: Correct import
-import type { Language } from '@/types';
+import { ShieldCheck, BookOpen, Megaphone, ChevronDown, Filter } from 'lucide-react';
+import { Language } from '@/types';
 
 interface ReadingProps {
   dynamicColor: string;
   lang: Language;
 }
 
+type Category = 'All' | 'Updates' | 'Education' | 'Community';
+
+interface Post {
+  id: string;
+  category: Category;
+  title: string;
+  date: string;
+  summary: string;
+  content: React.ReactNode;
+  isOfficial: boolean;
+}
+
 export default function Reading({ dynamicColor, lang }: ReadingProps) {
-  const { isConnected } = useAccount();
-  const [expandedPost, setExpandedPost] = useState<number | null>(null);
-  
-  // Mock Data
-  const rawPosts = [
-    { id: 1, type: 'official', author: 'Crikz Team', title: 'Protocol Upgrade v2.1', date: 'Dec 20, 2024', summary: 'Optimized gas costs & UI refresh.', content: 'Full details about v2.1...', upvotes: 150 },
-    { id: 2, type: 'community', author: 'DeFi_Wizard', title: 'Strategy: Tier 4 Yields', date: 'Dec 18, 2024', summary: 'Why 233-day lock is optimal.', content: 'Deep dive into APR...', upvotes: 45 },
-    { id: 3, type: 'official', author: 'Governance', title: 'Proposal #42 Passed', date: 'Dec 15, 2024', summary: 'Production fund allocation increased.', content: 'Voting results...', upvotes: 200 },
-    { id: 4, type: 'community', author: 'CryptoUser1', title: 'My Experience', date: 'Dec 10, 2024', summary: 'Review of the dApp.', content: 'I like it...', upvotes: 12 },
-    { id: 5, type: 'official', author: 'Crikz Team', title: 'Old Update', date: 'Jan 01, 2024', summary: 'Legacy news.', content: 'Old stuff...', upvotes: 100 },
+  const [activeCategory, setActiveCategory] = useState<Category>('All');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // REAL DATA - No Mocks
+  const posts: Post[] = [
+    {
+      id: 'upgrade-v2',
+      category: 'Updates',
+      title: 'Protocol Upgrade: Crikz Architecture v2.0',
+      date: 'Dec 24, 2025',
+      isOfficial: true,
+      summary: 'Major structural optimization and directory overhaul for enhanced dApp efficiency.',
+      content: (
+        <div className="space-y-4">
+          <p>
+            We are proud to announce the successful deployment of the <strong>Crikz Protocol v2.0</strong> architecture. 
+            This upgrade focuses on modularity and high-efficiency asset management within the dApp structure.
+          </p>
+          <ul className="list-disc pl-5 space-y-1 text-gray-400">
+            <li><strong>Optimized Directory:</strong> Streamlined logic separation between UI, Features, and Core Logic.</li>
+            <li><strong>Logic Implementation:</strong> Hardened asset logic replacing placeholder mocks.</li>
+            <li><strong>Visual Identity:</strong> New "C-Phi" branding integration across the interface.</li>
+          </ul>
+          <p>
+            This update lays the foundation for the upcoming Token Generation Event (TGE) and the activation of the Production Fund.
+          </p>
+        </div>
+      )
+    }
   ];
 
-  const t = {
-    en: { official: "OFFICIAL", community: "COMMUNITY", readMore: "Read Details", upvote: "Upvote" },
-    sq: { official: "ZYRTARE", community: "KOMUNITETI", readMore: "Lexo Detajet", upvote: "Voto" }
-  }[lang];
-
-  // Sorting Logic: 2 latest official, then community by upvotes
-  const sortedPosts = useMemo(() => {
-    const officials = rawPosts.filter(p => p.type === 'official').slice(0, 2); // Top 2 latest official
-    const community = rawPosts.filter(p => p.type === 'community').sort((a, b) => b.upvotes - a.upvotes);
-    return [...officials, ...community];
-  }, []);
+  const filteredPosts = useMemo(() => {
+    if (activeCategory === 'All') return posts;
+    return posts.filter(p => p.category === activeCategory);
+  }, [posts, activeCategory]);
 
   return (
-    <div className="space-y-4">
-      {sortedPosts.map((post) => (
-        <motion.div
-          key={post.id}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className={`glass-card p-6 rounded-2xl border transition-all relative overflow-hidden group ${post.type === 'official' ? 'border-l-4 border-l-amber-500' : 'border-white/10'}`}
-          style={{ borderColor: post.type === 'official' ? undefined : 'rgba(255,255,255,0.1)' }}
-        >
-          {/* Header */}
-          <div className="flex justify-between items-start mb-2">
-            <div className="flex items-center gap-2">
-               {post.type === 'official' ? (
-                 <span className="flex items-center gap-1 text-[10px] font-bold bg-amber-500/20 text-amber-500 px-2 py-1 rounded">
-                   <ShieldCheck size={12} /> {t.official}
-                 </span>
-               ) : (
-                 <span className="flex items-center gap-1 text-[10px] font-bold bg-blue-500/20 text-blue-400 px-2 py-1 rounded">
-                   <User size={12} /> {t.community}
-                 </span>
-               )}
-               <span className="text-xs text-gray-500">{post.date}</span>
-            </div>
-            {post.type === 'community' && (
-              <div className="flex items-center gap-1 text-xs font-bold text-gray-400">
-                <ThumbsUp size={12} /> {post.upvotes}
+    <div className="space-y-6">
+      {/* Category Filter */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
+        <Filter size={14} className="text-gray-500 mr-2" />
+        {(['All', 'Updates', 'Education', 'Community'] as const).map(cat => (
+          <button
+            key={cat}
+            onClick={() => setActiveCategory(cat)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+              activeCategory === cat 
+                ? 'bg-primary-500/20 border-primary-500 text-primary-500' 
+                : 'bg-white/5 border-transparent text-gray-500 hover:text-gray-300'
+            }`}
+          >
+            {cat}
+          </button>
+        ))}
+      </div>
+
+      {/* Posts Feed */}
+      <div className="grid gap-4">
+        {filteredPosts.map((post) => (
+          <motion.div
+            key={post.id}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`glass-card p-6 rounded-2xl border transition-all relative overflow-hidden ${
+              post.isOfficial ? 'border-primary-500/30' : 'border-white/10'
+            }`}
+          >
+            {post.isOfficial && (
+              <div className="absolute top-0 right-0 p-2 bg-primary-500/10 rounded-bl-xl border-b border-l border-primary-500/20">
+                <ShieldCheck size={14} className="text-primary-500" />
               </div>
             )}
-          </div>
 
-          {/* Title & Quick Read */}
-          <h3 className="text-lg font-bold text-white mb-2">{post.title}</h3>
-          <p className="text-sm text-gray-300 mb-4">{post.summary}</p>
+            <div className="flex items-center gap-2 mb-3">
+              <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${
+                post.category === 'Updates' ? 'bg-blue-500/20 text-blue-400' : 'bg-gray-700 text-gray-300'
+              }`}>
+                {post.category}
+              </span>
+              <span className="text-xs text-gray-600 font-mono">{post.date}</span>
+            </div>
 
-          {/* Interaction */}
-          <div className="flex items-center justify-between border-t border-white/5 pt-4">
+            <h3 className="text-lg font-black text-white mb-2">{post.title}</h3>
+            <p className="text-sm text-gray-400 leading-relaxed mb-4">{post.summary}</p>
+
             <button 
-              onClick={() => setExpandedPost(expandedPost === post.id ? null : post.id)}
-              className="text-xs font-bold text-primary-500 flex items-center gap-1 hover:text-white transition-colors"
+              onClick={() => setExpandedId(expandedId === post.id ? null : post.id)}
+              className="flex items-center gap-2 text-xs font-bold text-primary-500 hover:text-white transition-colors"
             >
-              {t.readMore} <ChevronDown size={14} className={`transition-transform ${expandedPost === post.id ? 'rotate-180' : ''}`} />
+              {expandedId === post.id ? 'Close Details' : 'Read Full Update'}
+              <ChevronDown size={14} className={`transition-transform ${expandedId === post.id ? 'rotate-180' : ''}`} />
             </button>
-            
-            {post.type === 'community' && (
-               <button 
-                 disabled={!isConnected}
-                 className="text-[10px] font-bold border border-white/10 px-3 py-1.5 rounded-lg hover:bg-white/5 disabled:opacity-50"
-               >
-                 {t.upvote}
-               </button>
-            )}
-          </div>
 
-          {/* Expanded Content */}
-          <AnimatePresence>
-             {expandedPost === post.id && (
-              <motion.div 
-                initial={{ height: 0, opacity: 0 }} 
-                animate={{ height: 'auto', opacity: 1 }} 
-                exit={{ height: 0, opacity: 0 }}
-                className="overflow-hidden"
-              >
-                <div className="pt-4 text-sm text-gray-400 leading-relaxed border-t border-white/5 mt-4">
-                  {post.content}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
-      ))}
+            <AnimatePresence>
+              {expandedId === post.id && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="mt-4 pt-4 border-t border-white/5 text-sm text-gray-300 leading-relaxed">
+                    {post.content}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        ))}
+      </div>
     </div>
   );
 }

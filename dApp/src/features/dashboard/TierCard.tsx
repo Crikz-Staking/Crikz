@@ -2,7 +2,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Clock, Award, CheckCircle } from 'lucide-react';
-// FIX: Correct import path
 import type { TierInfo } from '@/types';
 
 interface TierCardProps {

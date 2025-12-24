@@ -2,7 +2,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { LayoutDashboard, GraduationCap, ShoppingBag, Gamepad2 } from 'lucide-react';
-// FIX: Import from types
 import type { Language, ViewMode } from '@/types';
 
 interface TopNavigationProps {

@@ -1,4 +1,3 @@
-// src/main.tsx
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { WagmiProvider } from 'wagmi';
@@ -8,19 +7,18 @@ import '@rainbow-me/rainbowkit/styles.css';
 
 import App from './App';
 import './index.css';
-import { config } from './config';
+import { web3Config } from '@/lib/web3-config'; // Updated Import
 
-// Initialize React Query Client
 const queryClient = new QueryClient();
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <WagmiProvider config={config}>
+    <WagmiProvider config={web3Config}>
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider 
           theme={darkTheme({
-            accentColor: '#f59e0b', // Primary Amber/Gold
-            accentColorForeground: 'white',
+            accentColor: '#f59e0b',
+            accentColorForeground: 'black', // Improved contrast
             borderRadius: 'large',
             fontStack: 'system',
             overlayBlur: 'small',

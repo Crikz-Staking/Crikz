@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, X, Check, AlertCircle, TrendingUp } from 'lucide-react';
-// FIX: Correct import
 import type { Language } from '@/types';
 
 interface Notification {
