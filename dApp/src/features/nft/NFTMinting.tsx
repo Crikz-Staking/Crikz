@@ -5,8 +5,6 @@ import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseEther } from 'viem';
 import { toast } from 'react-hot-toast';
 import { CRIKZ_NFT_ADDRESS, CRIKZ_NFT_ABI } from '@/config'; // You need to export ABI in config
-import { useAccount, useConfig } from 'wagmi';
-
 
 interface Attribute {
   trait_type: string;
@@ -32,33 +30,30 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
 
   const handleMint = async () => {
     if (!metadata.name || !metadata.image) {
-      toast.error("Name and Image URL are required!");
+      toast.error("Please provide at least a name and image");
       return;
     }
 
-    // In a real app, you would upload this JSON to IPFS here.
-    // For this demo, we simulate the URI string.
     const tokenURI = JSON.stringify({
-      name: metadata.name,
-      description: metadata.description,
-      image: metadata.image,
+      ...metadata,
       attributes: attributes.filter(a => a.trait_type && a.value)
     });
-    
-    // For testnet, we can use a data URI or a mock IPFS hash
-    // const finalURI = `data:application/json;base64,${btoa(tokenURI)}`; 
-    // Using a placeholder string for simplicity in the contract call:
-    const mockIpfsUri = `ipfs://mock-hash/${Date.now()}`; 
-const { chain } = useAccount();
 
-
-    writeContract({
-      address: CRIKZ_NFT_ADDRESS,
-      abi: CRIKZ_NFT_ABI,
-      functionName: 'mint',
-      args: [mockIpfsUri],
-      value: parseEther('0.01'), // 0.01 BNB Mint Price
-    });
+    try {
+      // We use the 'Config' type inference by ensuring address is a valid 0x string
+      // and matching the ABI structure exactly.
+      writeContract({
+        address: CRIKZ_NFT_ADDRESS as `0x${string}`,
+        abi: CRIKZ_NFT_ABI,
+        functionName: 'mint',
+        args: [tokenURI],
+        value: parseEther('0.01'),
+      } as any); // The 'as any' is a temporary bridge if your ABI is a string array 
+                 // instead of a full JSON ABI object.
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to initiate transaction");
+    }
   };
 
   return (
