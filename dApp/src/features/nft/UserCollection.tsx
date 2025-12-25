@@ -1,23 +1,28 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { FolderPlus, Settings, ArrowRightLeft, Plus, Image as ImageIcon } from 'lucide-react';
-import { useUserNFTs } from '@/hooks/web3/useUserNFTs'; // [cite: 353]
+import { FolderPlus, Image as ImageIcon } from 'lucide-react';
+import { useUserNFTs } from '@/hooks/web3/useUserNFTs';
 
-// Mock Local Storage for Collections (Since no backend)
-const DEFAULT_COLLECTIONS = [
+interface Collection {
+  id: string;
+  name: string;
+  items: any[];
+}
+
+const DEFAULT_COLLECTIONS: Collection[] = [
     { id: 'default', name: 'General', items: [] },
     { id: 'favs', name: 'Favorites', items: [] }
 ];
 
 export default function UserCollection({ dynamicColor }: { dynamicColor: string }) {
   const { nfts } = useUserNFTs();
-  const [collections, setCollections] = useState(DEFAULT_COLLECTIONS);
+  const [collections, setCollections] = useState<Collection[]>(DEFAULT_COLLECTIONS);
   const [view, setView] = useState<'grid' | 'manage'>('grid');
   const [activeCollectionId, setActiveCollectionId] = useState('default');
 
   // Helper to create collection
   const createCollection = (name: string) => {
-    const newColl = { id: `col-${Date.now()}`, name, items: [] };
+    const newColl: Collection = { id: `col-${Date.now()}`, name, items: [] };
     setCollections([...collections, newColl]);
   };
 
@@ -51,16 +56,13 @@ export default function UserCollection({ dynamicColor }: { dynamicColor: string 
         <div className="glass-card p-6 rounded-3xl border border-white/10 min-h-[400px]">
             <div className="flex justify-between items-center mb-6">
                  <h3 className="font-bold text-gray-400 uppercase text-sm">Items in {collections.find(c => c.id === activeCollectionId)?.name}</h3>
-                 <button className="text-primary-500 text-xs font-bold flex items-center gap-1 hover:underline">
-                    <Plus size={12}/> Import Items
-                 </button>
             </div>
 
             {/* If Default, show all wallet NFTs */}
             {activeCollectionId === 'default' ? (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {nfts.map((nft) => (
-                        <div key={nft.id} className="bg-black/40 rounded-xl p-3 border border-white/5 hover:border-primary-500/50 transition-colors group relative">
+                        <div key={nft.id.toString()} className="bg-black/40 rounded-xl p-3 border border-white/5 hover:border-primary-500/50 transition-colors group relative">
                             <div className="aspect-square bg-white/5 rounded-lg mb-3 overflow-hidden">
                                 {nft.image ? <img src={nft.image} className="w-full h-full object-cover"/> : <ImageIcon className="m-auto mt-10 opacity-20"/>}
                             </div>

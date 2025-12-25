@@ -14,8 +14,6 @@ export function useMarketListings() {
         setIsLoading(true);
         
         try {
-            // Optimization: Only scan last 50,000 blocks to prevent RPC timeouts
-            // In production, use TheGraph
             const fromBlock = currentBlock - 50000n > 0n ? currentBlock - 50000n : 0n;
 
             const logs = await publicClient.getContractEvents({
@@ -61,11 +59,12 @@ export function useMarketListings() {
 
             const marketItems: MarketItem[] = Array.from(activeMap.values()).map((item: any) => ({
                 id: item.tokenId,
+                tokenId: item.tokenId,
                 uri: '', 
                 name: `Artifact #${item.tokenId}`,
                 description: 'Listed on Crikz Market',
                 image: '', 
-                attributes: [],
+                attributes: [] as Array<{ trait_type: string; value: string }>,
                 price: item.price,
                 seller: item.seller,
                 nftContract: item.nftContract,
@@ -74,8 +73,7 @@ export function useMarketListings() {
 
             setListings(marketItems);
         } catch (e) {
-            console.error("Error fetching market events (likely RPC limit):", e);
-            // Fallback for demo if RPC fails
+            console.error("Error fetching market events:", e);
             setListings([]); 
         } finally {
             setIsLoading(false);

@@ -7,6 +7,12 @@ import { toast } from 'react-hot-toast';
 import { CRIKZ_NFT_ADDRESS, CRIKZ_NFT_ABI } from '@/config/index';
 import { uploadToIPFS } from '@/lib/ipfs-service';
 
+interface Collection {
+  id: string;
+  name: string;
+  items: any[];
+}
+
 export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
   const { address } = useAccount();
   const [file, setFile] = useState<File | null>(null);
@@ -28,8 +34,8 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
   useEffect(() => {
     const saved = localStorage.getItem('crikz_collections');
     if (saved) {
-      const parsed = JSON.parse(saved);
-      const names = parsed.map((c: any) => c.name);
+      const parsed: Collection[] = JSON.parse(saved);
+      const names = parsed.map((c: Collection) => c.name);
       setCollections(prev => [...new Set([...prev, ...names])]);
     }
   }, []);
@@ -76,10 +82,10 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
       });
 
       // Save new collection to local storage for future use if it's new
-      if (isNewColl) {
+      if (isNewColl && newCollName) {
          const saved = localStorage.getItem('crikz_collections');
-         const current = saved ? JSON.parse(saved) : [];
-         const newEntry = { id: `col-${Date.now()}`, name: collectionName, items: [] };
+         const current: Collection[] = saved ? JSON.parse(saved) : [];
+         const newEntry: Collection = { id: `col-${Date.now()}`, name: collectionName, items: [] };
          localStorage.setItem('crikz_collections', JSON.stringify([...current, newEntry]));
       }
 

@@ -1,6 +1,12 @@
 import React, { useState } from 'react';
 import { BookOpen, Search, BookMarked, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { Language } from '@/types'; // FIXED: Add import
+
+interface ReadingProps {
+  dynamicColor: string;
+  lang: Language;
+}
 
 const ARTICLES = [
   { id: 1, title: "Understanding Fibonacci in DeFi", category: "Mathematics", readTime: "5 min" },
@@ -8,7 +14,7 @@ const ARTICLES = [
   { id: 3, title: "The Power of Algorithmic Reputation", category: "Governance", readTime: "6 min" },
 ];
 
-export default function Reading() {
+export default function Reading({ dynamicColor, lang }: ReadingProps) { // FIXED
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between mb-8">

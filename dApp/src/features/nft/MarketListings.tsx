@@ -1,20 +1,33 @@
 import React from 'react';
 import { formatTokenAmount, shortenAddress } from '@/lib/utils';
-
-interface Listing {
-  seller: `0x${string}`;
-  nftContract: `0x${string}`;
-  tokenId: bigint;
-  price: bigint;
-}
+import { Listing } from '@/types';
 
 interface MarketListingsProps {
   listings: Listing[];
   onBuy: (nftContract: string, tokenId: bigint, price: bigint) => void;
   isPending: boolean;
+  isLoading: boolean;
 }
 
-export default function MarketListings({ listings, onBuy, isPending }: MarketListingsProps) {
+export default function MarketListings({ listings, onBuy, isPending, isLoading }: MarketListingsProps) {
+  if (isLoading) {
+    return (
+      <div className="text-center py-20">
+        <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+        <p className="text-gray-400">Loading marketplace...</p>
+      </div>
+    );
+  }
+
+  if (listings.length === 0) {
+    return (
+      <div className="glass-card p-20 rounded-3xl border border-white/10 text-center">
+        <h3 className="text-2xl font-black text-white mb-2">No Active Listings</h3>
+        <p className="text-gray-400">Be the first to list your NFT on the marketplace!</p>
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {listings.map((item, idx) => (

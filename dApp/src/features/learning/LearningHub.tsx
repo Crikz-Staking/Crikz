@@ -1,4 +1,3 @@
-// src/components/LearningHub.tsx
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BarChart2, BookOpen } from 'lucide-react';
@@ -12,7 +11,6 @@ interface LearningHubProps {
 }
 
 export default function LearningHub({ dynamicColor, lang }: LearningHubProps) {
-  // Default set to 'reading' as requested
   const [activeSection, setActiveSection] = useState<'reading' | 'analytics'>('reading');
 
   const t = {
@@ -22,7 +20,6 @@ export default function LearningHub({ dynamicColor, lang }: LearningHubProps) {
 
   return (
     <div className="w-full max-w-7xl mx-auto">
-      {/* Sub-Navigation */}
       <div className="flex items-center gap-8 mb-8 border-b border-white/10 px-4">
         <button
           onClick={() => setActiveSection('reading')}

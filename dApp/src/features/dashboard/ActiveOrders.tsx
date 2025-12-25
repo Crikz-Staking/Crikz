@@ -6,13 +6,18 @@ import { Order } from '@/types';
 
 interface ActiveOrdersProps {
   orders: Order[];
-  onCompleteOrder: (index: number) => void; // Add this line
+  onCompleteOrder: (index: number) => void; // FIXED: Correct prop name
   isPending: boolean;
   isLoading: boolean;
   dynamicColor: string;
 }
 
-export default function ActiveOrders({ orders, onComplete, isPending, dynamicColor }: ActiveOrdersProps) {
+export default function ActiveOrders({ 
+  orders, 
+  onCompleteOrder, // FIXED: Use correct prop name
+  isPending, 
+  dynamicColor 
+}: ActiveOrdersProps) {
   if (orders.length === 0) {
     return (
       <div className="glass-card p-20 rounded-3xl border border-white/5 flex flex-col items-center justify-center text-center">
@@ -35,7 +40,7 @@ export default function ActiveOrders({ orders, onComplete, isPending, dynamicCol
             key={`${order.startTime}-${idx}`} 
             order={order} 
             index={idx} 
-            onComplete={onComplete}
+            onComplete={onCompleteOrder} // FIXED
             isPending={isPending}
             dynamicColor={dynamicColor}
           />

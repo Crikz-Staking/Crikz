@@ -5,8 +5,8 @@ import NFTMinting from './NFTMinting';
 import UserCollection from './UserCollection';
 import MarketListings from './MarketListings';
 import { useMarketListings } from '@/hooks/web3/useMarketListings';
-import { useContractWrite } from '@/hooks/web3/useContractWrite'; // Assuming this exists
-import { Language } from '@/types';
+import { useContractWrite } from '@/hooks/web3/useContractWrite';
+import { Language, Listing } from '@/types';
 
 interface NFTMarketProps {
   dynamicColor: string;
@@ -16,13 +16,21 @@ interface NFTMarketProps {
 export default function NFTMarket({ dynamicColor, lang }: NFTMarketProps) {
   const [view, setView] = useState<'market' | 'mint' | 'collection'>('market');
   const { listings, isLoading, refresh } = useMarketListings();
-  const { isPending } = useContractWrite(); // Simplified for brevity
+  const { isPending } = useContractWrite();
 
   const tabs = [
     { id: 'market', label: 'Marketplace', icon: ShoppingBag },
     { id: 'mint', label: 'Mint Artifact', icon: PlusCircle },
     { id: 'collection', label: 'My Collection', icon: LayoutGrid },
   ];
+
+  // Convert MarketItem[] to Listing[]
+  const convertedListings: Listing[] = listings.map(item => ({
+    seller: item.seller as `0x${string}`,
+    nftContract: item.nftContract as `0x${string}`,
+    tokenId: item.id,
+    price: item.price
+  }));
 
   return (
     <div className="space-y-6">
@@ -48,7 +56,12 @@ export default function NFTMarket({ dynamicColor, lang }: NFTMarketProps) {
           exit={{ opacity: 0, y: -10 }}
         >
           {view === 'market' && (
-             <MarketListings listings={listings} isPending={isPending} isLoading={isLoading} onBuy={() => {}} />
+             <MarketListings 
+               listings={convertedListings} 
+               isPending={isPending} 
+               isLoading={isLoading} 
+               onBuy={() => {}} 
+             />
           )}
           {view === 'mint' && <NFTMinting dynamicColor={dynamicColor} />}
           {view === 'collection' && <UserCollection dynamicColor={dynamicColor} />}

@@ -15,11 +15,6 @@ export interface OrderStatus {
   unlockTime: bigint;
 }
 
-const formattedListings = listings.map(item => ({
-  ...item,
-  tokenId: item.id, // Explicitly map id to tokenId if that's what Listing expects [cite: 188]
-}));
-
 export interface TierInfo {
   index: number;
   days: number;
@@ -32,11 +27,11 @@ export interface TierInfo {
 export interface NFTMetadata {
   name: string;
   description: string;
-  image: string; // The primary display (could be thumbnail for video)
-  animation_url?: string; // For Video/Audio
-  external_url?: string; // For deep linking files
-  attributes: { trait_type: string; value: string }[];
-  collection?: string; // User-defined collection grouping
+  image: string;
+  animation_url?: string;
+  external_url?: string;
+  attributes: Array<{ trait_type: string; value: string }>; // FIXED
+  collection?: string;
   mimeType?: string;
 }
 
@@ -51,6 +46,15 @@ export interface MarketItem extends NFTItem {
   seller: string;
   nftContract: string;
   isActive: boolean;
+  tokenId: bigint; // FIXED: Added missing property
+}
+
+// FIXED: Removed invalid code
+export interface Listing {
+  seller: `0x${string}`;
+  nftContract: `0x${string}`;
+  tokenId: bigint;
+  price: bigint;
 }
 
 // Navigation Types

@@ -4,7 +4,7 @@ import { BookOpen, BarChart2, Gamepad2, Headphones, Tv, Layers } from 'lucide-re
 import Reading from '@/features/learning/Reading';
 import TokenAnalytics from '@/features/learning/TokenAnalytics';
 import BlockchainGames from '@/features/games/BlockchainGames';
-import MediaPlayer from './MediaPlayer'; // Visual component for audio/video
+import MediaPlayer from './MediaPlayer';
 import { Language } from '@/types';
 
 interface PassiveHubProps {
@@ -27,7 +27,6 @@ export default function PassiveHub({ dynamicColor, lang }: PassiveHubProps) {
 
   return (
     <div className="w-full space-y-8">
-      {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-end gap-4 pb-6 border-b border-white/5">
         <div>
             <h1 className="text-4xl font-black text-white mb-2 flex items-center gap-3">
@@ -36,7 +35,6 @@ export default function PassiveHub({ dynamicColor, lang }: PassiveHubProps) {
             <p className="text-gray-400">Explore content, games, and media powered by Crikz Protocol.</p>
         </div>
         
-        {/* Tab Navigation */}
         <div className="flex bg-black/40 p-1 rounded-xl border border-white/10 overflow-x-auto max-w-full">
             {tabs.map((tab) => (
                 <button

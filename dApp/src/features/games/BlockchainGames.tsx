@@ -5,6 +5,12 @@ import {
   Crown, Coins, TrendingUp, Target, Activity, 
   ShieldAlert, Ghost 
 } from 'lucide-react';
+import { Language } from '@/types'; // FIXED: Add import
+
+interface BlockchainGamesProps {
+  dynamicColor: string;
+  lang: Language;
+}
 
 const GAMES_LIST = [
     { id: 'chess', title: 'Grandmaster Chess', desc: 'P2P Betting Elo Rated', icon: Crown },
@@ -21,7 +27,7 @@ const GAMES_LIST = [
     { id: 'ghost', title: 'Ghost Protocol', desc: 'Stealth Strategy', icon: Ghost },
 ];
 
-export default function BlockchainGames({ dynamicColor }: { dynamicColor: string }) {
+export default function BlockchainGames({ dynamicColor, lang }: BlockchainGamesProps) { // FIXED
   const [activeGame, setActiveGame] = useState<string | null>(null);
 
   return (
