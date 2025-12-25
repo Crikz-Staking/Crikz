@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { Upload, Sparkles, Info, X, Image as ImageIcon } from 'lucide-react';
+import { Upload, Sparkles, X, Image as ImageIcon } from 'lucide-react';
 import { useWriteContract, useWaitForTransactionReceipt, useAccount } from 'wagmi';
+import { bscTestnet } from 'wagmi/chains'; // 1. Added Import
 import { parseEther } from 'viem';
 import { toast } from 'react-hot-toast';
 import { CRIKZ_NFT_ADDRESS, CRIKZ_NFT_ABI } from '@/config/index';
@@ -11,10 +12,11 @@ interface Attribute {
 }
 
 export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
-  const { address } = useAccount(); // FIX: Get address for writeContract
+  const { address } = useAccount();
   const [metadata, setMetadata] = useState({ name: '', description: '', image: '' });
   const [attributes, setAttributes] = useState<Attribute[]>([{ trait_type: '', value: '' }]);
   const [preview, setPreview] = useState<string | null>(null);
+  
   // Track touched fields for validation error highlighting
   const [touched, setTouched] = useState({ name: false, image: false });
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -70,7 +72,8 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
         functionName: 'mint',
         args: [tokenURI],
         value: parseEther('0.01'), 
-        account: address, // FIX: Explicitly pass account
+        account: address,
+        chain: bscTestnet, // 2. Added chain property to satisfy strict typing
       });
       toast.loading("Initiating Mint transaction...");
     } catch (err) {
