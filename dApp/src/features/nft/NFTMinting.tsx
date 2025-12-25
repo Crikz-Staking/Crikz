@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Upload, Sparkles, Info, X, Image as ImageIcon } from 'lucide-react';
-import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useWriteContract, useWaitForTransactionReceipt, useAccount } from 'wagmi';
 import { parseEther } from 'viem';
 import { toast } from 'react-hot-toast';
 import { CRIKZ_NFT_ADDRESS, CRIKZ_NFT_ABI } from '@/config/index';
@@ -11,10 +11,10 @@ interface Attribute {
 }
 
 export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
+  const { address } = useAccount(); // FIX: Get address for writeContract
   const [metadata, setMetadata] = useState({ name: '', description: '', image: '' });
   const [attributes, setAttributes] = useState<Attribute[]>([{ trait_type: '', value: '' }]);
   const [preview, setPreview] = useState<string | null>(null);
-  
   // Track touched fields for validation error highlighting
   const [touched, setTouched] = useState({ name: false, image: false });
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -52,7 +52,6 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
 
   const handleMint = async () => {
     setTouched({ name: true, image: true });
-    
     if (errors.name || errors.image) {
       toast.error("Please fill in all required fields marked in red.");
       return;
@@ -71,6 +70,7 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
         functionName: 'mint',
         args: [tokenURI],
         value: parseEther('0.01'), 
+        account: address, // FIX: Explicitly pass account
       });
       toast.loading("Initiating Mint transaction...");
     } catch (err) {
@@ -123,7 +123,8 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
             </label>
             
             <div className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center gap-3 transition-colors ${
-               touched.image && errors.image ? 'border-red-500/50 bg-red-500/5' : 'border-white/10 hover:border-white/20 bg-black/20'
+               touched.image && errors.image ?
+               'border-red-500/50 bg-red-500/5' : 'border-white/10 hover:border-white/20 bg-black/20'
             }`}>
               <input 
                 type="file" 
@@ -133,7 +134,8 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
                 onChange={handleFileUpload}
               />
               
-              {preview ? (
+              {preview ?
+              (
                 <div className="relative w-full h-40 group">
                   <img src={preview} alt="Upload" className="w-full h-full object-contain rounded-lg" />
                   <button 

@@ -18,7 +18,8 @@ export function useUserNFTs() {
   const balanceNum = balance ? Number(balance) : 0;
   
   // Limit to first 20 to prevent excessive RPC calls in this demo
-  const fetchCount = Math.min(balanceNum, 20); 
+  const fetchCount = Math.min(balanceNum, 20);
+  
   const indexCalls = Array.from({ length: fetchCount }, (_, i) => ({
     address: CRIKZ_NFT_ADDRESS,
     abi: CRIKZ_NFT_ABI,
@@ -33,7 +34,7 @@ export function useUserNFTs() {
 
   // 3. Prepare calls for tokenURI
   const validTokenIds = tokenIds?.map(r => r.result).filter(Boolean) as bigint[] || [];
-  
+
   const uriCalls = validTokenIds.map(id => ({
     address: CRIKZ_NFT_ADDRESS,
     abi: CRIKZ_NFT_ABI,
@@ -53,9 +54,15 @@ export function useUserNFTs() {
     if (!tokenIds || !tokenURIs) return;
 
     const formatted = validTokenIds.map((id, i) => {
-      const uri = tokenURIs[i]?.result as string;
-      let metadata = { name: `Artifact #${id}`, image: '', attributes: [] // Now explicitly typed
-};
+      // FIX 1: Double cast to handle potential BigInt type mismatch during build
+      const uri = tokenURIs[i]?.result as unknown as string;
+      
+      // FIX 2: Explicitly type the attributes array to avoid TS7018
+      let metadata = { 
+        name: `Artifact #${id}`, 
+        image: '', 
+        attributes: [] as any[] 
+      };
       
       try {
         if (uri && uri.startsWith('{')) {
