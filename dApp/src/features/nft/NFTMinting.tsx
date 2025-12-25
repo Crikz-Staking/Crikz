@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Upload, Sparkles, X, Image as ImageIcon } from 'lucide-react';
 import { useWriteContract, useWaitForTransactionReceipt, useAccount } from 'wagmi';
-import { bscTestnet } from 'wagmi/chains'; // Import the chain object
+import { bscTestnet } from 'wagmi/chains'; 
 import { parseEther } from 'viem';
 import { toast } from 'react-hot-toast';
 import { CRIKZ_NFT_ADDRESS, CRIKZ_NFT_ABI } from '@/config/index';
@@ -60,13 +60,15 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
       return;
     }
 
+    // Prepare Token URI (JSON) including the Description
     const tokenURI = JSON.stringify({
-      ...metadata,
+      name: metadata.name,
+      description: metadata.description, // Description is back!
+      image: metadata.image,
       attributes: attributes.filter(a => a.trait_type && a.value)
     });
 
     try {
-      // The fix: explicitly pass address as 'account' and bscTestnet as 'chain'
       writeContract({
         address: CRIKZ_NFT_ADDRESS as `0x${string}`,
         abi: CRIKZ_NFT_ABI,
@@ -74,7 +76,7 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
         args: [tokenURI],
         value: parseEther('0.01'), 
         account: address, 
-        chain: bscTestnet,
+        chain: bscTestnet, // Required for build
       });
       toast.loading("Initiating Mint transaction...");
     } catch (err) {
@@ -85,16 +87,19 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      {/* Form Section */}
       <div className="glass-card p-8 rounded-3xl border border-white/10 space-y-6 bg-background-elevated">
         <h2 className="text-2xl font-black text-white flex items-center gap-2">
           <Sparkles className="text-primary-500" /> Mint Artifact
         </h2>
 
         <div className="space-y-4">
+          {/* Name Input */}
           <div>
             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Asset Name *</label>
             <input 
               type="text" 
+              placeholder="e.g. Golden Crikz #001"
               className={`w-full bg-black/20 border rounded-xl p-4 text-white focus:outline-none transition-colors ${
                 touched.name && errors.name ? 'border-red-500' : 'border-white/10'
               }`}
@@ -103,6 +108,18 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
             />
           </div>
 
+          {/* Description Input (Restored) */}
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Description</label>
+            <textarea 
+              placeholder="Describe your artifact..."
+              className="w-full bg-black/20 border border-white/10 rounded-xl p-4 text-white focus:border-primary-500 outline-none h-24"
+              value={metadata.description}
+              onChange={(e) => setMetadata({...metadata, description: e.target.value})}
+            />
+          </div>
+
+          {/* Image Upload */}
           <div>
             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Image *</label>
             <div className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center transition-colors ${
@@ -123,6 +140,7 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
             </div>
           </div>
 
+          {/* Attributes */}
           <div className="pt-2">
             <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Attributes</label>
             <div className="space-y-2">
@@ -147,13 +165,24 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
         </button>
       </div>
 
-      <div className="glass-card p-8 rounded-3xl border border-white/10 bg-black/20 h-fit">
+      {/* Preview Section */}
+      <div className="glass-card p-8 rounded-3xl border border-white/10 bg-black/20 h-fit sticky top-24">
         <h3 className="text-gray-500 font-bold uppercase text-xs mb-4">Preview</h3>
         <div className="aspect-square w-full bg-black/40 rounded-xl mb-4 flex items-center justify-center overflow-hidden border border-white/5">
            {preview ? <img src={preview} className="w-full h-full object-cover" /> : <ImageIcon className="text-gray-700" size={48} />}
         </div>
         <div className="text-white font-bold text-xl">{metadata.name || 'Untitled'}</div>
-        <div className="text-gray-400 text-sm mt-1 line-clamp-2">{metadata.description || 'No description'}</div>
+        <div className="text-gray-400 text-sm mt-1 line-clamp-3">{metadata.description || 'No description provided.'}</div>
+        
+        {/* Attribute Badges in Preview */}
+        <div className="grid grid-cols-2 gap-2 mt-4">
+          {attributes.filter(a => a.value).map((attr, i) => (
+            <div key={i} className="bg-primary-500/10 border border-primary-500/20 rounded-lg p-2 text-center">
+              <div className="text-[10px] text-primary-500 uppercase font-bold">{attr.trait_type}</div>
+              <div className="text-sm font-bold text-white truncate">{attr.value}</div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
