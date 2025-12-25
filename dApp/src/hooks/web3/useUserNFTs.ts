@@ -8,13 +8,6 @@ export function useUserNFTs() {
   const [nfts, setNfts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-const data = await publicClient.readContract({
-  address: NFT_ADDRESS,
-  abi: NFT_ABI as const, // Force const assertion
-  functionName: 'tokenOfOwnerByIndex',
-  args: [address, BigInt(i)],
-} as any);
-
   // 1. Get Balance
   const { data: balance } = useReadContract({
     address: CRIKZ_NFT_ADDRESS,
