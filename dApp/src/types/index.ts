@@ -15,6 +15,11 @@ export interface OrderStatus {
   unlockTime: bigint;
 }
 
+const formattedListings = listings.map(item => ({
+  ...item,
+  tokenId: item.id, // Explicitly map id to tokenId if that's what Listing expects [cite: 188]
+}));
+
 export interface TierInfo {
   index: number;
   days: number;

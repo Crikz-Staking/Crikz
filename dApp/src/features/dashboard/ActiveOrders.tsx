@@ -6,8 +6,9 @@ import { Order } from '@/types';
 
 interface ActiveOrdersProps {
   orders: Order[];
-  onComplete: (index: number) => void;
+  onCompleteOrder: (index: number) => void; // Add this line
   isPending: boolean;
+  isLoading: boolean;
   dynamicColor: string;
 }
 

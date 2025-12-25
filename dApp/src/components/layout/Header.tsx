@@ -9,8 +9,7 @@ interface HeaderProps {
   lang: Language;
   setLang: (l: Language) => void;
   setViewMode: (mode: any) => void;
-  // Optional: Add dynamicColor if you want to use it, otherwise ignoring it is fine
-  dynamicColor?: string; 
+  dynamicColor?: string; // Add this optional property [cite: 105]
 }
 
 export default function Header({ lang, setLang, setViewMode }: HeaderProps) {

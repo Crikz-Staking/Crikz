@@ -7,6 +7,7 @@ export const CRIKZ_TOKEN_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3';
 // Ensure these are set in your .env or fallback to string empty to prevent crash
 export const CRIKZ_NFT_ADDRESS = (import.meta.env.VITE_NFT_ADDRESS || '') as `0x${string}`;
 export const NFT_MARKETPLACE_ADDRESS = (import.meta.env.VITE_MARKET_ADDRESS || '') as `0x${string}`;
+export const CRIKZLING_MEMORY_ABI = [ /* ... copy from your contract JSON ... */ ] as const;
 
 export const ORDER_TYPES = [
   { index: 0, name: 'Prototype', days: 5, multiplier: 0.618 },
