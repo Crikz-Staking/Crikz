@@ -1,11 +1,14 @@
 import { useMemo } from 'react';
-import { calculateOrderReputation, calculateExpectedYield } from '@/lib/utils'; 
+import { calculateOrderReputation, calculateExpectedYield } from '@/lib/utils';
 import { ORDER_TYPES } from '@/config/index';
+import { parseEther } from 'viem';
 
 export function useOrderCalculations(amount: string, selectedTier: number) {
   return useMemo(() => {
     try {
-      const amountBigInt = BigInt(Math.floor(parseFloat(amount || '0') * 1e18));
+      // FIX: Use parseEther for accurate 18 decimal parsing
+      // If empty string or invalid, default to 0n
+      const amountBigInt = amount && !isNaN(Number(amount)) ? parseEther(amount) : 0n;
       
       if (amountBigInt === 0n) {
         return { reputation: 0n, expectedYield: 0n, tierInfo: ORDER_TYPES[selectedTier] };

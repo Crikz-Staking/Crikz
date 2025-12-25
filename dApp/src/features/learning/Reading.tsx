@@ -1,133 +1,49 @@
-import React, { useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldCheck, BookOpen, Megaphone, ChevronDown, Filter } from 'lucide-react';
-import { Language } from '@/types';
+import React, { useState } from 'react';
+import { BookOpen, Search, BookMarked, ArrowRight } from 'lucide-react';
+import { motion } from 'framer-motion';
 
-interface ReadingProps {
-  dynamicColor: string;
-  lang: Language;
-}
+const ARTICLES = [
+  { id: 1, title: "Understanding Fibonacci in DeFi", category: "Mathematics", readTime: "5 min" },
+  { id: 2, title: "Production Orders Explained", category: "Protocol", readTime: "8 min" },
+  { id: 3, title: "The Power of Algorithmic Reputation", category: "Governance", readTime: "6 min" },
+];
 
-type Category = 'All' | 'Updates' | 'Education' | 'Community';
-
-interface Post {
-  id: string;
-  category: Category;
-  title: string;
-  date: string;
-  summary: string;
-  content: React.ReactNode;
-  isOfficial: boolean;
-}
-
-export default function Reading({ dynamicColor, lang }: ReadingProps) {
-  const [activeCategory, setActiveCategory] = useState<Category>('All');
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-
-  // REAL DATA - No Mocks
-  const posts: Post[] = [
-    {
-      id: 'upgrade-v2',
-      category: 'Updates',
-      title: 'Protocol Upgrade: Crikz Architecture v2.0',
-      date: 'Dec 24, 2025',
-      isOfficial: true,
-      summary: 'Major structural optimization and directory overhaul for enhanced dApp efficiency.',
-      content: (
-        <div className="space-y-4">
-          <p>
-            We are proud to announce the successful deployment of the <strong>Crikz Protocol v2.0</strong> architecture. 
-            This upgrade focuses on modularity and high-efficiency asset management within the dApp structure.
-          </p>
-          <ul className="list-disc pl-5 space-y-1 text-gray-400">
-            <li><strong>Optimized Directory:</strong> Streamlined logic separation between UI, Features, and Core Logic.</li>
-            <li><strong>Logic Implementation:</strong> Hardened asset logic replacing placeholder mocks.</li>
-            <li><strong>Visual Identity:</strong> New "C-Phi" branding integration across the interface.</li>
-          </ul>
-          <p>
-            This update lays the foundation for the upcoming Token Generation Event (TGE) and the activation of the Production Fund.
-          </p>
-        </div>
-      )
-    }
-  ];
-
-  const filteredPosts = useMemo(() => {
-    if (activeCategory === 'All') return posts;
-    return posts.filter(p => p.category === activeCategory);
-  }, [posts, activeCategory]);
-
+export default function Reading() {
   return (
     <div className="space-y-6">
-      {/* Category Filter */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
-        <Filter size={14} className="text-gray-500 mr-2" />
-        {(['All', 'Updates', 'Education', 'Community'] as const).map(cat => (
-          <button
-            key={cat}
-            onClick={() => setActiveCategory(cat)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
-              activeCategory === cat 
-                ? 'bg-primary-500/20 border-primary-500 text-primary-500' 
-                : 'bg-white/5 border-transparent text-gray-500 hover:text-gray-300'
-            }`}
-          >
-            {cat}
-          </button>
-        ))}
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h3 className="text-2xl font-black text-white">Knowledge Base</h3>
+          <p className="text-gray-400 text-sm">Deep dives into the Crikz ecosystem.</p>
+        </div>
+        <div className="relative">
+          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+          <input 
+            type="text" 
+            placeholder="Search articles..." 
+            className="bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-2 text-sm focus:border-primary-500 outline-none transition-all"
+          />
+        </div>
       </div>
 
-      {/* Posts Feed */}
-      <div className="grid gap-4">
-        {filteredPosts.map((post) => (
-          <motion.div
-            key={post.id}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className={`glass-card p-6 rounded-2xl border transition-all relative overflow-hidden ${
-              post.isOfficial ? 'border-primary-500/30' : 'border-white/10'
-            }`}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {ARTICLES.map((article) => (
+          <motion.div 
+            key={article.id}
+            whileHover={{ y: -5 }}
+            className="glass-card p-6 rounded-2xl border border-white/5 hover:border-white/20 transition-all cursor-pointer group"
           >
-            {post.isOfficial && (
-              <div className="absolute top-0 right-0 p-2 bg-primary-500/10 rounded-bl-xl border-b border-l border-primary-500/20">
-                <ShieldCheck size={14} className="text-primary-500" />
-              </div>
-            )}
-
-            <div className="flex items-center gap-2 mb-3">
-              <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${
-                post.category === 'Updates' ? 'bg-blue-500/20 text-blue-400' : 'bg-gray-700 text-gray-300'
-              }`}>
-                {post.category}
+            <div className="flex justify-between items-start mb-4">
+              <span className="text-[10px] font-bold uppercase tracking-widest bg-primary-500/10 text-primary-500 px-2 py-1 rounded">
+                {article.category}
               </span>
-              <span className="text-xs text-gray-600 font-mono">{post.date}</span>
+              <BookMarked size={16} className="text-gray-600 group-hover:text-primary-500 transition-colors" />
             </div>
-
-            <h3 className="text-lg font-black text-white mb-2">{post.title}</h3>
-            <p className="text-sm text-gray-400 leading-relaxed mb-4">{post.summary}</p>
-
-            <button 
-              onClick={() => setExpandedId(expandedId === post.id ? null : post.id)}
-              className="flex items-center gap-2 text-xs font-bold text-primary-500 hover:text-white transition-colors"
-            >
-              {expandedId === post.id ? 'Close Details' : 'Read Full Update'}
-              <ChevronDown size={14} className={`transition-transform ${expandedId === post.id ? 'rotate-180' : ''}`} />
-            </button>
-
-            <AnimatePresence>
-              {expandedId === post.id && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  className="overflow-hidden"
-                >
-                  <div className="mt-4 pt-4 border-t border-white/5 text-sm text-gray-300 leading-relaxed">
-                    {post.content}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <h4 className="text-lg font-bold text-white mb-4 group-hover:text-primary-400 transition-colors">{article.title}</h4>
+            <div className="flex items-center justify-between mt-auto">
+              <span className="text-xs text-gray-500 font-mono">{article.readTime} read</span>
+              <ArrowRight size={16} className="text-gray-600 group-hover:translate-x-1 transition-transform" />
+            </div>
           </motion.div>
         ))}
       </div>

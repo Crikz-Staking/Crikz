@@ -9,6 +9,8 @@ interface HeaderProps {
   lang: Language;
   setLang: (l: Language) => void;
   setViewMode: (mode: any) => void;
+  // Optional: Add dynamicColor if you want to use it, otherwise ignoring it is fine
+  dynamicColor?: string; 
 }
 
 export default function Header({ lang, setLang, setViewMode }: HeaderProps) {
@@ -38,7 +40,8 @@ export default function Header({ lang, setLang, setViewMode }: HeaderProps) {
               onClick={() => setLang(lang === 'en' ? 'sq' : 'en')} 
               className="text-xs font-bold text-gray-500 hover:text-primary-500 transition-colors border border-white/5 px-2 py-1 rounded-md"
             >
-              {lang.toUpperCase()}
+              {/* This check prevents the crash if lang is somehow undefined */}
+              {lang ? lang.toUpperCase() : 'EN'}
             </button>
             <CustomConnectButton />
           </div>

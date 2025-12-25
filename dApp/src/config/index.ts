@@ -1,11 +1,12 @@
+// src/config/index.ts
 export const TARGET_CHAIN_ID = 97;
 export const WAD = 1_000_000_000_000_000_000n;
-export const BASE_APR = 6.182; // 6.182%
-
-// Addresses - Ensure these match your deployment!
-export const CRIKZ_TOKEN_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3'; 
-export const CRIKZ_NFT_ADDRESS = import.meta.env.VITE_NFT_ADDRESS as `0x${string}`;
-export const NFT_MARKETPLACE_ADDRESS = import.meta.env.VITE_MARKET_ADDRESS as `0x${string}`;
+export const BASE_APR = 6.182;
+export const CRIKZLING_MEMORY_ADDRESS = '0x1F70256f48123dAdB33BdDC2BEAAFdb12508309c';
+export const CRIKZ_TOKEN_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3';
+// Ensure these are set in your .env or fallback to string empty to prevent crash
+export const CRIKZ_NFT_ADDRESS = (import.meta.env.VITE_NFT_ADDRESS || '') as `0x${string}`;
+export const NFT_MARKETPLACE_ADDRESS = (import.meta.env.VITE_MARKET_ADDRESS || '') as `0x${string}`;
 
 export const ORDER_TYPES = [
   { index: 0, name: 'Prototype', days: 5, multiplier: 0.618 },
@@ -67,6 +68,7 @@ export const CRIKZ_TOKEN_ABI = [
     inputs: [{ name: '', type: 'address' }],
     outputs: [{ name: '', type: 'uint256' }],
   },
+  // FIXED: Explicit Tuple definition for Wagmi/Viem parsing
   {
     name: 'getActiveOrders',
     type: 'function',
@@ -81,7 +83,7 @@ export const CRIKZ_TOKEN_ABI = [
           { name: 'startTime', type: 'uint256' },
           { name: 'duration', type: 'uint256' },
         ],
-        name: '',
+        name: 'orders',
         type: 'tuple[]',
       },
     ],
@@ -149,9 +151,70 @@ export const CRIKZ_NFT_ABI = [
     outputs: [{ name: '', type: 'string' }],
   },
 ] as const;
+
+// FIXED: Added Full Event Definitions for Indexing
 export const NFT_MARKETPLACE_ABI = [
-  "function listModel(address nftContract, uint256 tokenId, uint256 price) external",
-  "function buyItem(address nftContract, uint256 tokenId) external",
-  "function cancelListing(address nftContract, uint256 tokenId) external",
-  "function listings(address, uint256) view returns (address seller, address nftContract, uint256 tokenId, uint256 price, bool isActive)"
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "seller", type: "address" },
+      { indexed: true, name: "nftContract", type: "address" },
+      { indexed: true, name: "tokenId", type: "uint256" },
+      { indexed: false, name: "price", type: "uint256" }
+    ],
+    name: "ItemListed",
+    type: "event"
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "buyer", type: "address" },
+      { indexed: true, name: "nftContract", type: "address" },
+      { indexed: true, name: "tokenId", type: "uint256" },
+      { indexed: false, name: "price", type: "uint256" }
+    ],
+    name: "ItemSold",
+    type: "event"
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "seller", type: "address" },
+      { indexed: true, name: "nftContract", type: "address" },
+      { indexed: true, name: "tokenId", type: "uint256" }
+    ],
+    name: "ItemCanceled",
+    type: "event"
+  },
+  {
+    inputs: [
+      { name: "nftContract", type: "address" },
+      { name: "tokenId", type: "uint256" },
+      { name: "price", type: "uint256" }
+    ],
+    name: "listModel",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
+    inputs: [
+      { name: "nftContract", type: "address" },
+      { name: "tokenId", type: "uint256" }
+    ],
+    name: "buyItem",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
+    inputs: [
+        { name: "nftContract", type: "address" },
+        { name: "tokenId", type: "uint256" }
+    ],
+    name: "cancelListing",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  }
 ] as const;

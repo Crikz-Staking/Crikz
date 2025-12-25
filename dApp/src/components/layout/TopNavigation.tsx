@@ -1,60 +1,59 @@
-// src/components/TopNavigation.tsx
+// src/components/layout/TopNavigation.tsx
 import React from 'react';
 import { motion } from 'framer-motion';
-import { LayoutDashboard, GraduationCap, ShoppingBag, Gamepad2 } from 'lucide-react';
-import type { Language, ViewMode } from '@/types';
+import { LucideIcon } from 'lucide-react';
 
-interface TopNavigationProps {
-  currentMode: ViewMode;
-  setMode: (mode: ViewMode) => void;
-  dynamicColor: string;
-  lang: Language;
+export interface NavItem {
+  id: string;
+  label: string;
+  icon: LucideIcon;
 }
 
-export default function TopNavigation({ currentMode, setMode, dynamicColor, lang }: TopNavigationProps) {
-  const content = {
-    en: { dashboard: "Dashboard", learning: "Learning & Analytics", nft: "NFT Market", games: "Blockchain Games" },
-    sq: { dashboard: "Paneli Kryesor", learning: "Mësim & Analitikë", nft: "Tregu i NFT", games: "Lojërat Blockchain" }
-  };
-  const t = content[lang];
+interface TopNavigationProps {
+  items: NavItem[];
+  currentId: string;
+  onSelect: (id: any) => void;
+  dynamicColor: string;
+}
 
-  const modes = [
-    { id: 'dashboard', label: t.dashboard, icon: LayoutDashboard },
-    { id: 'learning', label: t.learning, icon: GraduationCap },
-    { id: 'nft', label: t.nft, icon: ShoppingBag },
-    { id: 'games', label: t.games, icon: Gamepad2 },
-  ] as const;
+export default function TopNavigation({ items, currentId, onSelect, dynamicColor }: TopNavigationProps) {
+  if (items.length === 0) return null;
 
   return (
     <div className="flex justify-center mb-8">
       <div className="flex gap-2 p-2 bg-background-elevated/80 backdrop-blur-md rounded-2xl border border-white/5 overflow-x-auto max-w-full">
-        {modes.map((mode) => {
-          const isActive = currentMode === mode.id;
+        {items.map((item) => {
+          const isActive = currentId === item.id;
+          const Icon = item.icon;
+          
           return (
             <button
-              key={mode.id}
-              onClick={() => setMode(mode.id as ViewMode)}
-              title={mode.label} // Shows name only on hover to prevent bloating
-              className="relative p-2.5 rounded-xl transition-all flex items-center justify-center min-w-[44px]"
+              key={item.id}
+              onClick={() => onSelect(item.id)}
+              className="relative px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 min-w-[100px] justify-center"
               style={{
                 color: isActive ? '#fff' : '#9ca3af',
               }}
             >
               {isActive && (
                 <motion.div
-                  layoutId="topNavHighlight"
+                  layoutId="subNavHighlight"
                   className="absolute inset-0 rounded-xl"
-                  style={{ background: `${dynamicColor}20`, border: `1px solid ${dynamicColor}40` }}
+                  style={{ 
+                    background: `${dynamicColor}15`, 
+                    border: `1px solid ${dynamicColor}30` 
+                  }}
                   transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
                 />
               )}
-              <mode.icon 
-                size={20} // Slightly larger for better icon-only visibility
+              
+              <Icon 
+                size={18}
                 strokeWidth={isActive ? 2.5 : 2}
                 style={{ color: isActive ? dynamicColor : 'inherit' }}
                 className="relative z-10"
               />
-              {/* Text label removed to evade site bloating */}
+              <span className="relative z-10 text-xs font-bold">{item.label}</span>
             </button>
           );
         })}

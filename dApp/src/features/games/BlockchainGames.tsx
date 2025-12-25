@@ -1,115 +1,66 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Gamepad2, Brain, Swords, Coins, RotateCcw } from 'lucide-react';
-import { toast } from 'react-hot-toast';
-import type { Language } from '@/types';
+import { motion } from 'framer-motion';
+import { 
+  Gamepad2, Swords, Brain, Dices, Layers, 
+  Crown, Coins, TrendingUp, Target, Activity, 
+  ShieldAlert, Ghost 
+} from 'lucide-react';
 
-interface BlockchainGamesProps {
-  dynamicColor: string;
-  lang: Language;
-}
+const GAMES_LIST = [
+    { id: 'chess', title: 'Grandmaster Chess', desc: 'P2P Betting Elo Rated', icon: Crown },
+    { id: 'poker', title: 'Texas Hold\'em', desc: 'No-Limit P2P Tables', icon: Dices },
+    { id: 'tictac', title: 'Phi-Tac-Toe', desc: 'Beat the Fibonacci AI', icon: Brain },
+    { id: 'dice', title: 'Fibonacci Dice', desc: 'Roll for Golden Ratio', icon: Dices },
+    { id: 'prime', title: 'Prime Hunter', desc: 'Find Primes, Earn Yield', icon: Layers },
+    { id: 'slots', title: 'Satoshi Slots', desc: 'Provably Fair Spins', icon: Coins },
+    { id: 'roulette', title: 'Crypto Roulette', desc: 'European Standard', icon: Target },
+    { id: 'blackjack', title: '21 Blackjack', desc: 'Dealer stands on 17', icon: Swords },
+    { id: 'baccarat', title: 'Baccarat', desc: 'Player vs Banker', icon: Activity },
+    { id: 'crash', title: 'Moon Crash', desc: 'Exit before the crash', icon: TrendingUp },
+    { id: 'mines', title: 'Minesweeper', desc: 'Clear the board', icon: ShieldAlert },
+    { id: 'ghost', title: 'Ghost Protocol', desc: 'Stealth Strategy', icon: Ghost },
+];
 
-type GameType = 'tictactoe' | 'fibpuzzle' | 'chess' | 'none';
-
-export default function BlockchainGames({ dynamicColor, lang }: BlockchainGamesProps) {
-  const [activeGame, setActiveGame] = useState<GameType>('none');
-
-  const t = {
-    en: {
-      title: "Crikz Game Zone",
-      subtitle: "Play games inspired by the Fibonacci protocol to earn ecosystem reputation.",
-      exit: "Exit to Library",
-      tic: "Phi-Tac-Toe", ticDesc: "Outsmart the Intelligent Being in a 3x3 grid",
-      fib: "Fibonacci Puzzle", fibDesc: "Complete the sequence to unlock rewards",
-      chess: "Grandmaster's Gambit", chessDesc: "Strategic chess logic on the blockchain"
-    },
-    sq: {
-      title: "Zona e Lojërave Crikz",
-      subtitle: "Luani lojëra të frymëzuara nga protokolli Fibonacci për të fituar reputacion.",
-      exit: "Kthehu te Biblioteka",
-      tic: "Phi-Tac-Toe", ticDesc: "Mundni Inteligjencën në një rrjet 3x3",
-      fib: "Ekuacioni Fibonacci", fibDesc: "Plotësoni sekuencën për të zhbllokuar shpërblime",
-      chess: "Gambiti i Mjeshtrit", chessDesc: "Logjikë strategjike shahu në blockchain"
-    }
-  }[lang];
+export default function BlockchainGames({ dynamicColor }: { dynamicColor: string }) {
+  const [activeGame, setActiveGame] = useState<string | null>(null);
 
   return (
-    <div className="space-y-8 min-h-[600px] w-full">
-      <div className="flex flex-col gap-2">
-        <h2 className="text-3xl font-black text-white flex items-center gap-3">
-          <Gamepad2 className="text-primary-500" style={{ color: dynamicColor }} />
-          {t.title}
-        </h2>
-        <p className="text-gray-400">{t.subtitle}</p>
-      </div>
+    <div className="space-y-8">
+       <div className="flex justify-between items-end">
+          <div>
+            <h2 className="text-3xl font-black text-white flex items-center gap-3">
+                <Gamepad2 className="text-primary-500" /> Active Arcade
+            </h2>
+            <p className="text-gray-400">P2P Betting & Provably Fair Games. Connect wallet to play.</p>
+          </div>
+       </div>
 
-      <AnimatePresence mode="wait">
-        {activeGame === 'none' ? (
-          <motion.div 
-            key="library"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-          >
-            <GameCard 
-              title={t.tic} desc={t.ticDesc} 
-              icon={<Brain />} dynamicColor={dynamicColor}
-              onClick={() => setActiveGame('tictactoe')}
-            />
-            <GameCard 
-              title={t.fib} desc={t.fibDesc} 
-              icon={<Coins />} dynamicColor={dynamicColor}
-              onClick={() => setActiveGame('fibpuzzle')}
-            />
-            <GameCard 
-              title={t.chess} desc={t.chessDesc} 
-              icon={<Swords />} dynamicColor={dynamicColor}
-              onClick={() => setActiveGame('chess')}
-            />
-          </motion.div>
-        ) : (
-          <motion.div 
-            key="game-view"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="glass-card p-8 rounded-3xl border border-white/10 relative overflow-hidden bg-background-elevated"
-          >
-            <button 
-              onClick={() => setActiveGame('none')}
-              className="mb-8 text-sm font-bold text-gray-500 hover:text-white flex items-center gap-2 transition-colors"
-            >
-              <RotateCcw size={16} /> {t.exit}
-            </button>
-            
-            <div className="flex flex-col items-center justify-center min-h-[300px]">
-              <div className="text-center">
-                 <p className="text-xl font-bold mb-4">Game Module Loaded</p>
-                 <p className="text-gray-500">Logic for {activeGame} goes here.</p>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-function GameCard({ title, desc, icon, onClick, dynamicColor }: any) {
-  return (
-    <div 
-      onClick={onClick}
-      className="glass-card p-8 rounded-3xl border border-white/10 cursor-pointer group transition-all hover:scale-[1.02] hover:bg-white/5 bg-background-elevated"
-    >
-      <div 
-        className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-all"
-        style={{ backgroundColor: `${dynamicColor}20`, color: dynamicColor }}
-      >
-        {React.cloneElement(icon, { size: 32 })}
-      </div>
-      <h3 className="text-2xl font-black text-white mb-3">{title}</h3>
-      <p className="text-gray-400 text-sm leading-relaxed">{desc}</p>
+       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {GAMES_LIST.map((game) => (
+             <motion.div 
+                key={game.id}
+                whileHover={{ scale: 1.02, y: -5 }}
+                className="glass-card p-6 rounded-3xl border border-white/10 flex flex-col items-center text-center cursor-pointer hover:border-primary-500/50 transition-colors bg-background-elevated"
+                onClick={() => setActiveGame(game.id)}
+             >
+                <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4 text-primary-500">
+                    <game.icon size={32} />
+                </div>
+                <h3 className="font-bold text-white mb-1">{game.title}</h3>
+                <p className="text-xs text-gray-500">{game.desc}</p>
+             </motion.div>
+          ))}
+       </div>
+       
+       {activeGame && (
+           <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-8 backdrop-blur-sm" onClick={() => setActiveGame(null)}>
+               <div className="bg-[#121212] border border-white/10 p-12 rounded-3xl text-center max-w-lg" onClick={e => e.stopPropagation()}>
+                   <h2 className="text-2xl font-bold mb-4">Coming in v3.1</h2>
+                   <p className="text-gray-400 mb-6">Real-time P2P betting infrastructure for {activeGame} is currently being audited.</p>
+                   <button onClick={() => setActiveGame(null)} className="px-6 py-3 bg-white/10 rounded-xl font-bold hover:bg-white/20">Close</button>
+               </div>
+           </div>
+       )}
     </div>
   );
 }

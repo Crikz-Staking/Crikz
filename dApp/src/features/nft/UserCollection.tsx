@@ -1,108 +1,86 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Eye, Tag, Wallet, Search } from 'lucide-react';
-import { useUserNFTs } from '@/hooks/web3/useUserNFTs';
+import { FolderPlus, Settings, ArrowRightLeft, Plus, Image as ImageIcon } from 'lucide-react';
+import { useUserNFTs } from '@/hooks/web3/useUserNFTs'; // [cite: 353]
+
+// Mock Local Storage for Collections (Since no backend)
+const DEFAULT_COLLECTIONS = [
+    { id: 'default', name: 'General', items: [] },
+    { id: 'favs', name: 'Favorites', items: [] }
+];
 
 export default function UserCollection({ dynamicColor }: { dynamicColor: string }) {
-  const { nfts, isLoading, balance } = useUserNFTs();
-  
-  // State for "Watching" external items not in wallet
-  const [watchedItems, setWatchedItems] = useState<any[]>([]); 
-  const [watchForm, setWatchForm] = useState({ address: '', tokenId: '' });
+  const { nfts } = useUserNFTs();
+  const [collections, setCollections] = useState(DEFAULT_COLLECTIONS);
+  const [view, setView] = useState<'grid' | 'manage'>('grid');
+  const [activeCollectionId, setActiveCollectionId] = useState('default');
 
-  const handleWatch = () => {
-    if(!watchForm.address || !watchForm.tokenId) return;
-    setWatchedItems([...watchedItems, { ...watchForm, id: watchForm.tokenId, name: 'External Watch', isExternal: true }]);
-    setWatchForm({ address: '', tokenId: '' });
+  // Helper to create collection
+  const createCollection = (name: string) => {
+    const newColl = { id: `col-${Date.now()}`, name, items: [] };
+    setCollections([...collections, newColl]);
   };
 
   return (
     <div className="space-y-8">
-      {/* Wallet Section */}
-      <div className="space-y-4">
-        <div className="flex justify-between items-center border-b border-white/5 pb-4">
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                <Wallet className="text-primary-500" /> Wallet Collection
-                <span className="text-xs bg-white/10 px-2 py-0.5 rounded text-gray-400">{balance} Items</span>
-            </h2>
-            {isLoading && <span className="text-xs text-primary-500 animate-pulse">Scanning BSC Testnet...</span>}
+        {/* Header Actions */}
+        <div className="flex justify-between items-center">
+            <h2 className="text-2xl font-black text-white">My Collections</h2>
+            <div className="flex gap-2">
+                <button onClick={() => createCollection(prompt("Collection Name:") || "New Collection")} className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm font-bold transition-colors">
+                    <FolderPlus size={16}/> Create New
+                </button>
+            </div>
         </div>
 
-        {nfts.length === 0 && !isLoading ? (
-            <div className="text-center py-12 bg-white/5 rounded-2xl border border-white/5 border-dashed">
-                <p className="text-gray-500 mb-2">No Crikz Artifacts found in your wallet.</p>
-                <button className="text-primary-500 text-sm font-bold hover:underline">Mint your first Artifact</button>
-            </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {nfts.map((nft, i) => (
-                  <NFTCard key={i} nft={nft} />
-              ))}
-          </div>
-        )}
-      </div>
+        {/* Collection Tabs */}
+        <div className="flex gap-4 overflow-x-auto pb-2">
+            {collections.map(col => (
+                <button 
+                    key={col.id} 
+                    onClick={() => setActiveCollectionId(col.id)}
+                    className={`px-6 py-8 rounded-2xl border flex flex-col items-center justify-center min-w-[150px] transition-all ${activeCollectionId === col.id ? 'bg-primary-500/10 border-primary-500' : 'bg-black/20 border-white/10 hover:border-white/20'}`}
+                >
+                    <span className="font-bold text-lg text-white mb-1">{col.name}</span>
+                    <span className="text-xs text-gray-500">0 Items</span>
+                </button>
+            ))}
+        </div>
 
-      {/* Watch External Section */}
-      <div className="space-y-4 pt-4">
-         <div className="glass-card p-6 rounded-2xl border border-white/10 bg-background-elevated">
-            <h3 className="text-sm font-bold text-gray-400 uppercase mb-4 flex items-center gap-2">
-              <Search size={16} /> Watch External Item
-            </h3>
-            <div className="flex flex-col md:flex-row gap-4 items-end">
-              <div className="flex-1 w-full">
-                  <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Contract Address</label>
-                  <input 
-                      className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-sm text-white focus:border-primary-500 outline-none"
-                      value={watchForm.address} onChange={e => setWatchForm({...watchForm, address: e.target.value})}
-                      placeholder="0x..."
-                  />
-              </div>
-              <div className="w-full md:w-32">
-                  <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Token ID</label>
-                  <input 
-                      className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-sm text-white focus:border-primary-500 outline-none"
-                      value={watchForm.tokenId} onChange={e => setWatchForm({...watchForm, tokenId: e.target.value})}
-                      placeholder="1"
-                  />
-              </div>
-              <button onClick={handleWatch} className="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-lg text-white font-bold text-sm flex items-center gap-2 transition-colors">
-                <Eye size={16} /> Watch
-              </button>
+        {/* Content Area */}
+        <div className="glass-card p-6 rounded-3xl border border-white/10 min-h-[400px]">
+            <div className="flex justify-between items-center mb-6">
+                 <h3 className="font-bold text-gray-400 uppercase text-sm">Items in {collections.find(c => c.id === activeCollectionId)?.name}</h3>
+                 <button className="text-primary-500 text-xs font-bold flex items-center gap-1 hover:underline">
+                    <Plus size={12}/> Import Items
+                 </button>
             </div>
-         </div>
 
-         {watchedItems.length > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {watchedItems.map((nft, i) => (
-                    <NFTCard key={`watch-${i}`} nft={nft} isExternal />
-                ))}
-            </div>
-         )}
-      </div>
+            {/* If Default, show all wallet NFTs */}
+            {activeCollectionId === 'default' ? (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {nfts.map((nft) => (
+                        <div key={nft.id} className="bg-black/40 rounded-xl p-3 border border-white/5 hover:border-primary-500/50 transition-colors group relative">
+                            <div className="aspect-square bg-white/5 rounded-lg mb-3 overflow-hidden">
+                                {nft.image ? <img src={nft.image} className="w-full h-full object-cover"/> : <ImageIcon className="m-auto mt-10 opacity-20"/>}
+                            </div>
+                            <div className="font-bold text-sm truncate">{nft.name}</div>
+                            
+                            {/* Hover Actions */}
+                            <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 rounded-xl">
+                                <button className="px-3 py-1 bg-primary-500 text-black text-xs font-bold rounded">Move</button>
+                                <button className="px-3 py-1 bg-white/10 text-white text-xs font-bold rounded">Edit</button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <div className="text-center py-12 text-gray-500">
+                    <FolderPlus size={40} className="mx-auto mb-4 opacity-20"/>
+                    <p>This collection is empty. Import items from your wallet.</p>
+                </div>
+            )}
+        </div>
     </div>
   );
-}
-
-function NFTCard({ nft, isExternal }: any) {
-    return (
-        <motion.div 
-            initial={{opacity:0, scale:0.95}} 
-            animate={{opacity:1, scale:1}} 
-            className={`glass-card p-4 rounded-xl border transition-colors ${isExternal ? 'border-dashed border-gray-600' : 'border-white/10 hover:border-primary-500/50'}`}
-        >
-            <div className="aspect-square bg-black/40 rounded-lg mb-3 flex items-center justify-center overflow-hidden relative group">
-                {nft.image ? (
-                    <img src={nft.image} alt={nft.name} className="w-full h-full object-cover"/>
-                ) : (
-                    <div className="text-4xl grayscale">🎨</div>
-                )}
-                {isExternal && <div className="absolute top-2 right-2 bg-gray-800 text-xs px-2 py-1 rounded text-white font-bold">Watched</div>}
-            </div>
-            <div className="font-bold text-white truncate">{nft.name || `Asset #${nft.id}`}</div>
-            <div className="text-xs text-gray-500 truncate mb-4">ID: {nft.id.toString()}</div>
-            <button disabled={isExternal} className="w-full py-2 bg-primary-500 text-black font-bold rounded-lg text-xs flex items-center justify-center gap-2 hover:bg-primary-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                <Tag size={14} /> {isExternal ? 'ReadOnly' : 'List for Sale'}
-            </button>
-        </motion.div>
-    );
 }

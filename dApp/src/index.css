@@ -3,7 +3,7 @@
 @import "tailwindcss";
 
 @theme {
-  /* Core Colors */
+  /* Core Colors matching tailwind.config.cjs */
   --color-primary-400: #fbbf24;
   --color-primary-500: #f59e0b;
   --color-primary-600: #d97706;
@@ -21,7 +21,9 @@
   --shadow-glow-md: 0 0 20px -4px rgba(245, 158, 11, 0.4);
 }
 
+/* Ensure compatibility with v3 class names if using the PostCSS plugin */
 :root {
+  --primary-500: #f59e0b;
   color-scheme: dark;
 }
 
@@ -30,14 +32,12 @@ body {
   color: #e5e7eb;
   font-family: 'Inter', sans-serif;
   overflow-x: hidden;
-  /* Subtle Grid Texture */
   background-image: 
     linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
   background-size: 40px 40px;
 }
 
-/* --- Professional Glass Card --- */
 .glass-card {
   background: rgba(23, 23, 30, 0.7);
   backdrop-filter: blur(12px);
@@ -46,11 +46,12 @@ body {
   box-shadow: 0 4px 24px -1px rgba(0, 0, 0, 0.2);
 }
 
-.text-gradient {
-  background: linear-gradient(135deg, var(--color-primary-400), var(--color-accent-cyan));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+.input-field {
+    @apply w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:border-primary-500 transition-colors;
+}
+
+.btn-primary {
+    @apply bg-primary-500 text-black font-bold rounded-xl hover:bg-primary-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
 }
 
 /* Scrollbar */

@@ -1,86 +1,87 @@
-import { useState, useEffect } from 'react';
-import { useAccount, useReadContract, useReadContracts } from 'wagmi';
+import { useState, useEffect, useCallback } from 'react';
+import { useAccount, useReadContract, usePublicClient } from 'wagmi';
 import { CRIKZ_NFT_ADDRESS, CRIKZ_NFT_ABI } from '@/config/index';
 
 export function useUserNFTs() {
   const { address } = useAccount();
-  
+  const publicClient = usePublicClient();
+  const [nfts, setNfts] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
   // 1. Get Balance
   const { data: balance } = useReadContract({
     address: CRIKZ_NFT_ADDRESS,
     abi: CRIKZ_NFT_ABI,
     functionName: 'balanceOf',
     args: [address!],
-    query: { enabled: !!address }
+    query: { enabled: !!address } // Only run if connected
   });
 
-  // 2. Prepare calls for tokenOfOwnerByIndex
-  const balanceNum = balance ? Number(balance) : 0;
-  
-  // Limit to first 20 to prevent excessive RPC calls in this demo
-  const fetchCount = Math.min(balanceNum, 20);
-  
-  const indexCalls = Array.from({ length: fetchCount }, (_, i) => ({
-    address: CRIKZ_NFT_ADDRESS,
-    abi: CRIKZ_NFT_ABI,
-    functionName: 'tokenOfOwnerByIndex',
-    args: [address!, BigInt(i)]
-  }));
+  const fetchNFTs = useCallback(async () => {
+    if (!address || !balance || !publicClient) return;
+    
+    // Prevent fetching if balance is huge to avoid lag
+    const count = Number(balance);
+    if (count === 0) {
+      setNfts([]);
+      return;
+    }
 
-  const { data: tokenIds } = useReadContracts({
-    contracts: indexCalls,
-    query: { enabled: fetchCount > 0 }
-  });
+    setIsLoading(true);
+    try {
+      // 2. Batch fetch Token IDs (Limit to 12 recent items for performance)
+      // In production, use TheGraph or a backend indexer.
+      const limit = Math.min(count, 12); 
+      const tokenIdxPromises = [];
+      
+      // Fetch in reverse (newest first)
+      for (let i = count - 1; i >= count - limit; i--) {
+        tokenIdxPromises.push(
+          publicClient.readContract({
+            address: CRIKZ_NFT_ADDRESS,
+            abi: CRIKZ_NFT_ABI,
+            functionName: 'tokenOfOwnerByIndex',
+            args: [address, BigInt(i)]
+          })
+        );
+      }
 
-  // 3. Prepare calls for tokenURI
-  const validTokenIds = tokenIds?.map(r => r.result).filter(Boolean) as bigint[] || [];
+      const tokenIds = await Promise.all(tokenIdxPromises) as bigint[];
 
-  const uriCalls = validTokenIds.map(id => ({
-    address: CRIKZ_NFT_ADDRESS,
-    abi: CRIKZ_NFT_ABI,
-    functionName: 'tokenURI',
-    args: [id]
-  }));
+      // 3. Batch fetch URIs
+      const uriPromises = tokenIds.map(id => 
+        publicClient.readContract({
+          address: CRIKZ_NFT_ADDRESS,
+          abi: CRIKZ_NFT_ABI,
+          functionName: 'tokenURI',
+          args: [id]
+        })
+      );
 
-  const { data: tokenURIs, isLoading } = useReadContracts({
-    contracts: uriCalls,
-    query: { enabled: validTokenIds.length > 0 }
-  });
+      const uris = await Promise.all(uriPromises) as string[];
 
-  // 4. Combine Data
-  const [nfts, setNfts] = useState<any[]>([]);
+      // 4. Format Data
+      const formatted = tokenIds.map((id, i) => {
+        let meta = { name: `Artifact #${id}`, image: '', attributes: [], collection: 'General' };
+        try {
+          const parsed = JSON.parse(uris[i]);
+          meta = { ...meta, ...parsed };
+        } catch (e) { /* Ignore parsing errors */ }
+        
+        return { id, uri: uris[i], ...meta };
+      });
+
+      setNfts(formatted);
+    } catch (e) {
+      console.error("NFT Fetch Error:", e);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [address, balance, publicClient]);
 
   useEffect(() => {
-    if (!tokenIds || !tokenURIs) return;
+    fetchNFTs();
+  }, [fetchNFTs]);
 
-    const formatted = validTokenIds.map((id, i) => {
-      // FIX 1: Double cast to handle potential BigInt type mismatch during build
-      const uri = tokenURIs[i]?.result as unknown as string;
-      
-      // FIX 2: Explicitly type the attributes array to avoid TS7018
-      let metadata = { 
-        name: `Artifact #${id}`, 
-        image: '', 
-        attributes: [] as any[] 
-      };
-      
-      try {
-        if (uri && uri.startsWith('{')) {
-           metadata = JSON.parse(uri);
-        } else if (uri) {
-           // Handle external IPFS fetching here if needed
-           // For now assume logic stores JSON string directly or handle manually
-        }
-      } catch (e) { console.error("Error parsing metadata", e); }
-
-      return {
-        id: id,
-        uri: uri,
-        ...metadata
-      };
-    });
-    setNfts(formatted);
-  }, [tokenIds, tokenURIs]);
-
-  return { nfts, isLoading, balance: balanceNum };
+  return { nfts, isLoading, balance: Number(balance || 0), refetch: fetchNFTs };
 }

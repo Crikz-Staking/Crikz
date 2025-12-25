@@ -1,115 +1,108 @@
 import React, { useState } from 'react';
-import { useAccount } from 'wagmi';
 import { Toaster } from 'react-hot-toast';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Lock } from 'lucide-react';
+import { useAccount } from 'wagmi';
 
+// Layout & UI
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
-import Background from '@/components/layout/Background';
-import TopNavigation from '@/components/layout/TopNavigation';
-import CustomConnectButton from '@/components/ui/CustomConnectButton';
+import GlobalNavigation from '@/components/layout/GlobalNavigation';
+import BackgroundEffects from '@/components/layout/Background';
+import CrikzlingAvatar from '@/components/ui/CrikzlingAvatar';
 
+// Features
 import Dashboard from '@/features/dashboard/Dashboard';
+import PassiveHub from '@/features/passive/PassiveHub';
+import ToolsLayout from '@/features/tools/ToolsLayout';
 import NFTMarket from '@/features/nft/NFTMarket';
-import LearningHub from '@/features/learning/LearningHub';
-import BlockchainGames from '@/features/games/BlockchainGames';
 
-import type { Language, ViewMode } from '@/types';
+// Hooks & Types
+import { useAppWatcher } from '@/hooks/useAppWatcher';
+import { MainSection, ActiveView, Language } from '@/types';
 
 export default function App() {
   const { isConnected } = useAccount();
-  const [viewMode, setViewMode] = useState<ViewMode>('dashboard'); // Default to dashboard
   const [lang, setLang] = useState<Language>('en');
+  const [currentSection, setCurrentSection] = useState<MainSection>('active');
+  const [activeView, setActiveView] = useState<ActiveView>('dashboard');
 
-  const dynamicColor = '#F59E0B'; 
+  // Global monitoring hook
+  useAppWatcher();
+
+  // Dynamic theme colors based on the active section
+  const getThemeColor = () => {
+    switch (currentSection) {
+      case 'active': return '#f59e0b'; // Amber/Gold
+      case 'passive': return '#a78bfa'; // Violet
+      case 'tools': return '#22d3ee'; // Cyan
+      default: return '#f59e0b';
+    }
+  };
+
+  const dynamicColor = getThemeColor();
 
   return (
-    <div className="min-h-screen bg-background text-gray-100 font-sans selection:bg-primary-500/30 overflow-x-hidden flex flex-col">
-      <Toaster position="bottom-right" />
-      <Background />
+    <div className="min-h-screen relative text-white selection:bg-primary-500/30 overflow-x-hidden">
+      <BackgroundEffects />
+      <Toaster position="bottom-right" reverseOrder={false} />
 
-      <Header lang={lang} setLang={setLang} setViewMode={setViewMode} />
+      <Header 
+        lang={lang} 
+        setLang={setLang} 
+        setViewMode={setActiveView} 
+      />
 
-      <main className="flex-1 w-full px-4 py-8 relative z-10">
-        <div className="w-full max-w-7xl mx-auto">
-          
-          <TopNavigation 
-            currentMode={viewMode} 
-            setMode={setViewMode} 
-            dynamicColor={dynamicColor} 
-            lang={lang}
-          />
+      <main className="relative z-10 max-w-7xl mx-auto px-4 pt-24 pb-32">
+        <GlobalNavigation 
+          currentSection={currentSection} 
+          setSection={setCurrentSection} 
+          dynamicColor={dynamicColor} 
+        />
 
-          {/* Removed mode='wait' which often causes the 'disappearing' bug if exit animations hang */}
-          <div className="relative min-h-[600px]"> 
-            <AnimatePresence mode="popLayout">
-              {viewMode === 'dashboard' && (
-                <motion.div
-                  key="dashboard"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.2 }}
+        {/* Dynamic Content Rendering */}
+        <div className="mt-8 transition-all duration-500">
+          {currentSection === 'active' && (
+            <div className="space-y-8">
+              <div className="flex justify-center gap-4 mb-8">
+                <button 
+                  onClick={() => setActiveView('dashboard')}
+                  className={`px-6 py-2 rounded-full font-bold transition-all ${
+                    activeView === 'dashboard' ? 'bg-primary-500 text-black shadow-lg shadow-primary-500/20' : 'bg-white/5 hover:bg-white/10 text-gray-400'
+                  }`}
                 >
-                  {isConnected ? (
-                    <Dashboard dynamicColor={dynamicColor} lang={lang} />
-                  ) : (
-                    <div className="flex flex-col items-center justify-center min-h-[400px] text-center space-y-6 glass-card rounded-3xl p-12 border border-white/10">
-                      <div className="w-24 h-24 bg-white/5 rounded-full flex items-center justify-center mb-4 border border-white/10 shadow-glow-sm">
-                        <Lock size={48} className="text-gray-500" />
-                      </div>
-                      <div>
-                        <h2 className="text-3xl font-black text-white mb-2">Access Restricted</h2>
-                        <p className="text-gray-400 max-w-md mx-auto">
-                          Connect your wallet to access the Production Dashboard and manage your orders.
-                        </p>
-                      </div>
-                      <CustomConnectButton />
-                    </div>
-                  )}
-                </motion.div>
-              )}
-
-              {viewMode === 'nft' && (
-                <motion.div
-                  key="nft"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.2 }}
+                  Production Dashboard
+                </button>
+                <button 
+                  onClick={() => setActiveView('nft')}
+                  className={`px-6 py-2 rounded-full font-bold transition-all ${
+                    activeView === 'nft' ? 'bg-primary-500 text-black shadow-lg shadow-primary-500/20' : 'bg-white/5 hover:bg-white/10 text-gray-400'
+                  }`}
                 >
-                  <NFTMarket dynamicColor={dynamicColor} lang={lang} />
-                </motion.div>
+                  NFT Marketplace
+                </button>
+              </div>
+              
+              {activeView === 'dashboard' ? (
+                <Dashboard dynamicColor={dynamicColor} lang={lang} />
+              ) : (
+                <NFTMarket dynamicColor={dynamicColor} lang={lang} />
               )}
+            </div>
+          )}
 
-              {viewMode === 'learning' && (
-                <motion.div
-                  key="learning"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <LearningHub dynamicColor={dynamicColor} lang={lang} />
-                </motion.div>
-              )}
+          {currentSection === 'passive' && (
+            <PassiveHub dynamicColor={dynamicColor} lang={lang} />
+          )}
 
-              {viewMode === 'games' && (
-                <motion.div
-                  key="games"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <BlockchainGames dynamicColor={dynamicColor} lang={lang} />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+          {currentSection === 'tools' && (
+            <ToolsLayout dynamicColor={dynamicColor} />
+          )}
         </div>
       </main>
+
+      {/* Crikzling: The Fibonacci-scaled AI Pet 
+          He stays outside the main tag to hover over all content.
+      */}
+      <CrikzlingAvatar lang={lang} dynamicColor={dynamicColor} />
 
       <Footer />
     </div>
