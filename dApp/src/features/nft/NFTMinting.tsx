@@ -66,21 +66,20 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
     });
 
     try {
-      writeContract({
-        address: CRIKZ_NFT_ADDRESS,
-        abi: CRIKZ_NFT_ABI,
-        functionName: 'mint',
-        args: [tokenURI],
-        value: parseEther('0.01'), 
-        account: address,
-        chain: bscTestnet, // 2. Added chain property to satisfy strict typing
-      });
-      toast.loading("Initiating Mint transaction...");
-    } catch (err) {
-      console.error(err);
-      toast.error("Transaction failed to start.");
-    }
-  };
+    writeContract({
+      address: CRIKZ_NFT_ADDRESS,
+      abi: CRIKZ_NFT_ABI,
+      functionName: 'mint',
+      args: [tokenURI],
+      value: parseEther('0.01'), 
+      chain: bscTestnet, // Added for strict network enforcement
+    });
+    toast.loading("Initiating Mint transaction...");
+  } catch (err) {
+    console.error(err);
+    toast.error("Transaction failed to start.");
+  }
+};
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
