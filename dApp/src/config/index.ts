@@ -111,22 +111,44 @@ export const CRIKZ_TOKEN_ABI = [
 
 export const CRIKZ_NFT_ABI = [
   {
-    "inputs": [{ "name": "_tokenURI", "type": "string" }],
-    "name": "mint",
-    "outputs": [],
-    "stateMutability": "payable",
-    "type": "function"
+    name: 'mint',
+    type: 'function',
+    stateMutability: 'payable',
+    inputs: [{ name: '_tokenURI', type: 'string' }],
+    outputs: [],
   },
   {
-    "inputs": [],
-    "name": "totalSupply",
-    "outputs": [{ "name": "", "type": "uint256" }],
-    "stateMutability": "view",
-    "type": "function"
+    name: 'totalSupply',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
   },
-  // ... add the rest of the functions similarly
+  {
+    name: 'balanceOf',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'owner', type: 'address' }],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+  {
+    name: 'tokenOfOwnerByIndex',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'owner', type: 'address' },
+      { name: 'index', type: 'uint256' }
+    ],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+  {
+    name: 'tokenURI',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'tokenId', type: 'uint256' }],
+    outputs: [{ name: '', type: 'string' }],
+  },
 ] as const;
-
 export const NFT_MARKETPLACE_ABI = [
   "function listModel(address nftContract, uint256 tokenId, uint256 price) external",
   "function buyItem(address nftContract, uint256 tokenId) external",
