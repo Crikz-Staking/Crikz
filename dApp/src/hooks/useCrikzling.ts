@@ -4,9 +4,9 @@ import { useAccount, useWriteContract } from 'wagmi';
 import { EvolutionaryBrain } from '@/lib/crikzling-evolutionary-brain';
 import { uploadToIPFS } from '@/lib/ipfs-service';
 import { toast } from 'react-hot-toast';
-import { CRIKZLING_MEMORY_ADDRESS } from '@/config/index'; // Import from config
+import { CRIKZLING_MEMORY_ADDRESS } from '@/config/index';
 
-// Updated ABI matching the new contract
+// ADDED 'as const' HERE TO FIX TS2345 ERROR
 const MEMORY_ABI = [
   { 
     name: 'crystallizeMemory', 
@@ -15,7 +15,7 @@ const MEMORY_ABI = [
     inputs: [{type:'string'},{type:'uint256'},{type:'string'}], 
     outputs: [] 
   }
-];
+] as const;
 
 // Ensure this matches your wallet address exactly to see the "Admin Mode" buttons
 const OWNER_ADDRESS = "0x7072F8955FEb6Cdac4cdA1e069f864969Da4D379"; 
@@ -32,7 +32,7 @@ export function useCrikzling() {
 
   const isOwner = address?.toLowerCase() === OWNER_ADDRESS.toLowerCase();
 
-  // Initialize
+  // Initialize Brain
   useEffect(() => {
     if (!brainRef.current) {
         const saved = localStorage.getItem('crikz_evo_brain');
@@ -62,7 +62,7 @@ export function useCrikzling() {
     // Brain Process
     const result = brainRef.current.process(text, isOwner);
 
-    // Bot Response
+    // Bot Response (Simulated delay for realism)
     setTimeout(() => {
         setMessages(prev => [...prev, { sender: 'bot', text: result.response }]);
         // Auto-save local
@@ -82,14 +82,15 @@ export function useCrikzling() {
       try {
           // 1. Export State
           const stateJson = brainRef.current.exportState();
-          const conceptCount = JSON.parse(stateJson).lastCrystallizedCount; // approximation
+          const conceptCount = JSON.parse(stateJson).lastCrystallizedCount; 
           
           // 2. Upload to IPFS
           const cid = await uploadToIPFS(new File([stateJson], "brain.json"));
           
           // 3. Write to Chain
+          // FIX: Use correctly imported address and cast types
           writeContract({
-              address: MEMORY_ADDRESS,
+              address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
               abi: MEMORY_ABI,
               functionName: 'crystallizeMemory',
               args: [cid, BigInt(conceptCount), isOwner ? "OWNER_TRAIN" : "USER_INTERACTION"],
