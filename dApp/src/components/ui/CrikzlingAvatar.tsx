@@ -29,8 +29,19 @@ export default function CrikzlingAvatar() {
   };
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, isTyping]);
+    const interval = setInterval(() => {
+        if(brainRef.current) {
+            const newLogs = brainRef.current.getLearningBuffer();
+            if(newLogs.length > 0) {
+                 setNotifications(prev => [...prev, ...newLogs].slice(-5));
+            }
+            // Force React to re-render the button state
+            setNeedsSave(brainRef.current.needsCrystallization());
+        }
+    }, 1000); // Check every 1 second (faster than 2000)
+
+    return () => clearInterval(interval);
+  }, []);
 
   const handleSend = async () => {
       if(!input.trim()) return;
