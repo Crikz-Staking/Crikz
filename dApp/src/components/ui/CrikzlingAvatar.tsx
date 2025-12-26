@@ -1,7 +1,6 @@
-// src/components/ui/CrikzlingAvatar.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Save, Trash2, Brain, X, Zap, Cpu, Paperclip, ChevronDown } from 'lucide-react';
+import { Send, Save, Trash2, Brain, X, Zap, Cpu, Paperclip, ChevronDown, Activity, Network, Lightbulb } from 'lucide-react';
 import { useCrikzling } from '@/hooks/useCrikzling';
 import LoadingSpinner from './LoadingSpinner';
 
@@ -11,17 +10,17 @@ export default function CrikzlingAvatar() {
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
+  
   const { 
       messages, 
-      notifications, 
       sendMessage, 
       uploadFile, 
       crystallize, 
       resetBrain, 
       needsSave, 
       isOwner,
-      isSyncing
+      isSyncing,
+      brainStats // New Stats Object
   } = useCrikzling();
 
   const scrollToBottom = () => {
@@ -32,64 +31,51 @@ export default function CrikzlingAvatar() {
     scrollToBottom();
   }, [messages, isTyping]);
 
-  // --- DELETED THE BROKEN USEEFFECT BLOCK HERE ---
-  // The polling logic is already handled inside the useCrikzling hook.
-
   const handleSend = async () => {
       if(!input.trim()) return;
-      
       const userText = input;
       setInput('');
       setIsTyping(true);
-
-      // Send to hook
       await sendMessage(userText);
-      
-      // Stop typing simulation after response is received
       setTimeout(() => setIsTyping(false), 800);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if(!file) return;
-
       const text = await file.text();
       uploadFile(text);
-      // Reset input
       if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  // Helper for stat bars
+  const StatBar = ({ label, value, color, icon: Icon }: any) => (
+      <div className="flex flex-col gap-1 w-full">
+          <div className="flex justify-between text-[10px] text-gray-400 uppercase font-bold tracking-wider">
+              <span className="flex items-center gap-1"><Icon size={10} /> {label}</span>
+              <span>{Math.round(value)}%</span>
+          </div>
+          <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+              <motion.div 
+                  initial={{ width: 0 }} 
+                  animate={{ width: `${value}%` }} 
+                  className="h-full rounded-full"
+                  style={{ backgroundColor: color }}
+              />
+          </div>
+      </div>
+  );
+
   return (
     <>
-      {/* 1. Notifications Bubble (Floating above avatar) */}
-      <div className="fixed bottom-24 right-6 z-[90] pointer-events-none space-y-2 flex flex-col items-end">
-          <AnimatePresence>
-              {notifications.map((note, i) => (
-                  <motion.div 
-                    key={i}
-                    initial={{ opacity: 0, x: 20, scale: 0.9 }}
-                    animate={{ opacity: 1, x: 0, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    className="bg-black/90 backdrop-blur-xl border border-primary-500/40 text-primary-400 text-[10px] px-4 py-2 rounded-xl font-mono shadow-[0_0_15px_rgba(245,158,11,0.15)] flex items-center gap-2"
-                  >
-                      <Zap size={12} className="text-yellow-400 fill-yellow-400" /> 
-                      {note}
-                  </motion.div>
-              ))}
-          </AnimatePresence>
-      </div>
-
-      {/* 2. Avatar Trigger Button */}
+      {/* Trigger Button */}
       <motion.button
         onClick={() => setIsOpen(!isOpen)}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         className="fixed bottom-6 right-6 z-[100] w-14 h-14 md:w-16 md:h-16 rounded-full bg-[#050505] border border-white/10 shadow-[0_0_30px_rgba(245,158,11,0.2)] flex items-center justify-center overflow-hidden group"
       >
-          {/* Living Gradient Background */}
           <div className="absolute inset-0 bg-gradient-to-tr from-primary-900/40 to-transparent opacity-50 group-hover:opacity-100 transition-opacity" />
-          
-          {/* Icon State */}
           <AnimatePresence mode="wait">
             {isOpen ? (
                 <motion.div key="close" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }}>
@@ -98,15 +84,13 @@ export default function CrikzlingAvatar() {
             ) : (
                 <motion.div key="brain" className="relative">
                     <Brain className={`text-primary-500 ${needsSave ? 'animate-pulse drop-shadow-[0_0_8px_rgba(245,158,11,0.8)]' : ''}`} size={28} />
-                    {needsSave && (
-                        <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border border-black animate-ping" />
-                    )}
+                    {needsSave && <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border border-black animate-ping" />}
                 </motion.div>
             )}
           </AnimatePresence>
       </motion.button>
 
-      {/* 3. Main Chat Interface */}
+      {/* Main Chat Interface */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -114,43 +98,41 @@ export default function CrikzlingAvatar() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ type: "spring", duration: 0.4, bounce: 0.2 }}
-            className="fixed bottom-24 right-4 md:right-6 w-[calc(100vw-2rem)] md:w-[400px] h-[600px] max-h-[80vh] bg-[#0A0A0F]/95 backdrop-blur-2xl border border-white/10 rounded-3xl shadow-2xl z-[100] flex flex-col overflow-hidden ring-1 ring-white/5"
+            className="fixed bottom-24 right-4 md:right-6 w-[calc(100vw-2rem)] md:w-[400px] h-[650px] max-h-[85vh] bg-[#0A0A0F]/95 backdrop-blur-2xl border border-white/10 rounded-3xl shadow-2xl z-[100] flex flex-col overflow-hidden ring-1 ring-white/5"
           >
-            {/* Header */}
-            <div className="p-4 border-b border-white/5 bg-gradient-to-r from-white/5 to-transparent flex justify-between items-center shrink-0">
-                <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-primary-500/10 flex items-center justify-center border border-primary-500/20">
-                        <Cpu size={16} className="text-primary-500" />
-                    </div>
-                    <div>
-                        <h3 className="font-bold text-white text-sm tracking-wide">CRIKZLING <span className="text-[9px] text-primary-500 bg-primary-500/10 px-1.5 py-0.5 rounded border border-primary-500/20 ml-1">BETA</span></h3>
-                        <div className="flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-[0_0_5px_#10B981] animate-pulse"/>
-                            <span className="text-[10px] text-gray-400 font-mono uppercase">
-                                {isOwner ? 'Admin Access' : 'Online'}
-                            </span>
+            {/* Header / Stats Panel */}
+            <div className="p-4 border-b border-white/5 bg-gradient-to-r from-white/5 to-transparent flex flex-col gap-4">
+                <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-primary-500/10 flex items-center justify-center border border-primary-500/20">
+                             <Cpu size={16} className="text-primary-500" />
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-white text-sm tracking-wide">CRIKZLING <span className="text-[9px] text-primary-500 bg-primary-500/10 px-1.5 py-0.5 rounded border border-primary-500/20 ml-1">BETA</span></h3>
+                            <div className="flex items-center gap-1.5">
+                                <span className={`w-1.5 h-1.5 rounded-full shadow-[0_0_5px_currentColor] animate-pulse ${brainStats.stage === 'TRANSCENDENT' ? 'bg-purple-500 text-purple-500' : 'bg-emerald-500 text-emerald-500'}`}/>
+                                <span className="text-[10px] text-gray-400 font-mono uppercase">{brainStats.stage}</span>
+                            </div>
                         </div>
                     </div>
+                    <div className="flex gap-1">
+                        <button onClick={resetBrain} className="p-2 hover:bg-white/10 rounded-lg text-gray-500 hover:text-red-400 transition-colors" title="Reset Memory"><Trash2 size={16} /></button>
+                        <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-white/10 rounded-lg text-gray-500 hover:text-white transition-colors"><X size={16} /></button>
+                    </div>
                 </div>
-                
-                <div className="flex gap-1">
-                    <button 
-                        onClick={resetBrain} 
-                        className="p-2 hover:bg-white/10 rounded-lg text-gray-500 hover:text-red-400 transition-colors"
-                        title="Reset Memory"
-                    >
-                        <Trash2 size={16} />
-                    </button>
-                    <button 
-                        onClick={() => setIsOpen(false)} 
-                        className="p-2 hover:bg-white/10 rounded-lg text-gray-500 hover:text-white transition-colors"
-                    >
-                        <X size={16} />
-                    </button>
+
+                {/* Neural Metrics Visualization */}
+                <div className="grid grid-cols-2 gap-3 bg-black/40 p-3 rounded-xl border border-white/5">
+                    <StatBar label="Logic" value={brainStats.mood.logic} color="#22d3ee" icon={Network} />
+                    <StatBar label="Empathy" value={brainStats.mood.empathy} color="#a78bfa" icon={Activity} />
+                    <div className="col-span-2 flex justify-between items-center pt-1 mt-1 border-t border-white/5">
+                        <span className="text-[9px] text-gray-500 uppercase flex items-center gap-1"><Lightbulb size={10} /> Concepts: <span className="text-white font-mono">{brainStats.nodes}</span></span>
+                        <span className="text-[9px] text-gray-500 uppercase">Buffer: <span className={needsSave ? "text-amber-500 font-bold" : "text-gray-400"}>{brainStats.unsaved}</span></span>
+                    </div>
                 </div>
             </div>
 
-            {/* Crystallization Banner (Shows when save is needed) */}
+            {/* Crystallization Banner */}
             <AnimatePresence>
                 {needsSave && (
                     <motion.div 
@@ -160,10 +142,10 @@ export default function CrikzlingAvatar() {
                         className="bg-primary-900/20 border-b border-primary-500/20 overflow-hidden"
                     >
                         <div className="p-3 flex items-center justify-between">
-                            <div className="text-xs text-primary-200">
-                                <span className="font-bold">Memory Buffer Full.</span>
-                                <span className="block opacity-70">Save learnings to blockchain?</span>
-                            </div>
+                             <div className="text-xs text-primary-200">
+                                <span className="font-bold">Neural Buffer Full ({brainStats.unsaved} items).</span>
+                                <span className="block opacity-70">Crystallize to Blockchain?</span>
+                             </div>
                             <button 
                                 onClick={crystallize}
                                 disabled={isSyncing}
@@ -200,7 +182,7 @@ export default function CrikzlingAvatar() {
                                 : 'bg-gradient-to-br from-primary-500/10 to-transparent text-primary-100 border border-primary-500/20 rounded-tl-sm shadow-[0_0_15px_rgba(245,158,11,0.05)]'
                             }`}
                         >
-                            <span className="block font-mono text-[9px] opacity-50 mb-1 uppercase tracking-wider">
+                             <span className="block font-mono text-[9px] opacity-50 mb-1 uppercase tracking-wider">
                                 {m.sender === 'user' ? 'You' : 'Crikzling'}
                             </span>
                             {m.text}
@@ -222,7 +204,6 @@ export default function CrikzlingAvatar() {
 
             {/* Input Area */}
             <div className="p-3 border-t border-white/10 bg-black/40 backdrop-blur-xl shrink-0">
-                {/* Admin Toolbar (Only Visible if Owner) */}
                 {isOwner && (
                     <div className="flex gap-2 mb-2 px-1">
                         <button 
@@ -231,13 +212,7 @@ export default function CrikzlingAvatar() {
                         >
                             <Paperclip size={12} /> Upload Training Data
                         </button>
-                        <input 
-                            type="file" 
-                            ref={fileInputRef} 
-                            className="hidden" 
-                            accept=".txt,.md,.json" 
-                            onChange={handleFileUpload} 
-                        />
+                        <input type="file" ref={fileInputRef} className="hidden" accept=".txt,.md,.json" onChange={handleFileUpload} />
                     </div>
                 )}
 
@@ -260,7 +235,6 @@ export default function CrikzlingAvatar() {
                 </div>
             </div>
             
-            {/* Ambient Background Glow */}
             <div className="absolute inset-0 pointer-events-none z-[-1] overflow-hidden rounded-3xl">
                 <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-primary-500/5 blur-[120px] rounded-full" />
                 <div className="absolute bottom-0 left-0 w-[200px] h-[200px] bg-blue-500/5 blur-[100px] rounded-full" />

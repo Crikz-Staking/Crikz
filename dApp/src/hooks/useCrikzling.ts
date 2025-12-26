@@ -1,4 +1,3 @@
-// src/hooks/useCrikzling.ts
 import { useState, useEffect, useRef } from 'react';
 import { useAccount, useWriteContract } from 'wagmi';
 import { EvolutionaryBrain } from '@/lib/crikzling-evolutionary-brain';
@@ -30,28 +29,28 @@ export function useCrikzling() {
   const [notifications, setNotifications] = useState<string[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
   const [needsSave, setNeedsSave] = useState(false);
-  
-  // Use generic write contract for better error handling in UI
-  const { writeContract, isPending } = useWriteContract();
+  // UI Stats State
+  const [brainStats, setBrainStats] = useState({ nodes: 0, relations: 0, stage: 'GENESIS', mood: { logic: 0, empathy: 0, curiosity: 0 }, unsaved: 0 });
 
+  const { writeContract, isPending } = useWriteContract();
   const isOwner = address?.toLowerCase() === OWNER_ADDRESS.toLowerCase();
 
-  // Initialize Brain
   useEffect(() => {
     if (!brainRef.current) {
         const saved = localStorage.getItem('crikz_evo_brain');
-        // Initialize with saved state or fresh
         brainRef.current = new EvolutionaryBrain(saved || undefined);
         
-        // Initial Greeting if empty chat
+        // Populate initial stats
+        setBrainStats(brainRef.current.getStats());
+
         if (messages.length === 0) {
            const intro = brainRef.current.process("hello", isOwner);
            setMessages([{ sender: 'bot', text: intro.response }]);
         }
     }
-  }, [address]); // Re-run if account changes (to update isOwner logic inside brain next process)
+  }, [address]);
 
-  // Polling for notifications and save state
+  // Polling for notifications, save state, and stats
   useEffect(() => {
     const interval = setInterval(() => {
         if(brainRef.current) {
@@ -60,6 +59,7 @@ export function useCrikzling() {
                  setNotifications(prev => [...prev, ...newLogs].slice(-5));
             }
             setNeedsSave(brainRef.current.needsCrystallization());
+            setBrainStats(brainRef.current.getStats());
         }
     }, 2000);
 
@@ -68,18 +68,14 @@ export function useCrikzling() {
 
   const sendMessage = async (text: string) => {
     if (!brainRef.current) return;
-    
-    // 1. Add User Message
     setMessages(prev => [...prev, { sender: 'user', text }]);
-
-    // 2. Process in Brain (Simulate thinking delay)
-    const result = brainRef.current.process(text, isOwner);
     
-    // 3. Bot Response
+    // Simulate processing delay based on complexity
     setTimeout(() => {
+        const result = brainRef.current!.process(text, isOwner);
         setMessages(prev => [...prev, { sender: 'bot', text: result.response }]);
-        // Persist to local storage
         localStorage.setItem('crikz_evo_brain', brainRef.current!.exportState());
+        setBrainStats(brainRef.current!.getStats());
     }, 800);
   };
 
@@ -87,6 +83,7 @@ export function useCrikzling() {
       if(!brainRef.current) return;
       const count = brainRef.current.assimilateFile(content);
       toast.success(`Absorbed ${count} concepts.`);
+      setBrainStats(brainRef.current.getStats());
   };
 
   const crystallize = async () => {
@@ -97,15 +94,13 @@ export function useCrikzling() {
       setIsSyncing(true);
       try {
           const stateJson = brainRef.current.exportState();
-          // Safe parse to get count
           const parsed = JSON.parse(stateJson);
-          const conceptCount = parsed.totalInteractions || 0; 
+          const conceptCount = Object.keys(parsed.concepts).length;
 
           toast.loading("Uploading memory to IPFS...", { id: 'cryst' });
           const cid = await uploadToIPFS(new File([stateJson], "brain.json"));
           
           toast.loading("Confirming on Blockchain...", { id: 'cryst' });
-          
           writeContract({
               address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
               abi: MEMORY_ABI,
@@ -118,6 +113,7 @@ export function useCrikzling() {
           brainRef.current.markCrystallized();
           setNeedsSave(false);
           toast.success("Memory Crystallized!", { id: 'cryst' });
+          setBrainStats(brainRef.current.getStats());
       } catch(e) {
           console.error(e);
           toast.error("Crystallization Failed", { id: 'cryst' });
@@ -127,10 +123,10 @@ export function useCrikzling() {
   };
 
   const resetBrain = () => {
-      // Allow user to reset their local instance even if not owner
       brainRef.current?.wipe();
       setMessages([{sender: 'bot', text: 'SYSTEM REBOOT. MEMORY ERASED.'}]);
       localStorage.removeItem('crikz_evo_brain');
+      if(brainRef.current) setBrainStats(brainRef.current.getStats());
   }
 
   return {
@@ -142,6 +138,7 @@ export function useCrikzling() {
       resetBrain,
       needsSave,
       isOwner,
-      isSyncing: isSyncing || isPending
+      isSyncing: isSyncing || isPending,
+      brainStats
   };
 }
