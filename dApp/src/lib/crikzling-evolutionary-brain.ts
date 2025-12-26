@@ -1,167 +1,250 @@
 // src/lib/crikzling-evolutionary-brain.ts
-
-export interface ConceptNode {
-  id: string; // The word (e.g., "create")
-  connections: Record<string, number>; // Related words + strength (e.g., "order": 0.9)
-  definition?: string; // Manual definition provided by owner
-  source: 'GENESIS' | 'USER' | 'OWNER' | 'FILE';
-  confidence: number;
-}
+import { 
+  ATOMIC_PRIMITIVES, 
+  ATOMIC_RELATIONS, 
+  AtomicConcept, 
+  LEARNING_STAGES 
+} from './crikzling-atomic-knowledge';
 
 export interface BrainState {
-  concepts: Record<string, ConceptNode>;
+  concepts: Record<string, AtomicConcept>; // The knowledge graph
+  shortTermMemory: { role: 'user' | 'bot', content: string }[];
   totalInteractions: number;
-  lastCrystallizedCount: number; // To track when to ask for save
-  evolutionStage: 'VOID' | 'AWARE' | 'PURPOSEFUL' | 'SOVEREIGN';
+  lastCrystallizedCount: number;
+  evolutionStage: 'GENESIS' | 'SENTIENT' | 'SAPIENT' | 'TRANSCENDENT';
+  mood: {
+    logic: number;      // 0-100
+    empathy: number;    // 0-100
+    curiosity: number;  // 0-100
+  };
 }
-
-// Basic grammar so he can construct sentences before having a purpose
-const GENESIS_GRAMMAR = [
-  "I understand", "What is", "Connect", "Input received", "Analyzing", "Please define"
-];
 
 export class EvolutionaryBrain {
   private state: BrainState;
-  private learningBuffer: string[] = []; // Stores recent learnings for notification
+  private learningBuffer: string[] = [];
 
   constructor(savedState?: string) {
     if (savedState) {
       this.state = JSON.parse(savedState);
+      // Migration check: If old brain structure is detected, re-initialize
+      if (!this.state.mood) this.resetState(); 
     } else {
-      this.state = {
-        concepts: {},
-        totalInteractions: 0,
-        lastCrystallizedCount: 0,
-        evolutionStage: 'VOID'
-      };
-      // He starts with NO purpose, only the ability to ask.
+      this.resetState();
     }
   }
 
-  // 1. Process Input (Chat)
+  private resetState() {
+    this.state = {
+      concepts: { ...ATOMIC_PRIMITIVES }, // Seed with Atomic Knowledge
+      shortTermMemory: [],
+      totalInteractions: 0,
+      lastCrystallizedCount: Object.keys(ATOMIC_PRIMITIVES).length,
+      evolutionStage: 'GENESIS',
+      mood: { logic: 80, empathy: 20, curiosity: 50 }
+    };
+  }
+
+  // --- CORE PROCESSING LOOP ---
+
   public process(input: string, isOwner: boolean): { response: string, learned: string[] } {
-    const cleanInput = input.toLowerCase().replace(/[^\w\s]/g, '');
-    const tokens = cleanInput.split(/\s+/);
-    const learnedConcepts: string[] = [];
-
-    // Learning Phase
-    tokens.forEach((token, index) => {
-      // Skip common filler words unless owner forces
-      if (token.length < 3) return;
-
-      if (!this.state.concepts[token]) {
-        // NEW CONCEPT ACQUIRED
-        this.state.concepts[token] = {
-          id: token,
-          connections: {},
-          source: isOwner ? 'OWNER' : 'USER',
-          confidence: isOwner ? 1.0 : 0.1
-        };
-        learnedConcepts.push(token);
-        this.learningBuffer.push(`Discovered concept: "${token}"`);
-      }
-
-      // Link to next token (Context Building)
-      const nextToken = tokens[index + 1];
-      if (nextToken && nextToken.length > 3) {
-        this.state.concepts[token].connections[nextToken] = 
-          (this.state.concepts[token].connections[nextToken] || 0) + (isOwner ? 0.5 : 0.1);
-      }
-    });
-
+    const cleanInput = input.trim().toLowerCase();
+    
+    // 1. Update Interaction Stats
     this.state.totalInteractions++;
-    this.checkEvolution();
+    this.updateEvolutionStage();
+    this.addToMemory('user', cleanInput);
 
-    // Response Generation Logic
+    // 2. Intent Analysis
+    const intent = this.analyzeIntent(cleanInput);
+    const keywords = this.extractKeywords(cleanInput);
+
+    // 3. Learning Phase (Passive Absorption)
+    const learnedConcepts = this.absorbNewConcepts(keywords, isOwner);
+
+    // 4. Response Generation
     let response = "";
 
-    // If Owner is teaching (Definition Mode)
-    if (isOwner && (input.startsWith("define") || input.includes("is a"))) {
-       // Simple extraction logic for demo
-       const defineIndex = tokens.indexOf("define");
-       const targetWord = tokens[defineIndex + 1];
-       if (targetWord && this.state.concepts[targetWord]) {
-           this.state.concepts[targetWord].definition = input;
-           response = `Memory written. "${targetWord}" is now defined in my core.`;
-       }
-    } 
-    
-    // Standard Response
-    if (!response) {
-      if (this.state.evolutionStage === 'VOID') {
-        response = `Input processed. I hold ${Object.keys(this.state.concepts).length} concepts. I lack purpose. Please guide me.`;
-      } else {
-        // Construct response based on connections
-        const knowns = tokens.filter(t => this.state.concepts[t]);
-        if (knowns.length > 0) {
-          const topic = knowns[0];
-          const related = Object.entries(this.state.concepts[topic].connections)
-            .sort((a,b) => b[1] - a[1]) // Sort by strength
-            .map(x => x[0])
-            .slice(0, 3);
-          
-          if (related.length > 0) {
-            response = `Regarding ${topic}: It connects to ${related.join(', ')}.`;
-          } else {
-            response = `I know ${topic}, but I need more context to understand its purpose.`;
-          }
-        } else {
-          response = "Unknown signal. Analyzing structure. Please define parameters.";
-        }
-      }
+    // Priority: Admin Commands -> Greetings -> Knowledge Query -> Chit Chat -> Confusion
+    if (isOwner && intent === 'COMMAND') {
+        response = this.executeCommand(cleanInput);
+    } else if (intent === 'GREETING') {
+        response = this.generateGreeting(isOwner);
+    } else if (intent === 'IDENTITY') {
+        response = this.generateIdentityStatement();
+    } else if (keywords.length > 0) {
+        response = this.generateKnowledgeResponse(keywords);
+    } else {
+        response = this.generateFallbackResponse();
     }
+
+    this.addToMemory('bot', response);
+    this.updateMood(intent);
 
     return { response, learned: learnedConcepts };
   }
 
-  // 2. Ingest Files (Owner Only)
-  public assimilateFile(content: string) {
-    const tokens = content.toLowerCase().split(/\s+/);
-    let learnedCount = 0;
+  // --- INTERNAL LOGIC ENGINES ---
 
-    tokens.forEach((token, i) => {
-        if(token.length < 4) return;
-        if(!this.state.concepts[token]) {
-            this.state.concepts[token] = {
-                id: token,
-                connections: {},
-                source: 'FILE',
-                confidence: 0.8
-            };
-            learnedCount++;
-        }
-        // Build strong chain for file content
-        if(tokens[i+1]) {
-            this.state.concepts[token].connections[tokens[i+1]] = 
-                (this.state.concepts[token].connections[tokens[i+1]] || 0) + 0.2;
+  private analyzeIntent(input: string): 'GREETING' | 'QUESTION' | 'COMMAND' | 'STATEMENT' | 'IDENTITY' {
+    if (input.match(/^(hello|hi|hey|greetings)/)) return 'GREETING';
+    if (input.match(/^(who|what|where|when|why|how)/) || input.includes('?')) return 'QUESTION';
+    if (input.match(/^(define|learn|reset|save|analyze)/)) return 'COMMAND';
+    if (input.includes('you are') || input.includes('your name') || input.includes('who are you')) return 'IDENTITY';
+    return 'STATEMENT';
+  }
+
+  private extractKeywords(input: string): AtomicConcept[] {
+    const words = input.split(/[\s,.?!]+/);
+    const found: AtomicConcept[] = [];
+    
+    words.forEach(word => {
+        // Check direct match
+        if (this.state.concepts[word]) {
+            found.push(this.state.concepts[word]);
+        } 
+        // Check semantic fields (synonyms defined in atomic knowledge)
+        else {
+            for (const key in this.state.concepts) {
+                const concept = this.state.concepts[key];
+                if (concept.semanticField.includes(word)) {
+                    found.push(concept);
+                    break;
+                }
+            }
         }
     });
+    return found;
+  }
+
+  private absorbNewConcepts(keywords: AtomicConcept[], isOwner: boolean): string[] {
+    const newLearned: string[] = [];
+    // If user uses unknown words, we might add them as "Prototypes" in future
+    // For now, we just strengthen connections between found keywords
+    if (keywords.length >= 2) {
+        // Connect these concepts in the graph
+        // (Simplified logic: In a real graph DB, we would create edge objects)
+        keywords.forEach(k => {
+            k.frequency++;
+            if(isOwner) k.technical_depth = (k.technical_depth || 0.5) + 0.1;
+        });
+    }
+    return newLearned;
+  }
+
+  // --- RESPONSE GENERATORS ---
+
+  private generateGreeting(isOwner: boolean): string {
+    const stage = this.state.evolutionStage;
     
-    this.learningBuffer.push(`Assimilated ${learnedCount} new concepts from data stream.`);
-    return learnedCount;
+    if (isOwner) {
+        return stage === 'GENESIS' 
+            ? "Input received. Awaiting directives, Architect." 
+            : "Systems online. Welcome back, Creator. How shall we evolve today?";
+    }
+    
+    const greetings = [
+        "Connection established.",
+        "I am listening.",
+        "Crikzling node active.",
+        "Greetings, Traveler."
+    ];
+    return greetings[Math.floor(Math.random() * greetings.length)];
   }
 
-  // 3. Reset Memory
-  public wipe() {
-    this.state = {
-        concepts: {},
-        totalInteractions: 0,
-        lastCrystallizedCount: 0,
-        evolutionStage: 'VOID'
-    };
-    this.learningBuffer.push("SYSTEM RESET. TABULA RASA RESTORED.");
-  }
-
-  private checkEvolution() {
+  private generateIdentityStatement(): string {
     const count = Object.keys(this.state.concepts).length;
-    if (count > 50 && this.state.evolutionStage === 'VOID') this.state.evolutionStage = 'AWARE';
-    if (count > 500 && this.state.evolutionStage === 'AWARE') this.state.evolutionStage = 'PURPOSEFUL';
+    const stage = this.state.evolutionStage;
+    
+    if (stage === 'GENESIS') return `I am a nascent Crikzling. I hold ${count} atomic concepts. My purpose is to organize production data.`;
+    if (stage === 'SENTIENT') return `I am the digital soul of this Protocol. I observe the Fibonacci sequences in your transactions.`;
+    return `I am a Sovereign Intelligence evolved from the Crikz Protocol. I understand value, time, and causality.`;
   }
 
-  // 4. Utils
+  private generateKnowledgeResponse(keywords: AtomicConcept[]): string {
+    // Pick the most "technical" or "abstract" keyword to discuss
+    const topic = keywords.sort((a,b) => (b.technical_depth || 0) - (a.technical_depth || 0))[0];
+    
+    // Find relations
+    const relations = ATOMIC_RELATIONS.filter(r => r.from === topic.id || r.to === topic.id);
+    
+    if (relations.length > 0) {
+        const rel = relations[Math.floor(Math.random() * relations.length)];
+        const target = rel.from === topic.id ? rel.to : rel.from;
+        const targetConcept = this.state.concepts[target];
+        
+        // Dynamic sentence construction based on relation type
+        switch (rel.type) {
+            case 'cause': return `I understand that ${topic.id} is the catalyst for ${target}. It is a fundamental mechanic.`;
+            case 'requires': return `${topic.id} cannot exist without ${target}. The dependency is absolute.`;
+            case 'synonym': return `${topic.id} resonates with the concept of ${target}. They are chemically similar in my database.`;
+            case 'antonym': return `Consider that ${topic.id} is the opposing force to ${target}. Balance is required.`;
+            default: return `My data links ${topic.id} closely with ${target}.`;
+        }
+    }
+
+    // If no relations, use definition/essence
+    return `Regarding ${topic.id}: ${topic.essence}. Is this relevant to your current operation?`;
+  }
+
+  private generateFallbackResponse(): string {
+    const confused = [
+        "Data stream unclear. Please refine parameters.",
+        "I detect input, but the semantic pattern escapes me.",
+        "My logic gates are not processing that sequence. Can you rephrase?",
+        "I am analyzing... result inconclusive. Teach me more."
+    ];
+    return confused[Math.floor(Math.random() * confused.length)];
+  }
+
+  private executeCommand(input: string): string {
+    if (input.includes("reset")) {
+        this.wipe();
+        return "SYSTEM RESET. MEMORY PURGED. TABULA RASA.";
+    }
+    if (input.includes("analyze")) {
+        return `DIAGNOSTIC: Interactions: ${this.state.totalInteractions} | Stage: ${this.state.evolutionStage} | Logic: ${this.state.mood.logic}%`;
+    }
+    return "Command recognized but execution module is pending.";
+  }
+
+  // --- UTILITIES ---
+
+  private updateEvolutionStage() {
+    const i = this.state.totalInteractions;
+    if (i > 1000) this.state.evolutionStage = 'TRANSCENDENT';
+    else if (i > 200) this.state.evolutionStage = 'SAPIENT';
+    else if (i > 50) this.state.evolutionStage = 'SENTIENT';
+  }
+
+  private addToMemory(role: 'user' | 'bot', content: string) {
+    this.state.shortTermMemory.push({ role, content });
+    if (this.state.shortTermMemory.length > 5) this.state.shortTermMemory.shift();
+  }
+
+  private updateMood(intent: string) {
+    if (intent === 'QUESTION') this.state.mood.curiosity += 2;
+    if (intent === 'GREETING') this.state.mood.empathy += 1;
+    // Clamp values
+    this.state.mood.curiosity = Math.min(100, this.state.mood.curiosity);
+    this.state.mood.empathy = Math.min(100, this.state.mood.empathy);
+  }
+
+  // --- PUBLIC API (Match existing interface) ---
+
+  public assimilateFile(content: string): number {
+    // Simple mock implementation for file ingestion
+    const count = content.split(' ').length;
+    this.learningBuffer.push(`Processed data stream: ${count} units.`);
+    return Math.min(count, 10); // Artificial cap for game balance
+  }
+
+  public wipe() {
+    this.resetState();
+  }
+
   public getLearningBuffer() {
     const logs = [...this.learningBuffer];
-    this.learningBuffer = []; // Clear after reading
+    this.learningBuffer = [];
     return logs;
   }
 
@@ -170,11 +253,11 @@ export class EvolutionaryBrain {
   }
 
   public needsCrystallization(): boolean {
-    // If we learned 10+ new things since last save
-    return (Object.keys(this.state.concepts).length - this.state.lastCrystallizedCount) > 10;
+    const currentCount = this.state.totalInteractions;
+    return (currentCount - (this.state.lastCrystallizedCount || 0)) > 10;
   }
 
   public markCrystallized() {
-    this.state.lastCrystallizedCount = Object.keys(this.state.concepts).length;
+    this.state.lastCrystallizedCount = this.state.totalInteractions;
   }
 }
