@@ -2,12 +2,11 @@
 export const TARGET_CHAIN_ID = 97;
 export const WAD = 1_000_000_000_000_000_000n;
 export const BASE_APR = 6.182;
-export const CRIKZLING_MEMORY_ADDRESS = '0x1F70256f48123dAdB33BdDC2BEAAFdb12508309c';
+export const CRIKZLING_MEMORY_ADDRESS = '0xE28e0147e52Cf947f3Fe9cEd44C3aEA4A655d30B';
 export const CRIKZ_TOKEN_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3';
 // Ensure these are set in your .env or fallback to string empty to prevent crash
 export const CRIKZ_NFT_ADDRESS = (import.meta.env.VITE_NFT_ADDRESS || '') as `0x${string}`;
 export const NFT_MARKETPLACE_ADDRESS = (import.meta.env.VITE_MARKET_ADDRESS || '') as `0x${string}`;
-export const CRIKZLING_MEMORY_ABI = [ /* ... copy from your contract JSON ... */ ] as const;
 
 export const ORDER_TYPES = [
   { index: 0, name: 'Prototype', days: 5, multiplier: 0.618 },
@@ -19,7 +18,9 @@ export const ORDER_TYPES = [
   { index: 6, name: 'Monopoly', days: 1597, multiplier: 2.618 },
 ] as const;
 
-// --- ABIs ---
+// ==========================================
+// CONTRACT ABIs
+// ==========================================
 
 export const CRIKZ_TOKEN_ABI = [
   {
@@ -69,7 +70,6 @@ export const CRIKZ_TOKEN_ABI = [
     inputs: [{ name: '', type: 'address' }],
     outputs: [{ name: '', type: 'uint256' }],
   },
-  // FIXED: Explicit Tuple definition for Wagmi/Viem parsing
   {
     name: 'getActiveOrders',
     type: 'function',
@@ -153,7 +153,6 @@ export const CRIKZ_NFT_ABI = [
   },
 ] as const;
 
-// FIXED: Added Full Event Definitions for Indexing
 export const NFT_MARKETPLACE_ABI = [
   {
     anonymous: false,
@@ -217,5 +216,153 @@ export const NFT_MARKETPLACE_ABI = [
     outputs: [],
     stateMutability: "nonpayable",
     type: "function"
+  }
+] as const;
+
+// ==========================================
+// CRIKZLING MEMORY CONTRACT
+// ==========================================
+
+export const CRIKZLING_MEMORY_ABI = [
+  {
+    inputs: [
+      {
+        name: "_name",
+        type: "string"
+      }
+    ],
+    name: "birth",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
+    inputs: [
+      {
+        name: "_knowledgeRoot",
+        type: "string"
+      },
+      {
+        name: "_logicDelta",
+        type: "int16"
+      },
+      {
+        name: "_techDelta",
+        type: "int16"
+      }
+    ],
+    name: "crystallizeMemory",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
+    inputs: [
+      {
+        name: "_user",
+        type: "address"
+      }
+    ],
+    name: "getSoul",
+    outputs: [
+      {
+        components: [
+          {
+            name: "name",
+            type: "string"
+          },
+          {
+            name: "birthBlock",
+            type: "uint256"
+          },
+          {
+            name: "interactionCount",
+            type: "uint256"
+          },
+          {
+            name: "stage",
+            type: "uint8"
+          },
+          {
+            components: [
+              {
+                name: "logic",
+                type: "uint16"
+              },
+              {
+                name: "empathy",
+                type: "uint16"
+              },
+              {
+                name: "creativity",
+                type: "uint16"
+              },
+              {
+                name: "technicality",
+                type: "uint16"
+              }
+            ],
+            name: "traits",
+            type: "tuple"
+          },
+          {
+            name: "knowledgeRoot",
+            type: "string"
+          },
+          {
+            name: "lastUpdate",
+            type: "uint256"
+          }
+        ],
+        name: "",
+        type: "tuple"
+      }
+    ],
+    stateMutability: "view",
+    type: "function"
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        name: "user",
+        type: "address"
+      },
+      {
+        indexed: false,
+        name: "interactions",
+        type: "uint256"
+      },
+      {
+        indexed: false,
+        name: "newKnowledgeRoot",
+        type: "string"
+      }
+    ],
+    name: "ConsciousnessUpdated",
+    type: "event"
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        name: "user",
+        type: "address"
+      },
+      {
+        indexed: false,
+        name: "dominantTrait",
+        type: "string"
+      },
+      {
+        indexed: false,
+        name: "newValue",
+        type: "uint16"
+      }
+    ],
+    name: "TraitShift",
+    type: "event"
   }
 ] as const;
