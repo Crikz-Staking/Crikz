@@ -9,15 +9,11 @@ export function useCrikzling() {
   const { address } = useAccount();
   const [brain, setBrain] = useState<EvolutionaryBrain | null>(null);
   const [messages, setMessages] = useState<{role: 'user' | 'bot', content: string}[]>([]);
-  
-  // Critical Fix: State to prevent double submissions but allow recovery
   const [isThinking, setIsThinking] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  
-  // Use a tick to force re-renders when the brain class instance mutates internal state
   const [tick, setTick] = useState(0);
 
-  // Contract Logic (unchanged)
+  // Contract Read
   useReadContract({
     address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
     abi: CRIKZLING_MEMORY_ABI,
@@ -28,7 +24,7 @@ export function useCrikzling() {
   const { writeContract, data: hash, isPending: isTxPending } = useWriteContract();
   const { isLoading: isConfirming } = useWaitForTransactionReceipt({ hash });
 
-  // Load brain from local storage on mount
+  // Initialize Brain
   useEffect(() => {
     if (!address) return;
     const savedLocal = localStorage.getItem(`crikz_brain_${address}`);
@@ -36,50 +32,35 @@ export function useCrikzling() {
     setBrain(initialBrain);
   }, [address]);
 
-  // --- FIXED SEND MESSAGE FUNCTION ---
   const sendMessage = async (text: string) => {
-    if (!brain || !address || isThinking) return;
+    if (!brain || !address) return;
     
+    // START THINKING
     setIsThinking(true);
     
     try {
-        // Await the brain process (now safer)
+        // The process function now takes time to 'think' inside the brain logic
         const { response } = await brain.process(text, true);
         
-        setMessages(prev => [
-            ...prev, 
-            { role: 'user', content: text }, 
-            { role: 'bot', content: response }
-        ]);
-
-        // Persist
+        setMessages(prev => [...prev, { role: 'user', content: text }, { role: 'bot', content: response }]);
+        
         localStorage.setItem(`crikz_brain_${address}`, brain.exportState());
         setTick(t => t + 1);
-
-    } catch (error) {
-        // Fallback if brain totally fails
-        console.error("Brain execution error", error);
-        setMessages(prev => [
-            ...prev,
-            { role: 'user', content: text },
-            { role: 'bot', content: "Error: Neural pathway disconnected." }
-        ]);
+    } catch (e) {
+        console.error("Brain Error:", e);
+        setMessages(prev => [...prev, { role: 'user', content: text }, { role: 'bot', content: "..." }]);
     } finally {
-        // CRITICAL: Always turn off thinking mode
+        // STOP THINKING (Crucial for unblocking UI)
         setIsThinking(false);
     }
   };
 
   const uploadFile = async (content: string) => {
     if (!brain || !address) return;
-    try {
-        brain.assimilateFile(content);
-        localStorage.setItem(`crikz_brain_${address}`, brain.exportState());
-        setTick(t => t + 1);
-        setMessages(prev => [...prev, { role: 'bot', content: "Batch assimilation complete. Neural pathways updated." }]);
-    } catch (e) {
-        console.error(e);
-    }
+    brain.assimilateFile(content);
+    localStorage.setItem(`crikz_brain_${address}`, brain.exportState());
+    setTick(t => t + 1);
+    setMessages(prev => [...prev, { role: 'bot', content: "Batch assimilation complete. Neural pathways updated." }]);
   };
 
   const crystallize = async () => {
@@ -89,9 +70,7 @@ export function useCrikzling() {
       const brainState = brain.exportState();
       const blob = new Blob([brainState], { type: 'application/json' });
       const file = new File([blob], `crikz_memory_${Date.now()}.json`);
-      
       const cid = await uploadToIPFS(file);
-      
       const conceptCount = BigInt(Object.keys(brain.getState().concepts).length);
       
       writeContract({
@@ -107,7 +86,7 @@ export function useCrikzling() {
       localStorage.setItem(`crikz_brain_${address}`, brain.exportState());
       setTick(t => t + 1);
     } catch (e) {
-      console.error("Crystallization failed:", e);
+      console.error(e);
     } finally {
       setIsSyncing(false);
     }
@@ -118,15 +97,12 @@ export function useCrikzling() {
     brain.wipe();
     setMessages([]);
     localStorage.removeItem(`crikz_brain_${address}`);
-    
-    // Create fresh instance
     const newBrain = new EvolutionaryBrain(undefined);
     localStorage.setItem(`crikz_brain_${address}`, newBrain.exportState());
     setBrain(newBrain);
     setTick(t => t + 1);
   };
 
-  // Safe accessor for brain state
   const state = brain?.getState();
   const defaultMood = { logic: 50, empathy: 30, curiosity: 40, entropy: 10 };
 

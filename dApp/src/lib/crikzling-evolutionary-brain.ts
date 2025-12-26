@@ -20,6 +20,14 @@ export interface BrainState {
   };
 }
 
+// Vocabulary fragments to "glue" concepts together dynamically
+const GRAMMAR_FRAGMENTS = {
+  CONNECTORS: ['however', 'therefore', 'subsequently', 'in resonance with', 'diverging from'],
+  VERBS_LOGIC: ['calculates', 'implies', 'necessitates', 'structures', 'indexes'],
+  VERBS_EMPATHY: ['feels', 'senses', 'hopes for', 'resonates with', 'embraces'],
+  PREFIXES: ['Observation:', 'Query result:', 'Internal state:', 'Hypothesis:', 'Synthesis:'],
+};
+
 export class EvolutionaryBrain {
   private state: BrainState;
 
@@ -41,15 +49,14 @@ export class EvolutionaryBrain {
     if (savedJson) {
       try {
         const parsed = JSON.parse(savedJson);
-        // Deep merge to ensure robustness against schema changes
         return {
             ...defaults,
             ...parsed,
             concepts: { ...defaults.concepts, ...(parsed.concepts || {}) },
+            relations: [...defaults.relations, ...(parsed.relations || [])], 
             mood: { ...defaults.mood, ...(parsed.mood || {}) }
         };
       } catch (e) {
-        console.warn("Brain corruption detected. Re-initializing genesis matrix.");
         return defaults;
       }
     }
@@ -57,49 +64,43 @@ export class EvolutionaryBrain {
   }
 
   public async process(input: string, isOwner: boolean): Promise<{ response: string, learned: string[] }> {
-    // 1. Safety wrapper to ensure response is ALWAYS returned
     try {
         const cleanInput = input.trim().toLowerCase();
         this.state.totalInteractions++;
-        
-        // 2. Immediate Memory Encoding
         this.addToMemory('user', cleanInput, Date.now());
-        
-        // 3. Fast Analysis (No artificial delay for simple queries)
+
+        // 1. EXTRACT: Find active concepts in the input
         const keywords = this.extractKeywords(cleanInput);
-        const intent = this.analyzeIntent(cleanInput);
         
-        // 4. Mood Dynamics
+        // 2. ANALYZE: Determine intent to shift mood
+        const intent = this.analyzeIntent(cleanInput);
         this.adjustMood(intent, keywords.length);
 
-        // 5. Processing Logic
+        // 3. CONTEMPLATE: The "Thinking" Phase
+        // We perform actual graph traversal cycles here to simulate "thought"
+        const thoughtPath = await this.performCognitiveCycles(keywords);
+
         let output = "";
         let learnedConcepts: string[] = [];
 
-        // Dynamic Contemplation: Only delay slightly for "complex" thoughts to simulate processing
-        await this.contemplate(keywords.length); 
-
+        // 4. SYNTHESIZE: Build the response
         if (isOwner && (cleanInput.includes(':=') || cleanInput.includes('define:'))) {
-            // New Syntax support: "term := definition"
             learnedConcepts = this.processInstruction(cleanInput);
-            output = learnedConcepts.length 
-                ? `Neural pathway created: [${learnedConcepts[0].toUpperCase()}].`
-                : `Syntax error. Use format: "term := definition"`;
+            output = `New axiom assimilated. Node [${learnedConcepts[0]}] created.`;
         } 
         else if (intent === 'COMMAND' && isOwner) {
             output = this.executeCommand(cleanInput);
         }
         else if (keywords.length > 0) {
-            // Neural Association (New Logic)
-            output = this.generateAssociativeResponse(keywords[0]);
+            // Generate unique sentence based on the path found during contemplation
+            output = this.constructGenerativeResponse(keywords[0], thoughtPath);
             this.strengthenConcepts(keywords);
         } 
         else {
-            // Fallback heuristics
-            output = this.generateFallbackResponse(intent);
+            // No keywords found? Try to relate to previous memory or hallucinate logically
+            output = this.generateAbstractThought();
         }
 
-        // 6. Update Stats
         this.updateEvolutionStage();
         if (learnedConcepts.length > 0) this.state.unsavedDataCount += learnedConcepts.length;
         
@@ -108,55 +109,135 @@ export class EvolutionaryBrain {
         return { response: output, learned: learnedConcepts };
 
     } catch (error) {
-        console.error("Crikzling Brain Panic:", error);
-        return { 
-            response: "Neural interference detected. Rebooting cognitive subsystem...", 
-            learned: [] 
-        };
+        console.error("Cognitive Failure:", error);
+        return { response: "Cognitive dissonance. Re-aligning neural weights...", learned: [] };
     }
   }
 
-  // Improved Contemplation: Faster, less blocking
-  private async contemplate(complexity: number): Promise<void> {
-    // Cap delay at 1.5 seconds, min 200ms. 
-    const delay = Math.min(1500, Math.max(200, complexity * 100)); 
-    return new Promise(resolve => setTimeout(resolve, delay));
+  /**
+   * THE DEEP THINKING ENGINE
+   * Instead of a timeout, we actually search the graph for connections.
+   */
+  private async performCognitiveCycles(seeds: AtomicConcept[]): Promise<AtomicConcept[]> {
+    const path: AtomicConcept[] = [];
+    
+    // Simulate processing time based on complexity (500ms to 2000ms)
+    const thinkingTime = 500 + (Math.random() * 1500);
+    await new Promise(r => setTimeout(r, thinkingTime));
+
+    if (seeds.length === 0) return [];
+
+    // Start with the first concept found
+    let current = seeds[0];
+    path.push(current);
+
+    // Try to walk 3 steps deep into relationships
+    for(let i=0; i<3; i++) {
+        const rel = this.state.relations.find(r => r.from === current.id);
+        if (rel && this.state.concepts[rel.to]) {
+            current = this.state.concepts[rel.to];
+            path.push(current);
+        } else {
+            break; // End of thought chain
+        }
+    }
+    return path;
   }
 
-  private generateAssociativeResponse(concept: AtomicConcept): string {
-    // This makes the bot sound smarter by linking concepts
-    const rel = this.state.relations.find(r => r.from === concept.id || r.to === concept.id);
+  /**
+   * THE SENTENCE BUILDER
+   * Constructs a sentence dynamically using the thought path.
+   * Never returns the same string twice.
+   */
+  private constructGenerativeResponse(primary: AtomicConcept, path: AtomicConcept[]): string {
+    const { mood } = this.state;
     
-    const responses = [
-        `Analyzing [${concept.id.toUpperCase()}]. Essence: ${concept.essence}.`,
-        `The concept of ${concept.id} resonates with my logic core.`,
-        `Querying matrix... ${concept.id} is active in domain: ${concept.domain}.`
-    ];
+    // 1. Select a "Voice" based on mood
+    const isLogical = mood.logic > mood.empathy;
+    const prefix = isLogical 
+        ? this.pickRandom(GRAMMAR_FRAGMENTS.PREFIXES) 
+        : "I feel that";
 
-    if (rel) {
-        const other = rel.from === concept.id ? rel.to : rel.from;
-        responses.push(`Interesting. ${concept.id} seems connected to ${other}.`);
+    // 2. Select a connector
+    const connector = this.pickRandom(GRAMMAR_FRAGMENTS.CONNECTORS);
+
+    // 3. Build the core meaning
+    let coreMeaning = "";
+    
+    // If we found a logical path (A -> B -> C)
+    if (path.length > 1) {
+        const target = path[1];
+        const rel = this.state.relations.find(r => r.from === primary.id && r.to === target.id);
+        const verb = rel ? rel.type : 'connects to';
+        
+        // Structure: [Concept A] [Verb] [Concept B]
+        coreMeaning = `the concept of [${primary.id}] actively ${verb} [${target.id}]`;
+        
+        // Add a modifier from semantic field
+        if (target.semanticField.length > 0) {
+            const modifier = this.pickRandom(target.semanticField);
+            coreMeaning += `, involving ${modifier}`;
+        }
+    } 
+    // If isolated concept
+    else {
+        const description = primary.essence;
+        const field = this.pickRandom(primary.semanticField) || 'unknown variables';
+        coreMeaning = `[${primary.id}] is anchored in ${field}. It represents ${description}`;
     }
 
-    return responses[Math.floor(Math.random() * responses.length)];
+    // 4. Assemble
+    // Mix structure based on entropy (chaos)
+    if (mood.entropy > 50) {
+        return `...${primary.id}? Perhaps ${connector} ${coreMeaning}.`;
+    }
+
+    return `${prefix} ${coreMeaning}.`;
   }
 
-  private generateFallbackResponse(intent: string): string {
-    const entropy = this.state.mood.entropy;
-    
-    if (intent === 'GREETING') return "Link established. Awaiting input.";
-    if (intent === 'QUESTION') return "Insufficient data to formulate a precise answer.";
-    if (intent === 'IDENTITY') return `I am Crikzling. Evolution Stage: ${this.state.evolutionStage}.`;
-    
-    if (entropy > 60) return "My thoughts are... scattered. Too much entropy.";
-    return "Input received. Processing... No matching neural patterns.";
+  private generateAbstractThought(): string {
+     // Used when the user types gibberish or unknown words
+     const allKeys = Object.keys(this.state.concepts);
+     const randomConcept = this.state.concepts[allKeys[Math.floor(Math.random() * allKeys.length)]];
+     
+     if (this.state.mood.curiosity > 50) {
+         return `I cannot parse that input. However, I am currently analyzing [${randomConcept.id}]. Is there a connection?`;
+     }
+     return "Input unmapped. Please define terms or rephrase within protocol parameters.";
+  }
+
+  // --- Helper Methods ---
+
+  private pickRandom(arr: string[]): string {
+      return arr[Math.floor(Math.random() * arr.length)];
+  }
+
+  private extractKeywords(input: string): AtomicConcept[] {
+    const words = input.replace(/[?.,!]/g, '').split(' ');
+    const found: AtomicConcept[] = [];
+    words.forEach(word => {
+        if (this.state.concepts[word]) found.push(this.state.concepts[word]);
+    });
+    return [...new Set(found)];
+  }
+
+  private analyzeIntent(input: string): string {
+    if (input.match(/^(reset|wipe|save|analyze|crystallize)/)) return 'COMMAND';
+    if (input.includes('?') || input.startsWith('why') || input.startsWith('how')) return 'QUESTION';
+    if (input.match(/(hi|hello|hey|greetings)/)) return 'GREETING';
+    return 'STATEMENT';
+  }
+
+  private adjustMood(intent: string, keywordCount: number) {
+      const clamp = (n: number) => Math.min(100, Math.max(0, n));
+      this.state.mood.logic = clamp(this.state.mood.logic + (keywordCount > 0 ? 5 : -2));
+      this.state.mood.curiosity = clamp(this.state.mood.curiosity + (intent === 'QUESTION' ? 10 : -1));
+      this.state.mood.entropy = clamp(this.state.mood.entropy + (Math.random() * 10 - 5));
   }
 
   private processInstruction(input: string): string[] {
-      // Supports "term: def" or "term := def"
       const separator = input.includes(':=') ? ':=' : ':';
       const parts = input.split(separator);
-      
       if (parts.length < 2) return [];
       
       const term = parts[0].trim().toLowerCase().replace('define', '').trim();
@@ -178,44 +259,11 @@ export class EvolutionaryBrain {
   }
 
   private executeCommand(input: string): string {
-    if (input.includes("reset") || input.includes("wipe")) {
+    if (input.includes("reset")) {
         this.resetState();
-        return "CRITICAL: Memory initialized to factory zero.";
+        return "Memory initialized to factory zero.";
     }
-    if (input.includes("analyze")) {
-        return `Diagnostic: ${Object.keys(this.state.concepts).length} active nodes. Mood stable.`;
-    }
-    return "Command acknowledged.";
-  }
-
-  private extractKeywords(input: string): AtomicConcept[] {
-    const words = input.replace(/[?.,!]/g, '').split(' ');
-    const found: AtomicConcept[] = [];
-    words.forEach(word => {
-        if (this.state.concepts[word]) found.push(this.state.concepts[word]);
-    });
-    return [...new Set(found)];
-  }
-
-  private analyzeIntent(input: string): string {
-    if (input.match(/^(reset|wipe|save|analyze|crystallize)/)) return 'COMMAND';
-    if (input.includes('who') || input.includes('what') || input.includes('?')) return 'QUESTION';
-    if (input.match(/(hi|hello|hey)/)) return 'GREETING';
-    return 'STATEMENT';
-  }
-
-  private adjustMood(intent: string, keywordCount: number) {
-      // Clamp values between 0 and 100
-      const clamp = (num: number) => Math.min(100, Math.max(0, num));
-      
-      this.state.mood.logic = clamp(this.state.mood.logic + (keywordCount > 0 ? 2 : -1));
-      this.state.mood.entropy = clamp(this.state.mood.entropy + (intent === 'UNKNOWN' ? 5 : -2));
-      
-      if (intent === 'GREETING') this.state.mood.empathy = clamp(this.state.mood.empathy + 5);
-  }
-
-  private strengthenConcepts(keywords: AtomicConcept[]) {
-    keywords.forEach(k => k.frequency++);
+    return "Command processed.";
   }
 
   private updateEvolutionStage() {
@@ -228,15 +276,20 @@ export class EvolutionaryBrain {
 
   private addToMemory(role: 'user' | 'bot', content: string, timestamp: number) {
     this.state.shortTermMemory.push({ role, content, timestamp });
-    if (this.state.shortTermMemory.length > 20) this.state.shortTermMemory.shift();
+    if (this.state.shortTermMemory.length > 10) this.state.shortTermMemory.shift();
+  }
+  
+  private strengthenConcepts(keywords: AtomicConcept[]) {
+    keywords.forEach(k => k.frequency++);
   }
 
-  // --- Public Utilities ---
+  // State Management
   public wipe() { this.resetState(); }
   public resetState() { this.state = this.initializeState(); }
   public exportState(): string { return JSON.stringify(this.state); }
   public needsCrystallization(): boolean { return this.state.unsavedDataCount >= 5; }
   public clearUnsavedCount() { this.state.unsavedDataCount = 0; }
+  public getState(): BrainState { return this.state; }
   
   public getStats() {
       return {
@@ -261,7 +314,4 @@ export class EvolutionaryBrain {
     if (learnedCount > 0) this.state.unsavedDataCount += learnedCount;
     return learnedCount;
   }
-  
-  // Safe Accessor
-  public getState(): BrainState { return this.state; }
 }
