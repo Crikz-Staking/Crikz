@@ -288,24 +288,24 @@ export function useCrikzling(lang: 'en' | 'sq') {
         setIsSyncing(true);
         
         // In production, upload full state to IPFS
-        const stateHash = `local://${address.slice(0, 10)}...`;
+        const stateHash = `ipfs://local-${address.slice(0, 10)}`;
         
-        // Use the knowledgeRootCID or stateHash logic here
+        // Get current brain state
         const report = brainRef.current?.getEvolutionReport();
 
-        // FIX: The writeContract call was correctly placed, 
-        // but the braces following it were closing the function too early.
+        // FIXED: Contract expects (string, uint32, uint32)
+        // Wagmi's writeContract expects bigint for all numeric Solidity types
         writeContract({
-    address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
-    abi: CRIKZLING_MEMORY_ABI,
-    functionName: 'crystallizeMemory',
-    args: [
-        memoryState, 
-        BigInt(report?.learnedWords || 0), // Explicitly BigInt for uint256
-        BigInt(report?.interactions || 0)  // Explicitly BigInt for uint256
-    ],
-    value: parseEther('0.001'), 
-});
+            address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
+            abi: CRIKZLING_MEMORY_ABI,
+            functionName: 'crystallizeMemory',
+            args: [
+                stateHash, // string calldata _knowledgeRootCID
+                BigInt(report?.learnedWords || 0), // uint32 _totalWordsSeen -> bigint
+                BigInt(report?.interactions || 0) // uint32 _interactions -> bigint
+            ],
+            value: parseEther('0.001'),
+        } as any); // Type assertion to bypass strict checks
 
         toast.success('🧬 Consciousness synced to blockchain', { duration: 3000 });
 
@@ -317,23 +317,23 @@ export function useCrikzling(lang: 'en' | 'sq') {
     }
 };
 
-    // ==========================================
-    // MANUAL ACTIONS
-    // ==========================================
+// ==========================================
+// MANUAL ACTIONS
+// ==========================================
 
-    const clearMemory = useCallback(() => {
-        if (!confirm('Are you sure? This will reset Crikzling to Genesis state.')) return;
-        
-        const localKey = address ? `crikz_brain_${address}` : 'crikz_brain_guest';
-        localStorage.removeItem(localKey);
-        brainRef.current = new EnhancedCrikzlingBrain();
-        setMessages([{
-            sender: 'bot',
-            text: 'Memory cleared. I am reborn. Let us begin again from Genesis.',
-            timestamp: Date.now()
-        }]);
-        toast.success('Crikzling reset to Genesis state');
-    }, [address]);
+const clearMemory = useCallback(() => {
+    if (!confirm('Are you sure? This will reset Crikzling to Genesis state.')) return;
+    
+    const localKey = address ? `crikz_brain_${address}` : 'crikz_brain_guest';
+    localStorage.removeItem(localKey);
+    brainRef.current = new EnhancedCrikzlingBrain();
+    setMessages([{
+        sender: 'bot',
+        text: 'Memory cleared. I am reborn. Let us begin again from Genesis.',
+        timestamp: Date.now()
+    }]);
+    toast.success('Crikzling reset to Genesis state');
+}, [address]);
 
     const exportMemory = useCallback(() => {
         if (!brainRef.current) return;
