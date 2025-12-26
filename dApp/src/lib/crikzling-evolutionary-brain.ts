@@ -213,11 +213,30 @@ export class EvolutionaryBrain {
   }
 
   private extractKeywords(input: string): AtomicConcept[] {
-    const words = input.replace(/[?.,!]/g, '').split(' ');
+    // 1. Define "Neural Noise" (Stop Words)
+    // These words are grammatically necessary but conceptually empty for the graph walker.
+    const STOP_WORDS = new Set([
+        'the', 'a', 'an', 'and', 'or', 'but', 'is', 'are', 'was', 'were',
+        'of', 'in', 'on', 'at', 'to', 'for', 'with', 'by', 'from', 
+        'it', 'this', 'that', 'i', 'you', 'me'
+    ]);
+
+    // 2. Advanced Cleaning
+    // Removes all punctuation symbols (like ?, !, .) and splits by any whitespace
+    const cleanInput = input.replace(/[^\w\s]/gi, '').toLowerCase();
+    const words = cleanInput.split(/\s+/);
+
     const found: AtomicConcept[] = [];
+
     words.forEach(word => {
-        if (this.state.concepts[word]) found.push(this.state.concepts[word]);
+        // 3. The Filter Logic
+        // Only accept the word if it is NOT noise AND it exists as a Node in memory
+        if (!STOP_WORDS.has(word) && this.state.concepts[word]) {
+            found.push(this.state.concepts[word]);
+        }
     });
+
+    // 4. Return unique set of concepts to prevent processing the same node twice
     return [...new Set(found)];
   }
 
