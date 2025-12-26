@@ -11,6 +11,9 @@ export function useCrikzling() {
   const [messages, setMessages] = useState<{role: 'user' | 'bot', content: string}[]>([]);
   const [isThinking, setIsThinking] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  
+  // Use a tick to force re-renders when the brain class instance mutates internal state
+  const [tick, setTick] = useState(0);
 
   useReadContract({
     address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
@@ -22,25 +25,34 @@ export function useCrikzling() {
   const { writeContract, data: hash, isPending: isTxPending } = useWriteContract();
   const { isLoading: isConfirming } = useWaitForTransactionReceipt({ hash });
 
+  // Load brain from local storage on mount
   useEffect(() => {
+    if (!address) return;
     const savedLocal = localStorage.getItem(`crikz_brain_${address}`);
+    // Initialize with saved state or undefined (which triggers default state in Brain constructor)
     const initialBrain = new EvolutionaryBrain(savedLocal || undefined);
     setBrain(initialBrain);
   }, [address]);
 
   const sendMessage = async (text: string) => {
-    if (!brain) return;
+    if (!brain || !address) return;
     setIsThinking(true);
+    
     const { response } = await brain.process(text, true);
+    
     setMessages(prev => [...prev, { role: 'user', content: text }, { role: 'bot', content: response }]);
+    
+    // Save state and force re-render so UI stats update
     localStorage.setItem(`crikz_brain_${address}`, brain.exportState());
+    setTick(t => t + 1);
     setIsThinking(false);
   };
 
   const uploadFile = async (content: string) => {
-    if (!brain) return;
+    if (!brain || !address) return;
     brain.assimilateFile(content);
     localStorage.setItem(`crikz_brain_${address}`, brain.exportState());
+    setTick(t => t + 1);
     setMessages(prev => [...prev, { role: 'bot', content: "Batch assimilation complete. Neural pathways updated." }]);
   };
 
@@ -67,6 +79,7 @@ export function useCrikzling() {
 
       brain.clearUnsavedCount();
       localStorage.setItem(`crikz_brain_${address}`, brain.exportState());
+      setTick(t => t + 1);
     } catch (e) {
       console.error("Crystallization failed:", e);
     } finally {
@@ -75,13 +88,22 @@ export function useCrikzling() {
   };
 
   const resetBrain = () => {
-    if(!brain) return;
+    if(!brain || !address) return;
     brain.wipe();
     setMessages([]);
     localStorage.removeItem(`crikz_brain_${address}`);
-    localStorage.setItem(`crikz_brain_${address}`, brain.exportState());
-    setBrain(new EvolutionaryBrain(undefined));
+    // Create fresh instance
+    const newBrain = new EvolutionaryBrain(undefined);
+    localStorage.setItem(`crikz_brain_${address}`, newBrain.exportState());
+    setBrain(newBrain);
+    setTick(t => t + 1);
   };
+
+  // Safe accessor for brain state
+  const state = brain?.getState();
+
+  // Default fallbacks ensure UI never receives undefined values
+  const defaultMood = { logic: 50, empathy: 30, curiosity: 40, entropy: 10 };
 
   return {
     messages,
@@ -93,11 +115,11 @@ export function useCrikzling() {
     isOwner: true,
     isSyncing: isSyncing || isTxPending || isConfirming,
     brainStats: {
-      stage: brain?.getState().evolutionStage || 'GENESIS',
-      nodes: Object.keys(brain?.getState().concepts || {}).length,
-      relations: brain?.getState().relations.length || 0,
-      unsaved: brain?.getState().unsavedDataCount || 0,
-      mood: brain?.getState().mood || { logic: 0, empathy: 0, curiosity: 0, entropy: 0 }
+      stage: state?.evolutionStage || 'GENESIS',
+      nodes: Object.keys(state?.concepts || {}).length,
+      relations: state?.relations.length || 0,
+      unsaved: state?.unsavedDataCount || 0,
+      mood: state?.mood || defaultMood
     },
     isThinking
   };
