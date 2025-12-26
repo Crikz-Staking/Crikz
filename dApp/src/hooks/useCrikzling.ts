@@ -4,7 +4,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useAccount, usePublicClient, useWriteContract } from 'wagmi';
 import { useContractData } from '@/hooks/web3/useContractData';
-import { EnhancedCrikzlingBrain } from '@/lib/crikzling-enhanced-brain';
+import { EnhancedCrikzlingBrain } from '@/lib/crikzling-enchanced-brain';
 import { formatEther } from 'viem';
 import { CRIKZLING_MEMORY_ADDRESS, CRIKZLING_MEMORY_ABI } from '@/config';
 import { toast } from 'react-hot-toast';
