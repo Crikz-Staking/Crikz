@@ -9,12 +9,15 @@ export function useCrikzling() {
   const { address } = useAccount();
   const [brain, setBrain] = useState<EvolutionaryBrain | null>(null);
   const [messages, setMessages] = useState<{role: 'user' | 'bot', content: string}[]>([]);
+  
+  // Critical Fix: State to prevent double submissions but allow recovery
   const [isThinking, setIsThinking] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   
   // Use a tick to force re-renders when the brain class instance mutates internal state
   const [tick, setTick] = useState(0);
 
+  // Contract Logic (unchanged)
   useReadContract({
     address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
     abi: CRIKZLING_MEMORY_ABI,
@@ -29,31 +32,54 @@ export function useCrikzling() {
   useEffect(() => {
     if (!address) return;
     const savedLocal = localStorage.getItem(`crikz_brain_${address}`);
-    // Initialize with saved state or undefined (which triggers default state in Brain constructor)
     const initialBrain = new EvolutionaryBrain(savedLocal || undefined);
     setBrain(initialBrain);
   }, [address]);
 
+  // --- FIXED SEND MESSAGE FUNCTION ---
   const sendMessage = async (text: string) => {
-    if (!brain || !address) return;
+    if (!brain || !address || isThinking) return;
+    
     setIsThinking(true);
     
-    const { response } = await brain.process(text, true);
-    
-    setMessages(prev => [...prev, { role: 'user', content: text }, { role: 'bot', content: response }]);
-    
-    // Save state and force re-render so UI stats update
-    localStorage.setItem(`crikz_brain_${address}`, brain.exportState());
-    setTick(t => t + 1);
-    setIsThinking(false);
+    try {
+        // Await the brain process (now safer)
+        const { response } = await brain.process(text, true);
+        
+        setMessages(prev => [
+            ...prev, 
+            { role: 'user', content: text }, 
+            { role: 'bot', content: response }
+        ]);
+
+        // Persist
+        localStorage.setItem(`crikz_brain_${address}`, brain.exportState());
+        setTick(t => t + 1);
+
+    } catch (error) {
+        // Fallback if brain totally fails
+        console.error("Brain execution error", error);
+        setMessages(prev => [
+            ...prev,
+            { role: 'user', content: text },
+            { role: 'bot', content: "Error: Neural pathway disconnected." }
+        ]);
+    } finally {
+        // CRITICAL: Always turn off thinking mode
+        setIsThinking(false);
+    }
   };
 
   const uploadFile = async (content: string) => {
     if (!brain || !address) return;
-    brain.assimilateFile(content);
-    localStorage.setItem(`crikz_brain_${address}`, brain.exportState());
-    setTick(t => t + 1);
-    setMessages(prev => [...prev, { role: 'bot', content: "Batch assimilation complete. Neural pathways updated." }]);
+    try {
+        brain.assimilateFile(content);
+        localStorage.setItem(`crikz_brain_${address}`, brain.exportState());
+        setTick(t => t + 1);
+        setMessages(prev => [...prev, { role: 'bot', content: "Batch assimilation complete. Neural pathways updated." }]);
+    } catch (e) {
+        console.error(e);
+    }
   };
 
   const crystallize = async () => {
@@ -67,7 +93,7 @@ export function useCrikzling() {
       const cid = await uploadToIPFS(file);
       
       const conceptCount = BigInt(Object.keys(brain.getState().concepts).length);
-
+      
       writeContract({
         address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
         abi: CRIKZLING_MEMORY_ABI,
@@ -92,6 +118,7 @@ export function useCrikzling() {
     brain.wipe();
     setMessages([]);
     localStorage.removeItem(`crikz_brain_${address}`);
+    
     // Create fresh instance
     const newBrain = new EvolutionaryBrain(undefined);
     localStorage.setItem(`crikz_brain_${address}`, newBrain.exportState());
@@ -101,8 +128,6 @@ export function useCrikzling() {
 
   // Safe accessor for brain state
   const state = brain?.getState();
-
-  // Default fallbacks ensure UI never receives undefined values
   const defaultMood = { logic: 50, empathy: 30, curiosity: 40, entropy: 10 };
 
   return {
