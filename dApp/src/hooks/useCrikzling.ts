@@ -320,8 +320,16 @@ export function useCrikzling(lang: 'en' | 'sq') {
 // ==========================================
 // MANUAL ACTIONS
 // ==========================================
+const OWNER_ADDRESS = "0x7072F8955FEb6Cdac4cdA1e069f864969Da4D379";
+const isOwner = address?.toLowerCase() === OWNER_ADDRESS.toLowerCase();
 
 const clearMemory = useCallback(() => {
+    // SECURITY CHECK: Only owner can proceed
+    if (!isOwner) {
+        toast.error('Unauthorized: Only the creator can reset this entity.');
+        return;
+    }
+
     if (!confirm('Are you sure? This will reset Crikzling to Genesis state.')) return;
     
     const localKey = address ? `crikz_brain_${address}` : 'crikz_brain_guest';
@@ -333,7 +341,7 @@ const clearMemory = useCallback(() => {
         timestamp: Date.now()
     }]);
     toast.success('Crikzling reset to Genesis state');
-}, [address]);
+}, [address, isOwner]); // Added isOwner to dependency array
 
     const exportMemory = useCallback(() => {
         if (!brainRef.current) return;
