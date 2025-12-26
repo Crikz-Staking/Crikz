@@ -11,7 +11,7 @@ export default function CrikzlingAvatar() {
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   const { 
       messages, 
       notifications, 
@@ -32,20 +32,8 @@ export default function CrikzlingAvatar() {
     scrollToBottom();
   }, [messages, isTyping]);
 
-useEffect(() => {
-    const interval = setInterval(() => {
-        if(brainRef.current) {
-            const newLogs = brainRef.current.getLearningBuffer();
-            if(newLogs.length > 0) {
-                 setNotifications(prev => [...prev, ...newLogs].slice(-5));
-            }
-            // Force React to re-render the button state
-            setNeedsSave(brainRef.current.needsCrystallization());
-        }
-    }, 1000); // Check every 1 second (faster than 2000)
-
-    return () => clearInterval(interval);
-  }, []);
+  // --- DELETED THE BROKEN USEEFFECT BLOCK HERE ---
+  // The polling logic is already handled inside the useCrikzling hook.
 
   const handleSend = async () => {
       if(!input.trim()) return;
@@ -53,17 +41,18 @@ useEffect(() => {
       const userText = input;
       setInput('');
       setIsTyping(true);
-      
+
       // Send to hook
       await sendMessage(userText);
       
-      // Stop typing simulation after response is received (hook handles state, but we simulate delay here visually if needed)
-      setTimeout(() => setIsTyping(false), 800); 
+      // Stop typing simulation after response is received
+      setTimeout(() => setIsTyping(false), 800);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if(!file) return;
+
       const text = await file.text();
       uploadFile(text);
       // Reset input
