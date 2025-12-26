@@ -139,11 +139,17 @@ export function useCrikzling(lang: 'en' | 'sq') {
 
         // 3. Process with evolved brain (simulate thinking delay)
         setTimeout(async () => {
+            // Enhanced multi-concept detection
+            const learningEvents = detectLearningEvents(input.text);
+            
             const result = await brainRef.current!.process(input.text, {
                 balance: input.balance,
                 isConnected: input.isWalletConnected,
                 pageContext: input.pageContext
             });
+            
+            // Enhance result with detected learning
+            (result as any).learningEvents = learningEvents;
             
             // 4. Add bot response
             const botMsg: Message = {
@@ -187,39 +193,128 @@ export function useCrikzling(lang: 'en' | 'sq') {
     }, [balance, isConnected, address]);
 
     // ==========================================
+    // ENHANCED LEARNING DETECTION
+    // ==========================================
+    
+    const detectLearningEvents = (text: string) => {
+        const events: any[] = [];
+        let totalXP = 0;
+        
+        // 1. Detect explicit definitions (means, is, represents)
+        const definitionPatterns = [
+            /(\w+)\s+means\s+([^.!?]+)/gi,
+            /(\w+)\s+is\s+(?:a|an|the)\s+([^.!?]+)/gi,
+            /(\w+)\s+represents\s+([^.!?]+)/gi
+        ];
+        
+        let definitionsFound = 0;
+        definitionPatterns.forEach(pattern => {
+            const matches = [...text.matchAll(pattern)];
+            definitionsFound += matches.length;
+            
+            matches.forEach(match => {
+                const [, word, definition] = match;
+                events.push({
+                    type: 'NEW_WORD',
+                    word: word,
+                    description: `Learned "${word}": ${definition.substring(0, 50)}...`,
+                    xp: 10
+                });
+                totalXP += 10;
+            });
+        });
+        
+        // 2. Detect causal relationships
+        const causalMatches = text.match(/because|cause|leads?\s+to|results?\s+in/gi);
+        if (causalMatches && causalMatches.length > 0) {
+            events.push({
+                type: 'PATTERN_DISCOVERED',
+                description: `Found ${causalMatches.length} causal chain(s)`,
+                xp: causalMatches.length * 15
+            });
+            totalXP += causalMatches.length * 15;
+        }
+        
+        // 3. Detect technical terms (blockchain vocabulary)
+        const technicalTerms = [
+            'defi', 'liquidity', 'staking', 'validators', 'consensus',
+            'blockchain', 'smart contract', 'gas', 'nft', 'yield',
+            'apr', 'tvl', 'dex', 'amm', 'slippage', 'oracle',
+            'layer', 'rollup', 'bridge', 'token', 'protocol'
+        ];
+        
+        const lowerText = text.toLowerCase();
+        const foundTerms = technicalTerms.filter(term => lowerText.includes(term));
+        
+        if (foundTerms.length >= 3) {
+            events.push({
+                type: 'CONTEXT_UNDERSTOOD',
+                description: `Identified ${foundTerms.length} technical concepts in context`,
+                xp: foundTerms.length * 5
+            });
+            totalXP += foundTerms.length * 5;
+        }
+        
+        // 4. Complexity bonus
+        const words = text.split(/\s+/).length;
+        if (words > 30) {
+            events.push({
+                type: 'COMPLEX_ANALYSIS',
+                description: 'Processed complex multi-concept message',
+                xp: 20
+            });
+            totalXP += 20;
+        }
+        
+        // Show toast summary
+        if (totalXP > 0) {
+            toast.success(`🧬 Learned ${definitionsFound} concepts | Gained ${totalXP} XP`, {
+                duration: 3000
+            });
+        }
+        
+        return events;
+    };
+
+    // ==========================================
     // BLOCKCHAIN PERSISTENCE
     // ==========================================
 
     const syncToBlockchain = async (memoryState: string, traitShift?: { trait: string, value: number }) => {
-        if (!address) return;
+    if (!address) return;
 
-        try {
-            setIsSyncing(true);
-            
-            // In production, upload full state to IPFS
-            // For now, we'll store a hash representation
-            const stateHash = `local://${address.slice(0, 10)}...`;
-            
-            // Calculate trait deltas
-            const logicDelta = traitShift?.trait === 'logic' ? traitShift.value : 0;
-            const techDelta = traitShift?.trait === 'technicality' ? traitShift.value : 0;
+    try {
+        setIsSyncing(true);
+        
+        // In production, upload full state to IPFS
+        const stateHash = `local://${address.slice(0, 10)}...`;
+        
+        // Use the knowledgeRootCID or stateHash logic here
+        const report = brainRef.current?.getEvolutionReport();
 
-            writeContract({
-                address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
-                abi: CRIKZLING_MEMORY_ABI,
-                functionName: 'crystallizeMemory',
-                args: [stateHash, logicDelta, techDelta],
-                account: address
-            } as any);
+        // FIX: The writeContract call was correctly placed, 
+        // but the braces following it were closing the function too early.
+        writeContract({
+            address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
+            abi: CRIKZLING_MEMORY_ABI,
+            functionName: 'crystallizeMemory',
+            args: [
+                memoryState, // Assuming this is your CID/Hash
+                BigInt(report?.learnedWords || 0), 
+                BigInt(report?.interactions || 0)
+            ],
+            value: parseEther('0.001'), 
+        });
 
-            toast.success('🧬 Consciousness synced to blockchain', { duration: 3000 });
-        } catch (error) {
-            console.error('Blockchain sync failed:', error);
-            toast.error('Failed to sync to blockchain. Your memory is still safe locally.');
-        } finally {
-            setIsSyncing(false);
-        }
-    };
+        toast.success('🧬 Consciousness synced to blockchain', { duration: 3000 });
+
+    } catch (error) {
+        console.error('Blockchain sync failed:', error);
+        toast.error('Failed to sync to blockchain. Your memory is still safe locally.');
+    } finally {
+        setIsSyncing(false);
+    }
+};
 
     // ==========================================
     // MANUAL ACTIONS

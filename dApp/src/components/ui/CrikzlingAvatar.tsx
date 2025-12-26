@@ -5,6 +5,7 @@ import {
   Download, Upload, Trash2, BarChart3, Lightbulb, Database,
   Check, Link, Loader, Minimize2, Maximize2, Settings
 } from 'lucide-react';
+import { useCrikzling } from '@/hooks/useCrikzling';
 
 // Type Definitions
 interface Notification {
@@ -21,43 +22,31 @@ interface Notification {
   visible?: boolean;
 }
 
-interface Message {
-  sender: 'user' | 'bot';
-  text: string;
-  timestamp: number;
-  confidence?: number;
-  xpGained?: number;
-}
-
-interface BrainStats {
-  wordsUnderstood: number;
-  relationsDiscovered: number;
-  interactionCount: number;
-  evolutionStage: string;
-  experiencePoints: number;
-  traits: {
-    linguistic: number;
-    analytical: number;
-    empathetic: number;
-    technical: number;
-    creative: number;
-  };
-}
-
 export default function EnhancedCrikzlingAvatar() {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isThinking, setIsThinking] = useState(false);
-  const [learningNotifications, setLearningNotifications] = useState<Notification[]>([]);
   const [showStats, setShowStats] = useState(false);
-  const [brainStats, setBrainStats] = useState<BrainStats>({
-    wordsUnderstood: 45,
-    relationsDiscovered: 32,
-    interactionCount: 0,
-    evolutionStage: 'GENESIS',
-    experiencePoints: 0,
+  
+  // Connect to REAL brain hook
+  const { 
+    messages, 
+    sendMessage, 
+    isThinking, 
+    isSyncing,
+    getEvolutionStatus,
+    exportMemory,
+    clearMemory
+  } = useCrikzling('en');
+  
+  const [learningNotifications, setLearningNotifications] = useState<Notification[]>([]);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Get real brain stats
+  const brainStats = getEvolutionStatus() || {
+    stage: 'GENESIS',
+    interactions: 0,
+    learnedWords: 45,
     traits: {
       linguistic: 50,
       analytical: 50,
@@ -65,9 +54,7 @@ export default function EnhancedCrikzlingAvatar() {
       technical: 20,
       creative: 40
     }
-  });
-  
-  const scrollRef = useRef<HTMLDivElement>(null);
+  };
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -75,146 +62,73 @@ export default function EnhancedCrikzlingAvatar() {
     }
   }, [messages]);
 
-  const addLearningNotification = (notification: Notification) => {
-    const id = Date.now() + Math.random();
-    const newNotif: Notification = { ...notification, id, visible: true };
-    
-    setLearningNotifications(prev => [...prev, newNotif]);
-    
-    if (!notification.requiresBlockchain) {
-      setTimeout(() => {
-        setLearningNotifications(prev => 
-          prev.map(n => n.id === id ? { ...n, visible: false } : n)
-        );
-        setTimeout(() => {
-          setLearningNotifications(prev => prev.filter(n => n.id !== id));
-        }, 500);
-      }, 5000);
-    }
-  };
-
   const handleSubmit = async () => {
     if (!input.trim() || isThinking) return;
-
-    const userMessage: Message = { sender: 'user', text: input, timestamp: Date.now() };
-    setMessages(prev => [...prev, userMessage]);
+    
+    // Use REAL brain
+    await sendMessage(input);
     setInput('');
-    setIsThinking(true);
-
-    await new Promise(resolve => setTimeout(resolve, 800));
-
-    const words = input.toLowerCase().split(/\s+/);
-    let experienceGained = 0;
     
-    const knownWords = ['hello', 'token', 'blockchain', 'price', 'buy', 'sell', 'nft', 'order', 'gas', 'wallet', 'stake', 'yield'];
-    const unknownWords = words.filter(w => w.length > 3 && !knownWords.includes(w));
+    // Simulate learning notifications based on message content
+    const words = input.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+    const hasDefinition = input.includes('means') || input.includes('is') && input.includes('.');
+    const hasCausal = /because|cause|leads to|results in/i.test(input);
     
-    if (unknownWords.length > 0) {
-      experienceGained += 10;
-      addLearningNotification({
-        id: 0,
-        type: 'NEW_WORD',
-        word: unknownWords[0],
-        description: `Analyzing "${unknownWords[0]}" from context`,
-        confidence: 0.7,
-        xp: 10
-      });
+    let xpGained = 0;
+    
+    // Multiple word learning
+    if (hasDefinition) {
+      const defCount = (input.match(/means|is/g) || []).length;
+      xpGained += defCount * 10;
       
-      setBrainStats(prev => ({
-        ...prev,
-        wordsUnderstood: prev.wordsUnderstood + 1,
-        experiencePoints: prev.experiencePoints + 10,
-        traits: { ...prev.traits, linguistic: Math.min(1000, prev.traits.linguistic + 2) }
-      }));
-    }
-
-    if (input.match(/cause|because|leads to|results in/i)) {
-      experienceGained += 15;
       addLearningNotification({
-        id: 0,
+        id: Date.now(),
+        type: 'NEW_WORD',
+        description: `Learned ${defCount} new definitions from context`,
+        confidence: 0.8,
+        xp: defCount * 10
+      });
+    }
+    
+    // Pattern discovery
+    if (hasCausal) {
+      xpGained += 15;
+      addLearningNotification({
+        id: Date.now() + 1,
         type: 'PATTERN_DISCOVERED',
         description: 'Detected causal relationship pattern',
         confidence: 0.85,
         xp: 15
       });
-      
-      setBrainStats(prev => ({
-        ...prev,
-        relationsDiscovered: prev.relationsDiscovered + 1,
-        experiencePoints: prev.experiencePoints + 15,
-        traits: { ...prev.traits, analytical: Math.min(1000, prev.traits.analytical + 3) }
-      }));
     }
-
-    setBrainStats(prev => ({ 
-      ...prev, 
-      interactionCount: prev.interactionCount + 1 
-    }));
     
-    if ((brainStats.interactionCount + 1) % 10 === 0) {
+    // Rich context bonus
+    if (words.length > 20) {
+      xpGained += 20;
       addLearningNotification({
-        id: 0,
+        id: Date.now() + 2,
         type: 'CONTEXT_UNDERSTOOD',
-        description: 'Ready to crystallize memory on-chain',
-        confidence: 1.0,
-        requiresBlockchain: true,
-        gasEstimate: '~0.001 BNB',
-        xp: 50
+        description: 'Complex multi-concept context analyzed',
+        confidence: 0.9,
+        xp: 20
       });
     }
-
-    const botMessage: Message = {
-      sender: 'bot',
-      text: generateSmartResponse(input, experienceGained),
-      timestamp: Date.now(),
-      confidence: 0.7 + (brainStats.traits.linguistic / 2000),
-      xpGained: experienceGained
-    };
-
-    setMessages(prev => [...prev, botMessage]);
-    setIsThinking(false);
   };
 
-  const generateSmartResponse = (input: string, xp: number): string => {
-    const lower = input.toLowerCase();
+  const addLearningNotification = (notification: Notification) => {
+    const newNotif: Notification = { ...notification, visible: true };
+    setLearningNotifications(prev => [...prev, newNotif]);
     
-    let response = '';
-    if (xp > 0) {
-      response = `I gained ${xp} XP from this interaction. `;
+    if (!notification.requiresBlockchain) {
+      setTimeout(() => {
+        setLearningNotifications(prev => 
+          prev.map(n => n.id === notification.id ? { ...n, visible: false } : n)
+        );
+        setTimeout(() => {
+          setLearningNotifications(prev => prev.filter(n => n.id !== notification.id));
+        }, 500);
+      }, 5000);
     }
-    
-    if (lower.includes('token')) {
-      response += 'Tokens represent value units in blockchain systems. They can be transferred, locked, or used for governance.';
-    } else if (lower.includes('nft')) {
-      response += 'NFTs are unique digital assets. Each has distinct properties and cannot be exchanged 1:1 like regular tokens.';
-    } else if (lower.includes('gas')) {
-      response += 'Gas is the computational cost of blockchain operations. It prevents network spam and compensates validators.';
-    } else {
-      response += 'I\'m building my understanding of this concept through context analysis and pattern recognition.';
-    }
-    
-    return response;
-  };
-
-  const handleBlockchainSync = async (notifId: number) => {
-    setLearningNotifications(prev => 
-      prev.map(n => n.id === notifId ? { ...n, syncing: true } : n)
-    );
-    
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    setBrainStats(prev => ({
-      ...prev,
-      experiencePoints: prev.experiencePoints + 50
-    }));
-    
-    setLearningNotifications(prev => 
-      prev.map(n => n.id === notifId ? { ...n, syncing: false, synced: true } : n)
-    );
-    
-    setTimeout(() => {
-      setLearningNotifications(prev => prev.filter(n => n.id !== notifId));
-    }, 3000);
   };
 
   const dismissNotification = (notifId: number) => {
@@ -233,15 +147,15 @@ export default function EnhancedCrikzlingAvatar() {
       SAPIENT: '#8b5cf6',
       TRANSCENDENT: '#ec4899'
     };
-    return colors[brainStats.evolutionStage] || '#f59e0b';
+    return colors[brainStats.stage] || '#f59e0b';
   };
 
   const getProgressToNextStage = (): number => {
-    const current = brainStats.wordsUnderstood;
+    const current = brainStats.learnedWords;
     
-    if (brainStats.evolutionStage === 'GENESIS') return (current / 50) * 100;
-    if (brainStats.evolutionStage === 'SENTIENT') return ((current - 50) / 150) * 100;
-    if (brainStats.evolutionStage === 'SAPIENT') return ((current - 200) / 800) * 100;
+    if (brainStats.stage === 'GENESIS') return (current / 50) * 100;
+    if (brainStats.stage === 'SENTIENT') return ((current - 50) / 150) * 100;
+    if (brainStats.stage === 'SAPIENT') return ((current - 200) / 800) * 100;
     return 100;
   };
 
@@ -250,6 +164,10 @@ export default function EnhancedCrikzlingAvatar() {
       e.preventDefault();
       handleSubmit();
     }
+  };
+
+  const calculateTotalXP = () => {
+    return brainStats.learnedWords * 10 + brainStats.interactions * 5;
   };
 
   return (
@@ -330,7 +248,7 @@ export default function EnhancedCrikzlingAvatar() {
                       className="text-[9px] font-bold uppercase tracking-wider"
                       style={{ color: getStageColor() }}
                     >
-                      {brainStats.evolutionStage} • {brainStats.experiencePoints} XP
+                      {brainStats.stage} • {calculateTotalXP()} XP
                     </div>
                   </div>
                 </div>
@@ -340,6 +258,13 @@ export default function EnhancedCrikzlingAvatar() {
                     className="text-gray-500 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/10"
                   >
                     <BarChart3 size={16} />
+                  </button>
+                  <button 
+                    onClick={exportMemory}
+                    className="text-gray-500 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/10"
+                    title="Export Memory"
+                  >
+                    <Download size={16} />
                   </button>
                   <button 
                     onClick={() => setIsMinimized(!isMinimized)} 
@@ -389,19 +314,19 @@ export default function EnhancedCrikzlingAvatar() {
                           <div className="grid grid-cols-2 gap-2 text-xs">
                             <div className="bg-white/5 p-2 rounded-lg">
                               <div className="text-gray-500 uppercase text-[9px] mb-1">Words Known</div>
-                              <div className="font-bold text-white">{brainStats.wordsUnderstood}</div>
-                            </div>
-                            <div className="bg-white/5 p-2 rounded-lg">
-                              <div className="text-gray-500 uppercase text-[9px] mb-1">Relations</div>
-                              <div className="font-bold text-white">{brainStats.relationsDiscovered}</div>
+                              <div className="font-bold text-white">{brainStats.learnedWords}</div>
                             </div>
                             <div className="bg-white/5 p-2 rounded-lg">
                               <div className="text-gray-500 uppercase text-[9px] mb-1">Interactions</div>
-                              <div className="font-bold text-white">{brainStats.interactionCount}</div>
+                              <div className="font-bold text-white">{brainStats.interactions}</div>
                             </div>
                             <div className="bg-white/5 p-2 rounded-lg">
                               <div className="text-gray-500 uppercase text-[9px] mb-1">Total XP</div>
-                              <div className="font-bold" style={{ color: getStageColor() }}>{brainStats.experiencePoints}</div>
+                              <div className="font-bold" style={{ color: getStageColor() }}>{calculateTotalXP()}</div>
+                            </div>
+                            <div className="bg-white/5 p-2 rounded-lg">
+                              <div className="text-gray-500 uppercase text-[9px] mb-1">Stage</div>
+                              <div className="font-bold text-white text-[10px]">{brainStats.stage}</div>
                             </div>
                           </div>
 
@@ -423,6 +348,17 @@ export default function EnhancedCrikzlingAvatar() {
                                 </div>
                               </div>
                             ))}
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="flex gap-2 pt-2">
+                            <button 
+                              onClick={clearMemory}
+                              className="flex-1 py-2 bg-red-500/20 text-red-400 rounded-lg text-xs font-bold hover:bg-red-500/30 border border-red-500/20"
+                            >
+                              <Trash2 size={12} className="inline mr-1" />
+                              Reset
+                            </button>
                           </div>
                         </div>
                       </motion.div>
@@ -460,20 +396,12 @@ export default function EnhancedCrikzlingAvatar() {
                             {msg.text}
                           </div>
                           
-                          {msg.sender === 'bot' && (
+                          {msg.sender === 'bot' && msg.confidence && (
                             <div className="mt-1 flex items-center gap-2 text-[9px] text-gray-600">
-                              {msg.confidence !== undefined && (
-                                <span className="flex items-center gap-1">
-                                  <Zap size={10} />
-                                  {(msg.confidence * 100).toFixed(0)}%
-                                </span>
-                              )}
-                              {msg.xpGained && msg.xpGained > 0 && (
-                                <span className="flex items-center gap-1" style={{ color: getStageColor() }}>
-                                  <Sparkles size={10} />
-                                  +{msg.xpGained} XP
-                                </span>
-                              )}
+                              <span className="flex items-center gap-1">
+                                <Zap size={10} />
+                                {(msg.confidence * 100).toFixed(0)}%
+                              </span>
                             </div>
                           )}
                         </div>
@@ -525,7 +453,7 @@ export default function EnhancedCrikzlingAvatar() {
               {isMinimized && (
                 <div className="p-4 text-center">
                   <div className="text-sm text-gray-400">Crikzling is minimized</div>
-                  <div className="text-xs text-gray-600 mt-1">{brainStats.experiencePoints} XP • {brainStats.evolutionStage}</div>
+                  <div className="text-xs text-gray-600 mt-1">{calculateTotalXP()} XP • {brainStats.stage}</div>
                 </div>
               )}
             </div>
@@ -588,38 +516,12 @@ export default function EnhancedCrikzlingAvatar() {
                       {notif.word && <span className="font-bold" style={{ color: getStageColor() }}>"{notif.word}"</span>} {notif.description}
                     </p>
                     
-                    {notif.requiresBlockchain && !notif.syncing && !notif.synced && (
-                      <div className="flex gap-2 mt-3">
-                        <button
-                          onClick={() => handleBlockchainSync(notif.id)}
-                          className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-black rounded-lg text-xs font-bold transition-all"
-                          style={{ background: getStageColor() }}
-                        >
-                          <Link size={12} />
-                          Sync ({notif.gasEstimate})
-                        </button>
-                        <button
-                          onClick={() => dismissNotification(notif.id)}
-                          className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
-                        >
-                          <X size={14} className="text-white/60" />
-                        </button>
-                      </div>
-                    )}
-                    
-                    {notif.syncing && (
-                      <div className="flex items-center justify-center gap-2 text-xs text-white/60 mt-3">
-                        <Loader size={12} className="animate-spin" />
-                        Syncing to blockchain...
-                      </div>
-                    )}
-                    
-                    {notif.synced && (
-                      <div className="flex items-center justify-center gap-2 text-xs font-bold mt-3" style={{ color: getStageColor() }}>
-                        <Check size={12} />
-                        Memory Crystallized
-                      </div>
-                    )}
+                    <button
+                      onClick={() => dismissNotification(notif.id)}
+                      className="text-xs text-gray-500 hover:text-white transition-colors"
+                    >
+                      Dismiss
+                    </button>
                   </div>
                 </div>
               </div>
