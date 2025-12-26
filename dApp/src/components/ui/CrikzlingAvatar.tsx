@@ -11,10 +11,10 @@ export default function CrikzlingAvatar() {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
   
-  // We use the hook's isThinking state instead of local state for autonomy accuracy
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Destructure all necessary state and functions from the custom hook
   const { 
     messages, 
     sendMessage, 
@@ -25,16 +25,17 @@ export default function CrikzlingAvatar() {
     isOwner, 
     isSyncing, 
     brainStats,
-    isThinking // <--- Uses the brain's contemplation state
+    isThinking 
   } = useCrikzling();
 
+  // Auto-scroll to bottom when messages update or thinking state changes
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, isThinking]);
+  }, [messages, isThinking, isOpen]);
 
   const handleSend = async () => {
     if(!input.trim()) return;
@@ -51,17 +52,17 @@ export default function CrikzlingAvatar() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // Helper for stat bars
+  // Helper component for the Stats Bars (Logic, Empathy, etc.)
   const StatBar = ({ label, value, color, icon: Icon }: any) => (
     <div className="flex flex-col gap-1 w-full">
       <div className="flex justify-between text-[10px] text-gray-400 uppercase font-bold tracking-wider">
         <span className="flex items-center gap-1"><Icon size={10} /> {label}</span>
-        <span>{Math.round(value)}%</span>
+        <span>{Math.round(value || 0)}%</span>
       </div>
       <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
         <motion.div 
           initial={{ width: 0 }} 
-          animate={{ width: `${value}%` }} 
+          animate={{ width: `${value || 0}%` }} 
           className="h-full rounded-full" 
           style={{ backgroundColor: color }} 
         />
@@ -71,7 +72,7 @@ export default function CrikzlingAvatar() {
 
   return (
     <>
-      {/* Trigger Button */}
+      {/* 1. Floating Trigger Button */}
       <motion.button
         onClick={() => setIsOpen(!isOpen)}
         whileHover={{ scale: 1.05 }}
@@ -98,7 +99,7 @@ export default function CrikzlingAvatar() {
         </AnimatePresence>
       </motion.button>
 
-      {/* Main Panel */}
+      {/* 2. Main Interface Panel */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -107,7 +108,7 @@ export default function CrikzlingAvatar() {
             exit={{ opacity: 0, y: 20, scale: 0.95, filter: 'blur(10px)' }}
             className="fixed bottom-24 right-6 z-[100] w-[calc(100vw-3rem)] md:w-[420px] max-h-[70vh] flex flex-col glass-card border-white/10 overflow-hidden shadow-2xl shadow-black/50"
           >
-            {/* Header / Stats */}
+            {/* A. Header & Brain Stats */}
             <div className="p-4 bg-white/5 border-b border-white/5">
               <div className="flex justify-between items-start mb-4">
                 <div>
@@ -130,7 +131,7 @@ export default function CrikzlingAvatar() {
               </div>
             </div>
 
-            {/* Crystallization Banner */}
+            {/* B. Crystallization Action Banner */}
             <AnimatePresence>
               {needsSave && (
                 <motion.div
@@ -157,7 +158,7 @@ export default function CrikzlingAvatar() {
               )}
             </AnimatePresence>
 
-            {/* Chat Area */}
+            {/* C. Chat History Area */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide min-h-[300px]">
               {messages.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-full opacity-20 text-center p-8">
@@ -178,7 +179,7 @@ export default function CrikzlingAvatar() {
                 </div>
               ))}
 
-              {/* Thinking Indicator */}
+              {/* D. Autonomous Thinking Indicator */}
               {isThinking && (
                 <div className="flex justify-start">
                   <div className="bg-white/5 px-3 py-2 rounded-2xl rounded-tl-none border border-white/5">
@@ -193,7 +194,7 @@ export default function CrikzlingAvatar() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Input Area */}
+            {/* E. Input & Tools Area */}
             <div className="p-4 bg-black/40 border-t border-white/5">
               <div className="flex gap-2">
                 <input 
@@ -230,6 +231,7 @@ export default function CrikzlingAvatar() {
                   </button>
                 </div>
 
+                {/* F. Owner-Only Controls */}
                 {isOwner && (
                   <button 
                     onClick={resetBrain}
