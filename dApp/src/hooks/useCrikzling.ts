@@ -1,34 +1,29 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
 import { EvolutionaryBrain } from '@/lib/crikzling-evolutionary-brain';
 import { uploadToIPFS } from '@/lib/ipfs-service';
-
-const CRIKZLING_CONTRACT_ADDRESS = '0x...'; // PASTE YOUR DEPLOYED ADDRESS HERE
-
-const CONTRACT_ABI = [
-  { "inputs": [{ "internalType": "string", "name": "_cid", "type": "string" }], "name": "crystallize", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
-  { "inputs": [{ "internalType": "address", "name": "_user", "type": "address" }], "name": "getMemory", "outputs": [{ "internalType": "string", "name": "", "type": "string" }], "stateMutability": "view", "type": "function" }
-] as const;
+import { CRIKZLING_MEMORY_ADDRESS, CRIKZLING_MEMORY_ABI } from '@/config/index';
 
 export function useCrikzling() {
-  const { address, isConnected } = useAccount();
+  const { address } = useAccount();
   const [brain, setBrain] = useState<EvolutionaryBrain | null>(null);
   const [messages, setMessages] = useState<{role: 'user' | 'bot', content: string}[]>([]);
   const [isThinking, setIsThinking] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  const { data: contractCid } = useReadContract({
-    address: CRIKZLING_CONTRACT_ADDRESS as `0x${string}`,
-    abi: CONTRACT_ABI,
-    functionName: 'getMemory',
-    args: [address as `0x${string}`],
+  // Read latest memory (Optional, for debugging or restoring from chain later)
+  useReadContract({
+    address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
+    abi: CRIKZLING_MEMORY_ABI,
+    functionName: 'getLatestMemory',
     query: { enabled: !!address }
   });
 
   const { writeContract, data: hash, isPending: isTxPending } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { isLoading: isConfirming } = useWaitForTransactionReceipt({ hash });
 
   useEffect(() => {
+    // Load local state or initialize genesis
     const savedLocal = localStorage.getItem(`crikz_brain_${address}`);
     const initialBrain = new EvolutionaryBrain(savedLocal || undefined);
     setBrain(initialBrain);
@@ -57,15 +52,23 @@ export function useCrikzling() {
       const brainState = brain.exportState();
       const blob = new Blob([brainState], { type: 'application/json' });
       const file = new File([blob], `crikz_memory_${Date.now()}.json`);
+      
+      // 1. Upload JSON to IPFS
       const cid = await uploadToIPFS(file);
       
+      // 2. Count concepts for on-chain stats
+      const conceptCount = BigInt(Object.keys(brain.getState().concepts).length);
+
+      // 3. Write to Blockchain
       writeContract({
-        address: CRIKZLING_CONTRACT_ADDRESS as `0x${string}`,
-        abi: CONTRACT_ABI,
-        functionName: 'crystallize',
-        args: [cid],
+        address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
+        abi: CRIKZLING_MEMORY_ABI,
+        functionName: 'crystallizeMemory',
+        args: [cid, conceptCount, "USER_TRIGGER"],
+        account: address
       });
-      
+
+      // 4. Reset "Unsaved" counter locally
       brain.clearUnsavedCount();
       localStorage.setItem(`crikz_brain_${address}`, brain.exportState());
     } catch (e) {
@@ -75,11 +78,23 @@ export function useCrikzling() {
     }
   };
 
+  const resetBrain = () => {
+    if(!brain) return;
+    brain.wipe();
+    setMessages([]);
+    localStorage.removeItem(`crikz_brain_${address}`);
+    // Re-save the wiped state
+    localStorage.setItem(`crikz_brain_${address}`, brain.exportState());
+    // Force a re-render/update
+    setBrain(new EvolutionaryBrain(undefined));
+  };
+
   return {
     messages,
     sendMessage,
     uploadFile,
     crystallize,
+    resetBrain,
     needsSave: brain?.needsCrystallization() || false,
     isOwner: true,
     isSyncing: isSyncing || isTxPending || isConfirming,

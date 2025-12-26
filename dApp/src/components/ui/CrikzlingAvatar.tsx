@@ -5,7 +5,6 @@ import {
   Network, Lightbulb, Paperclip, Cpu 
 } from 'lucide-react';
 import { useCrikzling } from '@/hooks/useCrikzling';
-import LoadingSpinner from './LoadingSpinner';
 
 export default function CrikzlingAvatar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -14,7 +13,7 @@ export default function CrikzlingAvatar() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Destructure all necessary state and functions from the custom hook
+  // Destructure including the now-available resetBrain
   const { 
     messages, 
     sendMessage, 
@@ -28,7 +27,6 @@ export default function CrikzlingAvatar() {
     isThinking 
   } = useCrikzling();
 
-  // Auto-scroll to bottom when messages update or thinking state changes
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -52,7 +50,7 @@ export default function CrikzlingAvatar() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // Helper component for the Stats Bars (Logic, Empathy, etc.)
+  // Helper component for the Stats Bars
   const StatBar = ({ label, value, color, icon: Icon }: any) => (
     <div className="flex flex-col gap-1 w-full">
       <div className="flex justify-between text-[10px] text-gray-400 uppercase font-bold tracking-wider">
@@ -109,7 +107,7 @@ export default function CrikzlingAvatar() {
             className="fixed bottom-24 right-6 z-[100] w-[calc(100vw-3rem)] md:w-[420px] max-h-[70vh] flex flex-col glass-card border-white/10 overflow-hidden shadow-2xl shadow-black/50"
           >
             {/* A. Header & Brain Stats */}
-            <div className="p-4 bg-white/5 border-b border-white/5">
+            <div className="p-4 bg-white/5 border-b border-white/5 relative z-20">
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <h3 className="text-sm font-bold text-white flex items-center gap-2">
@@ -131,33 +129,37 @@ export default function CrikzlingAvatar() {
               </div>
             </div>
 
-            {/* B. Crystallization Action Banner */}
+            {/* B. Crystallization Action Banner - Fixed Z-index & Positioning */}
             <AnimatePresence>
-  {needsSave && (
-    <motion.div 
-      initial={{ y: 50, opacity: 0 }} 
-      animate={{ y: 0, opacity: 1 }} 
-      className="absolute top-0 left-0 w-full z-[110] bg-gradient-to-r from-amber-600 to-orange-600 p-3 shadow-xl"
-    >
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-2 text-white">
-          <Save size={16} className="animate-pulse" />
-          <span className="text-xs font-bold uppercase tracking-tighter">Memory Saturated</span>
-        </div>
-        <button 
-          onClick={(e) => { e.stopPropagation(); crystallize(); }}
-          disabled={isSyncing}
-          className="bg-white text-orange-600 px-4 py-1.5 rounded-lg text-[10px] font-black hover:bg-black hover:text-white transition-all shadow-lg"
-        >
-          {isSyncing ? 'SYNCING TO BSC...' : 'CRYSTALLIZE NOW'}
-        </button>
-      </div>
-    </motion.div>
-  )}
-</AnimatePresence>
+              {needsSave && (
+                <motion.div 
+                  initial={{ height: 0, opacity: 0 }} 
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="relative z-10 w-full bg-gradient-to-r from-amber-600 to-orange-600 shadow-xl overflow-hidden"
+                >
+                  <div className="flex justify-between items-center p-3">
+                    <div className="flex items-center gap-2 text-white">
+                      <Save size={16} className="animate-pulse" />
+                      <span className="text-xs font-bold uppercase tracking-tighter">Memory Saturated</span>
+                    </div>
+                    <button 
+                      onClick={(e) => { 
+                          e.stopPropagation();
+                          crystallize(); 
+                      }}
+                      disabled={isSyncing}
+                      className="bg-white text-orange-600 px-4 py-1.5 rounded-lg text-[10px] font-black hover:bg-black hover:text-white transition-all shadow-lg"
+                    >
+                      {isSyncing ? 'SYNCING TO BSC...' : 'CRYSTALLIZE NOW'}
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* C. Chat History Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide min-h-[300px]">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide min-h-[300px] relative z-0">
               {messages.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-full opacity-20 text-center p-8">
                   <Brain size={48} className="mb-4" />
@@ -166,18 +168,17 @@ export default function CrikzlingAvatar() {
               )}
               
               {messages.map((m, i) => (
-                <div key={i} className={`flex ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[85%] px-3 py-2 rounded-2xl text-xs leading-relaxed ${
-                    m.sender === 'user' 
+                    m.role === 'user' 
                       ? 'bg-primary-500 text-black font-medium rounded-tr-none shadow-[0_4px_12px_rgba(245,158,11,0.2)]' 
                       : 'bg-white/5 text-gray-200 border border-white/5 rounded-tl-none'
                   }`}>
-                    {m.text}
+                    {m.content}
                   </div>
                 </div>
               ))}
 
-              {/* D. Autonomous Thinking Indicator */}
               {isThinking && (
                 <div className="flex justify-start">
                   <div className="bg-white/5 px-3 py-2 rounded-2xl rounded-tl-none border border-white/5">
@@ -193,7 +194,7 @@ export default function CrikzlingAvatar() {
             </div>
 
             {/* E. Input & Tools Area */}
-            <div className="p-4 bg-black/40 border-t border-white/5">
+            <div className="p-4 bg-black/40 border-t border-white/5 relative z-20">
               <div className="flex gap-2">
                 <input 
                   type="file" 
@@ -229,7 +230,6 @@ export default function CrikzlingAvatar() {
                   </button>
                 </div>
 
-                {/* F. Owner-Only Controls */}
                 {isOwner && (
                   <button 
                     onClick={resetBrain}

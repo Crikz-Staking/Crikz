@@ -78,7 +78,6 @@ export class EvolutionaryBrain {
     this.adjustMood(intent, keywords.length, isOwner);
 
     // 3. Autonomous "Thinking" Delay
-    // The brain calculates how long it needs to think based on complexity and stage.
     await this.contemplate(keywords.length, intent);
 
     // 4. Learning Phase
@@ -94,7 +93,6 @@ export class EvolutionaryBrain {
 
     // 5. Response Formulation
     let output = "";
-
     if (isOwner && intent === 'COMMAND') {
         output = this.executeCommand(cleanInput);
     } 
@@ -115,23 +113,16 @@ export class EvolutionaryBrain {
     return { response: output, learned: learnedConcepts };
   }
 
-  /**
-   * Simulates cognitive load. 
-   * Gives the "autonomy" feel in the UI by delaying response based on "thought" depth.
-   */
   private async contemplate(complexity: number, intent: string): Promise<void> {
     const baseTime = 1000;
-    const complexityFactor = complexity * 400; // 400ms per keyword
-    const randomVar = Math.random() * 800; // Variable organic delay
-    
+    const complexityFactor = complexity * 400; 
+    const randomVar = Math.random() * 800;
     let totalTime = baseTime + complexityFactor + randomVar;
-
-    // Deep thought triggers
+    
     if (intent === 'QUESTION' && this.state.mood.logic > 70) {
-        totalTime += 1500; 
+        totalTime += 1500;
     }
     
-    // If entropy is high, "confusion" takes longer
     if (this.state.mood.entropy > 60) {
         totalTime += 1000;
     }
@@ -142,23 +133,18 @@ export class EvolutionaryBrain {
   // --- EMOTIONAL ENGINE ---
 
   private adjustMood(intent: string, keywordCount: number, isOwner: boolean) {
-      // Logic Modulation
       if (keywordCount > 2) this.state.mood.logic += 5;
       if (intent === 'QUESTION') this.state.mood.logic += 2;
       
-      // Empathy Modulation
       if (intent === 'GREETING') this.state.mood.empathy += 10;
       if (isOwner) this.state.mood.empathy += 2;
       
-      // Curiosity Modulation
       if (intent === 'QUESTION') this.state.mood.curiosity += 5;
       if (intent === 'STATEMENT' && keywordCount === 0) this.state.mood.curiosity -= 2;
 
-      // Entropy (Chaos/Confusion)
       if (intent === 'UNKNOWN') this.state.mood.entropy += 5;
       else this.state.mood.entropy = Math.max(0, this.state.mood.entropy - 2);
 
-      // Clamp values 0-100
       this.state.mood.logic = this.clamp(this.state.mood.logic, 0, 100);
       this.state.mood.empathy = this.clamp(this.state.mood.empathy, 0, 100);
       this.state.mood.curiosity = this.clamp(this.state.mood.curiosity, 0, 100);
@@ -172,25 +158,20 @@ export class EvolutionaryBrain {
     const connections = this.getConnections(primary.id);
     const logicLevel = this.state.mood.logic;
 
-    // High Logic: Causal chains
     if (logicLevel > 60 && connections.length > 0) {
         const conn = connections[Math.floor(Math.random() * connections.length)];
         const targetId = conn.from === primary.id ? conn.to : conn.from;
 
         if (conn.type === 'requires') return `Analysis: ${primary.essence}. This concept fundamentally necessitates [${targetId}]. Without it, the logic fails.`;
-        
-        // FIXED: Updated comparison to match type definition 'cause'
         if (conn.type === 'cause') return `Observation: Increasing [${primary.id}] vectors usually precipitates [${targetId}]. A direct causal link.`;
         
         return `My logic graph connects [${primary.id}] with [${targetId}] via a ${conn.type} link. It is a calculated variable in my understanding of ${primary.domain}.`;
     }
 
-    // High Empathy: Associations
     if (this.state.mood.empathy > 60) {
          return `I feel a resonance with the concept of ${primary.id}. It defines the essence of: "${primary.essence}". Does this align with your perception?`;
     }
 
-    // Default Definition
     return `Accessing node [${primary.id.toUpperCase()}]: ${primary.essence}. Domain: ${primary.domain}.`;
   }
 
@@ -353,7 +334,13 @@ export class EvolutionaryBrain {
     return this.state.unsavedDataCount >= 5;
   }
 
-  public markCrystallized() {
+  // NEW: Exposed method for the hook to get internal stats
+  public getState(): BrainState {
+    return this.state;
+  }
+
+  // NEW: Exposed method to reset the unsaved counter after blockchain sync
+  public clearUnsavedCount() {
     this.state.unsavedDataCount = 0;
   }
   

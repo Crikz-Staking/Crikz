@@ -4,7 +4,6 @@ export const WAD = 1_000_000_000_000_000_000n;
 export const BASE_APR = 6.182;
 export const CRIKZLING_MEMORY_ADDRESS = '0x7CF17EedA18148fD252aE4c93eEcde3F0817dA72';
 export const CRIKZ_TOKEN_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3';
-// Ensure these are set in your .env or fallback to string empty to prevent crash
 export const CRIKZ_NFT_ADDRESS = (import.meta.env.VITE_NFT_ADDRESS || '') as `0x${string}`;
 export const NFT_MARKETPLACE_ADDRESS = (import.meta.env.VITE_MARKET_ADDRESS || '') as `0x${string}`;
 
@@ -220,36 +219,15 @@ export const NFT_MARKETPLACE_ABI = [
 ] as const;
 
 // ==========================================
-// CRIKZLING MEMORY CONTRACT
+// CRIKZLING MEMORY CONTRACT (UPDATED)
 // ==========================================
 
 export const CRIKZLING_MEMORY_ABI = [
   {
     inputs: [
-      {
-        name: "_name",
-        type: "string"
-      }
-    ],
-    name: "birth",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function"
-  },
-  {
-    inputs: [
-      {
-        name: "_knowledgeRoot",
-        type: "string"
-      },
-      {
-        name: "_logicDelta",
-        type: "int16"
-      },
-      {
-        name: "_techDelta",
-        type: "int16"
-      }
+      { name: "_ipfsCid", type: "string" },
+      { name: "_conceptsCount", type: "uint256" },
+      { name: "_trigger", type: "string" }
     ],
     name: "crystallizeMemory",
     outputs: [],
@@ -257,62 +235,15 @@ export const CRIKZLING_MEMORY_ABI = [
     type: "function"
   },
   {
-    inputs: [
-      {
-        name: "_user",
-        type: "address"
-      }
-    ],
-    name: "getSoul",
+    inputs: [],
+    name: "getLatestMemory",
     outputs: [
       {
         components: [
-          {
-            name: "name",
-            type: "string"
-          },
-          {
-            name: "birthBlock",
-            type: "uint256"
-          },
-          {
-            name: "interactionCount",
-            type: "uint256"
-          },
-          {
-            name: "stage",
-            type: "uint8"
-          },
-          {
-            components: [
-              {
-                name: "logic",
-                type: "uint16"
-              },
-              {
-                name: "empathy",
-                type: "uint16"
-              },
-              {
-                name: "creativity",
-                type: "uint16"
-              },
-              {
-                name: "technicality",
-                type: "uint16"
-              }
-            ],
-            name: "traits",
-            type: "tuple"
-          },
-          {
-            name: "knowledgeRoot",
-            type: "string"
-          },
-          {
-            name: "lastUpdate",
-            type: "uint256"
-          }
+          { name: "timestamp", type: "uint256" },
+          { name: "ipfsCid", type: "string" },
+          { name: "conceptsCount", type: "uint256" },
+          { name: "triggerEvent", type: "string" }
         ],
         name: "",
         type: "tuple"
@@ -324,45 +255,11 @@ export const CRIKZLING_MEMORY_ABI = [
   {
     anonymous: false,
     inputs: [
-      {
-        indexed: true,
-        name: "user",
-        type: "address"
-      },
-      {
-        indexed: false,
-        name: "interactions",
-        type: "uint256"
-      },
-      {
-        indexed: false,
-        name: "newKnowledgeRoot",
-        type: "string"
-      }
+      { indexed: true, name: "snapshotId", type: "uint256" },
+      { indexed: false, name: "ipfsCid", type: "string" },
+      { indexed: false, name: "conceptsCount", type: "uint256" }
     ],
-    name: "ConsciousnessUpdated",
-    type: "event"
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        name: "user",
-        type: "address"
-      },
-      {
-        indexed: false,
-        name: "dominantTrait",
-        type: "string"
-      },
-      {
-        indexed: false,
-        name: "newValue",
-        type: "uint16"
-      }
-    ],
-    name: "TraitShift",
+    name: "MemoryCrystallized",
     type: "event"
   }
 ] as const;
