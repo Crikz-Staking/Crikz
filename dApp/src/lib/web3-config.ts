@@ -12,7 +12,4 @@ export const web3Config = getDefaultConfig({
     [bscTestnet.id]: http('https://data-seed-prebsc-1-s1.binance.org:8545'),
   },
   ssr: false,
-  // FIXED: Prevent wallet conflicts
-  autoConnect: true,
-  enableInjectedWalletFallback: true,
 });
