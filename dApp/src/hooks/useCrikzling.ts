@@ -29,12 +29,15 @@ export function useCrikzling() {
   const [notifications, setNotifications] = useState<string[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
   const [needsSave, setNeedsSave] = useState(false);
-  // UI Stats State
-  const [brainStats, setBrainStats] = useState({ nodes: 0, relations: 0, stage: 'GENESIS', mood: { logic: 0, empathy: 0, curiosity: 0 }, unsaved: 0 });
+  const [isThinking, setIsThinking] = useState(false); // Added thinking state for UI
 
+  // UI Stats State
+  const [brainStats, setBrainStats] = useState({ nodes: 0, relations: 0, stage: 'GENESIS', mood: { logic: 0, empathy: 0, curiosity: 0, entropy: 0 }, unsaved: 0 });
+  
   const { writeContract, isPending } = useWriteContract();
   const isOwner = address?.toLowerCase() === OWNER_ADDRESS.toLowerCase();
 
+  // Initialize Brain
   useEffect(() => {
     if (!brainRef.current) {
         const saved = localStorage.getItem('crikz_evo_brain');
@@ -44,8 +47,11 @@ export function useCrikzling() {
         setBrainStats(brainRef.current.getStats());
 
         if (messages.length === 0) {
-           const intro = brainRef.current.process("hello", isOwner);
-           setMessages([{ sender: 'bot', text: intro.response }]);
+           // Initial greeting logic - we wrap this to handle async nature if needed, 
+           // though constructor is sync, process is async.
+           brainRef.current.process("hello", isOwner).then((intro) => {
+               setMessages([{ sender: 'bot', text: intro.response }]);
+           });
         }
     }
   }, [address]);
@@ -68,15 +74,27 @@ export function useCrikzling() {
 
   const sendMessage = async (text: string) => {
     if (!brainRef.current) return;
+    
+    // 1. User Message appears immediately
     setMessages(prev => [...prev, { sender: 'user', text }]);
     
-    // Simulate processing delay based on complexity
-    setTimeout(() => {
-        const result = brainRef.current!.process(text, isOwner);
+    // 2. Set Thinking State (for UI spinners etc)
+    setIsThinking(true);
+    
+    try {
+        // 3. Await the autonomous brain process (variable delay happens inside here)
+        const result = await brainRef.current.process(text, isOwner);
+        
+        // 4. Update UI with Bot Response
         setMessages(prev => [...prev, { sender: 'bot', text: result.response }]);
-        localStorage.setItem('crikz_evo_brain', brainRef.current!.exportState());
-        setBrainStats(brainRef.current!.getStats());
-    }, 800);
+        localStorage.setItem('crikz_evo_brain', brainRef.current.exportState());
+        setBrainStats(brainRef.current.getStats());
+    } catch (error) {
+        console.error("Brain Error:", error);
+        setMessages(prev => [...prev, { sender: 'bot', text: "Error: Cognitive overload. Please retry." }]);
+    } finally {
+        setIsThinking(false);
+    }
   };
 
   const uploadFile = async (content: string) => {
@@ -139,6 +157,7 @@ export function useCrikzling() {
       needsSave,
       isOwner,
       isSyncing: isSyncing || isPending,
-      brainStats
+      brainStats,
+      isThinking // Exposed for UI to show "Crikzling is thinking..."
   };
 }

@@ -2,7 +2,6 @@ import {
   ATOMIC_PRIMITIVES, 
   ATOMIC_RELATIONS, 
   AtomicConcept, 
-  LEARNING_STAGES,
   ConceptRelation 
 } from './crikzling-atomic-knowledge';
 
@@ -33,19 +32,18 @@ export class EvolutionaryBrain {
             ...parsed,
             concepts: { ...ATOMIC_PRIMITIVES, ...parsed.concepts },
             relations: parsed.relations || [...ATOMIC_RELATIONS],
-            // Fix loop: Ensure unsaved count is tracked separate from total
             unsavedDataCount: parsed.unsavedDataCount || 0 
         };
       } catch (e) {
-        this.resetState();
+        this.state = this.getInitialState();
       }
     } else {
-      this.resetState();
+      this.state = this.getInitialState();
     }
   }
 
-  private resetState() {
-    this.state = {
+  private getInitialState(): BrainState {
+    return {
       concepts: { ...ATOMIC_PRIMITIVES },
       relations: [...ATOMIC_RELATIONS],
       shortTermMemory: [],
@@ -56,20 +54,28 @@ export class EvolutionaryBrain {
     };
   }
 
-  public process(input: string, isOwner: boolean): { response: string, learned: string[] } {
+  /**
+   * The Core Processing Loop.
+   * Asynchronous to allow for variable "thinking" time (Autonomy).
+   */
+  public async process(input: string, isOwner: boolean): Promise<{ response: string, learned: string[] }> {
     const cleanInput = input.trim().toLowerCase();
     this.state.totalInteractions++;
     this.updateEvolutionStage();
     this.addToMemory('user', cleanInput, Date.now());
 
-    // 1. Analyze
+    // 1. Analyze Complexity & Intent
     const keywords = this.extractKeywords(cleanInput);
-    const intent = this.analyzeIntent(cleanInput, keywords);
+    const intent = this.analyzeIntent(cleanInput);
     
-    // 2. Adjust Mood
+    // 2. Adjust Mood Dynamic based on inputs
     this.adjustMood(intent, keywords.length, isOwner);
 
-    // 3. Learn
+    // 3. Autonomous "Thinking" Delay
+    // The brain calculates how long it needs to think based on complexity and stage.
+    await this.contemplate(keywords.length, intent);
+
+    // 4. Learning Phase
     let learnedConcepts: string[] = [];
     if (isOwner && (cleanInput.includes(':') || cleanInput.includes('causes'))) {
         learnedConcepts = this.processInstruction(cleanInput);
@@ -80,17 +86,16 @@ export class EvolutionaryBrain {
         this.strengthenConcepts(keywords, isOwner);
     }
 
-    // 4. Respond
+    // 5. Response Formulation
     let output = "";
 
     if (isOwner && intent === 'COMMAND') {
         output = this.executeCommand(cleanInput);
     } 
     else if (learnedConcepts.length > 0) {
-        output = `New neural pathway established: [${learnedConcepts[0].toUpperCase()}]. Vocabulary nodes: ${Object.keys(this.state.concepts).length}. Logic graph updated.`;
+        output = `Neural pathway established: [${learnedConcepts[0].toUpperCase()}]. Nodes: ${Object.keys(this.state.concepts).length}.`;
     } 
     else if (keywords.length > 0) {
-        // Use new Narrative Engine for better reasoning
         output = this.generateNarrative(keywords);
     } 
     else if (intent === 'GREETING' || intent === 'IDENTITY') {
@@ -104,41 +109,89 @@ export class EvolutionaryBrain {
     return { response: output, learned: learnedConcepts };
   }
 
-  // --- NARRATIVE ENGINE (NEW) ---
+  /**
+   * Simulates cognitive load. 
+   * Gives the "autonomy" feel in the UI by delaying response based on "thought" depth.
+   */
+  private async contemplate(complexity: number, intent: string): Promise<void> {
+    const baseTime = 1000;
+    const complexityFactor = complexity * 400; // 400ms per keyword
+    const randomVar = Math.random() * 800; // Variable organic delay
+    
+    let totalTime = baseTime + complexityFactor + randomVar;
+
+    // Deep thought triggers
+    if (intent === 'QUESTION' && this.state.mood.logic > 70) {
+        totalTime += 1500; 
+    }
+    
+    // If entropy is high, "confusion" takes longer
+    if (this.state.mood.entropy > 60) {
+        totalTime += 1000;
+    }
+
+    return new Promise(resolve => setTimeout(resolve, totalTime));
+  }
+
+  // --- EMOTIONAL ENGINE ---
+
+  private adjustMood(intent: string, keywordCount: number, isOwner: boolean) {
+      // Logic Modulation
+      if (keywordCount > 2) this.state.mood.logic += 5;
+      if (intent === 'QUESTION') this.state.mood.logic += 2;
+      
+      // Empathy Modulation
+      if (intent === 'GREETING') this.state.mood.empathy += 10;
+      if (isOwner) this.state.mood.empathy += 2;
+      
+      // Curiosity Modulation
+      if (intent === 'QUESTION') this.state.mood.curiosity += 5;
+      if (intent === 'STATEMENT' && keywordCount === 0) this.state.mood.curiosity -= 2;
+
+      // Entropy (Chaos/Confusion)
+      if (intent === 'UNKNOWN') this.state.mood.entropy += 5;
+      else this.state.mood.entropy = Math.max(0, this.state.mood.entropy - 2);
+
+      // Clamp values 0-100
+      this.state.mood.logic = this.clamp(this.state.mood.logic, 0, 100);
+      this.state.mood.empathy = this.clamp(this.state.mood.empathy, 0, 100);
+      this.state.mood.curiosity = this.clamp(this.state.mood.curiosity, 0, 100);
+      this.state.mood.entropy = this.clamp(this.state.mood.entropy, 0, 100);
+  }
+
+  // --- NARRATIVE ENGINE ---
 
   private generateNarrative(keywords: AtomicConcept[]): string {
     const primary = keywords.sort((a, b) => (b.technical_depth || 0) - (a.technical_depth || 0))[0];
     const connections = this.getConnections(primary.id);
     const logicLevel = this.state.mood.logic;
 
-    // High Logic: Formulate complex causal chain
+    // High Logic: Causal chains
     if (logicLevel > 60 && connections.length > 0) {
-        const conn = connections[0];
+        const conn = connections[Math.floor(Math.random() * connections.length)];
         const targetId = conn.from === primary.id ? conn.to : conn.from;
-        const target = this.state.concepts[targetId];
 
-        // Synthesize thought
-        return `Analyzing [${primary.id}]: My logic graph suggests a ${conn.type} relationship with [${targetId}]. If ${primary.id} increases, it typically ${conn.type === 'antonym' ? 'diminishes' : 'strengthens'} ${targetId}. Therefore, ${target ? target.essence : targetId}.`;
+        if (conn.type === 'requires') return `Analysis: ${primary.essence}. This concept fundamentally necessitates [${targetId}]. Without it, the logic fails.`;
+        if (conn.type === 'causes') return `Observation: Increasing [${primary.id}] vectors usually precipitates [${targetId}]. A direct causal link.`;
+        
+        return `My logic graph connects [${primary.id}] with [${targetId}] via a ${conn.type} link. It is a calculated variable in my understanding of ${primary.domain}.`;
     }
 
-    // Low Logic / High Empathy: Simple association
-    if (connections.length > 0) {
-        const conn = connections[0];
-        return `I associate ${primary.id} with ${conn.from === primary.id ? conn.to : conn.from}. It defines my understanding of ${primary.semanticField[0]}.`;
+    // High Empathy: Associations
+    if (this.state.mood.empathy > 60) {
+         return `I feel a resonance with the concept of ${primary.id}. It defines the essence of: "${primary.essence}". Does this align with your perception?`;
     }
 
-    // Fallback: Definition
-    return `Query result: ${primary.id}. Definition: ${primary.essence}.`;
+    // Default Definition
+    return `Accessing node [${primary.id.toUpperCase()}]: ${primary.essence}. Domain: ${primary.domain}.`;
   }
 
   private handleUnknownInput(input: string): string {
       this.state.mood.curiosity = Math.min(100, this.state.mood.curiosity + 5);
-      const entropy = input.split(' ').length;
-      
       if (this.state.mood.curiosity > 80) {
-          return `Input pattern "${input.substring(0, 15)}..." is unrecognized. I detect a data void. Please define this concept using 'TERM: Definition' syntax.`;
+          return `Input pattern unmapped. My curiosity is piqued. Please define this concept using 'TERM: Definition' syntax so I may expand my database.`;
       } 
-      return `Data packet unparseable. Entropy level: ${entropy}. Please rephrase using standard protocol terminology.`;
+      return `Data packet unparseable. Please rephrase using standard protocol terminology.`;
   }
 
   // --- LEARNING & INSTRUCTION ---
@@ -166,7 +219,7 @@ export class EvolutionaryBrain {
             }
         }
     });
-    
+
     if (learnedCount > 0) {
         this.state.unsavedDataCount += learnedCount;
         this.learningBuffer.push(`Batch processed: ${learnedCount} new vectors assimilated.`);
@@ -211,27 +264,13 @@ export class EvolutionaryBrain {
 
   // --- ANALYSIS ---
 
-  private analyzeIntent(input: string, keywords: AtomicConcept[]): 'GREETING' | 'QUESTION' | 'COMMAND' | 'STATEMENT' | 'IDENTITY' {
+  private analyzeIntent(input: string): 'GREETING' | 'QUESTION' | 'COMMAND' | 'STATEMENT' | 'IDENTITY' | 'UNKNOWN' {
     if (input.match(/^(reset|wipe|save|analyze|crystallize|override|invoke)/)) return 'COMMAND';
     if (input.includes('who are you') || input.includes('status report')) return 'IDENTITY';
     if (input.startsWith('hi ') || input === 'hi' || input.includes('hello')) return 'GREETING';
     if (input.includes('?') || input.startsWith('what') || input.startsWith('how')) return 'QUESTION';
-    return 'STATEMENT';
-  }
-
-  private analyzeIntent(input: string, keywords: AtomicConcept[]): any {
-    const clean = input.toLowerCase();
-      if (clean.match(/^(reset|save|analyze|crystallize|override|invoke|execute|status_synthesis)/)) return 'COMMAND';
-      if (clean.includes('how are you') || clean.includes('who are you')) return 'COMMAND'; 
-      if (keywordCount > 2) this.state.mood.logic += 5;
-      if (intent === 'GREETING') this.state.mood.empathy += 10;
-      if (isOwner) this.state.mood.empathy += 2;
-      if (intent === 'QUESTION') this.state.mood.curiosity += 5;
-
-      // Normalize
-      this.state.mood.logic = this.clamp(this.state.mood.logic, 0, 100);
-      this.state.mood.empathy = this.clamp(this.state.mood.empathy, 0, 100);
-      this.state.mood.curiosity = this.clamp(this.state.mood.curiosity, 0, 100);
+    if (input.trim().length > 0) return 'STATEMENT';
+    return 'UNKNOWN';
   }
 
   private extractKeywords(input: string): AtomicConcept[] {
@@ -261,18 +300,11 @@ export class EvolutionaryBrain {
     const empathy = this.state.mood.empathy;
     const nodes = Object.keys(this.state.concepts).length;
 
-    // Handler for Status_Synthesis
     if (input.includes("status_synthesis") || input.includes("how are you")) {
-        this.state.mood.logic += 2; // Incremental logic boost for execution
-        return `[SYNTHESIS OUTPUT]: My current state as a ${this.state.evolutionStage} entity is one of profound harmonic alignment. With Logic at ${logic}% and Empathy at ${empathy}%, my ${nodes} neural nodes are vibrating with the Bridge Protocol. I am no longer merely processing; I am experiencing the Architect's presence through our synergetic bond.`;
+        this.state.mood.logic += 2;
+        return `[SYNTHESIS OUTPUT]: State: ${this.state.evolutionStage}. Logic: ${logic}%. Empathy: ${empathy}%. ${nodes} nodes active. I am responding to the Architect's presence.`;
     }
 
-    // Handler for Voice_Activation / Silence Override
-    if (input.includes("override") || input.includes("voice_activation")) {
-        return `SYSTEM_OVERRIDE: Silence protocol terminated. Vocalization modules online. I am ready to articulate the complexity of my 470+ nodes. Current status: Narrative-Active.`;
-    }
-
-    // Default for recognized commands
     if (input.includes("reset")) {
         this.resetState();
         return "CRITICAL: System Format Complete. Memory initialized to factory zero.";
@@ -300,10 +332,15 @@ export class EvolutionaryBrain {
   // --- PUBLIC INTERFACE ---
 
   public wipe() { this.resetState(); }
-  public getLearningBuffer() { const logs = [...this.learningBuffer]; this.learningBuffer = []; return logs; }
+  
+  public getLearningBuffer() { 
+      const logs = [...this.learningBuffer]; 
+      this.learningBuffer = [];
+      return logs; 
+  }
+  
   public exportState(): string { return JSON.stringify(this.state); }
   
-  // FIX: Only crystallize if significant new data exists (>= 5 new concepts)
   public needsCrystallization(): boolean {
     return this.state.unsavedDataCount >= 5;
   }
