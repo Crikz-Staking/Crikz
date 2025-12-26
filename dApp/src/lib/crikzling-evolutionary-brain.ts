@@ -42,6 +42,7 @@ export class EvolutionaryBrain {
     }
   }
 
+  // Define how we reset the state 
   private getInitialState(): BrainState {
     return {
       concepts: { ...ATOMIC_PRIMITIVES },
@@ -52,6 +53,11 @@ export class EvolutionaryBrain {
       evolutionStage: 'GENESIS',
       mood: { logic: 80, empathy: 20, curiosity: 30, entropy: 0 }
     };
+  }
+
+  // Correctly defined helper function
+  private resetState() {
+      this.state = this.getInitialState();
   }
 
   /**
@@ -172,7 +178,9 @@ export class EvolutionaryBrain {
         const targetId = conn.from === primary.id ? conn.to : conn.from;
 
         if (conn.type === 'requires') return `Analysis: ${primary.essence}. This concept fundamentally necessitates [${targetId}]. Without it, the logic fails.`;
-        if (conn.type === 'causes') return `Observation: Increasing [${primary.id}] vectors usually precipitates [${targetId}]. A direct causal link.`;
+        
+        // FIXED: Updated comparison to match type definition 'cause'
+        if (conn.type === 'cause') return `Observation: Increasing [${primary.id}] vectors usually precipitates [${targetId}]. A direct causal link.`;
         
         return `My logic graph connects [${primary.id}] with [${targetId}] via a ${conn.type} link. It is a calculated variable in my understanding of ${primary.domain}.`;
     }
