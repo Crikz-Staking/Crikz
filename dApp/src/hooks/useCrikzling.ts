@@ -4,7 +4,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useAccount, usePublicClient, useWriteContract } from 'wagmi';
 import { useContractData } from '@/hooks/web3/useContractData';
-import { EnhancedCrikzlingBrain } from '@/lib/crikzling-enchanced-brain';
+import { EnhancedCrikzlingBrain, BrainResponse } from '@/lib/crikzling-enchanced-brain';
 import { formatEther } from 'viem';
 import { CRIKZLING_MEMORY_ADDRESS, CRIKZLING_MEMORY_ABI } from '@/config';
 import { toast } from 'react-hot-toast';
@@ -15,6 +15,21 @@ interface Message {
     confidence?: number;
     suggestedTopics?: string[];
     timestamp: number;
+}
+
+interface SensoryInput {
+    text: string;
+    balance: number;
+    pageContext: string;
+    isWalletConnected: boolean;
+}
+
+interface BrainOutput extends BrainResponse {
+    action?: string;
+    traitShift?: {
+        trait: string;
+        value: number;
+    };
 }
 
 export function useCrikzling(lang: 'en' | 'sq') {
@@ -29,7 +44,7 @@ export function useCrikzling(lang: 'en' | 'sq') {
     const [isSyncing, setIsSyncing] = useState(false);
     
     // Brain Instance (Persists across renders)
-    const brainRef = useRef<CrikzlingBrain | null>(null);
+    const brainRef = useRef<EnhancedCrikzlingBrain | null>(null);
     const lastSyncRef = useRef<number>(0);
 
     // ==========================================
@@ -61,7 +76,7 @@ export function useCrikzling(lang: 'en' | 'sq') {
                         // In production, fetch from IPFS
                         // For now, try localStorage as fallback
                         const localState = localStorage.getItem(`crikz_brain_${address}`);
-                        brainRef.current = new EnhancedCrikzlingBrain(savedMemory || undefined);
+                        brainRef.current = new EnhancedCrikzlingBrain(localState || undefined);
                         
                         // Welcome back message
                         const report = brainRef.current.getEvolutionReport();
@@ -83,7 +98,7 @@ export function useCrikzling(lang: 'en' | 'sq') {
         if (!brainRef.current) {
             const localKey = address ? `crikz_brain_${address}` : 'crikz_brain_guest';
             const savedMemory = localStorage.getItem(localKey);
-            brainRef.current = new CrikzlingBrain(savedMemory || undefined);
+            brainRef.current = new EnhancedCrikzlingBrain(savedMemory || undefined);
 
             // Genesis greeting
             if (!savedMemory) {
@@ -123,8 +138,12 @@ export function useCrikzling(lang: 'en' | 'sq') {
         };
 
         // 3. Process with evolved brain (simulate thinking delay)
-        setTimeout(() => {
-            const result: BrainOutput = brainRef.current!.process(input);
+        setTimeout(async () => {
+            const result = await brainRef.current!.process(input.text, {
+                balance: input.balance,
+                isConnected: input.isWalletConnected,
+                pageContext: input.pageContext
+            });
             
             // 4. Add bot response
             const botMsg: Message = {
@@ -137,11 +156,11 @@ export function useCrikzling(lang: 'en' | 'sq') {
             setMessages(prev => [...prev, botMsg]);
             setIsThinking(false);
 
-            // 5. Handle navigation action
-            if (result.action) {
-                toast.success(`Navigating to ${result.action}...`);
+            // 5. Handle navigation action (if any)
+            if ((result as BrainOutput).action) {
+                toast.success(`Navigating to ${(result as BrainOutput).action}...`);
                 // Uncomment to enable auto-navigation:
-                // setTimeout(() => window.location.href = result.action!, 1000);
+                // setTimeout(() => window.location.href = (result as BrainOutput).action!, 1000);
             }
 
             // 6. Save to localStorage (immediate)
@@ -149,16 +168,17 @@ export function useCrikzling(lang: 'en' | 'sq') {
             const localKey = address ? `crikz_brain_${address}` : 'crikz_brain_guest';
             localStorage.setItem(localKey, memorySnapshot);
 
-            // 7. Sync to blockchain (throttled - every 10 interactions)
+            // 7. Sync to blockchain (throttled - every 10 minutes)
             const now = Date.now();
             if (address && now - lastSyncRef.current > 600000) { // 10 minutes
                 lastSyncRef.current = now;
-                syncToBlockchain(memorySnapshot, result.traitShift);
+                syncToBlockchain(memorySnapshot, (result as BrainOutput).traitShift);
             }
 
             // 8. Show evolution notification
-            if (result.traitShift) {
-                toast(`📈 ${result.traitShift.trait} +${result.traitShift.value}`, {
+            if ((result as BrainOutput).traitShift) {
+                const shift = (result as BrainOutput).traitShift!;
+                toast(`📈 ${shift.trait} +${shift.value}`, {
                     icon: '🧬',
                     duration: 2000
                 });
@@ -210,7 +230,7 @@ export function useCrikzling(lang: 'en' | 'sq') {
         
         const localKey = address ? `crikz_brain_${address}` : 'crikz_brain_guest';
         localStorage.removeItem(localKey);
-        brainRef.current = new CrikzlingBrain();
+        brainRef.current = new EnhancedCrikzlingBrain();
         setMessages([{
             sender: 'bot',
             text: 'Memory cleared. I am reborn. Let us begin again from Genesis.',
@@ -245,7 +265,7 @@ export function useCrikzling(lang: 'en' | 'sq') {
     const importMemory = useCallback((jsonString: string) => {
         try {
             const data = JSON.parse(jsonString);
-            brainRef.current = new CrikzlingBrain(data.state);
+            brainRef.current = new EnhancedCrikzlingBrain(data.state);
             
             const localKey = address ? `crikz_brain_${address}` : 'crikz_brain_guest';
             localStorage.setItem(localKey, data.state);

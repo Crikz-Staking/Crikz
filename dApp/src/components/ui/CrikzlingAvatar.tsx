@@ -6,15 +6,53 @@ import {
   Check, Link, Loader, Minimize2, Maximize2, Settings
 } from 'lucide-react';
 
+// Type Definitions
+interface Notification {
+  id: number;
+  type: string;
+  word?: string;
+  description: string;
+  confidence: number;
+  xp?: number;
+  requiresBlockchain?: boolean;
+  gasEstimate?: string;
+  syncing?: boolean;
+  synced?: boolean;
+  visible?: boolean;
+}
+
+interface Message {
+  sender: 'user' | 'bot';
+  text: string;
+  timestamp: number;
+  confidence?: number;
+  xpGained?: number;
+}
+
+interface BrainStats {
+  wordsUnderstood: number;
+  relationsDiscovered: number;
+  interactionCount: number;
+  evolutionStage: string;
+  experiencePoints: number;
+  traits: {
+    linguistic: number;
+    analytical: number;
+    empathetic: number;
+    technical: number;
+    creative: number;
+  };
+}
+
 export default function EnhancedCrikzlingAvatar() {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [input, setInput] = useState('');
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [isThinking, setIsThinking] = useState(false);
-  const [learningNotifications, setLearningNotifications] = useState([]);
+  const [learningNotifications, setLearningNotifications] = useState<Notification[]>([]);
   const [showStats, setShowStats] = useState(false);
-  const [brainStats, setBrainStats] = useState({
+  const [brainStats, setBrainStats] = useState<BrainStats>({
     wordsUnderstood: 45,
     relationsDiscovered: 32,
     interactionCount: 0,
@@ -29,7 +67,7 @@ export default function EnhancedCrikzlingAvatar() {
     }
   });
   
-  const scrollRef = useRef(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -37,9 +75,9 @@ export default function EnhancedCrikzlingAvatar() {
     }
   }, [messages]);
 
-  const addLearningNotification = (notification) => {
+  const addLearningNotification = (notification: Notification) => {
     const id = Date.now() + Math.random();
-    const newNotif = { ...notification, id, visible: true };
+    const newNotif: Notification = { ...notification, id, visible: true };
     
     setLearningNotifications(prev => [...prev, newNotif]);
     
@@ -58,7 +96,7 @@ export default function EnhancedCrikzlingAvatar() {
   const handleSubmit = async () => {
     if (!input.trim() || isThinking) return;
 
-    const userMessage = { sender: 'user', text: input, timestamp: Date.now() };
+    const userMessage: Message = { sender: 'user', text: input, timestamp: Date.now() };
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsThinking(true);
@@ -74,6 +112,7 @@ export default function EnhancedCrikzlingAvatar() {
     if (unknownWords.length > 0) {
       experienceGained += 10;
       addLearningNotification({
+        id: 0,
         type: 'NEW_WORD',
         word: unknownWords[0],
         description: `Analyzing "${unknownWords[0]}" from context`,
@@ -92,6 +131,7 @@ export default function EnhancedCrikzlingAvatar() {
     if (input.match(/cause|because|leads to|results in/i)) {
       experienceGained += 15;
       addLearningNotification({
+        id: 0,
         type: 'PATTERN_DISCOVERED',
         description: 'Detected causal relationship pattern',
         confidence: 0.85,
@@ -113,6 +153,7 @@ export default function EnhancedCrikzlingAvatar() {
     
     if ((brainStats.interactionCount + 1) % 10 === 0) {
       addLearningNotification({
+        id: 0,
         type: 'CONTEXT_UNDERSTOOD',
         description: 'Ready to crystallize memory on-chain',
         confidence: 1.0,
@@ -122,7 +163,7 @@ export default function EnhancedCrikzlingAvatar() {
       });
     }
 
-    const botMessage = {
+    const botMessage: Message = {
       sender: 'bot',
       text: generateSmartResponse(input, experienceGained),
       timestamp: Date.now(),
@@ -134,7 +175,7 @@ export default function EnhancedCrikzlingAvatar() {
     setIsThinking(false);
   };
 
-  const generateSmartResponse = (input, xp) => {
+  const generateSmartResponse = (input: string, xp: number): string => {
     const lower = input.toLowerCase();
     
     let response = '';
@@ -155,7 +196,7 @@ export default function EnhancedCrikzlingAvatar() {
     return response;
   };
 
-  const handleBlockchainSync = async (notifId) => {
+  const handleBlockchainSync = async (notifId: number) => {
     setLearningNotifications(prev => 
       prev.map(n => n.id === notifId ? { ...n, syncing: true } : n)
     );
@@ -176,7 +217,7 @@ export default function EnhancedCrikzlingAvatar() {
     }, 3000);
   };
 
-  const dismissNotification = (notifId) => {
+  const dismissNotification = (notifId: number) => {
     setLearningNotifications(prev => 
       prev.map(n => n.id === notifId ? { ...n, visible: false } : n)
     );
@@ -185,8 +226,8 @@ export default function EnhancedCrikzlingAvatar() {
     }, 300);
   };
 
-  const getStageColor = () => {
-    const colors = {
+  const getStageColor = (): string => {
+    const colors: Record<string, string> = {
       GENESIS: '#f59e0b',
       SENTIENT: '#3b82f6',
       SAPIENT: '#8b5cf6',
@@ -195,7 +236,7 @@ export default function EnhancedCrikzlingAvatar() {
     return colors[brainStats.evolutionStage] || '#f59e0b';
   };
 
-  const getProgressToNextStage = () => {
+  const getProgressToNextStage = (): number => {
     const current = brainStats.wordsUnderstood;
     
     if (brainStats.evolutionStage === 'GENESIS') return (current / 50) * 100;
@@ -204,7 +245,7 @@ export default function EnhancedCrikzlingAvatar() {
     return 100;
   };
 
-  const handleKeyPress = (e) => {
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
@@ -427,7 +468,7 @@ export default function EnhancedCrikzlingAvatar() {
                                   {(msg.confidence * 100).toFixed(0)}%
                                 </span>
                               )}
-                              {msg.xpGained > 0 && (
+                              {msg.xpGained && msg.xpGained > 0 && (
                                 <span className="flex items-center gap-1" style={{ color: getStageColor() }}>
                                   <Sparkles size={10} />
                                   +{msg.xpGained} XP
@@ -492,7 +533,7 @@ export default function EnhancedCrikzlingAvatar() {
         )}
       </AnimatePresence>
 
-      {/* Side Learning Notifications - Position dynamically */}
+      {/* Side Learning Notifications */}
       <div 
         className="fixed z-[70] space-y-2 pointer-events-none max-w-xs"
         style={{

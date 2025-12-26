@@ -49,6 +49,7 @@ export default function App() {
         lang={lang} 
         setLang={setLang} 
         setViewMode={setActiveView} 
+        dynamicColor={dynamicColor}
       />
 
       <main className="relative z-10 max-w-7xl mx-auto px-4 pt-24 pb-32">
@@ -102,7 +103,7 @@ export default function App() {
       {/* Crikzling: The Fibonacci-scaled AI Pet 
           He stays outside the main tag to hover over all content.
       */}
-      <CrikzlingAvatar lang={lang} dynamicColor={dynamicColor} />
+      <CrikzlingAvatar />
 
       <Footer />
     </div>
