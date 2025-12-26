@@ -29,19 +29,22 @@ export default function CrikzlingAvatar() {
   };
 
   useEffect(() => {
-    const interval = setInterval(() => {
-        if(brainRef.current) {
-            const newLogs = brainRef.current.getLearningBuffer();
-            if(newLogs.length > 0) {
-                 setNotifications(prev => [...prev, ...newLogs].slice(-5));
-            }
-            // Force React to re-render the button state
-            setNeedsSave(brainRef.current.needsCrystallization());
-        }
-    }, 1000); // Check every 1 second (faster than 2000)
+    scrollToBottom();
+  }, [messages, isTyping]);
 
-    return () => clearInterval(interval);
-  }, []);
+    useEffect(() => {
+    const interval = setInterval(() => {
+        // We use the brain instance from our hook instead of an undefined brainRef
+        if(brain) {
+            // This assumes your brain class has these methods 
+            // from the previous upgrade I provided
+            const newLogs = brain.getLearningBuffer();
+            if(newLogs && newLogs.length > 0) {
+                 // Note: If notifications are managed by the hook, 
+                 // the hook should handle this internal logic.
+            }
+        }
+    }, 1000);
 
   const handleSend = async () => {
       if(!input.trim()) return;
