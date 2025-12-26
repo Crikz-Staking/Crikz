@@ -2,7 +2,7 @@
 export const TARGET_CHAIN_ID = 97;
 export const WAD = 1_000_000_000_000_000_000n;
 export const BASE_APR = 6.182;
-export const CRIKZLING_MEMORY_ADDRESS = '0xE28e0147e52Cf947f3Fe9cEd44C3aEA4A655d30B';
+export const CRIKZLING_MEMORY_ADDRESS = '0x7CF17EedA18148fD252aE4c93eEcde3F0817dA72';
 export const CRIKZ_TOKEN_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3';
 // Ensure these are set in your .env or fallback to string empty to prevent crash
 export const CRIKZ_NFT_ADDRESS = (import.meta.env.VITE_NFT_ADDRESS || '') as `0x${string}`;
