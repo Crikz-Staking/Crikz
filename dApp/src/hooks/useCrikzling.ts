@@ -6,6 +6,7 @@ import { useAccount, usePublicClient, useWriteContract } from 'wagmi';
 import { useContractData } from '@/hooks/web3/useContractData';
 import { EnhancedCrikzlingBrain, BrainResponse } from '@/lib/crikzling-enchanced-brain';
 import { formatEther } from 'viem';
+import { parseEther } from 'viem';
 import { CRIKZLING_MEMORY_ADDRESS, CRIKZLING_MEMORY_ABI } from '@/config';
 import { toast } from 'react-hot-toast';
 
@@ -295,16 +296,16 @@ export function useCrikzling(lang: 'en' | 'sq') {
         // FIX: The writeContract call was correctly placed, 
         // but the braces following it were closing the function too early.
         writeContract({
-            address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
-            abi: CRIKZLING_MEMORY_ABI,
-            functionName: 'crystallizeMemory',
-            args: [
-                memoryState, // Assuming this is your CID/Hash
-                BigInt(report?.learnedWords || 0), 
-                BigInt(report?.interactions || 0)
-            ],
-            value: parseEther('0.001'), 
-        });
+    address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
+    abi: CRIKZLING_MEMORY_ABI,
+    functionName: 'crystallizeMemory',
+    args: [
+        memoryState, 
+        BigInt(report?.learnedWords || 0), // Explicitly BigInt for uint256
+        BigInt(report?.interactions || 0)  // Explicitly BigInt for uint256
+    ],
+    value: parseEther('0.001'), 
+});
 
         toast.success('🧬 Consciousness synced to blockchain', { duration: 3000 });
 
