@@ -133,30 +133,28 @@ export default function CrikzlingAvatar() {
 
             {/* B. Crystallization Action Banner */}
             <AnimatePresence>
-              {needsSave && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  className="bg-primary-900/20 border-b border-primary-500/20 overflow-hidden"
-                >
-                  <div className="p-3 flex items-center justify-between">
-                    <div className="text-xs text-primary-200">
-                      <span className="font-bold">Neural Buffer Full ({brainStats.unsaved} items).</span>
-                      <span className="block opacity-70">Crystallize to Blockchain?</span>
-                    </div>
-                    <button 
-                      onClick={crystallize}
-                      disabled={isSyncing}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-primary-500 hover:bg-primary-400 text-black text-xs font-bold rounded-lg transition-all"
-                    >
-                      {isSyncing ? <LoadingSpinner size={12} /> : <Save size={12} />}
-                      Crystallize
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+  {needsSave && (
+    <motion.div 
+      initial={{ y: 50, opacity: 0 }} 
+      animate={{ y: 0, opacity: 1 }} 
+      className="absolute top-0 left-0 w-full z-[110] bg-gradient-to-r from-amber-600 to-orange-600 p-3 shadow-xl"
+    >
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-2 text-white">
+          <Save size={16} className="animate-pulse" />
+          <span className="text-xs font-bold uppercase tracking-tighter">Memory Saturated</span>
+        </div>
+        <button 
+          onClick={(e) => { e.stopPropagation(); crystallize(); }}
+          disabled={isSyncing}
+          className="bg-white text-orange-600 px-4 py-1.5 rounded-lg text-[10px] font-black hover:bg-black hover:text-white transition-all shadow-lg"
+        >
+          {isSyncing ? 'SYNCING TO BSC...' : 'CRYSTALLIZE NOW'}
+        </button>
+      </div>
+    </motion.div>
+  )}
+</AnimatePresence>
 
             {/* C. Chat History Area */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide min-h-[300px]">

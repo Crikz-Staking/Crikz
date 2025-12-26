@@ -22,38 +22,72 @@ export interface BrainState {
 
 export class EvolutionaryBrain {
   private state: BrainState;
-  private learningBuffer: string[] = [];
 
   constructor(savedState?: string) {
     if (savedState) {
-      try {
-        const parsed = JSON.parse(savedState);
-        this.state = {
-            ...parsed,
-            concepts: { ...ATOMIC_PRIMITIVES, ...parsed.concepts },
-            relations: parsed.relations || [...ATOMIC_RELATIONS],
-            unsavedDataCount: parsed.unsavedDataCount || 0 
-        };
-      } catch (e) {
-        this.state = this.getInitialState();
-      }
+      this.state = JSON.parse(savedState);
     } else {
       this.state = this.getInitialState();
     }
   }
 
-  // Define how we reset the state 
+  public getState() { return this.state; }
+
+  public clearUnsavedCount() {
+    this.state.unsavedDataCount = 0;
+  }
+
+  public exportState(): string {
+    return JSON.stringify(this.state);
+  }
+
+  public needsCrystallization(): boolean {
+    return this.state.unsavedDataCount >= 5;
+  }
+
+  public assimilateFile(content: string): number {
+    const lines = content.split('\n');
+    let learnedCount = 0;
+    lines.forEach(line => {
+      const clean = line.trim();
+      if (!clean) return;
+      if (clean.includes(':')) {
+        this.processInstruction(clean);
+        learnedCount++;
+      }
+    });
+    this.state.unsavedDataCount += learnedCount;
+    return learnedCount;
+  }
+
+  private processInstruction(input: string) {
+    const parts = input.split(':');
+    if (parts.length < 2) return;
+    const term = parts[0].trim().toLowerCase();
+    const definition = parts[1].trim();
+    this.state.concepts[term] = {
+      id: term,
+      essence: definition,
+      semanticField: [],
+      examples: [definition],
+      abstractionLevel: 0.5,
+      frequency: 1,
+      technical_depth: 0.5
+    };
+  }
+
   private getInitialState(): BrainState {
     return {
-      concepts: { ...ATOMIC_PRIMITIVES },
-      relations: [...ATOMIC_RELATIONS],
+      concepts: {},
+      relations: [],
       shortTermMemory: [],
       totalInteractions: 0,
       unsavedDataCount: 0,
       evolutionStage: 'GENESIS',
-      mood: { logic: 80, empathy: 20, curiosity: 30, entropy: 0 }
+      mood: { logic: 50, empathy: 50, curiosity: 50, entropy: 0 }
     };
   }
+}
 
   // Correctly defined helper function
   private resetState() {
