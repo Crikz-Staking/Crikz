@@ -57,7 +57,7 @@ export interface Listing {
 }
 
 // Betting Specific Types
-export type SportId = 'soccer' | 'basketball' | 'mma' | 'esports' | 'tennis';
+export type SportId = 'soccer' | 'basketball' | 'mma' | 'esports' | 'tennis' | 'american_football';
 
 export interface BettingMatch {
   id: string;

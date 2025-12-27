@@ -48,8 +48,10 @@ export default function BettingLayout({ dynamicColor }: BettingLayoutProps) {
       { id: 'soccer', label: 'Football', icon: '⚽' },
       { id: 'basketball', label: 'Basketball', icon: '🏀' },
       { id: 'mma', label: 'MMA', icon: '🥊' },
-      { id: 'american_football', label: 'NFL', icon: '🏈' },
+      { id: 'esports', label: 'eSports', icon: '🎮' }, // Ensure this is here
       { id: 'tennis', label: 'Tennis', icon: '🎾' },
+      // You can add American Football here if you want it in the UI
+      { id: 'american_football', label: 'NFL', icon: '🏈' },
   ];
 
   return (
