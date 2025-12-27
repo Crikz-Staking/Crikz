@@ -4,6 +4,12 @@ import { AtomicConcept, ConceptRelation } from '../crikzling-atomic-knowledge';
 import { FIBONACCI_KNOWLEDGE, FIBONACCI_RELATIONS } from './fibonacci-math.knowledge';
 import { BLOCKCHAIN_KNOWLEDGE, BLOCKCHAIN_RELATIONS } from './blockchain.knowledge';
 import { CRIKZ_PROTOCOL_KNOWLEDGE, CRIKZ_PROTOCOL_RELATIONS } from './crikz-protocol.knowledge';
+import { COMMUNICATION_KNOWLEDGE, COMMUNICATION_RELATIONS } from './communication.knowledge';
+import { ENGLISH_LANGUAGE_KNOWLEDGE, ENGLISH_LANGUAGE_RELATIONS } from './english-language.knowledge';
+import { MATHEMATICS_KNOWLEDGE, MATHEMATICS_RELATIONS } from './mathematics.knowledge';
+import { TIME_KNOWLEDGE, TIME_RELATIONS } from './time.knowledge';
+import { COMPUTER_SCIENCE_KNOWLEDGE, COMPUTER_SCIENCE_RELATIONS } from './computer-science.knowledge';
+import { ADVANCED_BLOCKCHAIN_KNOWLEDGE, ADVANCED_BLOCKCHAIN_RELATIONS } from './advanced-blockchain.knowledge';
 
 export interface KnowledgeModule {
   concepts: Record<string, AtomicConcept>;
@@ -57,30 +63,41 @@ function parseKnowledgeString(knowledgeStr: string, domain: string): Record<stri
  * Loads all knowledge modules into a unified structure
  */
 export function loadAllKnowledgeModules(): KnowledgeModule {
+  // Parse all knowledge domains
   const fibonacciConcepts = parseKnowledgeString(FIBONACCI_KNOWLEDGE, 'NUMERICAL');
   const blockchainConcepts = parseKnowledgeString(BLOCKCHAIN_KNOWLEDGE, 'TECHNICAL');
   const protocolConcepts = parseKnowledgeString(CRIKZ_PROTOCOL_KNOWLEDGE, 'FINANCIAL');
+  const communicationConcepts = parseKnowledgeString(COMMUNICATION_KNOWLEDGE, 'LINGUISTIC');
+  const englishConcepts = parseKnowledgeString(ENGLISH_LANGUAGE_KNOWLEDGE, 'LINGUISTIC');
+  const mathConcepts = parseKnowledgeString(MATHEMATICS_KNOWLEDGE, 'NUMERICAL');
+  const timeConcepts = parseKnowledgeString(TIME_KNOWLEDGE, 'TEMPORAL');
+  const computerConcepts = parseKnowledgeString(COMPUTER_SCIENCE_KNOWLEDGE, 'TECHNICAL');
+  const advancedBlockchainConcepts = parseKnowledgeString(ADVANCED_BLOCKCHAIN_KNOWLEDGE, 'TECHNICAL');
   
+  // Merge all concepts
   const allConcepts = {
     ...fibonacciConcepts,
     ...blockchainConcepts,
-    ...protocolConcepts
+    ...protocolConcepts,
+    ...communicationConcepts,
+    ...englishConcepts,
+    ...mathConcepts,
+    ...timeConcepts,
+    ...computerConcepts,
+    ...advancedBlockchainConcepts
   };
   
-  // FIX: Properly type the relations array with explicit ConceptRelation[] cast
+  // Merge all relations with proper typing
   const allRelations: ConceptRelation[] = [
-    ...FIBONACCI_RELATIONS.map(r => ({ 
-      ...r, 
-      learned_at: Date.now() 
-    } as ConceptRelation)),
-    ...BLOCKCHAIN_RELATIONS.map(r => ({ 
-      ...r, 
-      learned_at: Date.now() 
-    } as ConceptRelation)),
-    ...CRIKZ_PROTOCOL_RELATIONS.map(r => ({ 
-      ...r, 
-      learned_at: Date.now() 
-    } as ConceptRelation))
+    ...FIBONACCI_RELATIONS.map(r => ({ ...r, learned_at: Date.now() } as ConceptRelation)),
+    ...BLOCKCHAIN_RELATIONS.map(r => ({ ...r, learned_at: Date.now() } as ConceptRelation)),
+    ...CRIKZ_PROTOCOL_RELATIONS.map(r => ({ ...r, learned_at: Date.now() } as ConceptRelation)),
+    ...COMMUNICATION_RELATIONS.map(r => ({ ...r, learned_at: Date.now() } as ConceptRelation)),
+    ...ENGLISH_LANGUAGE_RELATIONS.map(r => ({ ...r, learned_at: Date.now() } as ConceptRelation)),
+    ...MATHEMATICS_RELATIONS.map(r => ({ ...r, learned_at: Date.now() } as ConceptRelation)),
+    ...TIME_RELATIONS.map(r => ({ ...r, learned_at: Date.now() } as ConceptRelation)),
+    ...COMPUTER_SCIENCE_RELATIONS.map(r => ({ ...r, learned_at: Date.now() } as ConceptRelation)),
+    ...ADVANCED_BLOCKCHAIN_RELATIONS.map(r => ({ ...r, learned_at: Date.now() } as ConceptRelation))
   ];
   
   return {

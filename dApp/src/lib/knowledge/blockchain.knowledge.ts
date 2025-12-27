@@ -26,21 +26,11 @@ binance_smart_chain := EVM-compatible blockchain with lower fees than Ethereum
 bsc_testnet := Testing network for Binance Smart Chain
 `;
 
-// FIX: Use proper ConceptRelation type
-type RelationType = 'synonym' | 'antonym' | 'hypernym' | 'hyponym' | 'meronym' | 'cause' | 'effect' | 'requires' | 'enables' | 'stabilizes' | 'catalyzes';
-
-interface KnowledgeRelation {
-  from: string;
-  to: string;
-  type: RelationType;
-  strength: number;
-}
-
-export const BLOCKCHAIN_RELATIONS: KnowledgeRelation[] = [
-  { from: 'smart_contract', to: 'blockchain', type: 'requires', strength: 1.0 },
-  { from: 'erc20', to: 'smart_contract', type: 'requires', strength: 0.9 },
-  { from: 'wei', to: 'gwei', type: 'hypernym', strength: 0.8 },
+export const BLOCKCHAIN_RELATIONS = [
+  { from: 'smart_contract', to: 'blockchain', type: 'runs_on', strength: 1.0 },
+  { from: 'erc20', to: 'smart_contract', type: 'is_implemented_by', strength: 0.9 },
+  { from: 'wei', to: 'gwei', type: 'scales_to', strength: 0.8 },
   { from: 'defi', to: 'smart_contract', type: 'requires', strength: 1.0 },
-  { from: 'yield_farming', to: 'liquidity_pool', type: 'requires', strength: 0.9 },
-  { from: 'metamask', to: 'wallet', type: 'hyponym', strength: 1.0 },
+  { from: 'yield_farming', to: 'liquidity_pool', type: 'utilizes', strength: 0.9 },
+  { from: 'metamask', to: 'wallet', type: 'is_type_of', strength: 1.0 },
 ];

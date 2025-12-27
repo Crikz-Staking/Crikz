@@ -21,11 +21,21 @@ concept_graph := Network of interconnected knowledge nodes with typed relationsh
 semantic_field := Synonyms and related terms for each concept
 `;
 
-export const CRIKZ_PROTOCOL_RELATIONS = [
-  { from: 'production_order', to: 'fibonacci_tiers', type: 'categorized_by', strength: 1.0 },
-  { from: 'reputation', to: 'tier_multipliers', type: 'calculated_from', strength: 1.0 },
-  { from: 'yield_distribution', to: 'production_fund', type: 'draws_from', strength: 1.0 },
-  { from: 'crikzling', to: 'atomic_knowledge', type: 'uses', strength: 1.0 },
-  { from: 'crikzling', to: 'memory_layers', type: 'stores_in', strength: 1.0 },
-  { from: 'crystallization', to: 'crikzling', type: 'preserves', strength: 1.0 },
+// FIX: Use proper ConceptRelation type
+type RelationType = 'synonym' | 'antonym' | 'hypernym' | 'hyponym' | 'meronym' | 'cause' | 'effect' | 'requires' | 'enables' | 'stabilizes' | 'catalyzes';
+
+interface KnowledgeRelation {
+  from: string;
+  to: string;
+  type: RelationType;
+  strength: number;
+}
+
+export const CRIKZ_PROTOCOL_RELATIONS: KnowledgeRelation[] = [
+  { from: 'production_order', to: 'fibonacci_tiers', type: 'requires', strength: 1.0 },
+  { from: 'reputation', to: 'tier_multipliers', type: 'requires', strength: 1.0 },
+  { from: 'yield_distribution', to: 'production_fund', type: 'requires', strength: 1.0 },
+  { from: 'crikzling', to: 'atomic_knowledge', type: 'requires', strength: 1.0 },
+  { from: 'crikzling', to: 'memory_layers', type: 'requires', strength: 1.0 },
+  { from: 'crystallization', to: 'crikzling', type: 'enables', strength: 1.0 },
 ];

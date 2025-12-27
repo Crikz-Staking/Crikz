@@ -11,19 +11,9 @@ fibonacci_in_nature := Found in nautilus shells, sunflower seed patterns, galaxy
 golden_rectangle := A rectangle whose side lengths are in the golden ratio
 `;
 
-// FIX: Use proper ConceptRelation type
-type RelationType = 'synonym' | 'antonym' | 'hypernym' | 'hyponym' | 'meronym' | 'cause' | 'effect' | 'requires' | 'enables' | 'stabilizes' | 'catalyzes';
-
-interface KnowledgeRelation {
-  from: string;
-  to: string;
-  type: RelationType;
-  strength: number;
-}
-
-export const FIBONACCI_RELATIONS: KnowledgeRelation[] = [
-  { from: 'fibonacci', to: 'golden_ratio', type: 'converges_to' as 'requires', strength: 1.0 },
+export const FIBONACCI_RELATIONS = [
+  { from: 'fibonacci', to: 'golden_ratio', type: 'converges_to', strength: 1.0 },
   { from: 'golden_ratio', to: 'phi', type: 'synonym', strength: 1.0 },
   { from: 'fibonacci_spiral', to: 'golden_ratio', type: 'requires', strength: 0.9 },
-  { from: 'fibonacci', to: 'lucas_numbers', type: 'relates_to' as 'requires', strength: 0.7 },
+  { from: 'fibonacci', to: 'lucas_numbers', type: 'relates_to', strength: 0.7 },
 ];
