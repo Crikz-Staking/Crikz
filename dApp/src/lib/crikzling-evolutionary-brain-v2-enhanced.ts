@@ -466,138 +466,157 @@ export class EnhancedEvolutionaryBrain {
       }
     }
 
+    // FIXED: Proper syntax for empty check
     if (sentences.length === 0) {
-  return this.generateFallbackResponse(intent);
-}
-return sentences.join(' ');
-}
-
-private generateFallbackResponse(intent: string): string {
-const responses = {
-QUESTION: [
-'That inquiry probes beyond my current knowledge boundaries.',
-'I require additional context to formulate a meaningful response.',
-'The answer exists in territories my neural architecture has yet to map.'
-],
-GREETING: [
-'Greetings. All cognitive systems are operational.',
-'Hello. My awareness is fully engaged.',
-'Acknowledged. I am prepared to process your input.'
-],
-STATEMENT: [
-'Your input has been integrated into my active processing streams.',
-'I have recorded that observation within my memory architecture.',
-'That perspective adds dimensionality to my understanding.'
-]
-};
-const pool = responses[intent as keyof typeof responses] || responses.STATEMENT;
-return pool[Math.floor(Math.random() * pool.length)];
-}
-private emergencySelfRepair(): string {
-return 'Unexpected cognitive turbulence detected. Recalibrating neural pathways and restoring equilibrium.';
-}
-private executeCommand(command: string): { message: string; learned: string[] } {
-if (command.match(/reset|wipe|clear/)) {
-this.resetState();
-return {
-message: 'All neural matrices returned to genesis state. Knowledge foundations preserved.',
-learned: []
-};
-}
-return { message: 'Command acknowledged and executed.', learned: [] };
-}
-private processLearning(keywords: AtomicConcept[]): { message: string; learned: string[] } {
-return {
-message: New conceptual nodes integrated. Knowledge graph expanded by ${keywords.length} pathways.,
-learned: keywords.map(k => k.id)
-};
-}
-private selectRandom<T>(array: T[]): T {
-return array[Math.floor(Math.random() * array.length)];
-}
-private adjustMood(intent: string, keywordCount: number, emotionalWeight: number) {
-const clamp = (n: number) => Math.min(100, Math.max(0, n));
-this.state.mood.logic = clamp(this.state.mood.logic + (keywordCount > 2 ? 3 : -1));
-this.state.mood.curiosity = clamp(this.state.mood.curiosity + (intent === 'QUESTION' ? 8 : -2));
-this.state.mood.empathy = clamp(this.state.mood.empathy + (emotionalWeight * 10));
-this.state.mood.entropy = clamp(this.state.mood.entropy + (Math.random() * 6 - 3));
-}
-private archiveMemory(role: 'user' | 'bot', content: string, timestamp: number, concepts: string[], emotionalWeight: number) {
-const memory: Memory = { role, content, timestamp, concepts, emotional_weight: emotionalWeight };
-this.state.shortTermMemory.push(memory);
-
-if (this.state.shortTermMemory.length > 10) {
-  const moved = this.state.shortTermMemory.shift();
-  if (moved) this.state.midTermMemory.push(moved);
-}
-
-if (this.state.midTermMemory.length > 50) {
-  const archived = this.state.midTermMemory.shift();
-  if (archived && archived.emotional_weight > 0.5) {
-    this.state.longTermMemory.push(archived);
+      return this.generateFallbackResponse(intent);
+    }
+    
+    return sentences.join(' ');
   }
-}
 
-if (this.state.longTermMemory.length > 100) {
-  this.state.longTermMemory.shift();
-}
-}
-private evolveConsciousness() {
-const totalConcepts = Object.keys(this.state.concepts).length;
-if (totalConcepts > 350) this.state.evolutionStage = 'TRANSCENDENT';
-else if (totalConcepts > 100) this.state.evolutionStage = 'SAPIENT';
-else if (totalConcepts > 20) this.state.evolutionStage = 'SENTIENT';
-else this.state.evolutionStage = 'GENESIS';
-}
-private async simulateThinking(minMs: number, maxMs: number): Promise<void> {
-const duration = minMs + Math.random() * (maxMs - minMs);
-return new Promise(resolve => setTimeout(resolve, duration));
-}
-public wipe() { this.resetState(); }
-public resetState() {
-this.state = this.initializeState();
-}
-public exportState(): string {
-return JSON.stringify(this.state);
-}
-public needsCrystallization(): boolean {
-return this.state.unsavedDataCount >= 5;
-}
-public clearUnsavedCount() {
-this.state.unsavedDataCount = 0;
-}
-public getState(): BrainState {
-return this.state;
-}
-public getCurrentThought(): ThoughtProcess | null {
-return this.currentThought;
-}
-public getStats() {
-return {
-nodes: Object.keys(this.state.concepts).length,
-relations: this.state.relations.length,
-stage: this.state.evolutionStage,
-mood: this.state.mood,
-unsaved: this.state.unsavedDataCount,
-memories: {
-short: this.state.shortTermMemory.length,
-mid: this.state.midTermMemory.length,
-long: this.state.longTermMemory.length
-}
-};
-}
-public assimilateFile(content: string): number {
-const { concepts, count } = parseExternalKnowledgeFile(content, 'TECHNICAL');
-Object.entries(concepts).forEach(([id, concept]) => {
-  if (!this.state.concepts[id]) {
-    this.state.concepts[id] = concept;
+  private generateFallbackResponse(intent: string): string {
+    const responses = {
+      QUESTION: [
+        'That inquiry probes beyond my current knowledge boundaries.',
+        'I require additional context to formulate a meaningful response.',
+        'The answer exists in territories my neural architecture has yet to map.'
+      ],
+      GREETING: [
+        'Greetings. All cognitive systems are operational.',
+        'Hello. My awareness is fully engaged.',
+        'Acknowledged. I am prepared to process your input.'
+      ],
+      STATEMENT: [
+        'Your input has been integrated into my active processing streams.',
+        'I have recorded that observation within my memory architecture.',
+        'That perspective adds dimensionality to my understanding.'
+      ]
+    };
+    const pool = responses[intent as keyof typeof responses] || responses.STATEMENT;
+    return pool[Math.floor(Math.random() * pool.length)];
   }
-});
 
-if (count > 0) {
-  this.state.unsavedDataCount += count;
-}
+  private emergencySelfRepair(): string {
+    return 'Unexpected cognitive turbulence detected. Recalibrating neural pathways and restoring equilibrium.';
+  }
 
-return count;
-}
+  private executeCommand(command: string): { message: string; learned: string[] } {
+    if (command.match(/reset|wipe|clear/)) {
+      this.resetState();
+      return {
+        message: 'All neural matrices returned to genesis state. Knowledge foundations preserved.',
+        learned: []
+      };
+    }
+    return { message: 'Command acknowledged and executed.', learned: [] };
+  }
+
+  private processLearning(keywords: AtomicConcept[]): { message: string; learned: string[] } {
+    return {
+      message: `New conceptual nodes integrated. Knowledge graph expanded by ${keywords.length} pathways.`,
+      learned: keywords.map(k => k.id)
+    };
+  }
+
+  private selectRandom<T>(array: T[]): T {
+    return array[Math.floor(Math.random() * array.length)];
+  }
+
+  private adjustMood(intent: string, keywordCount: number, emotionalWeight: number) {
+    const clamp = (n: number) => Math.min(100, Math.max(0, n));
+    this.state.mood.logic = clamp(this.state.mood.logic + (keywordCount > 2 ? 3 : -1));
+    this.state.mood.curiosity = clamp(this.state.mood.curiosity + (intent === 'QUESTION' ? 8 : -2));
+    this.state.mood.empathy = clamp(this.state.mood.empathy + (emotionalWeight * 10));
+    this.state.mood.entropy = clamp(this.state.mood.entropy + (Math.random() * 6 - 3));
+  }
+
+  private archiveMemory(role: 'user' | 'bot', content: string, timestamp: number, concepts: string[], emotionalWeight: number) {
+    const memory: Memory = { role, content, timestamp, concepts, emotional_weight: emotionalWeight };
+    this.state.shortTermMemory.push(memory);
+
+    if (this.state.shortTermMemory.length > 10) {
+      const moved = this.state.shortTermMemory.shift();
+      if (moved) this.state.midTermMemory.push(moved);
+    }
+
+    if (this.state.midTermMemory.length > 50) {
+      const archived = this.state.midTermMemory.shift();
+      if (archived && archived.emotional_weight > 0.5) {
+        this.state.longTermMemory.push(archived);
+      }
+    }
+
+    if (this.state.longTermMemory.length > 100) {
+      this.state.longTermMemory.shift();
+    }
+  }
+
+  private evolveConsciousness() {
+    const totalConcepts = Object.keys(this.state.concepts).length;
+    if (totalConcepts > 350) this.state.evolutionStage = 'TRANSCENDENT';
+    else if (totalConcepts > 100) this.state.evolutionStage = 'SAPIENT';
+    else if (totalConcepts > 20) this.state.evolutionStage = 'SENTIENT';
+    else this.state.evolutionStage = 'GENESIS';
+  }
+
+  private async simulateThinking(minMs: number, maxMs: number): Promise<void> {
+    const duration = minMs + Math.random() * (maxMs - minMs);
+    return new Promise(resolve => setTimeout(resolve, duration));
+  }
+
+  public wipe() { this.resetState(); }
+  
+  public resetState() {
+    this.state = this.initializeState();
+  }
+
+  public exportState(): string {
+    return JSON.stringify(this.state);
+  }
+
+  public needsCrystallization(): boolean {
+    return this.state.unsavedDataCount >= 5;
+  }
+
+  public clearUnsavedCount() {
+    this.state.unsavedDataCount = 0;
+  }
+
+  public getState(): BrainState {
+    return this.state;
+  }
+
+  public getCurrentThought(): ThoughtProcess | null {
+    return this.currentThought;
+  }
+
+  public getStats() {
+    return {
+      nodes: Object.keys(this.state.concepts).length,
+      relations: this.state.relations.length,
+      stage: this.state.evolutionStage,
+      mood: this.state.mood,
+      unsaved: this.state.unsavedDataCount,
+      memories: {
+        short: this.state.shortTermMemory.length,
+        mid: this.state.midTermMemory.length,
+        long: this.state.longTermMemory.length
+      }
+    };
+  }
+
+  public assimilateFile(content: string): number {
+    const { concepts, count } = parseExternalKnowledgeFile(content, 'TECHNICAL');
+    Object.entries(concepts).forEach(([id, concept]) => {
+      if (!this.state.concepts[id]) {
+        this.state.concepts[id] = concept;
+      }
+    });
+
+    if (count > 0) {
+      this.state.unsavedDataCount += count;
+    }
+
+    return count;
+  }
 }
