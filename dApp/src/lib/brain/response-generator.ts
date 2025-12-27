@@ -1,5 +1,3 @@
-// src/lib/brain/response-generator.ts
-
 import { Memory } from './types';
 import { ProcessedInput, IntentType, QuestionType } from './input-processor';
 
@@ -21,19 +19,19 @@ export type ResponseTone =
   | 'CAUTIOUS';
 
 export type ResponseStructure = 
-  | 'LINEAR'           // Point A → B → C
-  | 'LAYERED'          // Overview → Details → Synthesis
-  | 'DIALECTICAL'      // Thesis → Antithesis → Synthesis
-  | 'CIRCULAR'         // Context → Core → Return to Context
-  | 'EXPLORATORY'      // Multiple perspectives
-  | 'CONCISE';         // Direct answer only
+  | 'LINEAR'
+  | 'LAYERED'
+  | 'DIALECTICAL'
+  | 'CIRCULAR'
+  | 'EXPLORATORY'
+  | 'CONCISE';
 
 export type ResponseStyle = 
-  | 'TECHNICAL'        // Precise, formal, detailed
-  | 'CONVERSATIONAL'   // Natural, flowing, accessible
-  | 'POETIC'           // Metaphorical, evocative
-  | 'SOCRATIC'         // Question-based, exploratory
-  | 'NARRATIVE';       // Story-like, contextual
+  | 'TECHNICAL'
+  | 'CONVERSATIONAL'
+  | 'POETIC'
+  | 'SOCRATIC'
+  | 'NARRATIVE';
 
 export type RhetoricDevice = 
   | 'METAPHOR'
@@ -80,7 +78,7 @@ export class ResponseGenerator {
     EMPATHETIC: {
       openings: [
         "I sense the significance in your question about",
-        "Your inquiry into {topic} resonates deeply with",
+        "Your inquiry resonates deeply with",
         "I appreciate the nuance of what you're exploring regarding",
         "There's a profound curiosity in your question about",
         "I understand you're seeking clarity on"
@@ -126,10 +124,10 @@ export class ResponseGenerator {
     INSTRUCTIVE: {
       openings: [
         "Let me clarify the nature of",
-        "To properly understand {topic}, we must first recognize",
-        "The foundation of understanding {topic} begins with",
+        "To properly understand this, we must first recognize",
+        "The foundation of understanding begins with",
         "I'll break this down systematically, starting with",
-        "To address your question about {topic}, consider"
+        "To address your question, consider"
       ],
       transitions: [
         "Building upon this foundation,",
@@ -158,7 +156,7 @@ export class ResponseGenerator {
         "yet paradoxically,",
         "which raises the further question of",
         "one might wonder whether",
-        "this tension between {a} and {b} suggests",
+        "this tension suggests",
         "the interplay reveals"
       ],
       closings: [
@@ -168,30 +166,55 @@ export class ResponseGenerator {
         "This opens rather than closes the inquiry into",
         "The wisdom emerges not from answers but from"
       ]
+    },
+    ENTHUSIASTIC: {
+      openings: [
+        "How exciting to explore",
+        "I'm thrilled to delve into",
+        "What a fascinating inquiry about",
+        "This is such an engaging topic concerning",
+        "I'm delighted to discuss"
+      ],
+      transitions: [
+        "which makes this even more interesting because",
+        "and here's what's really compelling:",
+        "what's particularly exciting is how",
+        "this opens up amazing possibilities with",
+        "the dynamic nature of this shows"
+      ],
+      closings: [
+        "Isn't that remarkable?",
+        "This is just the beginning of what's possible with",
+        "The potential here is truly exciting for",
+        "I hope this sparks further curiosity about",
+        "There's so much more to discover about"
+      ]
+    },
+    CAUTIOUS: {
+      openings: [
+        "It's important to approach this carefully when considering",
+        "We should be mindful about",
+        "With appropriate caution, let's examine",
+        "It's worth noting the complexity of",
+        "We must consider multiple perspectives on"
+      ],
+      transitions: [
+        "however, it's crucial to recognize that",
+        "while acknowledging the limitations of",
+        "though we must be careful not to",
+        "with the understanding that",
+        "bearing in mind the nuances of"
+      ],
+      closings: [
+        "Of course, this requires further consideration of",
+        "It's important to approach this with continued care regarding",
+        "We should remain thoughtful about",
+        "This calls for balanced understanding of",
+        "The full picture requires careful attention to"
+      ]
     }
   };
 
-  private metaphorBank = {
-    technical: [
-      "Like a {system} where {component} interfaces with {component}",
-      "Analogous to how {process} transforms {input} into {output}",
-      "Similar to the way {pattern} emerges from {substrate}"
-    ],
-    natural: [
-      "Much as {natural_process} flows toward {endpoint}",
-      "Like the way {organism} adapts to {environment}",
-      "Reminiscent of how {pattern} manifests in {nature}"
-    ],
-    abstract: [
-      "As if {concept} were a lens through which {reality} becomes visible",
-      "Picture {idea} as the invisible architecture of {system}",
-      "Imagine {abstraction} as the grammar of {domain}"
-    ]
-  };
-
-  /**
-   * Main response generation orchestrator
-   */
   public generate(
     input: ProcessedInput,
     activeConcepts: Record<string, number>,
@@ -199,27 +222,12 @@ export class ResponseGenerator {
     evolutionStage: string
   ): string {
     
-    // 1. Determine response strategy
     const strategy = this.determineStrategy(input, evolutionStage);
-    
-    // 2. Build response components
-    const components = this.buildComponents(
-      input,
-      activeConcepts,
-      memories,
-      strategy
-    );
-    
-    // 3. Assemble with appropriate rhetoric
+    const components = this.buildComponents(input, activeConcepts, memories, strategy);
     const response = this.assembleResponse(components, strategy);
-    
-    // 4. Apply style refinements
     return this.refineResponse(response, strategy, input);
   }
 
-  /**
-   * Determine optimal response strategy based on input analysis
-   */
   private determineStrategy(
     input: ProcessedInput,
     evolutionStage: string
@@ -227,7 +235,6 @@ export class ResponseGenerator {
     
     const { intent, complexity, emotionalContext, questionType } = input;
     
-    // Base tone on intent and emotional context
     let tone: ResponseTone = 'ANALYTICAL';
     if (intent.primary === 'PHILOSOPHY') tone = 'CONTEMPLATIVE';
     else if (intent.primary === 'CASUAL') tone = 'EMPATHETIC';
@@ -235,7 +242,6 @@ export class ResponseGenerator {
     else if (emotionalContext.valence > 0.5) tone = 'ENTHUSIASTIC';
     else if (complexity.overallScore < 0.3) tone = 'EMPATHETIC';
     
-    // Structure based on question type and complexity
     let structure: ResponseStructure = 'LINEAR';
     if (questionType === 'why') structure = 'LAYERED';
     else if (questionType === 'how') structure = 'LINEAR';
@@ -244,33 +250,26 @@ export class ResponseGenerator {
     else if (complexity.overallScore < 0.3) structure = 'CONCISE';
     else if (input.sentences.length > 2) structure = 'EXPLORATORY';
     
-    // Depth scales with complexity and evolution stage
     let depth = 2;
     if (complexity.overallScore > 0.6) depth = 4;
     if (evolutionStage === 'SAPIENT') depth += 1;
     if (evolutionStage === 'TRANSCENDENT') depth += 2;
     if (structure === 'CONCISE') depth = 1;
     
-    // Style matches tone and domain
     let style: ResponseStyle = 'CONVERSATIONAL';
     if (tone === 'ANALYTICAL') style = 'TECHNICAL';
     else if (tone === 'CONTEMPLATIVE') style = 'POETIC';
     else if (tone === 'INSTRUCTIVE') style = 'TECHNICAL';
     else if (complexity.technicalDensity > 0.5) style = 'TECHNICAL';
     
-    // Select rhetoric devices based on strategy
     const rhetoricDevices: RhetoricDevice[] = ['PROGRESSION'];
     if (style === 'POETIC') rhetoricDevices.push('METAPHOR');
     if (questionType === 'how') rhetoricDevices.push('EXAMPLE');
     if (intent.primary === 'COMPARISON') rhetoricDevices.push('CONTRAST');
-    if (depth > 2) rhetoricDevices.push('ELABORATION' as RhetoricDevice);
     
     return { tone, structure, depth, style, rhetoricDevices };
   }
 
-  /**
-   * Build response components based on strategy
-   */
   private buildComponents(
     input: ProcessedInput,
     activeConcepts: Record<string, number>,
@@ -290,10 +289,8 @@ export class ResponseGenerator {
     const primaryConcept = sortedConcepts[0];
     const secondaryConcepts = sortedConcepts.slice(1, 4);
     
-    // 1. Opening
     components.push(this.createOpening(primaryConcept, input, strategy));
     
-    // 2. Body (multiple parts based on depth)
     for (let i = 0; i < Math.min(strategy.depth, secondaryConcepts.length + 1); i++) {
       if (i === 0) {
         components.push(this.createPrimaryBody(primaryConcept, secondaryConcepts, strategy));
@@ -307,22 +304,13 @@ export class ResponseGenerator {
       }
     }
     
-    // 3. Synthesis (if not concise)
     if (strategy.structure !== 'CONCISE') {
-      components.push(this.createSynthesis(
-        primaryConcept,
-        secondaryConcepts,
-        input,
-        strategy
-      ));
+      components.push(this.createSynthesis(primaryConcept, secondaryConcepts, input, strategy));
     }
     
     return components;
   }
 
-  /**
-   * Create opening component
-   */
   private createOpening(
     primaryConcept: string,
     input: ProcessedInput,
@@ -330,12 +318,9 @@ export class ResponseGenerator {
   ): ResponseComponent {
     
     const vocab = this.vocabularyPatterns[strategy.tone];
-    const opening = this.selectRandom(vocab.openings)
-      .replace('{topic}', primaryConcept);
-    
+    const opening = this.selectRandom(vocab.openings);
     let content = `${opening} ${primaryConcept}`;
     
-    // Add context based on input
     if (input.intent.primary === 'QUERY') {
       content += ", I perceive a structured inquiry that invites exploration";
     } else if (input.emotionalContext.valence > 0.3) {
@@ -352,9 +337,6 @@ export class ResponseGenerator {
     };
   }
 
-  /**
-   * Create primary body component
-   */
   private createPrimaryBody(
     primaryConcept: string,
     secondaryConcepts: string[],
@@ -363,18 +345,12 @@ export class ResponseGenerator {
     
     const vocab = this.vocabularyPatterns[strategy.tone];
     const transition = this.selectRandom(vocab.transitions);
-    
     let content = `The essence of ${primaryConcept}`;
     
     if (secondaryConcepts.length > 0) {
       content += ` ${transition} ${this.formatConceptList(secondaryConcepts.slice(0, 2))}`;
     } else {
       content += " manifests as a singular focal point in this computational space";
-    }
-    
-    // Add rhetoric device
-    if (strategy.rhetoricDevices.includes('METAPHOR')) {
-      content += `. ${this.generateMetaphor(primaryConcept, 'abstract')}`;
     }
     
     content += ".";
@@ -387,9 +363,6 @@ export class ResponseGenerator {
     };
   }
 
-  /**
-   * Create elaboration component
-   */
   private createElaboration(
     concept: string,
     allConcepts: string[],
@@ -398,8 +371,6 @@ export class ResponseGenerator {
   ): ResponseComponent {
     
     let content = "";
-    
-    // Find related concepts
     const relatedIndex = allConcepts.indexOf(concept);
     const related = allConcepts.slice(relatedIndex + 1, relatedIndex + 3);
     
@@ -411,7 +382,6 @@ export class ResponseGenerator {
       content = `When we consider ${concept}, it naturally connects to ${this.formatConceptList(related)}`;
     }
     
-    // Add memory reference if relevant
     const relevantMemory = memories.find(m => m.concepts.includes(concept));
     if (relevantMemory && Math.random() > 0.5) {
       content += `. This aligns with our previous exploration of ${relevantMemory.concepts[0]}`;
@@ -427,9 +397,6 @@ export class ResponseGenerator {
     };
   }
 
-  /**
-   * Create synthesis component
-   */
   private createSynthesis(
     primaryConcept: string,
     secondaryConcepts: string[],
@@ -439,7 +406,6 @@ export class ResponseGenerator {
     
     const vocab = this.vocabularyPatterns[strategy.tone];
     const closing = this.selectRandom(vocab.closings);
-    
     let content = closing;
     
     if (strategy.structure === 'DIALECTICAL') {
@@ -450,7 +416,6 @@ export class ResponseGenerator {
       content += ` ${primaryConcept} serves as the organizing principle`;
     }
     
-    // Add forward-looking element
     if (input.intent.primary === 'QUERY') {
       content += `, though deeper inquiries may yet illuminate further dimensions`;
     }
@@ -461,13 +426,10 @@ export class ResponseGenerator {
       type: 'synthesis',
       content,
       concepts: [primaryConcept, ...secondaryConcepts],
-      rhetoricDevice: 'SYNTHESIS' as RhetoricDevice
+      rhetoricDevice: 'EMPHASIS'
     };
   }
 
-  /**
-   * Build fallback components for empty concept activation
-   */
   private buildFallbackComponents(
     input: ProcessedInput,
     strategy: ResponseStrategy
@@ -483,27 +445,21 @@ export class ResponseGenerator {
     return [fallback];
   }
 
-  /**
-   * Assemble components into coherent response
-   */
   private assembleResponse(
     components: ResponseComponent[],
     strategy: ResponseStrategy
   ): string {
     
     if (strategy.structure === 'CONCISE') {
-      // Just the essential information
       return components.map(c => c.content).join(' ');
     }
     
-    // Build paragraphs based on structure
     const paragraphs: string[] = [];
     let currentParagraph: string[] = [];
     
     components.forEach((component, index) => {
       currentParagraph.push(component.content);
       
-      // Paragraph breaks at logical boundaries
       const shouldBreak = (
         component.type === 'synthesis' ||
         (component.type === 'elaboration' && index < components.length - 1) ||
@@ -516,7 +472,6 @@ export class ResponseGenerator {
       }
     });
     
-    // Add any remaining content
     if (currentParagraph.length > 0) {
       paragraphs.push(currentParagraph.join(' '));
     }
@@ -524,29 +479,20 @@ export class ResponseGenerator {
     return paragraphs.join('\n\n');
   }
 
-  /**
-   * Refine response with style-specific enhancements
-   */
   private refineResponse(
     response: string,
     strategy: ResponseStrategy,
     input: ProcessedInput
   ): string {
     
-    let refined = response;
+    let refined = response.replace(/\s+/g, ' ').trim();
     
-    // Remove redundant phrases
-    refined = refined.replace(/\s+/g, ' ').trim();
-    
-    // Add style-specific flourishes
     if (strategy.tone === 'ENTHUSIASTIC' && input.emotionalContext.valence > 0.5) {
       refined = refined.replace(/\.$/, '!');
     }
     
-    // Ensure proper flow
     refined = this.ensureFlow(refined);
     
-    // Add conversational elements if appropriate
     if (strategy.style === 'CONVERSATIONAL' && refined.length > 200) {
       refined = this.addConversationalMarkers(refined);
     }
@@ -554,20 +500,13 @@ export class ResponseGenerator {
     return refined;
   }
 
-  /**
-   * Ensure smooth flow between sentences
-   */
   private ensureFlow(text: string): string {
-    // This would involve more sophisticated NLP in production
     return text
       .replace(/\.\s+The\s+/g, '. Furthermore, the ')
       .replace(/\.\s+This\s+/g, '. Additionally, this ')
       .replace(/\.\s+It\s+/g, '. Notably, it ');
   }
 
-  /**
-   * Add conversational markers
-   */
   private addConversationalMarkers(text: string): string {
     const sentences = text.split(/\.\s+/);
     if (sentences.length >= 3) {
@@ -578,21 +517,6 @@ export class ResponseGenerator {
     return sentences.join('. ') + '.';
   }
 
-  /**
-   * Generate metaphor
-   */
-  private generateMetaphor(concept: string, category: keyof typeof this.metaphorBank): string {
-    const templates = this.metaphorBank[category];
-    const template = this.selectRandom(templates);
-    return template
-      .replace('{concept}', concept)
-      .replace('{system}', 'neural network')
-      .replace('{pattern}', 'emergent pattern');
-  }
-
-  /**
-   * Format list of concepts
-   */
   private formatConceptList(concepts: string[]): string {
     if (concepts.length === 0) return "related structures";
     if (concepts.length === 1) return concepts[0];
@@ -600,9 +524,6 @@ export class ResponseGenerator {
     return `${concepts.slice(0, -1).join(', ')}, and ${concepts[concepts.length - 1]}`;
   }
 
-  /**
-   * Select random item from array
-   */
   private selectRandom<T>(array: T[]): T {
     return array[Math.floor(Math.random() * array.length)];
   }

@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Send, Brain, Database, Cpu, Activity, Save, RefreshCw, Upload, Zap, AlertTriangle,
   TrendingUp, Layers, Clock, Lock
 } from 'lucide-react';
-import { useCrikzling } from '@/hooks/useCrikzling';
+import { useCrikzlingEnhanced } from '@/hooks/useCrikzlingEnchanced';
 
 interface ThoughtProcess {
   phase: string;
@@ -84,7 +84,7 @@ export default function CrikzlingAvatar() {
     uploadFile,
     resetBrain,
     isOwner
-  } = useCrikzling();
+  } = useCrikzlingEnhanced();
 
   useEffect(() => {
     if (scrollRef.current) {
