@@ -1,0 +1,14 @@
+liquidity_mining := Providing liquidity to DEX pools in exchange for reward tokens
+impermanent_loss := Temporary unrealized loss from price divergence in liquidity pools
+tvl := Total Value Locked, the total capital deposited in a DeFi protocol
+apy := Annual Percentage Yield, the real rate of return with compounding
+apr := Annual Percentage Rate, simple interest rate without compounding
+flash_loan := Uncollateralized loan that must be repaid within the same transaction
+oracle := External data feed that provides real-world information to smart contracts
+chainlink := Decentralized oracle network connecting blockchains to external data
+wrapped_token := Tokenized representation of an asset from another blockchain
+bridge := Protocol that enables asset transfers between different blockchains
+layer2 := Scaling solution built on top of the main blockchain
+rollup := Layer 2 solution that bundles transactions off-chain
+zk_rollup := Zero-knowledge rollup using cryptographic proofs for validity
+optimistic_rollup := Rollup assuming transactions are valid unless proven fraudulent
