@@ -13,10 +13,11 @@ export const ORDER_TYPES = [
   { index: 6, days: 1597, multiplier: 2.618, name: "Monopoly" }
 ];
 
-export const CRIKZ_TOKEN_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3"; 
-export const CRIKZLING_MEMORY_ADDRESS = "0xcFE0Fbdaf71a1c1828Bc4b3aC3A6AE8f888f2571";
-export const CRIKZ_NFT_ADDRESS = "0x034CCa2037746AA300ef290eA621deB8c1C3c299";
-export const NFT_MARKETPLACE_ADDRESS = "0xeDCC0e9Ce4FFeA40501E58D04C0FbA0bB5dFC725";
+// REPLACE THESE ADDRESSES AFTER RUNNING: npx hardhat run scripts/deploy-full.cjs
+export const CRIKZ_TOKEN_ADDRESS = "0xaDe2E0A0cFC3415f4ec1E1F827c31861b6fdfaE9"; 
+export const CRIKZLING_MEMORY_ADDRESS = "0x7862Cdd1549cbb631576385258F469b58aA9fa1F";
+export const CRIKZ_NFT_ADDRESS = "0x5B6da09c4E38A321e13aB81c2Cc6F578DFCc3FB1";
+export const NFT_MARKETPLACE_ADDRESS = "0xB9Bec3827931177336c0dbB611680d63BD5f154F";
 
 export const CRIKZ_TOKEN_ABI = [
   { "inputs": [{"name": "_owner", "type": "address"}], "name": "balanceOf", "outputs": [{"name": "balance", "type": "uint256"}], "stateMutability": "view", "type": "function" },
