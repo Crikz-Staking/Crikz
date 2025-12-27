@@ -63,3 +63,35 @@ export type PassiveView = 'learning' | 'analytics' | 'audio' | 'video'; // Remov
 export type ToolCategory = 'files' | 'crypto' | 'dev' | 'security';
 export type Language = 'en' | 'sq';
 export type DashboardTab = 'create' | 'orders' | 'analytics';
+
+// ... existing types ...
+
+// Update ActiveView type
+export type ActiveView = 'dashboard' | 'nft' | 'arcade' | 'betting'; 
+
+// Betting Specific Types
+export type SportId = 'soccer' | 'basketball' | 'mma' | 'esports' | 'tennis';
+
+export interface BettingMatch {
+  id: string;
+  sport: SportId;
+  league: string;
+  homeTeam: string;
+  awayTeam: string;
+  startTime: number;
+  isLive: boolean;
+  score?: string;
+  markets: {
+    h2h: [number, number, number]; // Home, Draw, Away (or Home, Away)
+    spread?: [number, number];
+    total?: [number, number];
+  };
+}
+
+export interface BetSelection {
+  matchId: string;
+  selectionId: 'home' | 'draw' | 'away';
+  selectionName: string;
+  matchName: string;
+  odds: number;
+}
