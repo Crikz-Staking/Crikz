@@ -4,7 +4,7 @@ import Hls from 'hls.js';
 import { 
     Play, Pause, Volume2, X, Upload, Radio, Film, Globe, User, 
     ShieldCheck, RefreshCw, Heart, Database, Tv, Search, AlertCircle, 
-    Music, Mic2, Library
+    Music, Mic2, Library, Loader2
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { uploadToIPFS } from '@/lib/ipfs-service';
@@ -31,6 +31,8 @@ interface RadioStation {
     country: string;
     tags: string;
     votes: number;
+    codec: string;
+    bitrate: number;
 }
 
 interface ArchiveItem {
@@ -41,19 +43,31 @@ interface ArchiveItem {
     downloads: number;
 }
 
-// --- PLAYER COMPONENTS ---
+// --- PLAYER COMPONENT ---
 
 const UniversalPlayer = ({ url, title, sub, onClose, isAudio = false }: { url: string, title: string, sub: string, onClose: () => void, isAudio?: boolean }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const audioRef = useRef<HTMLAudioElement>(null);
     const [error, setError] = useState(false);
     const [playing, setPlaying] = useState(true);
+    const [buffering, setBuffering] = useState(true);
 
     useEffect(() => {
         const media = isAudio ? audioRef.current : videoRef.current;
         if (!media) return;
 
         setError(false);
+        setBuffering(true);
+
+        const handleCanPlay = () => setBuffering(false);
+        const handleError = (e: any) => {
+            console.error("Media Error:", e);
+            setError(true);
+            setBuffering(false);
+        };
+
+        media.addEventListener('canplay', handleCanPlay);
+        media.addEventListener('error', handleError);
 
         // HLS Support
         if (url.includes('.m3u8') && Hls.isSupported()) {
@@ -61,13 +75,31 @@ const UniversalPlayer = ({ url, title, sub, onClose, isAudio = false }: { url: s
             hls.loadSource(url);
             hls.attachMedia(media);
             hls.on(Hls.Events.MANIFEST_PARSED, () => media.play().catch(() => setPlaying(false)));
-            hls.on(Hls.Events.ERROR, (_, data) => { if(data.fatal) setError(true); });
-            return () => hls.destroy();
+            hls.on(Hls.Events.ERROR, (_, data) => { 
+                if(data.fatal) {
+                    console.error("HLS Fatal:", data);
+                    setError(true);
+                    setBuffering(false);
+                }
+            });
+            return () => {
+                hls.destroy();
+                media.removeEventListener('canplay', handleCanPlay);
+                media.removeEventListener('error', handleError);
+            };
         } else {
             // Standard MP3/MP4/Native HLS
             media.src = url;
-            media.play().catch(() => setPlaying(false));
+            media.play().catch(e => {
+                console.warn("Autoplay blocked or failed:", e);
+                setPlaying(false);
+            });
         }
+
+        return () => {
+            media.removeEventListener('canplay', handleCanPlay);
+            media.removeEventListener('error', handleError);
+        };
     }, [url, isAudio]);
 
     return (
@@ -79,7 +111,7 @@ const UniversalPlayer = ({ url, title, sub, onClose, isAudio = false }: { url: s
             <div className="h-16 border-b border-white/10 flex justify-between items-center px-6">
                 <div className="flex items-center gap-4">
                     <div className={`p-2 rounded-full ${isAudio ? 'bg-accent-purple/20 text-accent-purple' : 'bg-primary-500/20 text-primary-500'}`}>
-                        {isAudio ? <Radio size={20} className="animate-pulse" /> : <Tv size={20} />}
+                        {isAudio ? <Radio size={20} className={playing ? "animate-pulse" : ""} /> : <Tv size={20} />}
                     </div>
                     <div className="overflow-hidden">
                         <h3 className="font-bold text-white truncate max-w-xs md:max-w-md">{title}</h3>
@@ -91,10 +123,22 @@ const UniversalPlayer = ({ url, title, sub, onClose, isAudio = false }: { url: s
 
             {/* Media Area */}
             <div className="flex-1 flex flex-col items-center justify-center p-8 bg-black/50 relative">
+                {buffering && !error && (
+                    <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+                        <Loader2 size={48} className="animate-spin text-primary-500"/>
+                    </div>
+                )}
+
                 {error ? (
-                    <div className="text-center text-gray-500">
+                    <div className="text-center text-gray-500 max-w-md">
                         <AlertCircle size={48} className="mx-auto mb-4 text-red-500 opacity-50"/>
-                        <p>Stream offline or geo-blocked.</p>
+                        <h3 className="text-white font-bold mb-2">Stream Unavailable</h3>
+                        <p className="text-sm">This typically happens if:</p>
+                        <ul className="text-xs text-left mt-2 space-y-1 list-disc pl-5">
+                            <li>The station is offline.</li>
+                            <li>The stream is HTTP (browsers block mixed content).</li>
+                            <li>The content is geo-blocked in your region.</li>
+                        </ul>
                     </div>
                 ) : isAudio ? (
                     <div className="flex flex-col items-center w-full max-w-lg">
@@ -109,10 +153,21 @@ const UniversalPlayer = ({ url, title, sub, onClose, isAudio = false }: { url: s
                                 />
                             ))}
                         </div>
-                        <audio ref={audioRef} controls className="w-full" onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} />
+                        <audio 
+                            ref={audioRef} 
+                            controls 
+                            className="w-full" 
+                            onPlay={() => { setPlaying(true); setBuffering(false); }} 
+                            onPause={() => setPlaying(false)} 
+                        />
                     </div>
                 ) : (
-                    <video ref={videoRef} className="w-full h-full max-h-[70vh] object-contain" controls />
+                    <video 
+                        ref={videoRef} 
+                        className="w-full h-full max-h-[70vh] object-contain" 
+                        controls 
+                        onPlay={() => setBuffering(false)}
+                    />
                 )}
             </div>
         </motion.div>
@@ -159,14 +214,17 @@ export default function MediaCenter({ type, dynamicColor }: { type: MediaType, d
                     ]);
                 } 
                 else if (viewMode === 'radio' && stations.length === 0) {
-                    // Fetch Top Radio Stations
-                    const res = await fetch('https://de1.api.radio-browser.info/json/stations/topclick/24');
+                    // Fetch from a reliable Radio Browser mirror
+                    // We filter for HTTPS (is_https=true) to ensure playback on Vercel
+                    // order=clickcount to show popular stations first
+                    const res = await fetch('https://de1.api.radio-browser.info/json/stations/search?limit=24&order=clickcount&is_https=true&hidebroken=true');
                     const data = await res.json();
                     setStations(data);
                 }
                 else if (viewMode === 'archive' && archiveItems.length === 0) {
                     // Fetch Internet Archive (Audio)
-                    const q = 'mediatype:audio AND (collection:etree OR collection:audio_bookspot)';
+                    // We search for items with media type audio, specifically mp3 availability
+                    const q = 'mediatype:audio AND (format:VBR MP3 OR format:MP3)';
                     const res = await fetch(`https://archive.org/advancedsearch.php?q=${q}&fl[]=identifier,title,creator,year,downloads&sort[]=downloads+desc&rows=24&output=json`);
                     const data = await res.json();
                     setArchiveItems(data.response.docs);
@@ -189,7 +247,7 @@ export default function MediaCenter({ type, dynamicColor }: { type: MediaType, d
         setLoadingExt(true);
         try {
             if (viewMode === 'radio') {
-                const res = await fetch(`https://de1.api.radio-browser.info/json/stations/search?name=${encodeURIComponent(search)}&limit=24`);
+                const res = await fetch(`https://de1.api.radio-browser.info/json/stations/search?name=${encodeURIComponent(search)}&limit=24&is_https=true`);
                 const data = await res.json();
                 setStations(data);
             } else if (viewMode === 'archive') {
@@ -198,7 +256,40 @@ export default function MediaCenter({ type, dynamicColor }: { type: MediaType, d
                 const data = await res.json();
                 setArchiveItems(data.response.docs);
             }
-        } catch(e) { console.error(e); } finally { setLoadingExt(false); }
+        } catch(e) { 
+            console.error(e); 
+            toast.error("Search failed");
+        } finally { 
+            setLoadingExt(false); 
+        }
+    };
+
+    // Helper: Play Archive Item (Resolves the actual MP3 file)
+    const playArchiveItem = async (item: ArchiveItem) => {
+        const toastId = toast.loading("Locating audio file...");
+        try {
+            // Fetch metadata to find the specific mp3 file
+            const res = await fetch(`https://archive.org/metadata/${item.identifier}`);
+            const data = await res.json();
+            
+            // Find first MP3
+            const mp3File = data.files.find((f: any) => f.format === 'VBR MP3' || f.format === 'MP3');
+            
+            if (mp3File) {
+                const url = `https://archive.org/download/${item.identifier}/${mp3File.name}`;
+                toast.dismiss(toastId);
+                setActiveMedia({ 
+                    url, 
+                    title: item.title, 
+                    sub: item.creator ? `By ${item.creator}` : 'Public Domain', 
+                    isAudio: true 
+                });
+            } else {
+                toast.error("No playable MP3 found", { id: toastId });
+            }
+        } catch (e) {
+            toast.error("Failed to load audio", { id: toastId });
+        }
     };
 
     const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -349,7 +440,7 @@ export default function MediaCenter({ type, dynamicColor }: { type: MediaType, d
 
                     {/* ARCHIVE */}
                     {viewMode === 'archive' && archiveItems.map((a) => (
-                        <motion.div key={a.identifier} initial={{ opacity: 0 }} animate={{ opacity: 1 }} onClick={() => setActiveMedia({ url: `https://archive.org/download/${a.identifier}/${a.identifier}_vbr.m3u`, title: a.title, sub: a.creator ? `By ${a.creator}` : 'Public Domain', isAudio: true })}
+                        <motion.div key={a.identifier} initial={{ opacity: 0 }} animate={{ opacity: 1 }} onClick={() => playArchiveItem(a)}
                             className="bg-[#12121A] border border-white/5 hover:border-accent-cyan/50 p-4 rounded-xl cursor-pointer group hover:bg-white/5"
                         >
                             <div className="mb-3 w-10 h-10 bg-accent-cyan/10 rounded flex items-center justify-center text-accent-cyan">
@@ -365,7 +456,12 @@ export default function MediaCenter({ type, dynamicColor }: { type: MediaType, d
                 </div>
             )}
             
-            {!web3Loading && !loadingExt && (filteredWeb3.length === 0 && tvChannels.length === 0 && stations.length === 0 && archiveItems.length === 0) && (
+            {!web3Loading && !loadingExt && (
+                ((viewMode === 'decentralized' && filteredWeb3.length === 0) || 
+                 (viewMode === 'livetv' && tvChannels.length === 0) ||
+                 (viewMode === 'radio' && stations.length === 0) || 
+                 (viewMode === 'archive' && archiveItems.length === 0))
+            ) && (
                 <div className="text-center py-20 text-gray-500">
                     <p>No content found.</p>
                 </div>
