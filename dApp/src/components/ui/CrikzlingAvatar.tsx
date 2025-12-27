@@ -1,8 +1,10 @@
+// src/components/ui/CrikzlingAvatar.tsx
+
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Send, Save, Trash2, Brain, ChevronDown, Activity, 
-  Network, Lightbulb, Paperclip, Cpu 
+  Network, Lightbulb, Paperclip, Cpu, Zap, Database
 } from 'lucide-react';
 import { useCrikzling } from '@/hooks/useCrikzling';
 
@@ -13,7 +15,6 @@ export default function CrikzlingAvatar() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Destructure including the now-available resetBrain
   const { 
     messages, 
     sendMessage, 
@@ -24,7 +25,8 @@ export default function CrikzlingAvatar() {
     isOwner, 
     isSyncing, 
     brainStats,
-    isThinking 
+    isThinking,
+    currentThought
   } = useCrikzling();
 
   const scrollToBottom = () => {
@@ -36,7 +38,7 @@ export default function CrikzlingAvatar() {
   }, [messages, isThinking, isOpen]);
 
   const handleSend = async () => {
-    if(!input.trim()) return;
+    if(!input.trim() || isThinking) return;
     const userText = input;
     setInput('');
     await sendMessage(userText);
@@ -50,7 +52,36 @@ export default function CrikzlingAvatar() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // Helper component for the Stats Bars
+  const getThoughtPhaseDisplay = () => {
+    if (!currentThought) return null;
+    
+    const phases = {
+      analyzing: { icon: Brain, label: 'Analyzing', color: '#3B82F6' },
+      planning: { icon: Network, label: 'Planning', color: '#F59E0B' },
+      calculating: { icon: Cpu, label: 'Calculating', color: '#10B981' },
+      synthesizing: { icon: Zap, label: 'Synthesizing', color: '#A78BFA' }
+    };
+
+    const phase = phases[currentThought.phase];
+    const Icon = phase.icon;
+
+    return (
+      <div className="flex items-center gap-2 px-3 py-2 bg-black/40 rounded-lg border border-white/10">
+        <Icon size={14} style={{ color: phase.color }} className="animate-pulse" />
+        <span className="text-xs font-bold text-gray-300">{phase.label}...</span>
+        <div className="flex-1 h-1 bg-white/5 rounded-full overflow-hidden ml-2">
+          <motion.div 
+            className="h-full rounded-full"
+            style={{ backgroundColor: phase.color }}
+            initial={{ width: 0 }}
+            animate={{ width: `${currentThought.progress}%` }}
+            transition={{ duration: 0.3 }}
+          />
+        </div>
+      </div>
+    );
+  };
+
   const StatBar = ({ label, value, color, icon: Icon }: any) => (
     <div className="flex flex-col gap-1 w-full">
       <div className="flex justify-between text-[10px] text-gray-400 uppercase font-bold tracking-wider">
@@ -70,7 +101,6 @@ export default function CrikzlingAvatar() {
 
   return (
     <>
-      {/* 1. Floating Trigger Button */}
       <motion.button
         onClick={() => setIsOpen(!isOpen)}
         whileHover={{ scale: 1.05 }}
@@ -97,7 +127,6 @@ export default function CrikzlingAvatar() {
         </AnimatePresence>
       </motion.button>
 
-      {/* 2. Main Interface Panel */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -106,17 +135,24 @@ export default function CrikzlingAvatar() {
             exit={{ opacity: 0, y: 20, scale: 0.95, filter: 'blur(10px)' }}
             className="fixed bottom-24 right-6 z-[100] w-[calc(100vw-3rem)] md:w-[420px] max-h-[70vh] flex flex-col glass-card border-white/10 overflow-hidden shadow-2xl shadow-black/50"
           >
-            {/* A. Header & Brain Stats */}
             <div className="p-4 bg-white/5 border-b border-white/5 relative z-20">
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    Crikzling Brain <span className="px-2 py-0.5 rounded-full bg-primary-500/10 text-primary-500 text-[10px] uppercase">{brainStats.stage}</span>
+                    Crikzling Neural Core <span className="px-2 py-0.5 rounded-full bg-primary-500/10 text-primary-500 text-[10px] uppercase">{brainStats.stage}</span>
                   </h3>
                   <div className="flex gap-4 mt-1">
-                    <span className="text-[10px] text-gray-500 font-medium">Nodes: <span className="text-white">{brainStats.nodes}</span></span>
+                    <span className="text-[10px] text-gray-500 font-medium">Concepts: <span className="text-white">{brainStats.nodes}</span></span>
                     <span className="text-[10px] text-gray-500 font-medium">Relations: <span className="text-white">{brainStats.relations}</span></span>
                     <span className="text-[10px] text-gray-500 font-medium">Unsaved: <span className={needsSave ? "text-amber-500 font-bold" : "text-gray-400"}>{brainStats.unsaved}</span></span>
+                  </div>
+                  <div className="flex gap-4 mt-1">
+                    <span className="text-[10px] text-gray-500 font-medium flex items-center gap-1">
+                      <Database size={10} /> 
+                      STM: {brainStats.memories?.short || 0} | 
+                      MTM: {brainStats.memories?.mid || 0} | 
+                      LTM: {brainStats.memories?.long || 0}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -129,7 +165,6 @@ export default function CrikzlingAvatar() {
               </div>
             </div>
 
-            {/* B. Crystallization Action Banner - Fixed Z-index & Positioning */}
             <AnimatePresence>
               {needsSave && (
                 <motion.div 
@@ -141,7 +176,7 @@ export default function CrikzlingAvatar() {
                   <div className="flex justify-between items-center p-3">
                     <div className="flex items-center gap-2 text-white">
                       <Save size={16} className="animate-pulse" />
-                      <span className="text-xs font-bold uppercase tracking-tighter">Memory Saturated</span>
+                      <span className="text-xs font-bold uppercase tracking-tighter">Memory Crystallization Ready</span>
                     </div>
                     <button 
                       onClick={(e) => { 
@@ -151,19 +186,18 @@ export default function CrikzlingAvatar() {
                       disabled={isSyncing}
                       className="bg-white text-orange-600 px-4 py-1.5 rounded-lg text-[10px] font-black hover:bg-black hover:text-white transition-all shadow-lg"
                     >
-                      {isSyncing ? 'SYNCING TO BSC...' : 'CRYSTALLIZE NOW'}
+                      {isSyncing ? 'SYNCING...' : 'CRYSTALLIZE'}
                     </button>
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
 
-            {/* C. Chat History Area */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide min-h-[300px] relative z-0">
               {messages.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-full opacity-20 text-center p-8">
                   <Brain size={48} className="mb-4" />
-                  <p className="text-sm">Genesis state initialized. Awaiting architectural instruction...</p>
+                  <p className="text-sm">Neural pathways initialized. Awaiting input...</p>
                 </div>
               )}
               
@@ -180,7 +214,8 @@ export default function CrikzlingAvatar() {
               ))}
 
               {isThinking && (
-                <div className="flex justify-start">
+                <div className="flex flex-col gap-3 justify-start">
+                  {getThoughtPhaseDisplay()}
                   <div className="bg-white/5 px-3 py-2 rounded-2xl rounded-tl-none border border-white/5">
                     <div className="flex gap-1 items-center h-4">
                       <span className="w-1 h-1 bg-primary-500 rounded-full animate-bounce" />
@@ -193,7 +228,6 @@ export default function CrikzlingAvatar() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* E. Input & Tools Area */}
             <div className="p-4 bg-black/40 border-t border-white/5 relative z-20">
               <div className="flex gap-2">
                 <input 
@@ -217,7 +251,7 @@ export default function CrikzlingAvatar() {
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                    placeholder={isOwner ? "Command the Crikzling..." : "Ask me anything..."}
+                    placeholder={isOwner ? "Interact with Crikzling..." : "Ask me anything..."}
                     disabled={isThinking}
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs focus:outline-none focus:border-primary-500/50 transition-all pr-10 disabled:opacity-50"
                   />
