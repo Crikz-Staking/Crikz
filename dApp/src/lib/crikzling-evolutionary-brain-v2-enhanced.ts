@@ -1,13 +1,13 @@
-// src/lib/brain/crikzling-evolutionary-brain-v2-enhanced.ts
+// src/lib/crikzling-evolutionary-brain-v2-enhanced.ts
 
+// FIX: Updated imports to use correct relative paths
 import { 
   ATOMIC_PRIMITIVES, 
   ATOMIC_RELATIONS, 
   AtomicConcept, 
   ConceptRelation
-} from '../crikzling-atomic-knowledge';
-// FIX: Updated import path to use alias
-import { loadAllKnowledgeModules } from '@/lib/knowledge/knowledge-loader';
+} from '@/lib/crikzling-atomic-knowledge';
+import { loadAllKnowledgeModules, parseExternalKnowledgeFile } from '@/lib/knowledge/knowledge-loader';
 
 export interface Memory {
   role: 'user' | 'bot';
@@ -376,7 +376,6 @@ export class EnhancedEvolutionaryBrain {
   }
 
   public assimilateFile(content: string): number {
-      // @ts-ignore
       const { concepts, count } = parseExternalKnowledgeFile(content, 'TECHNICAL');
       Object.assign(this.state.concepts, concepts);
       this.state.unsavedDataCount += count;
