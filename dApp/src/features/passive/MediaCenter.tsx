@@ -7,7 +7,7 @@ import {
 import { toast } from 'react-hot-toast';
 import { uploadToIPFS } from '@/lib/ipfs-service';
 import { useMediaRegistry, Web3MediaItem } from '@/hooks/web3/useMediaRegistry';
-import { formatTokenAmount, shortenAddress } from '@/lib/utils';
+import { shortenAddress } from '@/lib/utils';
 
 // --- TYPES ---
 type MediaType = 'video' | 'audio';
@@ -18,7 +18,7 @@ const PlayerOverlay = ({ item, onClose }: { item: Web3MediaItem, onClose: () => 
     const audioRef = useRef<HTMLAudioElement>(null);
     const [isPlaying, setIsPlaying] = useState(false);
 
-    // Resolve Gateway (Using a public gateway for the demo)
+    // Resolve Gateway
     const url = `https://gateway.pinata.cloud/ipfs/${item.cid}`;
 
     const togglePlay = () => {
@@ -86,7 +86,7 @@ export default function MediaCenter({ type, dynamicColor }: { type: MediaType, d
 
     // Convert string type to int for filtering (0=Video, 1=Audio)
     const targetType = type === 'video' ? 0 : 1;
-    const filteredItems = mediaList.filter(item => item.mediaType === targetType);
+    const filteredItems = mediaList.filter((item: Web3MediaItem) => item.mediaType === targetType);
 
     const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -98,16 +98,14 @@ export default function MediaCenter({ type, dynamicColor }: { type: MediaType, d
         try {
             // 1. Upload to IPFS
             const url = await uploadToIPFS(file);
-            // Extract mock CID from the blob URL for demo purposes 
-            // (In prod, uploadToIPFS returns the actual CID string like "Qm...")
-            const fakeCid = `Qm${Math.random().toString(36).substr(2, 15)}...`; 
+            // Mock CID for demo if real IPFS isn't connected
+            const fakeCid = url.includes('blob:') ? `Qm${Math.random().toString(36).substr(2, 15)}` : url; 
             
             toast.loading('2/2 Waiting for Wallet Signature...', { id: toastId });
             
             // 2. Publish to Blockchain
             publishToBlockchain(fakeCid, file.name, type);
             
-            // Note: The toast success will be handled by the hook upon tx confirmation
         } catch (err) {
             toast.error('Upload Failed', { id: toastId });
         } finally {
@@ -164,7 +162,7 @@ export default function MediaCenter({ type, dynamicColor }: { type: MediaType, d
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredItems.map((item) => (
+                    {filteredItems.map((item: Web3MediaItem) => (
                         <motion.div
                             key={item.id.toString()}
                             initial={{ opacity: 0, y: 20 }}

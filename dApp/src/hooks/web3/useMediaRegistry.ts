@@ -32,8 +32,12 @@ export function useMediaRegistry() {
 
   useEffect(() => {
     if (data) {
-      // Sort by newest first
-      const sorted = [...(data as Web3MediaItem[])].sort((a, b) => Number(b.timestamp) - Number(a.timestamp));
+      // Sort by newest first (handling BigInt comparison)
+      const sorted = [...(data as Web3MediaItem[])].sort((a, b) => {
+        if (a.timestamp > b.timestamp) return -1;
+        if (a.timestamp < b.timestamp) return 1;
+        return 0;
+      });
       setMediaList(sorted);
     }
   }, [data]);
