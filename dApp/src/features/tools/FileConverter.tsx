@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'framer-motion'; // <--- Added missing import
 import { Upload, ArrowRight, Download, RefreshCw, FileImage } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
