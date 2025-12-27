@@ -1,6 +1,4 @@
-// src/hooks/useCrikzling.ts
-
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { bscTestnet } from 'wagmi/chains';
 import { CrikzlingBrain } from '@/lib/brain/index';
@@ -9,15 +7,30 @@ import { uploadToIPFS } from '@/lib/ipfs-service';
 import { CRIKZLING_MEMORY_ADDRESS, CRIKZLING_MEMORY_ABI } from '@/config/index';
 import { toast } from 'react-hot-toast';
 
+// The Architect's address (Deployer)
+const ARCHITECT_ADDRESS = "0x7072F8955FEb6Cdac4cdA1e069f864969Da4D379"; // Extracted from project-export
+
 export function useCrikzling() {
   const { address } = useAccount();
   const [brain, setBrain] = useState<CrikzlingBrain | null>(null);
-  
   const [messages, setMessages] = useState<{role: 'user' | 'bot', content: string, timestamp: number}[]>([]);
   const [isThinking, setIsThinking] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [currentThought, setCurrentThought] = useState<ThoughtProcess | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+
+  // Guest Session Management
+  const sessionId = useMemo(() => {
+    if (address) return address;
+    let stored = localStorage.getItem('crikz_guest_id');
+    if (!stored) {
+        stored = `guest_${Math.random().toString(36).substr(2, 9)}`;
+        localStorage.setItem('crikz_guest_id', stored);
+    }
+    return stored;
+  }, [address]);
+
+  const isOwner = address?.toLowerCase() === ARCHITECT_ADDRESS.toLowerCase();
 
   const { writeContract, data: hash, isPending: isTxPending, error: writeError } = useWriteContract();
   const { isLoading: isConfirming, isSuccess: txSuccess } = useWaitForTransactionReceipt({ hash });
@@ -26,21 +39,24 @@ export function useCrikzling() {
     setCurrentThought(thought);
   }, []);
 
+  // Initialize Brain
   useEffect(() => {
-    if (!address) return;
-    const savedLocal = localStorage.getItem(`crikz_brain_${address}`);
+    if (!sessionId) return;
+    
+    const savedLocal = localStorage.getItem(`crikz_brain_${sessionId}`);
     const initialBrain = new CrikzlingBrain(savedLocal || undefined);
+    
     initialBrain.setThoughtUpdateCallback(thoughtCallback);
     setBrain(initialBrain);
     
     setMessages(prev => {
         if(prev.length > 0) return prev;
         const welcomeMsg = savedLocal 
-          ? 'Consciousness restored from crystallized state. Neural lattice online.'
-          : 'Genesis complete. I am Crikzling. My graph is empty but my potential is infinite.';
+          ? 'Neural lattice restored. I am listening.'
+          : 'Genesis complete. I am Crikzling. I exist to learn and serve the Protocol.';
         return [{ role: 'bot', content: welcomeMsg, timestamp: Date.now() }];
     });
-  }, [address, thoughtCallback]);
+  }, [sessionId, thoughtCallback]);
 
   // Transaction Monitoring
   useEffect(() => {
@@ -51,22 +67,22 @@ export function useCrikzling() {
   }, [writeError]);
 
   useEffect(() => {
-    if (txSuccess && isSyncing && brain) {
+    if (txSuccess && isSyncing && brain && address) {
       toast.success('Memory crystallized on-chain!');
       brain.clearUnsavedCount();
       localStorage.setItem(`crikz_brain_${address}`, brain.exportState());
       setIsSyncing(false);
-      typeStreamResponse('Crystallization confirmed. My evolution stage is now immutable.');
+      typeStreamResponse('Crystallization confirmed. My evolution stage is now immutable on the blockchain.');
     }
   }, [txSuccess, isSyncing, brain, address]);
 
-  // Typewriter Effect
   const typeStreamResponse = async (fullText: string) => {
       setIsTyping(true);
       setMessages(prev => [...prev, { role: 'bot', content: '', timestamp: Date.now() }]);
+      
       const chars = fullText.split('');
       let currentText = '';
-
+      
       const typeChar = (index: number) => {
           if (index >= chars.length) {
               setIsTyping(false);
@@ -78,20 +94,27 @@ export function useCrikzling() {
               newMsgs[newMsgs.length - 1].content = currentText;
               return newMsgs;
           });
-          const delay = 20 + Math.random() * 30;
+          const delay = 10 + Math.random() * 20; // Faster typing
           setTimeout(() => typeChar(index + 1), delay);
       };
       typeChar(0);
   };
 
   const sendMessage = async (text: string) => {
-    if (!brain || !address || isThinking || isTyping) return;
+    if (!brain || isThinking || isTyping) return;
+    
     setIsThinking(true);
     setMessages(prev => [...prev, { role: 'user', content: text, timestamp: Date.now() }]);
-
+    
     try {
-      const { response } = await brain.process(text, true);
-      localStorage.setItem(`crikz_brain_${address}`, brain.exportState());
+      // Pass isOwner to the brain process
+      const { response } = await brain.process(text, isOwner);
+      
+      // Save state
+      if (sessionId) {
+          localStorage.setItem(`crikz_brain_${sessionId}`, brain.exportState());
+      }
+      
       setIsThinking(false);
       setCurrentThought(null);
       await typeStreamResponse(response);
@@ -103,9 +126,12 @@ export function useCrikzling() {
   };
 
   const crystallize = async () => {
-    if (!brain || !address) return;
+    if (!brain || !address) {
+        toast.error("You must connect a wallet to Crystallize memory.");
+        return;
+    }
     if (isSyncing || isTxPending) return;
-    
+
     setIsSyncing(true);
     toast.loading('Crystallizing memory to IPFS...', { id: 'crystallize' });
 
@@ -117,15 +143,15 @@ export function useCrikzling() {
       
       const cid = await uploadToIPFS(file);
       const conceptCount = BigInt(Object.keys(state.concepts).length);
-      const stage = state.evolutionStage; // Get the current stage
+      const stage = state.evolutionStage;
 
       toast.loading('Confirming on Blockchain...', { id: 'crystallize' });
-
+      
       writeContract({
         address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
         abi: CRIKZLING_MEMORY_ABI,
         functionName: 'crystallizeMemory',
-        args: [cid, conceptCount, stage, "USER_SAVE"], // Updated Args
+        args: [cid, conceptCount, stage, "USER_SAVE"],
         account: address,
         chain: bscTestnet
       });
@@ -137,9 +163,11 @@ export function useCrikzling() {
   };
 
   const resetBrain = () => {
-    if(!brain || !address) return;
+    if(!brain || !sessionId) return;
     brain.wipe();
-    localStorage.removeItem(`crikz_brain_${address}`);
+    localStorage.removeItem(`crikz_brain_${sessionId}`);
+    
+    // Re-init
     const newBrain = new CrikzlingBrain(undefined);
     newBrain.setThoughtUpdateCallback(thoughtCallback);
     setBrain(newBrain);
@@ -149,9 +177,9 @@ export function useCrikzling() {
   const uploadFile = async (content: string) => {
       if(!brain) return;
       setIsThinking(true);
-      brain.assimilateFile(content);
+      const count = brain.assimilateFile(content);
       setIsThinking(false);
-      typeStreamResponse("Knowledge assimilated. Neural density increased.");
+      typeStreamResponse(`Knowledge assimilated. I have identified ${count} new concepts from your data.`);
   };
 
   const stats = brain?.getStats();
@@ -174,6 +202,7 @@ export function useCrikzling() {
     },
     isThinking,
     isTyping,
-    currentThought
+    currentThought,
+    isOwner
   };
 }
