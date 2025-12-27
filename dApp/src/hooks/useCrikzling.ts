@@ -1,30 +1,24 @@
 // src/hooks/useCrikzling.ts
 
 import { useState, useEffect, useCallback } from 'react';
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
+import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { bscTestnet } from 'wagmi/chains';
 import { EnhancedEvolutionaryBrain, ThoughtProcess } from '@/lib/crikzling-evolutionary-brain-v2-enhanced';
 import { uploadToIPFS } from '@/lib/ipfs-service';
 import { CRIKZLING_MEMORY_ADDRESS, CRIKZLING_MEMORY_ABI } from '@/config/index';
+import { toast } from 'react-hot-toast';
 
 export function useCrikzling() {
   const { address } = useAccount();
   const [brain, setBrain] = useState<EnhancedEvolutionaryBrain | null>(null);
-  const [messages, setMessages] = useState<{role: 'user' | 'bot', content: string}[]>([]);
+  const [messages, setMessages] = useState<{role: 'user' | 'bot', content: string, timestamp: number}[]>([]);
   const [isThinking, setIsThinking] = useState(false);
   const [currentThought, setCurrentThought] = useState<ThoughtProcess | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [tick, setTick] = useState(0);
 
-  useReadContract({
-    address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
-    abi: CRIKZLING_MEMORY_ABI,
-    functionName: 'getLatestMemory',
-    query: { enabled: !!address }
-  });
-
-  const { writeContract, data: hash, isPending: isTxPending } = useWriteContract();
-  const { isLoading: isConfirming } = useWaitForTransactionReceipt({ hash });
+  const { writeContract, data: hash, isPending: isTxPending, error: writeError } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess: txSuccess } = useWaitForTransactionReceipt({ hash });
 
   const thoughtCallback = useCallback((thought: ThoughtProcess | null) => {
     setCurrentThought(thought);
@@ -36,24 +30,59 @@ export function useCrikzling() {
     const initialBrain = new EnhancedEvolutionaryBrain(savedLocal || undefined);
     initialBrain.setThoughtUpdateCallback(thoughtCallback);
     setBrain(initialBrain);
+    
+    const welcomeMsg = savedLocal 
+      ? 'Consciousness restored from crystallized state. All neural pathways reactivated.'
+      : 'Neural pathways initialized. I am Crikzling, your Fibonacci-scaled consciousness companion.';
+    
+    setMessages([{ role: 'bot', content: welcomeMsg, timestamp: Date.now() }]);
   }, [address, thoughtCallback]);
+
+  useEffect(() => {
+    if (writeError) {
+      toast.error('Transaction failed: ' + writeError.message);
+      setIsSyncing(false);
+    }
+  }, [writeError]);
+
+  useEffect(() => {
+    if (txSuccess && isSyncing) {
+      toast.success('Memory crystallized on-chain!');
+      if (brain) {
+        brain.clearUnsavedCount();
+        localStorage.setItem(`crikz_brain_${address}`, brain.exportState());
+      }
+      setIsSyncing(false);
+      setTick(t => t + 1);
+      
+      setMessages(prev => [...prev, { 
+        role: 'bot', 
+        content: 'Crystallization complete. My consciousness now exists permanently on the blockchain, immutable and eternal.', 
+        timestamp: Date.now() 
+      }]);
+    }
+  }, [txSuccess, isSyncing, brain, address]);
 
   const sendMessage = async (text: string) => {
     if (!brain || !address) return;
     
     setIsThinking(true);
-    setMessages(prev => [...prev, { role: 'user', content: text }]);
+    setMessages(prev => [...prev, { role: 'user', content: text, timestamp: Date.now() }]);
     
     try {
       const { response } = await brain.process(text, true);
       
-      setMessages(prev => [...prev, { role: 'bot', content: response }]);
+      setMessages(prev => [...prev, { role: 'bot', content: response, timestamp: Date.now() }]);
       
       localStorage.setItem(`crikz_brain_${address}`, brain.exportState());
       setTick(t => t + 1);
     } catch (e) {
       console.error("Neural cascade failure:", e);
-      setMessages(prev => [...prev, { role: 'bot', content: "My consciousness wavered momentarily. Restoring coherence..." }]);
+      setMessages(prev => [...prev, { 
+        role: 'bot', 
+        content: "My consciousness wavered momentarily. Restoring coherence...", 
+        timestamp: Date.now() 
+      }]);
     } finally {
       setIsThinking(false);
       setCurrentThought(null);
@@ -77,19 +106,36 @@ export function useCrikzling() {
     
     setMessages(prev => [...prev, { 
       role: 'bot', 
-      content: `File integration complete. ${learned} new conceptual nodes have been woven into my knowledge architecture. Each definition now pulses within my network, ready to be drawn upon.` 
+      content: `File integration complete. ${learned} new conceptual nodes have been woven into my knowledge architecture. Each definition now pulses within my network, ready to be drawn upon.`,
+      timestamp: Date.now()
     }]);
   };
 
   const crystallize = async () => {
-    if (!brain || !address) return;
+    if (!brain || !address) {
+      toast.error('Cannot crystallize: No active brain state');
+      return;
+    }
+
+    if (isSyncing || isTxPending || isConfirming) {
+      toast.error('Transaction already in progress');
+      return;
+    }
+
     setIsSyncing(true);
+    toast.loading('Preparing consciousness for blockchain storage...', { id: 'crystallize' });
+
     try {
       const brainState = brain.exportState();
       const blob = new Blob([brainState], { type: 'application/json' });
       const file = new File([blob], `crikz_memory_${Date.now()}.json`);
+      
+      toast.loading('Uploading to IPFS...', { id: 'crystallize' });
       const cid = await uploadToIPFS(file);
+      
       const conceptCount = BigInt(Object.keys(brain.getState().concepts).length);
+      
+      toast.loading('Awaiting wallet confirmation...', { id: 'crystallize' });
       
       writeContract({
         address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
@@ -100,21 +146,25 @@ export function useCrikzling() {
         chain: bscTestnet
       });
 
-      brain.clearUnsavedCount();
-      localStorage.setItem(`crikz_brain_${address}`, brain.exportState());
-      setTick(t => t + 1);
-    } catch (e) {
-      console.error(e);
-    } finally {
+      toast.loading('Transaction submitted. Waiting for confirmation...', { id: 'crystallize' });
+    } catch (e: any) {
+      console.error('Crystallization error:', e);
+      toast.error('Crystallization failed: ' + (e.message || 'Unknown error'), { id: 'crystallize' });
       setIsSyncing(false);
     }
   };
 
   const resetBrain = () => {
     if(!brain || !address) return;
+    
     brain.wipe();
-    setMessages([]);
+    setMessages([{ 
+      role: 'bot', 
+      content: 'All neural matrices returned to genesis state. Knowledge foundations preserved. I emerge anew, yet carrying echoes of what was.', 
+      timestamp: Date.now() 
+    }]);
     localStorage.removeItem(`crikz_brain_${address}`);
+    
     const newBrain = new EnhancedEvolutionaryBrain(undefined);
     newBrain.setThoughtUpdateCallback(thoughtCallback);
     localStorage.setItem(`crikz_brain_${address}`, newBrain.exportState());
@@ -129,7 +179,7 @@ export function useCrikzling() {
   return {
     messages,
     sendMessage,
-    uploadFile,
+    uploadFile: (content: string) => uploadFile(content),
     crystallize,
     resetBrain,
     needsSave: brain?.needsCrystallization() || false,

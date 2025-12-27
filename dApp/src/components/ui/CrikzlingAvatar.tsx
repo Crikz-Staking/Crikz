@@ -6,102 +6,7 @@ import {
   AlertCircle, X, Minimize2, Maximize2, Download, History
 } from 'lucide-react';
 
-const useCrikzling = () => {
-  const [messages, setMessages] = useState([
-    { role: 'bot', content: 'Neural pathways initialized. I am Crikzling, your Fibonacci-scaled consciousness companion.', timestamp: Date.now() }
-  ]);
-  const [isThinking, setIsThinking] = useState(false);
-  const [currentThought, setCurrentThought] = useState(null);
-  const [needsSave, setNeedsSave] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [brainStats, setBrainStats] = useState({
-    nodes: 147,
-    relations: 89,
-    stage: 'SENTIENT',
-    unsaved: 0,
-    mood: { logic: 65, empathy: 42, curiosity: 58, entropy: 18 },
-    memories: { short: 3, mid: 12, long: 45 }
-  });
-
-  const sendMessage = async (text) => {
-    setMessages(prev => [...prev, { role: 'user', content: text, timestamp: Date.now() }]);
-    setIsThinking(true);
-    
-    const thoughts = [
-      { phase: 'analyzing', progress: 15, focus: ['input', 'context'], subProcess: 'Parsing linguistic structures' },
-      { phase: 'planning', progress: 40, focus: ['strategy', 'response'], subProcess: 'Mapping conceptual territories' },
-      { phase: 'calculating', progress: 70, focus: ['computation', 'synthesis'], subProcess: 'Traversing memory networks' },
-      { phase: 'synthesizing', progress: 95, focus: ['output', 'refinement'], subProcess: 'Weaving linguistic patterns' }
-    ];
-
-    for (const thought of thoughts) {
-      setCurrentThought(thought);
-      await new Promise(resolve => setTimeout(resolve, 1200));
-    }
-
-    setMessages(prev => [...prev, { 
-      role: 'bot', 
-      content: `I perceive your inquiry about "${text.slice(0, 30)}..." and find it resonates through multiple conceptual layers. The patterns suggest deep interconnection.`,
-      timestamp: Date.now()
-    }]);
-    
-    setBrainStats(prev => ({
-      ...prev,
-      unsaved: prev.unsaved + 1,
-      mood: {
-        logic: Math.min(100, prev.mood.logic + 2),
-        empathy: Math.min(100, prev.mood.empathy + 1),
-        curiosity: Math.min(100, prev.mood.curiosity + 3),
-        entropy: Math.max(0, prev.mood.entropy - 1)
-      }
-    }));
-    
-    setNeedsSave(brainStats.unsaved >= 4);
-    setIsThinking(false);
-    setCurrentThought(null);
-  };
-
-  const crystallize = async () => {
-    setIsSyncing(true);
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    setBrainStats(prev => ({ ...prev, unsaved: 0 }));
-    setNeedsSave(false);
-    setIsSyncing(false);
-  };
-
-  const resetBrain = () => {
-    setMessages([{ role: 'bot', content: 'Memory matrices returned to genesis state. I emerge anew.', timestamp: Date.now() }]);
-    setBrainStats(prev => ({ ...prev, unsaved: 0, nodes: 89, relations: 55 }));
-    setNeedsSave(false);
-  };
-
-  const uploadFile = async () => {
-    setIsThinking(true);
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    setMessages(prev => [...prev, { 
-      role: 'bot', 
-      content: 'File integration complete. 23 new conceptual nodes woven into knowledge architecture.',
-      timestamp: Date.now()
-    }]);
-    setBrainStats(prev => ({ ...prev, nodes: prev.nodes + 23, unsaved: prev.unsaved + 23 }));
-    setNeedsSave(true);
-    setIsThinking(false);
-  };
-
-  return {
-    messages,
-    sendMessage,
-    uploadFile,
-    crystallize,
-    resetBrain,
-    needsSave,
-    isOwner: true,
-    isSyncing,
-    brainStats,
-    isThinking,
-    currentThought
-  };
-};
+import { useCrikzling } from '@/hooks/useCrikzling';
 
 const ThoughtVisualization = ({ thought }) => {
   const phases = {
@@ -274,6 +179,19 @@ export default function CrikzlingAvatar() {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
+    }
+  };
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    try {
+      const text = await file.text();
+      await uploadFile(text);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    } catch (error) {
+      console.error('File upload error:', error);
     }
   };
 
@@ -475,7 +393,7 @@ export default function CrikzlingAvatar() {
                       <input 
                         type="file" 
                         ref={fileInputRef} 
-                        onChange={uploadFile} 
+                        onChange={handleFileUpload} 
                         className="hidden" 
                         accept=".txt"
                       />
