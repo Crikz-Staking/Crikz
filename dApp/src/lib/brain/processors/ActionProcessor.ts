@@ -1,5 +1,5 @@
 import { InputAnalysis } from './InputProcessor';
-import { BrainState } from '../crikzling-brain-v3';
+import { BrainState } from '../types'; // FIXED IMPORT
 
 export type ActionType = 
   | 'RESPOND_NATURAL' 

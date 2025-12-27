@@ -5,7 +5,7 @@ import { CognitiveProcessor } from './processors/CognitiveProcessor';
 import { ActionProcessor, ActionPlan } from './processors/ActionProcessor';
 import { ResultProcessor } from './processors/ResultProcessor';
 import { ResponseGenerator } from './processors/ResponseGenerator';
-import { BrainState, DAppContext, ThoughtProcess } from './types';
+import { BrainState, DAppContext, ThoughtProcess } from './types'; // FIXED IMPORT
 
 export class CrikzlingBrainV3 {
   private cognitive: CognitiveProcessor;

@@ -1,7 +1,7 @@
 import { PublicClient } from 'viem';
 import { AtomicConcept, ConceptRelation, ATOMIC_PRIMITIVES, ATOMIC_RELATIONS } from '@/lib/crikzling-atomic-knowledge';
 import { loadAllKnowledgeModules, parseExternalKnowledgeFile } from '@/lib/knowledge/knowledge-loader';
-import { BrainState, Memory, BlockchainMemory } from '../crikzling-brain-v3';
+import { BrainState, Memory, BlockchainMemory, DAppContext } from '../types'; // FIXED IMPORTS
 
 export class CognitiveProcessor {
   private state: BrainState;
@@ -62,8 +62,10 @@ export class CognitiveProcessor {
 
     // 1. Excite Seeds
     seedIds.forEach(id => {
-      activation[id] = 1.0;
-      queue.push({ id, energy: 1.0, depth: 0 });
+      if (this.state.concepts[id]) {
+        activation[id] = 1.0;
+        queue.push({ id, energy: 1.0, depth: 0 });
+      }
     });
 
     // 2. Propagate
@@ -74,8 +76,8 @@ export class CognitiveProcessor {
       const current = queue.shift()!;
       if (current.depth >= MAX_DEPTH) continue;
 
-      // Find outgoing relations
-      const neighbors = this.state.relations.filter(r => r.from === current.id);
+      // Find outgoing relations - Explicit type for 'r' fixed implicitly by type inference usually, but defined here for strictness
+      const neighbors = this.state.relations.filter((r: ConceptRelation) => r.from === current.id);
       
       for (const rel of neighbors) {
         const transferEnergy = current.energy * rel.strength * DECAY;
@@ -103,7 +105,7 @@ export class CognitiveProcessor {
         const a = conceptIds[i];
         const b = conceptIds[j];
 
-        const existing = this.state.relations.find(r => 
+        const existing = this.state.relations.find((r: ConceptRelation) => 
           (r.from === a && r.to === b) || (r.from === b && r.to === a)
         );
 
@@ -185,7 +187,7 @@ export class CognitiveProcessor {
     // Relevance filtering for Mid term
     if (this.state.midTermMemory.length > 50) {
       // Keep memories with high access count or high emotion
-      this.state.midTermMemory.sort((a, b) => 
+      this.state.midTermMemory.sort((a: Memory, b: Memory) => 
         (a.emotional_weight + a.access_count) - (b.emotional_weight + b.access_count)
       );
       const forgotten = this.state.midTermMemory.shift(); // Forgets lowest importance
@@ -197,7 +199,6 @@ export class CognitiveProcessor {
     }
   }
 
-  // ... (keep existing methods like assimilateKnowledge, syncBlockchainMemories etc) ...
   public assimilateKnowledge(content: string): number {
     const { concepts, count } = parseExternalKnowledgeFile(content, 'TECHNICAL');
     Object.assign(this.state.concepts, concepts);
@@ -210,8 +211,44 @@ export class CognitiveProcessor {
     if (Date.now() - this.state.lastBlockchainSync < 300000) return;
 
     try {
-        // ... (Existing sync logic) ...
-        // Re-implement existing logic or assume kept for brevity
+        const memories: BlockchainMemory[] = [];
+        const memoryABI = [{
+          inputs: [{ name: '', type: 'uint256' }],
+          name: 'memoryTimeline',
+          outputs: [
+            { name: 'timestamp', type: 'uint256' },
+            { name: 'ipfsCid', type: 'string' },
+            { name: 'conceptsCount', type: 'uint256' },
+            { name: 'evolutionStage', type: 'string' },
+            { name: 'triggerEvent', type: 'string' }
+          ],
+          stateMutability: 'view',
+          type: 'function'
+        }] as const;
+  
+        // Attempt to read recent history (last 5 slots)
+        for (let i = 0; i < 5; i++) {
+          try {
+            const data = await this.publicClient.readContract({
+              address: this.memoryContractAddress,
+              abi: memoryABI,
+              functionName: 'memoryTimeline',
+              args: [BigInt(i)],
+            });
+            if (data && Array.isArray(data)) {
+              memories.push({
+                timestamp: Number(data[0]),
+                ipfsCid: data[1] as string,
+                conceptsCount: data[2] as bigint,
+                evolutionStage: data[3] as string,
+                triggerEvent: data[4] as string
+              });
+            }
+          } catch (e) { break; }
+        }
+        
+        this.state.blockchainMemories = memories;
+        this.state.lastBlockchainSync = Date.now();
     } catch (e) { console.warn("Sync failed"); }
   }
 
@@ -226,7 +263,7 @@ export class CognitiveProcessor {
     return allMemories
       .map(m => ({
         memory: m,
-        score: m.concepts.filter(c => conceptIds.includes(c)).length + (m.emotional_weight * 2)
+        score: m.concepts.filter((c: string) => conceptIds.includes(c)).length + (m.emotional_weight * 2)
       }))
       .filter(item => item.score > 0)
       .sort((a, b) => b.score - a.score)

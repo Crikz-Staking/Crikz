@@ -12,12 +12,14 @@ export class ResponseGenerator {
     connectors: {
       logical: ["correlating with", "logically following", "implying"],
       empathetic: ["harmonizing with", "bringing to mind", "connecting nicely to"],
-      abstract: ["spiraling towards", "converging on", "echoing"]
+      abstract: ["spiraling towards", "converging on", "echoing"],
+      direct: ["linking to", "referencing", "connecting"] // ADDED
     },
     closers: {
       logical: ["Awaiting input.", "Calculation complete.", "Verify."],
       empathetic: ["How does that feel?", "Let's explore further.", "I am here to assist."],
-      abstract: ["The cycle continues.", "Growth is infinite.", "As is above, so is below."]
+      abstract: ["The cycle continues.", "Growth is infinite.", "As is above, so is below."],
+      direct: ["Done.", "Ready.", "System nominal."] // ADDED
     }
   };
 
@@ -29,7 +31,6 @@ export class ResponseGenerator {
     if (actionPlan.type === 'EXECUTE_COMMAND_SAVE') return "Crystallization sequence initiated. Preserving cognitive state to the immutable ledger.";
 
     // 2. Determine Tone based on Mood Stats
-    // Assuming context.brainStats passed mood, otherwise default
     const mood = (context as any).brainStats?.mood || { logic: 50, empathy: 50 }; 
     let tone: 'logical' | 'empathetic' | 'abstract' | 'direct' = 'direct';
 
@@ -37,7 +38,7 @@ export class ResponseGenerator {
     else if (mood.empathy > 70) tone = 'empathetic';
     else if (mood.entropy > 80) tone = 'abstract';
 
-    // 3. Strategic Response for Financial Advice (Safeguarded)
+    // 3. Strategic Response for Financial Advice
     if (input.intent === 'FINANCIAL_ADVICE') {
       return this.generateFinancialStrategy(dappState, tone);
     }
@@ -47,7 +48,7 @@ export class ResponseGenerator {
       return this.generateDAppStatus(dappState, tone);
     }
 
-    // 5. Natural Language Construction (Generative Grammar)
+    // 5. Natural Language Construction
     return this.constructSentence(input, memories, tone);
   }
 

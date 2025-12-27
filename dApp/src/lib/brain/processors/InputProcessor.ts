@@ -1,5 +1,5 @@
 import { AtomicConcept } from '@/lib/crikzling-atomic-knowledge';
-import { DAppContext } from '../crikzling-brain-v3';
+import { DAppContext } from '../types'; // FIXED IMPORT
 
 export interface InputAnalysis {
   rawInput: string;

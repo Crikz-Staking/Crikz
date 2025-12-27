@@ -3,7 +3,8 @@ import { useAccount, useWriteContract, useWaitForTransactionReceipt, usePublicCl
 import { bscTestnet } from 'wagmi/chains';
 import { toast } from 'react-hot-toast';
 
-import { CrikzlingBrainV3, ThoughtProcess, DAppContext } from '@/lib/brain/crikzling-brain-v3';
+import { CrikzlingBrainV3 } from '@/lib/brain/crikzling-brain-v3';
+import { ThoughtProcess, DAppContext } from '@/lib/brain/types'; // FIXED IMPORT
 import { uploadToIPFS } from '@/lib/ipfs-service';
 import { CRIKZLING_MEMORY_ADDRESS, CRIKZLING_MEMORY_ABI } from '@/config/index';
 import { useContractData } from '@/hooks/web3/useContractData';
@@ -67,7 +68,7 @@ export function useCrikzlingV3() {
       if (prev.length > 0) return prev;
       const welcomeMsg = savedLocal 
         ? 'Neural lattice restored. All systems online. I have access to my complete memory - both local and on-chain.'
-        : 'Genesis complete. I am Crikzling v3. I can now access the dApp state, my conversation history, and my immutable blockchain memories. How may I assist you?';
+        : 'Genesis complete. I am Crikzling v4. I can now access the dApp state, my conversation history, and my immutable blockchain memories. How may I assist you?';
       return [{ role: 'bot', content: welcomeMsg, timestamp: Date.now() }];
     });
   }, [sessionId, publicClient]);

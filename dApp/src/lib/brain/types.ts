@@ -12,17 +12,16 @@ export interface BrainState {
   totalInteractions: number;
   unsavedDataCount: number;
   lastBlockchainSync: number;
-  // New V4 Properties
-  attentionSpan: number; // 0-100, determines how far back in history to look
-  learningRate: number; // 0.0 - 1.0, how fast relation strengths update
+  attentionSpan: number;
+  learningRate: number;
 }
 
 export interface MoodState {
-  logic: number;     // 0-100
-  empathy: number;   // 0-100
-  curiosity: number; // 0-100
-  entropy: number;   // 0-100
-  energy: number;    // 0-100 (New: determines response length/complexity)
+  logic: number;
+  empathy: number;
+  curiosity: number;
+  entropy: number;
+  energy: number;
 }
 
 export interface Memory {
@@ -33,8 +32,8 @@ export interface Memory {
   concepts: string[]; 
   emotional_weight: number;
   access_count: number;
-  context_vector?: number[]; // Simulated semantic vector
-  dapp_snapshot?: any; // Snapshot of balance/orders at this moment
+  context_vector?: number[];
+  dapp_context?: DAppContext; // Renamed to match usage in CognitiveProcessor
 }
 
 export interface BlockchainMemory {
@@ -46,11 +45,20 @@ export interface BlockchainMemory {
 }
 
 export interface ThoughtProcess {
-  phase: 'perception' | 'graph_traversal' | 'hebbian_learning' | 'strategy' | 'generation';
+  phase: 'perception' | 'graph_traversal' | 'hebbian_learning' | 'strategy' | 'generation' | 'analyzing' | 'associating' | 'planning' | 'synthesizing' | 'reviewing'; // Merged types
   progress: number;
   subProcess?: string;
   focus?: string[];
   activeNodes?: string[];
 }
 
-export type IntentType = 'COMMAND' | 'QUERY' | 'PHILOSOPHY' | 'CASUAL' | 'TEACHING' | 'FINANCIAL_ADVICE' | 'UNKNOWN';
+export interface DAppContext {
+  user_balance?: bigint;
+  active_orders_count?: number;
+  total_reputation?: bigint;
+  pending_yield?: bigint;
+  global_fund_balance?: bigint;
+  current_block?: bigint;
+}
+
+export type IntentType = 'COMMAND' | 'QUERY' | 'PHILOSOPHY' | 'CASUAL' | 'TEACHING' | 'FINANCIAL_ADVICE' | 'UNKNOWN' | 'GREETING' | 'EXPLANATION' | 'DAPP_QUERY' | 'DISCOURSE' | 'STATEMENT';
