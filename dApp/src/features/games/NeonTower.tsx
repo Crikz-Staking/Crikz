@@ -77,10 +77,10 @@ export default function NeonTower({ onClose, balance, onUpdateBalance, dynamicCo
       // Update Grid State
       const newGrid = [...gridState];
       
-      // Reveal entire row logic for visual feedback
+      // Reveal clicked tile
       newGrid[currentRow] = newGrid[currentRow].map((cell, idx) => ({
           status: mineLocations[currentRow].includes(idx) ? 'mine' : 'safe',
-          revealed: idx === colIndex || gameState === 'gameover' // Only reveal clicked unless game over
+          revealed: idx === colIndex
       }));
 
       if (isMine) {
