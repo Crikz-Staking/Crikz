@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Upload, ArrowRight, Download, RefreshCw } from 'lucide-react';
+import { Upload, ArrowRight, Download, RefreshCw, FileImage } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 export default function FileConverter({ dynamicColor }: { dynamicColor: string }) {
@@ -22,7 +22,6 @@ export default function FileConverter({ dynamicColor }: { dynamicColor: string }
 
         try {
             // Simulated Conversion Logic using Canvas for Images
-            // In a real app, integrate ffmpeg.wasm for video/audio
             if (file.type.startsWith('image/')) {
                 const bitmap = await createImageBitmap(file);
                 const canvas = document.createElement('canvas');
@@ -40,9 +39,8 @@ export default function FileConverter({ dynamicColor }: { dynamicColor: string }
                     }
                 }, mimeType);
             } else {
-                // Mock for non-images
                 setTimeout(() => {
-                    setConvertedUrl(URL.createObjectURL(file)); // Just return original for mock
+                    setConvertedUrl(URL.createObjectURL(file)); 
                     toast.success("Conversion Simulated", { id: 'conv' });
                 }, 1000);
             }
@@ -54,65 +52,58 @@ export default function FileConverter({ dynamicColor }: { dynamicColor: string }
     };
 
     return (
-        <div className="p-8 max-w-2xl mx-auto">
-            <h2 className="text-2xl font-black text-white mb-6">Local File Converter</h2>
+        <div className="glass-card p-8 rounded-3xl border border-white/10 bg-background-elevated">
+            <h3 className="font-bold text-white mb-6 flex items-center gap-2">
+                <FileImage size={24} className="text-indigo-500" /> Media Converter
+            </h3>
             
-            <div className="space-y-6">
+            <div className="grid md:grid-cols-2 gap-8 items-center">
                 {/* Upload Area */}
-                <div className="border-2 border-dashed border-white/10 rounded-2xl p-8 text-center bg-black/20">
-                    <input type="file" onChange={handleUpload} className="hidden" id="file-upload" />
-                    <label htmlFor="file-upload" className="cursor-pointer flex flex-col items-center gap-2">
-                        <Upload size={32} className="text-gray-500" />
-                        <span className="text-gray-300 font-bold">{file ? file.name : "Click to Upload File"}</span>
-                        <span className="text-xs text-gray-500">Processed locally in your browser</span>
-                    </label>
+                <div className="border-2 border-dashed border-white/10 rounded-2xl p-8 text-center bg-black/20 hover:border-indigo-500/50 transition-colors relative group">
+                    <input type="file" onChange={handleUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                    <div className="flex flex-col items-center gap-2 pointer-events-none">
+                        <Upload size={32} className="text-gray-500 group-hover:text-indigo-500 transition-colors" />
+                        <span className="text-gray-300 font-bold">{file ? file.name : "Drop File Here"}</span>
+                        <span className="text-xs text-gray-500">Supports JPG, PNG, WEBP</span>
+                    </div>
                 </div>
 
                 {/* Controls */}
-                <div className="flex items-center gap-4 justify-center">
-                    <span className="text-gray-500 font-bold text-sm uppercase">Convert to:</span>
-                    <select 
-                        value={targetFormat} 
-                        onChange={(e) => setTargetFormat(e.target.value)}
-                        className="bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-white outline-none"
-                    >
-                        <option value="png">PNG Image</option>
-                        <option value="jpg">JPG Image</option>
-                        <option value="webp">WebP Image</option>
-                        <option value="txt">Text (Extract)</option>
-                    </select>
-                </div>
+                <div className="space-y-6">
+                    <div>
+                        <label className="text-xs text-gray-500 font-bold uppercase mb-2 block">Target Format</label>
+                        <select 
+                            value={targetFormat} 
+                            onChange={(e) => setTargetFormat(e.target.value)}
+                            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-indigo-500 transition-colors"
+                        >
+                            <option value="png">PNG Image</option>
+                            <option value="jpg">JPG Image</option>
+                            <option value="webp">WebP Image</option>
+                        </select>
+                    </div>
 
-                <div className="flex justify-center">
                     <button 
                         onClick={convert}
                         disabled={!file || isConverting}
-                        className="bg-primary-500 text-black font-black px-8 py-3 rounded-xl flex items-center gap-2 hover:bg-primary-400 disabled:opacity-50"
+                        className="w-full bg-indigo-500 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-indigo-400 disabled:opacity-50 transition-all"
                     >
                        {isConverting ? <RefreshCw className="animate-spin" /> : <ArrowRight />} 
                        {isConverting ? 'Processing...' : 'Convert Now'}
                     </button>
-                </div>
 
-                {/* Result */}
-                {convertedUrl && (
-                    <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-6 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-emerald-500/20 rounded-lg text-emerald-500"><Download size={20}/></div>
-                            <div>
-                                <div className="text-emerald-500 font-bold">Ready for Download</div>
-                                <div className="text-xs text-emerald-500/60">Your file has been processed</div>
-                            </div>
-                        </div>
-                        <a 
+                    {convertedUrl && (
+                        <motion.a 
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
                             href={convertedUrl} 
-                            download={`converted-file.${targetFormat}`}
-                            className="text-sm font-bold bg-emerald-500 text-black px-4 py-2 rounded-lg hover:bg-emerald-400"
+                            download={`converted.${targetFormat}`}
+                            className="block w-full text-center text-sm font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 py-3 rounded-xl hover:bg-emerald-500/20"
                         >
-                            Download
-                        </a>
-                    </div>
-                )}
+                            <Download size={16} className="inline mr-2"/> Download Result
+                        </motion.a>
+                    )}
+                </div>
             </div>
         </div>
     );
