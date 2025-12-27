@@ -12,7 +12,6 @@ interface GameProps {
 type BetType = 'red' | 'black' | 'green' | 'odd' | 'even' | 'low' | 'high' | number;
 
 const RED_NUMBERS = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
-// Standard European Roulette Order
 const WHEEL_ORDER = [
   0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10,
   5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26
@@ -53,35 +52,28 @@ export default function CryptoRoulette({ onClose, balance, onUpdateBalance, dyna
     const winningIndex = Math.floor(Math.random() * WHEEL_ORDER.length);
     const winningNum = WHEEL_ORDER[winningIndex];
     
-    // Calculate Rotation:
-    // We want to land on 'winningIndex'. 
-    // Wheel is fixed, we rotate the div. 
-    // If angle 0 is top (Index 0), then Index i is at (i * 360/37).
-    // To bring Index i to top, we rotate NEGATIVE (i * 360/37).
+    const sliceDegree = 360 / 37;
+    // Calculate degree to land the number at TOP (pointer position 0deg)
+    // Wheel order index i is at angle (i * sliceDegree)
+    // To bring i to 0, we rotate by - (i * sliceDegree)
     
-    const singleSlice = 360 / 37;
-    const targetSliceAngle = winningIndex * singleSlice;
+    const targetAngle = winningIndex * sliceDegree;
+    const extraSpins = 360 * 5;
     
-    // Add multiple full rotations (5 to 10 spins)
-    const extraSpins = 360 * (5 + Math.floor(Math.random() * 5));
+    // Calculate visual rotation
+    // Current rotation % 360 gives offset. 
+    // We want final position % 360 == (360 - targetAngle)
     
-    // Calculate final absolute rotation needed
-    // Current - (Current % 360) resets to 0 visually (aligned), then subtract target offset
-    // We actually want to increase rotation to spin clockwise visually
+    // Add randomness within the slice (+/- 4deg) to look natural
+    const jitter = (Math.random() * 8) - 4; 
     
-    const newRotation = currentRotation.current + extraSpins + (360 - (targetSliceAngle - (currentRotation.current % 360)));
+    const nextRotation = currentRotation.current + extraSpins + (360 - targetAngle - (currentRotation.current % 360)) + jitter;
     
-    // Just force it to align perfectly:
-    // This logic approximates for visual flair. 
-    // Precise: currentRotation + (360 * 5) + (angle_difference_to_target)
-    
-    const finalRotation = currentRotation.current + extraSpins + (360 - targetSliceAngle); 
-    
-    currentRotation.current = finalRotation;
+    currentRotation.current = nextRotation;
 
     await controls.start({ 
-        rotate: finalRotation, 
-        transition: { duration: 4, ease: [0.2, 0, 0.2, 1] } 
+        rotate: nextRotation, 
+        transition: { duration: 4, ease: [0.25, 0.1, 0.25, 1] } 
     });
 
     setResult(winningNum);
@@ -124,14 +116,28 @@ export default function CryptoRoulette({ onClose, balance, onUpdateBalance, dyna
         {/* Left: Wheel */}
         <div className="flex-1 bg-[#0A0A0F] border-r border-white/5 flex flex-col items-center justify-center p-8 relative overflow-hidden">
             <div className="relative w-64 h-64 md:w-80 md:h-80">
-                <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-white z-20 text-3xl drop-shadow-lg">▼</div>
+                {/* Pointer */}
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2 text-white z-20 text-3xl drop-shadow-lg filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                    ▼
+                </div>
+                
                 <motion.div 
                     animate={controls}
-                    className="w-full h-full rounded-full border-4 border-[#1A1A24] relative shadow-2xl"
-                    style={{ background: 'conic-gradient(#10B981 0deg 9.7deg, #EF4444 9.7deg 19.4deg, #1f2937 19.4deg 29.1deg, #EF4444 29.1deg 38.8deg, #1f2937 38.8deg 48.5deg)' }} 
+                    className="w-full h-full rounded-full border-8 border-[#1A1A24] relative shadow-2xl overflow-hidden"
+                    // Generate gradient slices programmatically for accuracy
+                    style={{ 
+                        background: `conic-gradient(
+                            ${WHEEL_ORDER.map((n, i) => {
+                                const color = n === 0 ? '#10B981' : RED_NUMBERS.includes(n) ? '#EF4444' : '#1f2937';
+                                const start = i * (100/37);
+                                const end = (i+1) * (100/37);
+                                return `${color} ${start}% ${end}%`;
+                            }).join(', ')}
+                        )` 
+                    }} 
                 >
                     <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-48 h-48 bg-[#12121A] rounded-full flex flex-col items-center justify-center border border-white/10 shadow-inner">
+                        <div className="w-48 h-48 bg-[#12121A] rounded-full flex flex-col items-center justify-center border-4 border-white/5 shadow-inner z-10">
                             {result !== null ? (
                                 <>
                                     <span className="text-5xl font-black text-white">{result}</span>
