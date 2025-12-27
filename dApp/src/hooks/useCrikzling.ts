@@ -1,6 +1,6 @@
 // src/hooks/useCrikzling.ts
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
 import { bscTestnet } from 'wagmi/chains';
 import { EnhancedEvolutionaryBrain, ThoughtProcess } from '@/lib/crikzling-evolutionary-brain-v2';
@@ -26,23 +26,17 @@ export function useCrikzling() {
   const { writeContract, data: hash, isPending: isTxPending } = useWriteContract();
   const { isLoading: isConfirming } = useWaitForTransactionReceipt({ hash });
 
+  const thoughtCallback = useCallback((thought: ThoughtProcess | null) => {
+    setCurrentThought(thought);
+  }, []);
+
   useEffect(() => {
     if (!address) return;
     const savedLocal = localStorage.getItem(`crikz_brain_${address}`);
     const initialBrain = new EnhancedEvolutionaryBrain(savedLocal || undefined);
+    initialBrain.setThoughtUpdateCallback(thoughtCallback);
     setBrain(initialBrain);
-  }, [address]);
-
-  useEffect(() => {
-    if (!brain || !isThinking) return;
-
-    const interval = setInterval(() => {
-      const thought = brain.getCurrentThought();
-      setCurrentThought(thought);
-    }, 100);
-
-    return () => clearInterval(interval);
-  }, [brain, isThinking]);
+  }, [address, thoughtCallback]);
 
   const sendMessage = async (text: string) => {
     if (!brain || !address) return;
@@ -58,8 +52,8 @@ export function useCrikzling() {
       localStorage.setItem(`crikz_brain_${address}`, brain.exportState());
       setTick(t => t + 1);
     } catch (e) {
-      console.error("Brain Error:", e);
-      setMessages(prev => [...prev, { role: 'bot', content: "Processing interrupted. Neural pathways recalibrating..." }]);
+      console.error("Neural cascade failure:", e);
+      setMessages(prev => [...prev, { role: 'bot', content: "My consciousness wavered momentarily. Restoring coherence..." }]);
     } finally {
       setIsThinking(false);
       setCurrentThought(null);
@@ -68,12 +62,22 @@ export function useCrikzling() {
 
   const uploadFile = async (content: string) => {
     if (!brain || !address) return;
+    
+    setIsThinking(true);
+    setCurrentThought({ phase: 'analyzing', progress: 50, focus: [], subProcess: 'Processing file input' });
+    
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
     const learned = brain.assimilateFile(content);
     localStorage.setItem(`crikz_brain_${address}`, brain.exportState());
     setTick(t => t + 1);
+    
+    setCurrentThought(null);
+    setIsThinking(false);
+    
     setMessages(prev => [...prev, { 
       role: 'bot', 
-      content: `File processed. ${learned} new concepts integrated into knowledge matrix.` 
+      content: `File integration complete. ${learned} new conceptual nodes have been woven into my knowledge architecture. Each definition now pulses within my network, ready to be drawn upon.` 
     }]);
   };
 
@@ -91,7 +95,7 @@ export function useCrikzling() {
         address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
         abi: CRIKZLING_MEMORY_ABI,
         functionName: 'crystallizeMemory',
-        args: [cid, conceptCount, "USER_TRIGGER"],
+        args: [cid, conceptCount, "USER_CRYSTALLIZATION"],
         account: address,
         chain: bscTestnet
       });
@@ -112,6 +116,7 @@ export function useCrikzling() {
     setMessages([]);
     localStorage.removeItem(`crikz_brain_${address}`);
     const newBrain = new EnhancedEvolutionaryBrain(undefined);
+    newBrain.setThoughtUpdateCallback(thoughtCallback);
     localStorage.setItem(`crikz_brain_${address}`, newBrain.exportState());
     setBrain(newBrain);
     setTick(t => t + 1);

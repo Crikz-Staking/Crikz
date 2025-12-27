@@ -66,18 +66,26 @@ export default function CrikzlingAvatar() {
     const Icon = phase.icon;
 
     return (
-      <div className="flex items-center gap-2 px-3 py-2 bg-black/40 rounded-lg border border-white/10">
-        <Icon size={14} style={{ color: phase.color }} className="animate-pulse" />
-        <span className="text-xs font-bold text-gray-300">{phase.label}...</span>
-        <div className="flex-1 h-1 bg-white/5 rounded-full overflow-hidden ml-2">
-          <motion.div 
-            className="h-full rounded-full"
-            style={{ backgroundColor: phase.color }}
-            initial={{ width: 0 }}
-            animate={{ width: `${currentThought.progress}%` }}
-            transition={{ duration: 0.3 }}
-          />
+      <div className="flex flex-col gap-2 px-3 py-2 bg-black/40 rounded-lg border border-white/10">
+        <div className="flex items-center gap-2">
+          <Icon size={14} style={{ color: phase.color }} className="animate-pulse" />
+          <span className="text-xs font-bold text-gray-300">{phase.label}</span>
+          <div className="flex-1 h-1 bg-white/5 rounded-full overflow-hidden ml-2">
+            <motion.div 
+              className="h-full rounded-full"
+              style={{ backgroundColor: phase.color }}
+              initial={{ width: 0 }}
+              animate={{ width: `${currentThought.progress}%` }}
+              transition={{ duration: 0.3 }}
+            />
+          </div>
+          <span className="text-[10px] text-gray-500 font-mono">{currentThought.progress}%</span>
         </div>
+        {currentThought.subProcess && (
+          <div className="text-[10px] text-gray-400 italic pl-5">
+            {currentThought.subProcess}
+          </div>
+        )}
       </div>
     );
   };
