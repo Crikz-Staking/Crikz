@@ -8,7 +8,7 @@ import { CRIKZLING_MEMORY_ADDRESS, CRIKZLING_MEMORY_ABI } from '@/config/index';
 import { toast } from 'react-hot-toast';
 
 // The Architect's address (Deployer)
-const ARCHITECT_ADDRESS = "0x7072F8955FEb6Cdac4cdA1e069f864969Da4D379"; // Extracted from project-export
+const ARCHITECT_ADDRESS = "0x7072F8955FEb6Cdac4cdA1e069f864969Da4D379";
 
 export function useCrikzling() {
   const { address } = useAccount();
@@ -18,8 +18,6 @@ export function useCrikzling() {
   const [isTyping, setIsTyping] = useState(false);
   const [currentThought, setCurrentThought] = useState<ThoughtProcess | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
-
-
 
   // Guest Session Management
   const sessionId = useMemo(() => {
@@ -96,6 +94,7 @@ export function useCrikzling() {
               newMsgs[newMsgs.length - 1].content = currentText;
               return newMsgs;
           });
+          
           const delay = 10 + Math.random() * 20; // Faster typing
           setTimeout(() => typeChar(index + 1), delay);
       };
@@ -107,7 +106,7 @@ export function useCrikzling() {
     
     setIsThinking(true);
     setMessages(prev => [...prev, { role: 'user', content: text, timestamp: Date.now() }]);
-    
+
     try {
       // Pass isOwner to the brain process
       const { response } = await brain.process(text, isOwner);
@@ -140,15 +139,17 @@ export function useCrikzling() {
     try {
       const state = brain.getState();
       const exportStr = brain.exportState();
+      
       const blob = new Blob([exportStr], { type: 'application/json' });
       const file = new File([blob], `crikz_mem_${Date.now()}.json`);
       
       const cid = await uploadToIPFS(file);
+      
       const conceptCount = BigInt(Object.keys(state.concepts).length);
       const stage = state.evolutionStage;
 
       toast.loading('Confirming on Blockchain...', { id: 'crystallize' });
-      
+
       writeContract({
         address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
         abi: CRIKZLING_MEMORY_ABI,
@@ -173,6 +174,7 @@ export function useCrikzling() {
     const newBrain = new CrikzlingBrain(undefined);
     newBrain.setThoughtUpdateCallback(thoughtCallback);
     setBrain(newBrain);
+    
     setMessages([{ role: 'bot', content: 'System Reset. Genesis State Restored.', timestamp: Date.now() }]);
   };
 
@@ -180,6 +182,7 @@ export function useCrikzling() {
       if(!brain) return;
       setIsThinking(true);
       const count = brain.assimilateFile(content);
+      
       setIsThinking(false);
       typeStreamResponse(`Knowledge assimilated. I have identified ${count} new concepts from your data.`);
   };
@@ -200,11 +203,11 @@ export function useCrikzling() {
       relations: stats?.edges || 0,
       unsaved: stats?.unsaved || 0,
       mood: stats?.mood || { logic: 0, empathy: 0, curiosity: 0, entropy: 0 },
-      // FIXED: flattened the memories structure to match CrikzlingAvatar expectation or updated the UI
+      // FIX: Map flat stats properties to the memories structure expected by UI
       memories: { 
-        short: stats?.memories?.short || 0, 
-        mid: stats?.memories?.mid || 0, 
-        long: stats?.memories?.long || 0 
+        short: stats?.short || 0, 
+        mid: stats?.mid || 0, 
+        long: stats?.long || 0 
       }
     },
     isThinking,

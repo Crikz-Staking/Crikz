@@ -1,6 +1,6 @@
 // src/lib/brain/knowledge-module.ts
 
-import { AtomicConcept, ConceptRelation, ATOMIC_PRIMITIVES, ATOMIC_RELATIONS } from '../crikzling-atomic-knowledge';
+import { AtomicConcept, ConceptRelation, ATOMIC_PRIMITIVES, ATOMIC_RELATIONS } from '@/lib/crikzling-atomic-knowledge';
 // FIX: Using alias path to avoid relative path hell and duplicates
 import { FIBONACCI_KNOWLEDGE, FIBONACCI_RELATIONS } from '@/lib/knowledge/fibonacci-math.knowledge';
 import { BLOCKCHAIN_KNOWLEDGE, BLOCKCHAIN_RELATIONS } from '@/lib/knowledge/blockchain.knowledge';

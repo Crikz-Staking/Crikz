@@ -17,7 +17,8 @@ export class CrikzlingBrain {
   constructor(savedJson?: string) {
     let parsed: Partial<BrainState> = {};
     if (savedJson) {
-        try { parsed = JSON.parse(savedJson); } catch (e) { console.error("Corrupt brain state, initializing fresh."); }
+        try { parsed = JSON.parse(savedJson);
+        } catch (e) { console.error("Corrupt brain state, initializing fresh."); }
     }
 
     this.memory = new MemoryModule(parsed);
@@ -93,7 +94,7 @@ export class CrikzlingBrain {
 
       this.updateThought('reviewing', 100, 'Finalizing output');
       await this.think(200, 400);
-      
+
       if (this.thoughtCallback) this.thoughtCallback(null);
       return { response };
 
@@ -143,9 +144,10 @@ export class CrikzlingBrain {
   public clearUnsavedCount() { this.knowledge.unsavedCount = 0; }
   
   public getStats() {
+      // Returns a flat object mixing stats from modules
       return {
-          ...this.memory.getStats(),
-          ...this.knowledge.getStats(),
+          ...this.memory.getStats(),    // returns { short, mid, long }
+          ...this.knowledge.getStats(), // returns { nodes, edges }
           stage: this.evolutionStage,
           mood: this.mood,
           unsaved: this.knowledge.unsavedCount

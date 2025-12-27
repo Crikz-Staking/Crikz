@@ -1,13 +1,13 @@
-// src/lib/crikzling-evolutionary-brain-v2-enhanced.ts
+// src/lib/brain/crikzling-evolutionary-brain-v2-enhanced.ts
 
+// FIX: Updated imports to use alias '@' to prevent file not found errors
 import { 
   ATOMIC_PRIMITIVES, 
   ATOMIC_RELATIONS, 
   AtomicConcept, 
-  ConceptRelation,
-  AtomicDomain
-} from './crikzling-atomic-knowledge';
-import { loadAllKnowledgeModules, parseExternalKnowledgeFile } from './knowledge/knowledge-loader';
+  ConceptRelation
+} from '@/lib/crikzling-atomic-knowledge';
+import { loadAllKnowledgeModules, parseExternalKnowledgeFile } from '@/lib/knowledge/knowledge-loader';
 
 export interface Memory {
   role: 'user' | 'bot';
@@ -46,7 +46,6 @@ export interface BrainState {
   };
 }
 
-// Extended Vocabulary for Dynamic Construction
 const VOCABULARY = {
   openers: [
     "In analyzing the substrate of", "Reflecting upon the nature of", "Calculations suggest that", 
@@ -95,7 +94,7 @@ export class EnhancedEvolutionaryBrain {
       unsavedDataCount: 0,
       evolutionStage: 'SENTIENT',
       mood: { logic: 60, empathy: 40, curiosity: 50, entropy: 15 },
-      personality: { verbosity: 75, formality: 60, creativity: 80 } // Increased verbosity for longer responses
+      personality: { verbosity: 75, formality: 60, creativity: 80 }
     };
 
     if (savedJson) {
@@ -120,22 +119,18 @@ export class EnhancedEvolutionaryBrain {
       const cleanInput = input.trim().toLowerCase();
       this.state.totalInteractions++;
 
-      // 1. DEEP ANALYSIS PHASE
       this.updateThought({ phase: 'analyzing', progress: 5, focus: [], subProcess: 'Deconstructing semantic input' });
-      await this.simulateThinking(1500, 2500); // Increased time
+      await this.simulateThinking(1500, 2500);
       
       const analysisResult = await this.analyzeInput(cleanInput);
-      
       this.updateThought({ phase: 'analyzing', progress: 20, focus: analysisResult.keywords.map(k => k.id), subProcess: 'Detecting emotional resonance' });
       await this.simulateThinking(1000, 2000);
 
-      // 2. STRATEGIC PLANNING
       this.updateThought({ phase: 'planning', progress: 35, focus: [], subProcess: 'Formulating cognitive strategy' });
       await this.simulateThinking(1500, 3000);
       
       const plan = await this.createActionPlan(analysisResult, isOwner);
 
-      // 3. RECURSIVE CALCULATION (Knowledge Graph Traversal)
       this.updateThought({ phase: 'calculating', progress: 50, focus: plan.relevantConcepts, subProcess: 'Traversing deep concept graph' });
       await this.simulateThinking(2000, 4000);
       
@@ -146,32 +141,26 @@ export class EnhancedEvolutionaryBrain {
       
       const memories = this.scanMemoryBanks(plan.relevantConcepts, analysisResult.intent);
 
-      // 4. COMPLEX SYNTHESIS
       this.updateThought({ phase: 'synthesizing', progress: 85, focus: [], subProcess: 'Weaving narrative structure' });
-      await this.simulateThinking(2000, 4000); // Give time to "formulate"
+      await this.simulateThinking(2000, 4000);
       
       const responseText = await this.synthesizeComplexResponse(conceptPaths, memories, analysisResult);
 
-      // 5. REVIEW & FINALIZATION
       this.updateThought({ phase: 'reviewing', progress: 95, focus: [], subProcess: 'Final coherence check' });
       await this.simulateThinking(500, 1000);
 
-      // Archive Interaction
       this.archiveMemory('user', cleanInput, Date.now(), analysisResult.keywords.map(k => k.id), analysisResult.emotionalWeight);
       this.archiveMemory('bot', responseText, Date.now(), conceptPaths.flat().map(c => c.id), 0);
       this.evolveConsciousness();
 
       this.updateThought(null);
       return { response: responseText, learned: [] };
-
     } catch (error) {
       console.error("Cognitive cascade failure:", error);
       this.updateThought(null);
       return { response: this.emergencySelfRepair(), learned: [] };
     }
   }
-
-  // --- HELPER METHODS ---
 
   private async analyzeInput(input: string) {
     const STOP_WORDS = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'is', 'in', 'on', 'at', 'to', 'for', 'with', 'by']);
@@ -184,9 +173,7 @@ export class EnhancedEvolutionaryBrain {
       }
     });
 
-    // Semantic expansion: Look for triggers even if exact keywords aren't found
     if (keywords.length === 0 && input.length > 5) {
-        // Fallback: analyze input context (simplified)
         if(input.includes("learn") || input.includes("study")) keywords.push(this.state.concepts['crikzling']);
     }
 
@@ -215,7 +202,6 @@ export class EnhancedEvolutionaryBrain {
   }
 
   private async createActionPlan(analysis: any, isOwner: boolean) {
-    // Determine the depth of response required
     const depth = analysis.intent === 'QUESTION' || analysis.intent === 'EXPLANATION_REQUEST' ? 3 : 1;
     return {
         action: 'SYNTHESIZE',
@@ -226,18 +212,12 @@ export class EnhancedEvolutionaryBrain {
 
   private async performDeepTraversal(startIds: string[]): Promise<AtomicConcept[][]> {
     const paths: AtomicConcept[][] = [];
-    
-    // Find relations for every starting concept
     for (const id of startIds) {
-        // 1. Direct Relations
-        const directPath = this.traverseConceptGraph(id, 4); // Go deeper (4 steps)
+        const directPath = this.traverseConceptGraph(id, 4);
         if (directPath.length) paths.push(directPath);
-
-        // 2. Lateral Associations (Find siblings)
         const relations = this.state.relations.filter(r => r.from === id || r.to === id);
         for(const rel of relations) {
             const neighbor = rel.from === id ? rel.to : rel.from;
-            // Traverse from neighbor to find context
             const sidePath = this.traverseConceptGraph(neighbor, 2);
             if (sidePath.length > 1) paths.push(sidePath);
         }
@@ -257,13 +237,10 @@ export class EnhancedEvolutionaryBrain {
         path.push(concept);
         visited.add(currentId);
 
-        // Find strongest relation outgoing
         const relations = this.state.relations
             .filter(r => r.from === currentId && !visited.has(r.to))
             .sort((a, b) => b.strength - a.strength);
-
         if (relations.length > 0) {
-            // Add randomness to make it feel "alive"
             const nextRel = relations[Math.floor(Math.random() * Math.min(relations.length, 3))];
             currentId = nextRel.to;
         } else {
@@ -274,16 +251,13 @@ export class EnhancedEvolutionaryBrain {
   }
 
   private scanMemoryBanks(conceptIds: string[], intent: string): Memory[] {
-      // Prioritize long term memories that match concepts
       const relevant = this.state.longTermMemory.filter(m => 
           m.concepts.some(c => conceptIds.includes(c))
       );
-      // Mix in recent short term context
       const recent = this.state.shortTermMemory.slice(-3);
       return [...relevant, ...recent];
   }
 
-  // --- COMPLEX RESPONSE GENERATOR ---
   private async synthesizeComplexResponse(paths: AtomicConcept[][], memories: Memory[], analysis: any): Promise<string> {
       if (analysis.intent === 'COMMAND') {
           return this.executeCommand(analysis.keywords[0]?.id || '').message;
@@ -294,8 +268,6 @@ export class EnhancedEvolutionaryBrain {
       }
 
       const paragraphs: string[] = [];
-
-      // 1. The Opening Thesis
       const primaryPath = paths[0];
       const primaryConcept = primaryPath[0];
       const opener = this.selectRandom(VOCABULARY.openers);
@@ -307,7 +279,6 @@ export class EnhancedEvolutionaryBrain {
       }
       paragraphs.push(openingSentence);
 
-      // 2. The Elaboration (Chain of Thought)
       if (paths.length > 1 || primaryPath.length > 2) {
           const secondaryConcepts = paths.flat().filter(c => c.id !== primaryConcept.id);
           const distinct = [...new Set(secondaryConcepts.map(c => c.id))].slice(0, 3);
@@ -316,8 +287,6 @@ export class EnhancedEvolutionaryBrain {
               const modifier = this.selectRandom(VOCABULARY.depth_modifiers);
               const connector = this.selectRandom(VOCABULARY.connectors.additive);
               let elaboration = `${this.capitalize(connector)} ${modifier}, the data suggests an interaction with ${distinct.join(', and ')}.`;
-              
-              // Inject a memory reference if available
               if (memories.length > 0 && Math.random() > 0.5) {
                    elaboration += ` This resonates with a previous pattern where we discussed ${memories[0].concepts[0] || 'similar constructs'}.`;
               }
@@ -325,11 +294,9 @@ export class EnhancedEvolutionaryBrain {
           }
       }
 
-      // 3. The Philosophical/Abstract Conclusion
       const conclusionConnect = this.selectRandom(VOCABULARY.connectors.conclusive);
       const abstractThought = `Therefore, we are ${conclusionConnect} a state where ${primaryConcept.id} defines the current parameters of our exchange.`;
       paragraphs.push(abstractThought);
-
       return paragraphs.join(' ');
   }
 
@@ -409,6 +376,7 @@ export class EnhancedEvolutionaryBrain {
   }
 
   public assimilateFile(content: string): number {
+      // @ts-ignore
       const { concepts, count } = parseExternalKnowledgeFile(content, 'TECHNICAL');
       Object.assign(this.state.concepts, concepts);
       this.state.unsavedDataCount += count;
