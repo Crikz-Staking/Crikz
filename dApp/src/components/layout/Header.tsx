@@ -3,13 +3,14 @@ import { useChainId, useSwitchChain } from 'wagmi';
 import { bscTestnet } from 'wagmi/chains';
 import CustomConnectButton from '@/components/ui/CustomConnectButton';
 import BrandLogo from './BrandLogo';
+import PriceTicker from '@/components/ui/PriceTicker';
 import { Language } from '@/types';
 
 interface HeaderProps {
   lang: Language;
   setLang: (l: Language) => void;
   setViewMode: (mode: any) => void;
-  dynamicColor?: string; // Add this optional property [cite: 105]
+  dynamicColor?: string;
 }
 
 export default function Header({ lang, setLang, setViewMode }: HeaderProps) {
@@ -19,6 +20,8 @@ export default function Header({ lang, setLang, setViewMode }: HeaderProps) {
 
   return (
     <>
+      <PriceTicker />
+      
       {isWrongNetwork && (
         <div className="bg-red-500/90 backdrop-blur-sm text-white text-center text-xs font-bold py-1 z-[100] relative">
           Network Mismatch. Please switch to BSC Testnet. 
@@ -26,10 +29,10 @@ export default function Header({ lang, setLang, setViewMode }: HeaderProps) {
         </div>
       )}
       
-      <header className="sticky top-0 z-50 w-full border-b border-white/5 bg-background/80 backdrop-blur-xl">
+      <header className="sticky top-0 z-50 w-full border-b border-white/5 bg-background/80 backdrop-blur-xl transition-all duration-300">
         <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
           {/* Logo */}
-          <button onClick={() => setViewMode('nft')} className="hover:opacity-80 transition-opacity">
+          <button onClick={() => setViewMode('dashboard')} className="hover:opacity-80 transition-opacity">
             <BrandLogo />
           </button>
 
@@ -39,7 +42,6 @@ export default function Header({ lang, setLang, setViewMode }: HeaderProps) {
               onClick={() => setLang(lang === 'en' ? 'sq' : 'en')} 
               className="text-xs font-bold text-gray-500 hover:text-primary-500 transition-colors border border-white/5 px-2 py-1 rounded-md"
             >
-              {/* This check prevents the crash if lang is somehow undefined */}
               {lang ? lang.toUpperCase() : 'EN'}
             </button>
             <CustomConnectButton />
