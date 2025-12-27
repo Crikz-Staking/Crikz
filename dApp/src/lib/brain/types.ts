@@ -9,6 +9,7 @@ export interface BrainState {
   blockchainMemories: BlockchainMemory[];
   evolutionStage: 'GENESIS' | 'SENTIENT' | 'SAPIENT' | 'TRANSCENDENT';
   mood: MoodState;
+  activeGoals: Goal[]; // NEW: Track what the user is trying to achieve
   totalInteractions: number;
   unsavedDataCount: number;
   lastBlockchainSync: number;
@@ -22,7 +23,11 @@ export interface MoodState {
   curiosity: number;
   entropy: number;
   energy: number;
+  confidence: number; // NEW: Affects how assertive the advice is
 }
+
+// 6 Dimensions: [Financial, Technical, Social, Temporal, Abstract, Risk]
+export type Vector = [number, number, number, number, number, number];
 
 export interface Memory {
   id: string;
@@ -30,10 +35,17 @@ export interface Memory {
   content: string;
   timestamp: number;
   concepts: string[]; 
+  vector: Vector; // NEW: Semantic position in thought space
   emotional_weight: number;
   access_count: number;
-  context_vector?: number[];
-  dapp_context?: DAppContext; // Renamed to match usage in CognitiveProcessor
+  dapp_context?: DAppContext;
+}
+
+export interface Goal {
+  id: string;
+  type: 'MAXIMIZE_YIELD' | 'BUILD_REPUTATION' | 'LEARN_CONCEPTS' | 'EXPLORE_NFT';
+  progress: number; // 0-100
+  priority: number;
 }
 
 export interface BlockchainMemory {
@@ -45,7 +57,7 @@ export interface BlockchainMemory {
 }
 
 export interface ThoughtProcess {
-  phase: 'perception' | 'graph_traversal' | 'hebbian_learning' | 'strategy' | 'generation' | 'analyzing' | 'associating' | 'planning' | 'synthesizing' | 'reviewing'; // Merged types
+  phase: 'perception' | 'vectorization' | 'simulation' | 'strategy' | 'generation' | 'dreaming';
   progress: number;
   subProcess?: string;
   focus?: string[];
@@ -59,6 +71,13 @@ export interface DAppContext {
   pending_yield?: bigint;
   global_fund_balance?: bigint;
   current_block?: bigint;
+}
+
+export interface SimulationResult {
+  scenario: string;
+  outcomeValue: number;
+  riskLevel: number;
+  recommendation: string;
 }
 
 export type IntentType = 'COMMAND' | 'QUERY' | 'PHILOSOPHY' | 'CASUAL' | 'TEACHING' | 'FINANCIAL_ADVICE' | 'UNKNOWN' | 'GREETING' | 'EXPLANATION' | 'DAPP_QUERY' | 'DISCOURSE' | 'STATEMENT';
