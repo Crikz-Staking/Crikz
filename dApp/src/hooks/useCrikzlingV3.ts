@@ -1,5 +1,3 @@
-// src/hooks/useCrikzlingV3.ts
-
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from 'wagmi';
 import { bscTestnet } from 'wagmi/chains';
@@ -23,7 +21,6 @@ export function useCrikzlingV3() {
   const [currentThought, setCurrentThought] = useState<ThoughtProcess | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // Get real-time dApp state
   const {
     balance,
     activeOrders,
@@ -32,13 +29,12 @@ export function useCrikzlingV3() {
     globalFund,
   } = useContractData();
 
-  // Session Management
   const sessionId = useMemo(() => {
     if (address) return address;
     let stored = localStorage.getItem('crikz_guest_id');
     if (!stored) {
       stored = `guest_${Math.random().toString(36).substr(2, 9)}`;
-      localStorage.getItem('crikz_guest_id', stored);
+      localStorage.setItem('crikz_guest_id', stored);
     }
     return stored;
   }, [address]);
@@ -52,7 +48,6 @@ export function useCrikzlingV3() {
     setCurrentThought(thought);
   }, []);
 
-  // Initialize Brain with blockchain integration
   useEffect(() => {
     if (!sessionId) return;
     
@@ -75,7 +70,6 @@ export function useCrikzlingV3() {
     });
   }, [sessionId, thoughtCallback, publicClient]);
 
-  // Transaction Monitoring
   useEffect(() => {
     if (writeError) {
       toast.error('Transaction failed: ' + writeError.message);
@@ -93,9 +87,6 @@ export function useCrikzlingV3() {
     }
   }, [txSuccess, isSyncing, brain, address]);
 
-  /**
-   * Build dApp context from current contract state
-   */
   const buildDAppContext = useCallback((): DAppContext | undefined => {
     if (!address) return undefined;
 
@@ -109,9 +100,6 @@ export function useCrikzlingV3() {
     };
   }, [address, balance, activeOrders, totalReputation, pendingYield, globalFund]);
 
-  /**
-   * Enhanced typing stream
-   */
   const typeStreamResponse = async (fullText: string) => {
     setIsTyping(true);
     setMessages(prev => [...prev, { role: 'bot', content: '', timestamp: Date.now() }]);
@@ -142,9 +130,6 @@ export function useCrikzlingV3() {
     typeChar(0);
   };
 
-  /**
-   * Send message with full context integration
-   */
   const sendMessage = async (text: string) => {
     if (!brain || isThinking || isTyping) return;
     
@@ -152,13 +137,10 @@ export function useCrikzlingV3() {
     setMessages(prev => [...prev, { role: 'user', content: text, timestamp: Date.now() }]);
 
     try {
-      // Build current dApp context
       const dappContext = buildDAppContext();
       
-      // Process with enhanced brain (includes blockchain sync)
       const { response } = await brain.process(text, isOwner, dappContext);
       
-      // Save state with dApp context
       if (sessionId) {
         localStorage.setItem(`crikz_brain_v3_${sessionId}`, brain.exportState());
       }
@@ -175,9 +157,6 @@ export function useCrikzlingV3() {
     }
   };
 
-  /**
-   * Crystallize memory to blockchain with enhanced metadata
-   */
   const crystallize = async () => {
     if (!brain || !address) {
       toast.error("You must connect a wallet to crystallize memory.");
@@ -200,7 +179,6 @@ export function useCrikzlingV3() {
       const conceptCount = BigInt(Object.keys(state.concepts).length);
       const stage = state.evolutionStage;
       
-      // Enhanced trigger information
       const trigger = `V3_MANUAL_SAVE_INTERACTIONS_${state.totalInteractions}_BLOCKCHAIN_SYNCS_${state.blockchainMemories.length}`;
 
       toast.loading('Confirming on Blockchain...', { id: 'crystallize' });
@@ -221,9 +199,6 @@ export function useCrikzlingV3() {
     }
   };
 
-  /**
-   * Reset brain to genesis
-   */
   const resetBrain = () => {
     if (!brain || !sessionId) return;
     brain.wipe();
@@ -244,9 +219,6 @@ export function useCrikzlingV3() {
     }]);
   };
 
-  /**
-   * Upload and assimilate knowledge file
-   */
   const uploadFile = async (content: string) => {
     if (!brain) return;
     setIsThinking(true);

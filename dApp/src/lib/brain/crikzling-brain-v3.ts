@@ -1,5 +1,3 @@
-// src/lib/brain/crikzling-brain-v3.ts
-
 import { 
   AtomicConcept, 
   ConceptRelation,
@@ -9,10 +7,6 @@ import {
 import { loadAllKnowledgeModules, parseExternalKnowledgeFile } from '@/lib/knowledge/knowledge-loader';
 import { PublicClient } from 'viem';
 
-// ========================================
-// TYPES & INTERFACES
-// ========================================
-
 export interface Memory {
   id: string;
   role: 'user' | 'bot';
@@ -20,7 +14,7 @@ export interface Memory {
   timestamp: number;
   concepts: string[];
   emotional_weight: number;
-  dapp_context?: DAppContext; // NEW: Capture dApp state at memory creation
+  dapp_context?: DAppContext;
 }
 
 export interface DAppContext {
@@ -53,7 +47,7 @@ export interface BrainState {
   shortTermMemory: Memory[];
   midTermMemory: Memory[];
   longTermMemory: Memory[];
-  blockchainMemories: BlockchainMemory[]; // NEW: Cache of on-chain memories
+  blockchainMemories: BlockchainMemory[];
   totalInteractions: number;
   unsavedDataCount: number;
   evolutionStage: 'GENESIS' | 'SENTIENT' | 'SAPIENT' | 'TRANSCENDENT';
@@ -65,10 +59,6 @@ export interface BrainState {
   };
   lastBlockchainSync: number;
 }
-
-// ========================================
-// NATURAL LANGUAGE GENERATION
-// ========================================
 
 const RESPONSE_TEMPLATES = {
   greeting: [
@@ -108,10 +98,6 @@ const RESPONSE_TEMPLATES = {
     "Putting it all together,",
   ]
 };
-
-// ========================================
-// MAIN BRAIN CLASS
-// ========================================
 
 export class CrikzlingBrainV3 {
   private state: BrainState;
@@ -166,17 +152,12 @@ export class CrikzlingBrainV3 {
     return defaults;
   }
 
-  // ========================================
-  // BLOCKCHAIN INTEGRATION
-  // ========================================
-
   private async syncBlockchainMemories(): Promise<void> {
     if (!this.publicClient || !this.memoryContractAddress) return;
 
     try {
       this.updateThought('blockchain_query', 10, 'Querying on-chain memory snapshots');
       
-      // Query the CrikzlingMemory contract for stored memories
       const memoryCount = await this.publicClient.readContract({
         address: this.memoryContractAddress,
         abi: [
@@ -194,7 +175,6 @@ export class CrikzlingBrainV3 {
       const count = Number(memoryCount);
       const memories: BlockchainMemory[] = [];
 
-      // Fetch recent memories (last 5)
       const startIdx = Math.max(0, count - 5);
       for (let i = startIdx; i < count; i++) {
         const memory = await this.publicClient.readContract({
@@ -234,10 +214,6 @@ export class CrikzlingBrainV3 {
     }
   }
 
-  // ========================================
-  // MAIN PROCESSING LOOP
-  // ========================================
-
   public async process(
     input: string, 
     isOwner: boolean,
@@ -247,7 +223,6 @@ export class CrikzlingBrainV3 {
       const cleanInput = input.trim().toLowerCase();
       this.state.totalInteractions++;
 
-      // Phase 1: Analyze Input
       this.updateThought('analyzing', 5, 'Parsing semantic structure');
       await this.think(800, 1500);
       
@@ -256,20 +231,17 @@ export class CrikzlingBrainV3 {
       this.updateThought('analyzing', 20, `Intent: ${analysis.intent}`, analysis.keywords.map(k => k.id));
       await this.think(600, 1200);
 
-      // Phase 2: Retrieve Context (Short, Mid, Long-term + Blockchain)
       this.updateThought('retrieving', 35, 'Accessing memory layers');
       await this.think(1000, 2000);
 
       const contextMemories = this.retrieveRelevantMemories(analysis.keywords.map(k => k.id));
       
-      // Sync blockchain memories if needed (every 5 minutes or on demand)
       if (Date.now() - this.state.lastBlockchainSync > 300000) {
         this.updateThought('blockchain_query', 45, 'Syncing immutable memory from chain');
         await this.syncBlockchainMemories();
         await this.think(1500, 2500);
       }
 
-      // Phase 3: Integrate All Data Sources
       this.updateThought('integrating', 60, 'Fusing dApp state with cognitive model');
       await this.think(1200, 2000);
 
@@ -280,13 +252,11 @@ export class CrikzlingBrainV3 {
         this.state.blockchainMemories
       );
 
-      // Phase 4: Generate Natural Response
       this.updateThought('synthesizing', 80, 'Constructing human-like response');
       await this.think(1500, 2500);
 
       const response = this.generateNaturalResponse(integratedContext, analysis);
 
-      // Phase 5: Store Memory with Full Context
       this.archiveMemory(
         'user',
         cleanInput,
@@ -321,10 +291,6 @@ export class CrikzlingBrainV3 {
     }
   }
 
-  // ========================================
-  // INPUT ANALYSIS
-  // ========================================
-
   private analyzeInput(input: string, dappContext?: DAppContext) {
     const STOP_WORDS = new Set([
       'the', 'a', 'an', 'and', 'or', 'but', 'is', 'in', 'on', 'at', 'to', 
@@ -340,7 +306,6 @@ export class CrikzlingBrainV3 {
       }
     });
 
-    // Boost relevance if dApp context is active
     if (dappContext) {
       ['order', 'reputation', 'yield', 'balance', 'stake'].forEach(term => {
         if (this.state.concepts[term] && !keywords.find(k => k.id === term)) {
@@ -375,23 +340,16 @@ export class CrikzlingBrainV3 {
     return Math.max(0, Math.min(1, weight));
   }
 
-  // ========================================
-  // MEMORY RETRIEVAL
-  // ========================================
-
   private retrieveRelevantMemories(conceptIds: string[]): Memory[] {
     const relevant: Memory[] = [];
 
-    // Short-term: Last 5 interactions
     relevant.push(...this.state.shortTermMemory.slice(-5));
 
-    // Mid-term: Concept-based retrieval
     const midTermMatches = this.state.midTermMemory.filter(m =>
       m.concepts.some(c => conceptIds.includes(c))
     ).slice(-3);
     relevant.push(...midTermMatches);
 
-    // Long-term: High emotional weight or high concept overlap
     const longTermMatches = this.state.longTermMemory
       .filter(m => 
         m.emotional_weight > 0.5 || 
@@ -403,10 +361,6 @@ export class CrikzlingBrainV3 {
 
     return relevant;
   }
-
-  // ========================================
-  // CONTEXT INTEGRATION
-  // ========================================
 
   private integrateContexts(
     analysis: any,
@@ -430,14 +384,9 @@ export class CrikzlingBrainV3 {
     };
   }
 
-  // ========================================
-  // NATURAL RESPONSE GENERATION
-  // ========================================
-
   private generateNaturalResponse(context: any, analysis: any): string {
     const { intent, keywords, recentMemories, dappState, blockchainHistory } = context;
 
-    // Handle greetings naturally
     if (intent === 'GREETING') {
       const greeting = this.selectRandom(RESPONSE_TEMPLATES.greeting);
       if (dappState?.hasActiveOrders) {
@@ -446,20 +395,16 @@ export class CrikzlingBrainV3 {
       return greeting;
     }
 
-    // Handle commands
     if (intent === 'COMMAND') {
       return this.handleCommand(analysis.rawInput);
     }
 
-    // Handle dApp queries with real data
     if (intent === 'DAPP_QUERY' && dappState) {
       return this.generateDAppResponse(analysis.rawInput, dappState);
     }
 
-    // Generate conversational response
     let response = '';
 
-    // Opening: Natural acknowledgment
     if (intent === 'QUESTION') {
       response += this.selectRandom([
         "That's an interesting question. ",
@@ -471,13 +416,11 @@ export class CrikzlingBrainV3 {
       response += this.selectRandom(RESPONSE_TEMPLATES.acknowledgment) + ' ';
     }
 
-    // Body: Integrate concepts naturally
     if (keywords.length > 0) {
       const mainConcept = keywords[0];
       response += this.selectRandom(RESPONSE_TEMPLATES.transition) + ' ';
       response += `${mainConcept.id} ${mainConcept.essence.toLowerCase()}. `;
 
-      // Connect to related concepts
       if (keywords.length > 1) {
         const relatedConcept = keywords[1];
         response += `This relates to ${relatedConcept.id}, which `;
@@ -485,7 +428,6 @@ export class CrikzlingBrainV3 {
       }
     }
 
-    // Add memory-based context if relevant
     if (recentMemories.length > 0) {
       const lastUserMemory = recentMemories.reverse().find(m => m.role === 'user');
       if (lastUserMemory && Math.random() > 0.6) {
@@ -493,13 +435,11 @@ export class CrikzlingBrainV3 {
       }
     }
 
-    // Add blockchain memory reference if significant
     if (blockchainHistory.length > 0 && Math.random() > 0.7) {
       const latestMemory = blockchainHistory[blockchainHistory.length - 1];
       response += `My crystallized memory from ${new Date(latestMemory.timestamp * 1000).toLocaleDateString()} shows I was at ${latestMemory.evolutionStage} stage. `;
     }
 
-    // Closing: Natural conclusion
     response += this.selectRandom(RESPONSE_TEMPLATES.conclusion) + ' ';
     if (keywords.length > 0) {
       response += `${keywords[0].id} is fundamental to understanding this concept.`;
@@ -560,10 +500,6 @@ export class CrikzlingBrainV3 {
     return "Command acknowledged.";
   }
 
-  // ========================================
-  // MEMORY MANAGEMENT
-  // ========================================
-
   private archiveMemory(
     role: 'user' | 'bot',
     content: string,
@@ -596,17 +532,12 @@ export class CrikzlingBrainV3 {
       }
     }
 
-    // Limit long-term memory size
     if (this.state.longTermMemory.length > 100) {
       this.state.longTermMemory = this.state.longTermMemory
         .sort((a, b) => b.emotional_weight - a.emotional_weight)
         .slice(0, 100);
     }
   }
-
-  // ========================================
-  // UTILITY METHODS
-  // ========================================
 
   private updateThought(
     phase: ThoughtProcess['phase'] | null,
