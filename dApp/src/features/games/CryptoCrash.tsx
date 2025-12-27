@@ -184,7 +184,8 @@ export default function CryptoCrash({ onClose, balance, onUpdateBalance, dynamic
            </div>
 
            <div className="mt-auto">
-               {gameState === 'running' && gameState !== 'cashed' ? (
+               {/* Logic Fixed: Simple check on running state */}
+               {gameState === 'running' ? (
                  <button 
                     onClick={() => doCashOut(multiplier)}
                     className="w-full py-4 bg-emerald-500 text-black font-black text-xl rounded-xl hover:bg-emerald-400 hover:scale-[1.02] transition-all shadow-[0_0_30px_rgba(16,185,129,0.3)] active:scale-95"
@@ -194,10 +195,11 @@ export default function CryptoCrash({ onClose, balance, onUpdateBalance, dynamic
                ) : (
                  <button 
                     onClick={startGame}
-                    disabled={balance < bet || gameState === 'running'}
+                    // Logic Fixed: Only check balance constraint here
+                    disabled={balance < bet}
                     className="w-full py-4 bg-primary-500 text-black font-black text-xl rounded-xl hover:bg-primary-400 disabled:opacity-50 disabled:grayscale transition-all shadow-glow-md"
                  >
-                    {gameState === 'cashed' ? 'NEXT ROUND' : 'PLACE BET'}
+                    {gameState === 'cashed' || gameState === 'crashed' ? 'NEXT ROUND' : 'PLACE BET'}
                  </button>
                )}
            </div>
