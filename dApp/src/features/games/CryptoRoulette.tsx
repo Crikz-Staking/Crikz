@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, useAnimation } from 'framer-motion';
-import { X, Target, DollarSign, Disc } from 'lucide-react';
+import { X, Target, Disc, ChevronRight } from 'lucide-react';
 
 interface GameProps {
   onClose: () => void;
@@ -9,167 +9,197 @@ interface GameProps {
   dynamicColor: string;
 }
 
-type BetType = 'red' | 'black' | 'green' | 'odd' | 'even' | 'low' | 'high';
+type BetType = 'red' | 'black' | 'green' | 'odd' | 'even' | 'low' | 'high' | number;
 
-const WHEEL_NUMBERS = [
+const RED_NUMBERS = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
+// Wheel order for rotation calculation
+const WHEEL_ORDER = [
   0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10,
   5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26
 ];
 
-const RED_NUMBERS = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
-
 export default function CryptoRoulette({ onClose, balance, onUpdateBalance, dynamicColor }: GameProps) {
   const [betAmount, setBetAmount] = useState(100);
-  const [selectedBet, setSelectedBet] = useState<BetType | null>(null);
+  const [bets, setBets] = useState<{ type: BetType, amount: number }[]>([]);
   const [spinning, setSpinning] = useState(false);
-  const [resultNumber, setResultNumber] = useState<number | null>(null);
   const [lastWin, setLastWin] = useState(0);
-  
+  const [result, setResult] = useState<number | null>(null);
   const controls = useAnimation();
 
-  const getNumberColor = (num: number) => {
-    if (num === 0) return 'text-green-500';
-    return RED_NUMBERS.includes(num) ? 'text-red-500' : 'text-gray-200';
+  const placeBet = (type: BetType) => {
+    if (spinning) return;
+    const existing = bets.find(b => b.type === type);
+    if (existing) {
+        setBets(bets.map(b => b.type === type ? { ...b, amount: b.amount + betAmount } : b));
+    } else {
+        setBets([...bets, { type, amount: betAmount }]);
+    }
   };
 
-  const getMultiplier = (type: BetType) => {
-    if (type === 'green') return 35; // 0 prediction
-    return 2; // Even money bets
-  };
+  const clearBets = () => setBets([]);
+
+  const totalBet = bets.reduce((a, b) => a + b.amount, 0);
 
   const spin = async () => {
-    if (!selectedBet || balance < betAmount || spinning) return;
+    if (bets.length === 0 || balance < totalBet || spinning) return;
     
+    onUpdateBalance(-totalBet);
     setSpinning(true);
-    setResultNumber(null);
     setLastWin(0);
-    onUpdateBalance(-betAmount);
+    setResult(null);
 
-    // Random rotation + ensuring it lands on a number conceptually
-    const randomRotation = 1440 + Math.floor(Math.random() * 360); 
+    // Determine Result
+    const winningIndex = Math.floor(Math.random() * WHEEL_ORDER.length);
+    const winningNum = WHEEL_ORDER[winningIndex];
+    
+    // Calculate Rotation: 
+    // 360 / 37 = 9.72 degrees per segment.
+    // Base spin (5 full rotations) + specific segment offset
+    const segmentAngle = 360 / 37;
+    const targetAngle = 360 * 5 + (360 - (winningIndex * segmentAngle)); 
+
     await controls.start({ 
-        rotate: randomRotation, 
-        transition: { duration: 3, ease: "circOut" } 
+        rotate: targetAngle, 
+        transition: { duration: 4, ease: [0.1, 0, 0.2, 1] } 
     });
 
-    const winningIndex = Math.floor(Math.random() * WHEEL_NUMBERS.length);
-    const num = WHEEL_NUMBERS[winningIndex];
-    setResultNumber(num);
+    setResult(winningNum);
+    controls.set({ rotate: targetAngle % 360 }); // Reset for next without visual glitch
 
-    // Reset rotation visually without animation for next spin
-    controls.set({ rotate: 0 });
+    // Calculate Winnings
+    let winTotal = 0;
+    bets.forEach(bet => {
+        let won = false;
+        if (typeof bet.type === 'number' && bet.type === winningNum) won = true; // Straight up (35:1)
+        else if (bet.type === 'red' && RED_NUMBERS.includes(winningNum)) won = true;
+        else if (bet.type === 'black' && winningNum !== 0 && !RED_NUMBERS.includes(winningNum)) won = true;
+        else if (bet.type === 'even' && winningNum !== 0 && winningNum % 2 === 0) won = true;
+        else if (bet.type === 'odd' && winningNum % 2 !== 0) won = true;
+        else if (bet.type === 'low' && winningNum >= 1 && winningNum <= 18) won = true;
+        else if (bet.type === 'high' && winningNum >= 19 && winningNum <= 36) won = true;
+        
+        if (won) {
+            const multiplier = typeof bet.type === 'number' ? 36 : 2; // Simplified multipliers
+            winTotal += bet.amount * multiplier;
+        }
+    });
 
-    let won = false;
-    if (selectedBet === 'green' && num === 0) won = true;
-    if (selectedBet === 'red' && RED_NUMBERS.includes(num)) won = true;
-    if (selectedBet === 'black' && num !== 0 && !RED_NUMBERS.includes(num)) won = true;
-    if (selectedBet === 'even' && num !== 0 && num % 2 === 0) won = true;
-    if (selectedBet === 'odd' && num % 2 !== 0) won = true;
-    if (selectedBet === 'low' && num >= 1 && num <= 18) won = true;
-    if (selectedBet === 'high' && num >= 19 && num <= 36) won = true;
-
-    if (won) {
-        const win = betAmount * getMultiplier(selectedBet);
-        onUpdateBalance(win);
-        setLastWin(win);
+    if (winTotal > 0) {
+        setLastWin(winTotal);
+        onUpdateBalance(winTotal);
     }
-
     setSpinning(false);
   };
 
+  const getNumberColor = (n: number) => {
+      if (n === 0) return 'bg-emerald-500 text-black';
+      return RED_NUMBERS.includes(n) ? 'bg-red-500 text-white' : 'bg-[#2A2A35] text-white';
+  };
+
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-      <div className="bg-[#12121A] border border-white/10 rounded-3xl w-full max-w-2xl overflow-hidden p-6 relative flex flex-col md:flex-row gap-8">
+    <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+      <div className="bg-[#12121A] border border-white/10 rounded-3xl w-full max-w-5xl h-[85vh] flex flex-col md:flex-row overflow-hidden shadow-2xl relative">
         <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-white z-20"><X size={20}/></button>
-        
+
         {/* Left: Wheel */}
-        <div className="flex-1 flex flex-col items-center justify-center">
-            <div className="relative w-64 h-64">
-                {/* Pointer */}
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-2 z-20 text-white">▼</div>
-                
-                {/* Wheel SVG */}
-                <motion.div 
-                    animate={controls}
-                    className="w-full h-full rounded-full border-8 border-[#2A2A35] relative overflow-hidden bg-black shadow-2xl"
-                    style={{ background: 'conic-gradient(from 0deg, #10B981 0deg 10deg, #EF4444 10deg 180deg, #1f2937 180deg 350deg, #EF4444 350deg 360deg)' }} // Simplified visual gradient
-                >
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-48 h-48 rounded-full border border-white/10 bg-[#12121A] flex items-center justify-center">
-                            {resultNumber !== null ? (
-                                <span className={`text-6xl font-black ${getNumberColor(resultNumber)}`}>{resultNumber}</span>
-                            ) : (
-                                <Disc size={64} className="text-gray-700 animate-spin-slow" />
-                            )}
-                        </div>
-                    </div>
-                </motion.div>
-            </div>
-            {lastWin > 0 && (
-                <motion.div initial={{y:10, opacity:0}} animate={{y:0, opacity:1}} className="mt-4 px-6 py-2 bg-emerald-500/20 text-emerald-400 font-black rounded-xl border border-emerald-500/50">
-                    WON {lastWin} PTS
-                </motion.div>
-            )}
-        </div>
-
-        {/* Right: Controls */}
-        <div className="flex-1 flex flex-col justify-center space-y-6">
-            <div>
-                <h3 className="text-2xl font-black text-white mb-1">Crypto Roulette</h3>
-                <p className="text-xs text-gray-500">European Rules • Single Zero</p>
-            </div>
-
-            <div className="bg-black/40 p-4 rounded-xl border border-white/10">
-                <label className="text-xs font-bold text-gray-500 uppercase block mb-2">Wager Amount</label>
-                <div className="flex gap-2">
-                    {[50, 100, 500, 1000].map(amt => (
-                        <button 
-                            key={amt}
-                            onClick={() => setBetAmount(amt)}
-                            className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${betAmount === amt ? 'bg-white text-black' : 'bg-white/5 hover:bg-white/10 text-gray-400'}`}
-                        >
-                            {amt}
-                        </button>
+        <div className="flex-1 bg-[#0A0A0F] border-r border-white/5 flex flex-col items-center justify-center p-8 relative overflow-hidden">
+            <div className="absolute top-4 left-4 z-10 bg-black/60 backdrop-blur px-4 py-2 rounded-xl border border-white/10">
+                <span className="text-xs text-gray-500 uppercase font-bold block">History</span>
+                <div className="flex gap-2 mt-1">
+                    {[14, 2, 0, 32].map(n => (
+                        <div key={n} className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${getNumberColor(n)}`}>{n}</div>
                     ))}
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-                <BetButton type="red" label="RED (2x)" color="bg-red-500/20 border-red-500/50 text-red-500" selected={selectedBet} onClick={setSelectedBet} />
-                <BetButton type="black" label="BLACK (2x)" color="bg-gray-700/40 border-gray-600 text-gray-300" selected={selectedBet} onClick={setSelectedBet} />
-                <BetButton type="even" label="EVEN (2x)" color="bg-blue-500/20 border-blue-500/50 text-blue-400" selected={selectedBet} onClick={setSelectedBet} />
-                <BetButton type="odd" label="ODD (2x)" color="bg-blue-500/20 border-blue-500/50 text-blue-400" selected={selectedBet} onClick={setSelectedBet} />
-                <BetButton type="low" label="1-18 (2x)" color="bg-purple-500/20 border-purple-500/50 text-purple-400" selected={selectedBet} onClick={setSelectedBet} />
-                <BetButton type="high" label="19-36 (2x)" color="bg-purple-500/20 border-purple-500/50 text-purple-400" selected={selectedBet} onClick={setSelectedBet} />
-                <button 
-                    onClick={() => setSelectedBet('green')}
-                    className={`col-span-2 py-3 rounded-xl border font-bold text-sm transition-all ${selectedBet === 'green' ? 'bg-emerald-500 text-black border-emerald-500' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/20'}`}
+            <div className="relative w-64 h-64 md:w-80 md:h-80">
+                <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-white z-20 text-3xl drop-shadow-lg">▼</div>
+                <motion.div 
+                    animate={controls}
+                    className="w-full h-full rounded-full border-4 border-[#1A1A24] relative shadow-2xl"
+                    style={{ background: 'conic-gradient(#10B981 0deg 9.7deg, #EF4444 9.7deg 19.4deg, #1f2937 19.4deg 29.1deg, #EF4444 29.1deg 38.8deg, #1f2937 38.8deg 48.5deg)' }} // Simplified gradient for demo
                 >
-                    ZERO (Green) • 35x
-                </button>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-48 h-48 bg-[#12121A] rounded-full flex flex-col items-center justify-center border border-white/10 shadow-inner">
+                            {result !== null ? (
+                                <>
+                                    <span className="text-5xl font-black text-white">{result}</span>
+                                    <span className={`text-xs font-bold uppercase mt-1 px-2 py-0.5 rounded ${getNumberColor(result)}`}>
+                                        {result === 0 ? 'ZERO' : RED_NUMBERS.includes(result) ? 'RED' : 'BLACK'}
+                                    </span>
+                                </>
+                            ) : <Disc size={64} className="text-gray-700 opacity-20"/>}
+                        </div>
+                    </div>
+                </motion.div>
+            </div>
+            {lastWin > 0 && <div className="mt-8 text-2xl font-black text-emerald-400 animate-bounce">+{lastWin} PTS</div>}
+        </div>
+
+        {/* Right: Board */}
+        <div className="flex-[1.5] p-6 bg-[#181820] flex flex-col">
+            <div className="flex justify-between items-center mb-6">
+                <div>
+                    <h3 className="font-black text-white text-xl">Roulette</h3>
+                    <p className="text-xs text-gray-500">Balance: {balance - totalBet}</p>
+                </div>
+                <div className="flex bg-black/40 rounded-lg p-1 border border-white/5">
+                    {[10, 50, 100, 500].map(amt => (
+                        <button key={amt} onClick={() => setBetAmount(amt)} className={`px-3 py-1 text-xs font-bold rounded ${betAmount === amt ? 'bg-white text-black' : 'text-gray-500'}`}>{amt}</button>
+                    ))}
+                </div>
             </div>
 
-            <button 
-                onClick={spin}
-                disabled={spinning || !selectedBet || balance < betAmount}
-                className="w-full py-4 bg-primary-500 text-black font-black text-lg rounded-xl hover:bg-primary-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-glow-sm"
-            >
-                {spinning ? 'NO MORE BETS...' : 'SPIN WHEEL'}
-            </button>
+            {/* Board Grid */}
+            <div className="flex-1 overflow-y-auto">
+                <div className="flex h-full gap-1">
+                    {/* Zero */}
+                    <button onClick={() => placeBet(0)} className="w-12 bg-emerald-500/20 border border-emerald-500/30 rounded-l-lg hover:bg-emerald-500/40 flex items-center justify-center text-emerald-500 font-bold relative">
+                        0
+                        {bets.some(b => b.type === 0) && <div className="absolute inset-0 bg-yellow-400/30 rounded-l-lg border-2 border-yellow-400 animate-pulse"/>}
+                    </button>
+                    
+                    {/* Numbers Grid */}
+                    <div className="flex-1 grid grid-cols-3 grid-rows-12 gap-1">
+                        {Array.from({length: 36}).map((_, i) => {
+                            const num = i + 1;
+                            const isRed = RED_NUMBERS.includes(num);
+                            const hasBet = bets.some(b => b.type === num);
+                            return (
+                                <button 
+                                    key={num} 
+                                    onClick={() => placeBet(num)}
+                                    className={`h-10 flex items-center justify-center font-bold text-sm rounded relative ${isRed ? 'bg-red-500 text-white hover:bg-red-400' : 'bg-[#2A2A35] text-white hover:bg-[#3A3A45]'}`}
+                                >
+                                    {num}
+                                    {hasBet && <div className="absolute inset-0 bg-yellow-400/30 border-2 border-yellow-400 rounded"/>}
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {/* Side Bets */}
+                    <div className="w-16 flex flex-col gap-1">
+                        <button onClick={() => placeBet('red')} className="flex-1 bg-red-500/20 text-red-500 font-bold text-[10px] rounded hover:bg-red-500/30 relative">RED {bets.some(b=>b.type==='red') && <div className="absolute inset-0 border-2 border-yellow-400 rounded"/>}</button>
+                        <button onClick={() => placeBet('black')} className="flex-1 bg-gray-700/40 text-gray-300 font-bold text-[10px] rounded hover:bg-gray-700/60 relative">BLK {bets.some(b=>b.type==='black') && <div className="absolute inset-0 border-2 border-yellow-400 rounded"/>}</button>
+                        <button onClick={() => placeBet('even')} className="flex-1 bg-blue-500/20 text-blue-400 font-bold text-[10px] rounded hover:bg-blue-500/30 relative">EVEN {bets.some(b=>b.type==='even') && <div className="absolute inset-0 border-2 border-yellow-400 rounded"/>}</button>
+                        <button onClick={() => placeBet('odd')} className="flex-1 bg-blue-500/20 text-blue-400 font-bold text-[10px] rounded hover:bg-blue-500/30 relative">ODD {bets.some(b=>b.type==='odd') && <div className="absolute inset-0 border-2 border-yellow-400 rounded"/>}</button>
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex gap-2 mt-4">
+                <button onClick={clearBets} className="px-4 py-3 bg-white/5 rounded-xl text-gray-400 font-bold hover:bg-white/10">Clear</button>
+                <button 
+                    onClick={spin}
+                    disabled={spinning || totalBet === 0 || balance < totalBet}
+                    className="flex-1 bg-primary-500 text-black font-black text-lg rounded-xl hover:bg-primary-400 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+                >
+                    {spinning ? 'SPINNING...' : `SPIN (${totalBet})`}
+                </button>
+            </div>
         </div>
       </div>
     </div>
   );
-}
-
-function BetButton({ type, label, color, selected, onClick }: any) {
-    const isSelected = selected === type;
-    return (
-        <button
-            onClick={() => onClick(type)}
-            className={`py-3 rounded-xl border font-bold text-xs transition-all ${color} ${isSelected ? 'ring-2 ring-white scale-105' : 'opacity-80 hover:opacity-100'}`}
-        >
-            {label}
-        </button>
-    );
 }

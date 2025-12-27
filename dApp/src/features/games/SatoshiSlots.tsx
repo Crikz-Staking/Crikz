@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { motion, useAnimation } from 'framer-motion';
-import { Coins, RotateCw, X, Trophy } from 'lucide-react';
+import { Coins, X, Trophy } from 'lucide-react';
 
-interface SatoshiSlotsProps {
+interface GameProps {
   onClose: () => void;
   balance: number;
   onUpdateBalance: (amount: number) => void;
@@ -10,86 +10,91 @@ interface SatoshiSlotsProps {
 }
 
 const SYMBOLS = ['🍒', '🍋', '🍇', '💎', '7️⃣', '🔔'];
-const COST_PER_SPIN = 50;
+// Weighted random for better game feel (near misses)
+const getRandomSymbol = () => {
+    const weights = [0.3, 0.25, 0.2, 0.15, 0.05, 0.05]; // 7 and Bell rare
+    const r = Math.random();
+    let sum = 0;
+    for(let i=0; i<weights.length; i++) {
+        sum += weights[i];
+        if (r <= sum) return i;
+    }
+    return 0;
+};
 
-export default function SatoshiSlots({ onClose, balance, onUpdateBalance, dynamicColor }: SatoshiSlotsProps) {
+export default function SatoshiSlots({ onClose, balance, onUpdateBalance, dynamicColor }: GameProps) {
   const [reels, setReels] = useState([0, 0, 0]);
   const [spinning, setSpinning] = useState(false);
-  const [winAmount, setWinAmount] = useState(0);
-  const [message, setMessage] = useState('Spin to Win!');
+  const [win, setWin] = useState(0);
   const controls = useAnimation();
 
   const spin = async () => {
-    if (spinning || balance < COST_PER_SPIN) return;
-    
+    if (spinning || balance < 50) return;
     setSpinning(true);
-    setWinAmount(0);
-    setMessage('Spinning...');
-    onUpdateBalance(-COST_PER_SPIN);
+    setWin(0);
+    onUpdateBalance(-50);
 
-    await controls.start({ y: [0, -100, 0], transition: { duration: 0.2, repeat: 5 } });
-
-    const newReels = [
-      Math.floor(Math.random() * SYMBOLS.length),
-      Math.floor(Math.random() * SYMBOLS.length),
-      Math.floor(Math.random() * SYMBOLS.length)
-    ];
-
-    setReels(newReels);
+    // Start blur animation
+    await controls.start({ y: [0, -100, 0], filter: "blur(4px)", transition: { duration: 0.1, repeat: 10 } });
     
-    let reward = 0;
+    // Stop blur
+    controls.set({ filter: "blur(0px)" });
+
+    const newReels = [getRandomSymbol(), getRandomSymbol(), getRandomSymbol()];
+    setReels(newReels);
+
+    let payout = 0;
     if (newReels[0] === newReels[1] && newReels[1] === newReels[2]) {
-      const symbolIndex = newReels[0];
-      const multiplier = (symbolIndex + 1) * 10; 
-      reward = COST_PER_SPIN * multiplier;
-      setMessage(`JACKPOT! You won ${reward} PTS`);
-    } else if (newReels[0] === newReels[1] || newReels[1] === newReels[2] || newReels[0] === newReels[2]) {
-      reward = COST_PER_SPIN * 2;
-      setMessage(`Small Win! +${reward} PTS`);
-    } else {
-      setMessage('Try Again');
+        payout = 50 * ((newReels[0] + 1) * 5); // 5x to 30x base multiplier
+    } else if (newReels[0] === newReels[1] || newReels[1] === newReels[2]) {
+        payout = 50 * 1.5; // Small win
     }
 
-    if (reward > 0) {
-        setWinAmount(reward);
-        onUpdateBalance(reward);
+    if (payout > 0) {
+        setWin(payout);
+        onUpdateBalance(payout);
     }
-
     setSpinning(false);
   };
 
   return (
-    <div className="fixed inset-0 bg-black/90 backdrop-blur-xl z-[100] flex items-center justify-center p-4">
-      <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-[#1a1a24] border border-white/10 rounded-3xl w-full max-w-md overflow-hidden shadow-[0_0_50px_rgba(245,158,11,0.2)]">
-        <div className="p-4 bg-gradient-to-r from-amber-600/20 to-transparent border-b border-white/10 flex justify-between items-center">
-          <div className="flex items-center gap-2"><Coins className="text-amber-500" /><span className="font-black text-white">SATOSHI SLOTS</span></div>
-          <button onClick={onClose} className="hover:bg-white/10 p-2 rounded-full"><X size={20}/></button>
+    <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+      <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="bg-[#1a1a24] border border-white/10 rounded-3xl w-full max-w-md overflow-hidden relative shadow-[0_0_50px_rgba(245,158,11,0.15)]">
+        <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-white z-20"><X size={20}/></button>
+        
+        <div className="p-8 text-center bg-gradient-to-b from-amber-500/10 to-transparent">
+            <h3 className="text-2xl font-black text-amber-500 flex justify-center items-center gap-2"><Coins /> SATOSHI SLOTS</h3>
         </div>
 
-        <div className="p-8 flex flex-col items-center">
-          <div className="bg-black/50 p-6 rounded-2xl border-4 border-amber-600/30 mb-8 relative shadow-inner w-full">
-            <div className="absolute top-1/2 left-0 right-0 h-1 bg-red-500/50 z-10 pointer-events-none"></div>
-            <div className="flex justify-between gap-2">
-              {reels.map((symbolIdx, i) => (
-                <div key={i} className="w-20 h-24 bg-white/5 rounded-xl border border-white/10 flex items-center justify-center overflow-hidden relative">
-                  <motion.div animate={spinning ? { y: [0, -500] } : { y: 0 }} transition={spinning ? { repeat: Infinity, duration: 0.1, ease: "linear" } : {}} className="text-5xl">{SYMBOLS[symbolIdx]}</motion.div>
+        <div className="px-8 pb-8">
+            <div className="bg-black border-4 border-amber-600/30 rounded-2xl p-6 relative overflow-hidden">
+                {/* Payline */}
+                <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-red-500/50 z-10 pointer-events-none" />
+                
+                <div className="flex justify-between gap-2">
+                    {reels.map((s, i) => (
+                        <div key={i} className="w-20 h-28 bg-[#12121A] rounded-lg border border-white/10 flex items-center justify-center overflow-hidden">
+                            <motion.div animate={spinning ? { y: [0, -100, 0], filter: ["blur(0px)", "blur(8px)", "blur(0px)"] } : {}} transition={spinning ? { repeat: Infinity, duration: 0.1 } : {}} className="text-5xl">
+                                {SYMBOLS[s]}
+                            </motion.div>
+                        </div>
+                    ))}
                 </div>
-              ))}
             </div>
-          </div>
 
-          <div className="h-16 flex flex-col items-center justify-center mb-6">
-            {winAmount > 0 ? (
-              <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1.1, opacity: 1 }} className="text-amber-400 font-black text-2xl flex items-center gap-2"><Trophy className="animate-bounce" /> {message}</motion.div>
-            ) : <div className="text-gray-400 font-bold">{message}</div>}
-          </div>
+            <div className="h-16 flex items-center justify-center mt-4">
+                {win > 0 ? (
+                    <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="bg-emerald-500 text-black font-black px-6 py-2 rounded-full text-xl flex items-center gap-2">
+                        <Trophy size={20} /> +{win} PTS
+                    </motion.div>
+                ) : (
+                    <div className="text-gray-500 font-mono text-xs">SPIN TO WIN • COST 50 PTS</div>
+                )}
+            </div>
 
-          <div className="w-full space-y-4">
-            <div className="flex justify-between text-xs text-gray-500 font-mono uppercase"><span>Cost: {COST_PER_SPIN} PTS</span><span>Balance: {balance.toLocaleString()} PTS</span></div>
-            <button onClick={spin} disabled={spinning || balance < COST_PER_SPIN} className="w-full py-4 bg-gradient-to-b from-amber-400 to-amber-600 text-black font-black text-xl rounded-xl shadow-lg hover:brightness-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-3">
-              {spinning ? <RotateCw className="animate-spin" /> : 'SPIN'}
+            <button onClick={spin} disabled={spinning || balance < 50} className="w-full py-4 bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-black text-xl rounded-xl shadow-lg hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100">
+                {spinning ? 'ROLLING...' : 'SPIN!'}
             </button>
-          </div>
         </div>
       </motion.div>
     </div>

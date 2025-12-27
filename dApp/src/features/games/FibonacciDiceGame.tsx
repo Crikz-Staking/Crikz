@@ -1,105 +1,113 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Dices, Trophy, X } from 'lucide-react';
+import { Dices, Trophy, X, ChevronRight } from 'lucide-react';
 
-interface FibonacciDiceGameProps {
+interface GameProps {
   onClose: () => void;
   balance: number;
   onUpdateBalance: (amount: number) => void;
   dynamicColor: string;
 }
 
-export default function FibonacciDiceGame({ onClose, balance, onUpdateBalance, dynamicColor }: FibonacciDiceGameProps) {
-  const [betAmount, setBetAmount] = useState(10);
-  const [gameMode, setGameMode] = useState<'fib' | 'prime'>('fib');
+export default function FibonacciDiceGame({ onClose, balance, onUpdateBalance, dynamicColor }: GameProps) {
+  const [bet, setBet] = useState(50);
+  const [mode, setMode] = useState<'fib' | 'slider'>('fib');
+  const [sliderValue, setSliderValue] = useState(50); // Under X
   const [rolling, setRolling] = useState(false);
-  const [lastResult, setLastResult] = useState<{ roll: number; won: boolean; profit: number } | null>(null);
+  const [result, setResult] = useState<number | null>(null);
+  const [win, setWin] = useState(false);
 
+  // Mode 1: Fibonacci
   const FIB_NUMBERS = [1, 2, 3, 5, 8, 13, 21, 34, 55, 89];
-  const PRIMES = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97];
+  
+  // Calculate Odds for Slider
+  const winChance = sliderValue; // Simple 1-100 logic
+  const multiplier = parseFloat((99 / winChance).toFixed(2)); // House edge built in
 
-  const handleRoll = async () => {
-    if (balance < betAmount) return;
-    
+  const roll = async () => {
+    if (balance < bet || rolling) return;
     setRolling(true);
-    setLastResult(null);
-    onUpdateBalance(-betAmount); // Deduct bet immediately
+    setResult(null);
+    onUpdateBalance(-bet);
+
+    // Animation phase
+    let tempRoll = 0;
+    const interval = setInterval(() => {
+        setResult(Math.floor(Math.random() * 100) + 1);
+    }, 50);
 
     await new Promise(r => setTimeout(r, 1000));
+    clearInterval(interval);
 
-    const roll = Math.floor(Math.random() * 100) + 1;
-    let won = false;
-    let multiplier = 0;
+    const finalRoll = Math.floor(Math.random() * 100) + 1;
+    setResult(finalRoll);
 
-    if (gameMode === 'fib') {
-        if (FIB_NUMBERS.includes(roll)) {
-            won = true;
-            multiplier = 5;
+    let isWin = false;
+    let payout = 0;
+
+    if (mode === 'fib') {
+        if (FIB_NUMBERS.includes(finalRoll)) {
+            isWin = true;
+            payout = bet * 5; // Fixed 5x for hitting a fib number (~10% chance)
         }
     } else {
-        if (PRIMES.includes(roll)) {
-            won = true;
-            multiplier = 3;
+        if (finalRoll <= sliderValue) {
+            isWin = true;
+            payout = bet * multiplier;
         }
     }
 
-    const profit = won ? betAmount * multiplier : 0;
-    if (won) onUpdateBalance(profit);
-
-    setLastResult({ roll, won, profit });
+    setWin(isWin);
+    if (isWin) onUpdateBalance(payout);
     setRolling(false);
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-      <motion.div 
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="bg-[#12121A] border border-white/10 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl"
-      >
-        <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/5">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary-500/20 rounded-lg text-primary-500"><Dices size={24} /></div>
-            <div>
-              <h3 className="text-xl font-black text-white">Fibonacci Dice</h3>
-              <p className="text-xs text-gray-500">Balance: {balance.toLocaleString()} PTS</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full text-gray-400"><X size={20} /></button>
+    <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+      <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="bg-[#12121A] border border-white/10 rounded-3xl w-full max-w-lg overflow-hidden p-6 relative">
+        <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-white"><X size={20}/></button>
+        
+        <div className="flex gap-4 mb-8 justify-center">
+            <button onClick={() => setMode('fib')} className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all ${mode === 'fib' ? 'bg-primary-500 text-black border-primary-500' : 'bg-transparent text-gray-500 border-white/10'}`}>Fibonacci Hunt</button>
+            <button onClick={() => setMode('slider')} className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all ${mode === 'slider' ? 'bg-primary-500 text-black border-primary-500' : 'bg-transparent text-gray-500 border-white/10'}`}>Classic Range</button>
         </div>
 
-        <div className="p-8 text-center">
-          <div className="flex justify-center gap-4 mb-8">
-             <button onClick={() => setGameMode('fib')} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${gameMode === 'fib' ? 'bg-primary-500 text-black border-primary-500' : 'bg-transparent text-gray-400 border-white/10'}`}>Fibonacci (5x)</button>
-             <button onClick={() => setGameMode('prime')} className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${gameMode === 'prime' ? 'bg-primary-500 text-black border-primary-500' : 'bg-transparent text-gray-400 border-white/10'}`}>Prime (3x)</button>
-          </div>
-
-          <div className="relative w-32 h-32 mx-auto flex items-center justify-center mb-8">
-            {rolling ? (
-              <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 0.5, ease: "linear" }} className="w-24 h-24 border-4 border-dashed border-primary-500 rounded-full" />
-            ) : (
-              <div className={`w-32 h-32 rounded-2xl flex items-center justify-center text-5xl font-black border-2 ${lastResult ? (lastResult.won ? 'bg-emerald-500/20 border-emerald-500 text-emerald-500' : 'bg-red-500/20 border-red-500 text-red-500') : 'bg-white/5 border-white/10 text-gray-500'}`}>
-                {lastResult ? lastResult.roll : '?'}
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center justify-center gap-4 mb-6">
-            <div className="bg-black/40 p-3 rounded-xl border border-white/10">
-               <label className="block text-[10px] text-gray-500 uppercase font-bold mb-1">Bet Points</label>
-               <input type="number" value={betAmount} onChange={(e) => setBetAmount(parseInt(e.target.value) || 0)} className="bg-transparent text-center text-xl font-bold text-white w-24 outline-none" />
+        <div className="text-center mb-8">
+            <div className={`text-7xl font-black font-mono transition-colors ${rolling ? 'text-white' : win ? 'text-emerald-500' : result ? 'text-red-500' : 'text-gray-600'}`}>
+                {result !== null ? result : '00'}
             </div>
-          </div>
+            {win && <div className="text-emerald-500 font-bold mt-2 flex items-center justify-center gap-2"><Trophy size={16}/> WINNER</div>}
+        </div>
 
-          <button onClick={handleRoll} disabled={rolling || balance < betAmount} className="w-full py-4 bg-primary-500 text-black font-black text-lg rounded-xl hover:bg-primary-400 disabled:opacity-50 transition-all">
-            {rolling ? 'Rolling...' : 'ROLL DICE'}
-          </button>
+        {mode === 'slider' && (
+            <div className="bg-black/40 p-6 rounded-2xl border border-white/10 mb-6">
+                <div className="flex justify-between text-xs font-bold text-gray-500 mb-4 uppercase">
+                    <span>Roll Under {sliderValue}</span>
+                    <span>Payout {multiplier}x</span>
+                </div>
+                <input 
+                    type="range" min="5" max="95" 
+                    value={sliderValue} onChange={e => setSliderValue(parseInt(e.target.value))} 
+                    className="w-full accent-primary-500 h-2 bg-white/10 rounded-lg appearance-none cursor-pointer" 
+                />
+            </div>
+        )}
 
-          {lastResult && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`mt-6 p-4 rounded-xl border ${lastResult.won ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-red-500/10 border-red-500/30 text-red-400'}`}>
-              {lastResult.won ? <div className="flex items-center justify-center gap-2 font-bold"><Trophy size={18} /><span>Win! +{lastResult.profit} PTS</span></div> : <div className="font-bold text-sm">Miss. Try again?</div>}
-            </motion.div>
-          )}
+        {mode === 'fib' && (
+            <div className="text-center mb-6 text-xs text-gray-400">
+                Target Numbers: <span className="text-primary-500 font-mono">{FIB_NUMBERS.join(', ')}</span>
+                <div className="mt-1 font-bold">Payout: 5.00x</div>
+            </div>
+        )}
+
+        <div className="flex gap-4">
+            <div className="bg-black/40 p-3 rounded-xl border border-white/10 flex-1">
+                <span className="text-[10px] text-gray-500 font-bold uppercase block">Bet</span>
+                <input type="number" value={bet} onChange={e => setBet(parseInt(e.target.value) || 0)} className="bg-transparent w-full font-bold text-white outline-none" />
+            </div>
+            <button onClick={roll} disabled={rolling || balance < bet} className="flex-[2] btn-primary py-4 text-lg">
+                {rolling ? 'Rolling...' : 'ROLL DICE'}
+            </button>
         </div>
       </motion.div>
     </div>
