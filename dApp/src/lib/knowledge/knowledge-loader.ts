@@ -67,10 +67,20 @@ export function loadAllKnowledgeModules(): KnowledgeModule {
     ...protocolConcepts
   };
   
+  // FIX: Properly type the relations array with explicit ConceptRelation[] cast
   const allRelations: ConceptRelation[] = [
-    ...FIBONACCI_RELATIONS.map(r => ({ ...r, learned_at: Date.now() })),
-    ...BLOCKCHAIN_RELATIONS.map(r => ({ ...r, learned_at: Date.now() })),
-    ...CRIKZ_PROTOCOL_RELATIONS.map(r => ({ ...r, learned_at: Date.now() }))
+    ...FIBONACCI_RELATIONS.map(r => ({ 
+      ...r, 
+      learned_at: Date.now() 
+    } as ConceptRelation)),
+    ...BLOCKCHAIN_RELATIONS.map(r => ({ 
+      ...r, 
+      learned_at: Date.now() 
+    } as ConceptRelation)),
+    ...CRIKZ_PROTOCOL_RELATIONS.map(r => ({ 
+      ...r, 
+      learned_at: Date.now() 
+    } as ConceptRelation))
   ];
   
   return {
