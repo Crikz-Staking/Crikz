@@ -1,3 +1,5 @@
+// src/lib/brain/crikzling-brain-v3.ts
+
 import { 
   AtomicConcept, 
   ConceptRelation,
@@ -180,7 +182,6 @@ export class CrikzlingBrainV3 {
 
       for (const idx of recentIndices) {
         try {
-          // FIXED: Proper Wagmi v2 type-safe call
           const memoryData = await this.publicClient.readContract({
             address: this.memoryContractAddress,
             abi: memoryABI,
@@ -228,13 +229,13 @@ export class CrikzlingBrainV3 {
       
       const analysis = this.analyzeInput(cleanInput, dappContext);
       
-      this.updateThought('analyzing', 20, `Intent: ${analysis.intent}`, analysis.keywords.map(k => k.id));
+      this.updateThought('analyzing', 20, `Intent: ${analysis.intent}`, analysis.keywords.map((k: AtomicConcept) => k.id));
       await this.think(600, 1200);
 
       this.updateThought('retrieving', 35, 'Accessing memory layers');
       await this.think(1000, 2000);
 
-      const contextMemories = this.retrieveRelevantMemories(analysis.keywords.map(k => k.id));
+      const contextMemories = this.retrieveRelevantMemories(analysis.keywords.map((k: AtomicConcept) => k.id));
       
       if (Date.now() - this.state.lastBlockchainSync > 300000) {
         this.updateThought('blockchain_query', 45, 'Syncing immutable memory from chain');
@@ -261,7 +262,7 @@ export class CrikzlingBrainV3 {
         'user',
         cleanInput,
         Date.now(),
-        analysis.keywords.map(k => k.id),
+        analysis.keywords.map((k: AtomicConcept) => k.id),
         analysis.emotionalWeight,
         dappContext
       );
@@ -270,7 +271,7 @@ export class CrikzlingBrainV3 {
         'bot',
         response,
         Date.now(),
-        analysis.keywords.map(k => k.id),
+        analysis.keywords.map((k: AtomicConcept) => k.id),
         0.3,
         dappContext
       );
@@ -300,15 +301,15 @@ export class CrikzlingBrainV3 {
     const words = input.replace(/[^\w\s]/gi, '').split(/\s+/);
     const keywords: AtomicConcept[] = [];
 
-    words.forEach(word => {
+    words.forEach((word: string) => {
       if (!STOP_WORDS.has(word) && this.state.concepts[word]) {
         keywords.push(this.state.concepts[word]);
       }
     });
 
     if (dappContext) {
-      ['order', 'reputation', 'yield', 'balance', 'stake'].forEach(term => {
-        if (this.state.concepts[term] && !keywords.find(k => k.id === term)) {
+      ['order', 'reputation', 'yield', 'balance', 'stake'].forEach((term: string) => {
+        if (this.state.concepts[term] && !keywords.find((k: AtomicConcept) => k.id === term)) {
           keywords.push(this.state.concepts[term]);
         }
       });
@@ -345,17 +346,17 @@ export class CrikzlingBrainV3 {
 
     relevant.push(...this.state.shortTermMemory.slice(-5));
 
-    const midTermMatches = this.state.midTermMemory.filter(m =>
-      m.concepts.some(c => conceptIds.includes(c))
+    const midTermMatches = this.state.midTermMemory.filter((m: Memory) =>
+      m.concepts.some((c: string) => conceptIds.includes(c))
     ).slice(-3);
     relevant.push(...midTermMatches);
 
     const longTermMatches = this.state.longTermMemory
-      .filter(m => 
+      .filter((m: Memory) => 
         m.emotional_weight > 0.5 || 
-        m.concepts.filter(c => conceptIds.includes(c)).length >= 2
+        m.concepts.filter((c: string) => conceptIds.includes(c)).length >= 2
       )
-      .sort((a, b) => b.timestamp - a.timestamp)
+      .sort((a: Memory, b: Memory) => b.timestamp - a.timestamp)
       .slice(0, 3);
     relevant.push(...longTermMatches);
 
@@ -429,7 +430,7 @@ export class CrikzlingBrainV3 {
     }
 
     if (recentMemories.length > 0) {
-      const lastUserMemory = recentMemories.reverse().find(m => m.role === 'user');
+      const lastUserMemory = recentMemories.reverse().find((m: Memory) => m.role === 'user');
       if (lastUserMemory && Math.random() > 0.6) {
         response += `Earlier you mentioned something about ${lastUserMemory.concepts[0]}, which connects to what we're discussing now. `;
       }
@@ -534,7 +535,7 @@ export class CrikzlingBrainV3 {
 
     if (this.state.longTermMemory.length > 100) {
       this.state.longTermMemory = this.state.longTermMemory
-        .sort((a, b) => b.emotional_weight - a.emotional_weight)
+        .sort((a: Memory, b: Memory) => b.emotional_weight - a.emotional_weight)
         .slice(0, 100);
     }
   }

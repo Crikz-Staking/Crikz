@@ -12,6 +12,7 @@ export default function ParticleBackground() {
 
     // Set canvas size
     const resize = () => {
+      if (!canvas) return; // Additional null check
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
     };
@@ -28,8 +29,13 @@ export default function ParticleBackground() {
       opacity: number;
 
       constructor() {
-        this.x = Math.random() * canvas.width;
-        this.y = Math.random() * canvas.height;
+        if (!canvas) {
+          this.x = 0;
+          this.y = 0;
+        } else {
+          this.x = Math.random() * canvas.width;
+          this.y = Math.random() * canvas.height;
+        }
         this.size = Math.random() * 2 + 0.5;
         this.speedX = (Math.random() - 0.5) * 0.5;
         this.speedY = (Math.random() - 0.5) * 0.5;
@@ -37,6 +43,7 @@ export default function ParticleBackground() {
       }
 
       update() {
+        if (!canvas) return;
         this.x += this.speedX;
         this.y += this.speedY;
 
@@ -78,7 +85,7 @@ export default function ParticleBackground() {
           const dy = a.y - b.y;
           const distance = Math.sqrt(dx * dx + dy * dy);
 
-          if (distance < 150) {
+          if (distance < 150 && ctx) {
             ctx.strokeStyle = `rgba(0, 255, 136, ${0.1 * (1 - distance / 150)})`;
             ctx.lineWidth = 0.5;
             ctx.beginPath();
