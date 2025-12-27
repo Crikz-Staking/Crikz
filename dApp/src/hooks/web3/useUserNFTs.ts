@@ -32,14 +32,13 @@ export function useUserNFTs() {
       const tokenIdxPromises = [];
       
       for (let i = count - 1; i >= count - limit; i--) {
-        // FIXED: Remove authorizationList requirement
         tokenIdxPromises.push(
           publicClient.readContract({
             address: CRIKZ_NFT_ADDRESS,
             abi: CRIKZ_NFT_ABI,
             functionName: 'tokenOfOwnerByIndex',
             args: [address as Address, BigInt(i)],
-          } as any)
+          })
         );
       }
 
@@ -51,7 +50,7 @@ export function useUserNFTs() {
           abi: CRIKZ_NFT_ABI,
           functionName: 'tokenURI',
           args: [id],
-        } as any)
+        })
       );
 
       const uris = await Promise.all(uriPromises) as string[];
@@ -60,7 +59,7 @@ export function useUserNFTs() {
         let meta = { 
           name: `Artifact #${id}`, 
           image: '', 
-          attributes: [] as Array<{ trait_type: string; value: string }>, // FIXED
+          attributes: [] as Array<{ trait_type: string; value: string }>,
           collection: 'General' 
         };
         try {

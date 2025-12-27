@@ -161,53 +161,31 @@ export class CrikzlingBrainV3 {
     try {
       this.updateThought('blockchain_query', 10, 'Querying on-chain memory snapshots');
       
-      const memoryCountData = await this.publicClient.readContract({
-        address: this.memoryContractAddress,
-        abi: [{
-          inputs: [{ name: '', type: 'uint256' }],
-          name: 'memoryTimeline',
-          outputs: [
-            { name: 'timestamp', type: 'uint256' },
-            { name: 'ipfsCid', type: 'string' },
-            { name: 'conceptsCount', type: 'uint256' },
-            { name: 'evolutionStage', type: 'string' },
-            { name: 'triggerEvent', type: 'string' }
-          ],
-          stateMutability: 'view',
-          type: 'function'
-        }],
-        functionName: 'memoryTimeline',
-        args: [0n]
-      });
-
-      if (!memoryCountData) {
-        this.state.blockchainMemories = [];
-        this.state.lastBlockchainSync = Date.now();
-        return;
-      }
-
       const memories: BlockchainMemory[] = [];
       const recentIndices = [0, 1, 2, 3, 4];
 
+      const memoryABI = [{
+        inputs: [{ name: '', type: 'uint256' }],
+        name: 'memoryTimeline',
+        outputs: [
+          { name: 'timestamp', type: 'uint256' },
+          { name: 'ipfsCid', type: 'string' },
+          { name: 'conceptsCount', type: 'uint256' },
+          { name: 'evolutionStage', type: 'string' },
+          { name: 'triggerEvent', type: 'string' }
+        ],
+        stateMutability: 'view',
+        type: 'function'
+      }] as const;
+
       for (const idx of recentIndices) {
         try {
+          // FIXED: Proper Wagmi v2 type-safe call
           const memoryData = await this.publicClient.readContract({
             address: this.memoryContractAddress,
-            abi: [{
-              inputs: [{ name: '', type: 'uint256' }],
-              name: 'memoryTimeline',
-              outputs: [
-                { name: 'timestamp', type: 'uint256' },
-                { name: 'ipfsCid', type: 'string' },
-                { name: 'conceptsCount', type: 'uint256' },
-                { name: 'evolutionStage', type: 'string' },
-                { name: 'triggerEvent', type: 'string' }
-              ],
-              stateMutability: 'view',
-              type: 'function'
-            }],
+            abi: memoryABI,
             functionName: 'memoryTimeline',
-            args: [BigInt(idx)]
+            args: [BigInt(idx)],
           });
 
           if (memoryData && Array.isArray(memoryData) && memoryData.length === 5) {
