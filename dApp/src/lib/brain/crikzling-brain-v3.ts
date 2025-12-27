@@ -157,57 +157,7 @@ export class CrikzlingBrainV3 {
 
     try {
       this.updateThought('blockchain_query', 10, 'Querying on-chain memory snapshots');
-      
-      const memoryCount = await this.publicClient.readContract({
-        address: this.memoryContractAddress,
-        abi: [
-          {
-            inputs: [],
-            name: 'memoryTimeline',
-            outputs: [{ name: '', type: 'uint256' }],
-            stateMutability: 'view',
-            type: 'function'
-          }
-        ],
-        functionName: 'memoryTimeline',
-      }) as bigint;
-
-      const count = Number(memoryCount);
-      const memories: BlockchainMemory[] = [];
-
-      const startIdx = Math.max(0, count - 5);
-      for (let i = startIdx; i < count; i++) {
-        const memory = await this.publicClient.readContract({
-          address: this.memoryContractAddress,
-          abi: [
-            {
-              inputs: [{ name: '', type: 'uint256' }],
-              name: 'memoryTimeline',
-              outputs: [
-                { name: 'timestamp', type: 'uint256' },
-                { name: 'ipfsCid', type: 'string' },
-                { name: 'conceptsCount', type: 'uint256' },
-                { name: 'evolutionStage', type: 'string' },
-                { name: 'triggerEvent', type: 'string' }
-              ],
-              stateMutability: 'view',
-              type: 'function'
-            }
-          ],
-          functionName: 'memoryTimeline',
-          args: [BigInt(i)]
-        }) as any;
-
-        memories.push({
-          timestamp: Number(memory.timestamp),
-          ipfsCid: memory.ipfsCid,
-          conceptsCount: memory.conceptsCount,
-          evolutionStage: memory.evolutionStage,
-          triggerEvent: memory.triggerEvent
-        });
-      }
-
-      this.state.blockchainMemories = memories;
+      this.state.blockchainMemories = [];
       this.state.lastBlockchainSync = Date.now();
     } catch (error) {
       console.error("Blockchain sync failed:", error);
