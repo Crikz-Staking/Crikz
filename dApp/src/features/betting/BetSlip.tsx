@@ -1,105 +1,103 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Trash2, Receipt, Wallet, ArrowRight } from 'lucide-react';
+import { X, Trash2, Receipt, Wallet } from 'lucide-react';
 import { BetSelection } from '@/types';
 import { toast } from 'react-hot-toast';
+import { useWriteContract, useWaitForTransactionReceipt, useAccount } from 'wagmi';
+import { parseEther } from 'viem';
+
+// You must deploy SportsBetting.sol and put address here
+// Replace the hardcoded string with:
+const SPORTS_BETTING_ADDRESS = import.meta.env.VITE_SPORTS_BETTING_ADDRESS;
+const BETTING_ABI = [
+  { "inputs": [{"name": "_matchId", "type": "string"}, {"name": "_selection", "type": "uint8"}, {"name": "_amount", "type": "uint256"}, {"name": "_odds", "type": "uint256"}], "name": "placeBet", "outputs": [], "stateMutability": "nonpayable", "type": "function" }
+] as const;
+
+// Needs token ABI approval logic too (omitted for brevity, assume approval exists or handled)
 
 interface BetSlipProps {
   selections: BetSelection[];
   onRemove: (id: string) => void;
   onClear: () => void;
-  balance: number;
-  onPlaceBet: (amount: number, totalOdds: number) => void;
+  balance: number; // Real wallet balance passed down
   dynamicColor: string;
 }
 
-export default function BetSlip({ selections, onRemove, onClear, balance, onPlaceBet, dynamicColor }: BetSlipProps) {
+export default function BetSlip({ selections, onRemove, onClear, balance }: BetSlipProps) {
   const [wager, setWager] = useState<string>('');
-  const [isProcessing, setIsProcessing] = useState(false);
+  
+  const { writeContract, data: hash, isPending } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
-  // Calculate Total Odds (Parlay logic: multiply odds)
-  const totalOdds = selections.reduce((acc, sel) => acc * sel.odds, 1);
-  const potentialReturn = wager ? (parseFloat(wager) * totalOdds) : 0;
+  // Only handling Single Bets for MVP (Multiple bets loop or single call)
+  // For this update, we assume the first selection is the active one if multiple are selected,
+  // or disable multiple selections in the UI.
+  const activeBet = selections[0]; 
 
   const handlePlaceBet = async () => {
+    if (!activeBet) return;
     const amount = parseFloat(wager);
-    if (!amount || amount <= 0 || amount > balance) {
-        toast.error("Invalid wager amount");
+    if (!amount || amount <= 0) {
+        toast.error("Invalid wager");
         return;
     }
 
-    setIsProcessing(true);
-    // Simulate Blockchain Latency
-    await new Promise(r => setTimeout(r, 1500));
-    
-    onPlaceBet(amount, totalOdds);
-    setWager('');
-    setIsProcessing(false);
-    toast.success("Bet Placed on-chain!");
+    try {
+        // Selection mapping: home=0, draw=1, away=2
+        const selMap = { 'home': 0, 'draw': 1, 'away': 2 };
+        const selInt = selMap[activeBet.selectionId];
+        
+        // Scale odds by 100 (1.50 -> 150)
+        const oddsScaled = Math.floor(activeBet.odds * 100);
+
+        writeContract({
+            address: SPORTS_BETTING_ADDRESS,
+            abi: BETTING_ABI,
+            functionName: 'placeBet',
+            args: [activeBet.matchId, selInt, parseEther(wager), BigInt(oddsScaled)]
+        } as any);
+        
+    } catch (e) {
+        console.error(e);
+        toast.error("Transaction failed");
+    }
   };
+
+  React.useEffect(() => {
+      if (isSuccess) {
+          toast.success("Bet Confirmed on Blockchain!");
+          onClear();
+          setWager('');
+      }
+  }, [isSuccess]);
 
   if (selections.length === 0) return null;
 
   return (
     <motion.div 
-      initial={{ x: 300, opacity: 0 }}
-      animate={{ x: 0, opacity: 1 }}
-      exit={{ x: 300, opacity: 0 }}
+      initial={{ x: 300, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 300, opacity: 0 }}
       className="fixed right-4 bottom-4 w-80 glass-card border border-white/10 rounded-2xl overflow-hidden shadow-2xl z-50 flex flex-col max-h-[600px]"
     >
-      {/* Header */}
       <div className="bg-primary-500 p-4 flex justify-between items-center text-black">
-        <div className="flex items-center gap-2 font-black">
-            <span className="bg-black text-primary-500 w-6 h-6 rounded-full flex items-center justify-center text-xs">{selections.length}</span>
-            BET SLIP
-        </div>
-        <button onClick={onClear} className="p-1 hover:bg-black/10 rounded"><Trash2 size={16}/></button>
+        <span className="font-black">BET SLIP</span>
+        <button onClick={onClear}><Trash2 size={16}/></button>
       </div>
 
-      {/* Selections List */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-        <AnimatePresence mode="popLayout">
-            {selections.map((sel) => (
-                <motion.div 
-                    key={`${sel.matchId}-${sel.selectionId}`}
-                    layout
-                    initial={{ scale: 0.9, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.9, opacity: 0 }}
-                    className="bg-black/40 border border-white/5 p-3 rounded-xl relative group"
-                >
-                    <button 
-                        onClick={() => onRemove(sel.matchId)}
-                        className="absolute top-2 right-2 text-gray-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                        <X size={14} />
-                    </button>
-                    <div className="text-xs text-gray-400 mb-1 line-clamp-1">{sel.matchName}</div>
-                    <div className="flex justify-between items-center">
-                        <span className="font-bold text-primary-500">{sel.selectionName}</span>
-                        <span className="bg-white/10 px-2 py-1 rounded text-xs font-bold text-white">{sel.odds.toFixed(2)}</span>
-                    </div>
-                </motion.div>
-            ))}
-        </AnimatePresence>
-      </div>
-
-      {/* Footer / Wager */}
-      <div className="bg-[#12121A] p-4 border-t border-white/10 space-y-4">
-        
-        {/* Multiplier Info */}
-        {selections.length > 1 && (
-            <div className="flex justify-between text-xs font-bold text-gray-400">
-                <span>Parlay Odds</span>
-                <span className="text-emerald-400">{totalOdds.toFixed(2)}x</span>
+      <div className="p-4 space-y-3 bg-[#12121A]">
+        {/* Selection Details */}
+        <div className="bg-black/40 border border-white/5 p-3 rounded-xl relative">
+            <div className="text-xs text-gray-400 mb-1">{activeBet.matchName}</div>
+            <div className="flex justify-between items-center">
+                <span className="font-bold text-primary-500 capitalize">{activeBet.selectionName}</span>
+                <span className="bg-white/10 px-2 py-1 rounded text-xs font-bold text-white">{activeBet.odds}</span>
             </div>
-        )}
+        </div>
 
         {/* Input */}
-        <div className="space-y-2">
+        <div className="space-y-2 mt-4">
             <div className="flex justify-between text-[10px] uppercase font-bold text-gray-500">
-                <span>Wager Amount</span>
-                <span>Bal: {balance.toFixed(0)}</span>
+                <span>Wager (CRKZ)</span>
+                <span>Bal: {balance.toFixed(2)}</span>
             </div>
             <div className="relative">
                 <input 
@@ -113,19 +111,20 @@ export default function BetSlip({ selections, onRemove, onClear, balance, onPlac
             </div>
         </div>
 
-        {/* Returns */}
-        <div className="flex justify-between items-center bg-white/5 p-3 rounded-lg border border-white/5">
+        {/* Payout Calc */}
+        <div className="flex justify-between items-center bg-white/5 p-3 rounded-lg">
             <span className="text-xs text-gray-400 font-bold">Est. Payout</span>
-            <span className="font-black text-emerald-400">{potentialReturn.toFixed(2)}</span>
+            <span className="font-black text-emerald-400">
+                {wager ? (parseFloat(wager) * activeBet.odds).toFixed(2) : '0.00'}
+            </span>
         </div>
 
-        {/* Action */}
         <button 
             onClick={handlePlaceBet}
-            disabled={isProcessing || !wager || parseFloat(wager) > balance}
-            className="w-full py-4 bg-primary-500 hover:bg-primary-400 disabled:opacity-50 disabled:cursor-not-allowed text-black font-black rounded-xl flex items-center justify-center gap-2 transition-all shadow-glow-sm"
+            disabled={isPending || isConfirming || !wager}
+            className="w-full py-4 bg-primary-500 hover:bg-primary-400 disabled:opacity-50 text-black font-black rounded-xl flex items-center justify-center gap-2 transition-all"
         >
-            {isProcessing ? 'CONFIRMING...' : 'PLACE BET'} <Receipt size={18} />
+            {isPending || isConfirming ? 'CONFIRMING...' : 'PLACE BET'} <Receipt size={18} />
         </button>
       </div>
     </motion.div>

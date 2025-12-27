@@ -1,61 +1,28 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Trophy, Clock, Calendar, Flame, Search, ChevronRight } from 'lucide-react';
+import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query'; // Use existing dependency
+import { Trophy, Flame, Calendar, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { BettingMatch, SportId, BetSelection } from '@/types';
 import BetSlip from './BetSlip';
+import { fetchLiveMatches, SPORT_KEYS } from '@/lib/sports-service';
+import { useAccount } from 'wagmi';
+import { useContractData } from '@/hooks/web3/useContractData';
 
 interface BettingLayoutProps {
   dynamicColor: string;
 }
 
-// --- MOCK DATA GENERATOR ---
-const generateMatches = (sport: SportId): BettingMatch[] => {
-    const now = Date.now();
-    const mock: BettingMatch[] = [];
-    
-    const teams = {
-        soccer: [['Man City', 'Liverpool'], ['Real Madrid', 'Barcelona'], ['Bayern', 'Dortmund'], ['Juventus', 'AC Milan']],
-        basketball: [['Lakers', 'Warriors'], ['Celtics', 'Heat'], ['Bulls', 'Knicks']],
-        mma: [['McGregor', 'Chandler'], ['Jones', 'Miocic'], ['O\'Malley', 'Vera']],
-        esports: [['T1', 'Gen.G'], ['FaZe', 'NaVi'], ['G2', 'Fnatic']],
-        tennis: [['Alcaraz', 'Djokovic'], ['Sinner', 'Medvedev']]
-    };
-
-    const sportTeams = teams[sport] || teams.soccer;
-
-    sportTeams.forEach((pair, i) => {
-        const isLive = i === 0; // First match is always live
-        mock.push({
-            id: `${sport}-${i}`,
-            sport,
-            league: sport === 'soccer' ? 'Champions League' : sport === 'basketball' ? 'NBA' : 'Major League',
-            homeTeam: pair[0],
-            awayTeam: pair[1],
-            startTime: isLive ? now - (1000 * 60 * 45) : now + (1000 * 60 * 60 * (i + 1) * 2),
-            isLive,
-            score: isLive ? `${Math.floor(Math.random()*3)} - ${Math.floor(Math.random()*2)}` : undefined,
-            markets: {
-                h2h: [
-                    parseFloat((1.5 + Math.random()).toFixed(2)), 
-                    parseFloat((2.5 + Math.random()).toFixed(2)), 
-                    parseFloat((1.8 + Math.random()).toFixed(2))
-                ]
-            }
-        });
-    });
-    return mock;
-};
-
 export default function BettingLayout({ dynamicColor }: BettingLayoutProps) {
   const [activeSport, setActiveSport] = useState<SportId>('soccer');
-  const [matches, setMatches] = useState<BettingMatch[]>([]);
   const [selections, setSelections] = useState<BetSelection[]>([]);
-  const [userBalance, setUserBalance] = useState(5000); // Mock Balance
+  const { balance } = useContractData(); // Use Real Web3 Balance
 
-  // Load matches when sport changes
-  useEffect(() => {
-    setMatches(generateMatches(activeSport));
-  }, [activeSport]);
+  // 1. Fetch Real Data
+  const { data: matches, isLoading, isError } = useQuery({
+    queryKey: ['matches', activeSport],
+    queryFn: () => fetchLiveMatches(SPORT_KEYS[activeSport]),
+    refetchInterval: 30000, // Refresh every 30s
+  });
 
   const toggleSelection = (match: BettingMatch, type: 'home' | 'draw' | 'away', odds: number) => {
     const id = match.id;
@@ -64,7 +31,6 @@ export default function BettingLayout({ dynamicColor }: BettingLayoutProps) {
     setSelections(prev => {
         const exists = prev.find(s => s.matchId === id);
         if (exists) {
-            // If clicking same selection, remove it. If different, replace it (single bet per match for simplicity)
             if (exists.selectionId === type) return prev.filter(s => s.matchId !== id);
             return prev.map(s => s.matchId === id ? { ...s, selectionId: type, selectionName: name, odds } : s);
         }
@@ -79,29 +45,26 @@ export default function BettingLayout({ dynamicColor }: BettingLayoutProps) {
   };
 
   const sports = [
-      { id: 'soccer', label: 'Soccer', icon: '⚽' },
+      { id: 'soccer', label: 'Football', icon: '⚽' },
       { id: 'basketball', label: 'Basketball', icon: '🏀' },
       { id: 'mma', label: 'MMA', icon: '🥊' },
-      { id: 'esports', label: 'eSports', icon: '🎮' },
+      { id: 'american_football', label: 'NFL', icon: '🏈' },
       { id: 'tennis', label: 'Tennis', icon: '🎾' },
   ];
 
   return (
     <div className="relative min-h-screen pb-20">
       
-      {/* 1. Header & Sports Nav */}
+      {/* Header & Nav */}
       <div className="flex flex-col gap-6 mb-8">
         <div className="flex justify-between items-end">
             <div>
                 <h2 className="text-3xl font-black text-white flex items-center gap-3">
                     <Trophy className="text-primary-500" /> Sportsbook
                 </h2>
-                <p className="text-gray-400 text-sm">Decentralized P2P Betting Protocol</p>
-            </div>
-            
-            <div className="bg-black/40 border border-white/10 px-4 py-2 rounded-xl flex gap-4 text-sm font-bold">
-                <span className="text-gray-500">Available</span>
-                <span className="text-white">{userBalance.toLocaleString()} CRKZ</span>
+                <p className="text-gray-400 text-sm flex items-center gap-2">
+                   Powered by <span className="text-xs bg-white/10 px-2 py-0.5 rounded text-white">THE ODDS API</span>
+                </p>
             </div>
         </div>
 
@@ -122,40 +85,51 @@ export default function BettingLayout({ dynamicColor }: BettingLayoutProps) {
         </div>
       </div>
 
-      {/* 2. Match Feed */}
-      <div className="grid gap-4">
-        {matches.map((match, i) => (
-            <MatchCard 
-                key={match.id} 
-                match={match} 
-                selections={selections}
-                onToggle={toggleSelection}
-                index={i}
-            />
-        ))}
+      {/* Real Data Feed */}
+      <div className="min-h-[300px]">
+        {isLoading ? (
+            <div className="flex flex-col items-center justify-center h-64 text-gray-500">
+                <Loader2 size={40} className="animate-spin mb-4 text-primary-500"/>
+                <p>Syncing Live Odds...</p>
+            </div>
+        ) : isError ? (
+            <div className="text-center p-8 border border-red-500/20 bg-red-500/10 rounded-2xl text-red-400">
+                Failed to load odds. API Key limit might be reached.
+            </div>
+        ) : matches?.length === 0 ? (
+            <div className="text-center p-12 text-gray-500">No active matches found for this sport.</div>
+        ) : (
+            <div className="grid gap-4">
+                {matches?.map((match, i) => (
+                    <MatchCard 
+                        key={match.id} 
+                        match={match} 
+                        selections={selections}
+                        onToggle={toggleSelection}
+                        index={i}
+                    />
+                ))}
+            </div>
+        )}
       </div>
 
-      {/* 3. Bet Slip Sidebar */}
+      {/* Updated Bet Slip */}
       <BetSlip 
         selections={selections}
         onRemove={(id) => setSelections(prev => prev.filter(s => s.matchId !== id))}
         onClear={() => setSelections([])}
-        balance={userBalance}
-        onPlaceBet={(amount) => setUserBalance(prev => prev - amount)}
+        balance={Number(balance) / 1e18} // Convert BigInt for UI
         dynamicColor={dynamicColor}
       />
     </div>
   );
 }
 
-// --- SUB-COMPONENT: Match Card ---
-const MatchCard = ({ match, selections, onToggle, index }: { 
-    match: BettingMatch, 
-    selections: BetSelection[], 
-    onToggle: any,
-    index: number 
-}) => {
-    const isSelected = (type: string) => selections.some(s => s.matchId === match.id && s.selectionId === type);
+// Keep the existing MatchCard and OddButton sub-components (they are good)
+// Just ensure odd values handle the 1.01 fallbacks gracefully.
+const MatchCard = ({ match, selections, onToggle, index }: any) => {
+    // ... [Same code as previous MatchCard, but use match.startTime for formatting]
+    const isSelected = (type: string) => selections.some((s: any) => s.matchId === match.id && s.selectionId === type);
 
     return (
         <motion.div 
@@ -166,41 +140,36 @@ const MatchCard = ({ match, selections, onToggle, index }: {
         >
             <div className="flex flex-col md:flex-row justify-between items-center gap-6">
                 
-                {/* Time & League */}
                 <div className="flex md:flex-col items-center md:items-start gap-3 md:gap-1 min-w-[120px]">
-                    {match.isLive ? (
-                        <span className="flex items-center gap-2 text-red-500 font-bold text-xs animate-pulse">
-                            <Flame size={12} fill="currentColor" /> LIVE • {match.score}
-                        </span>
-                    ) : (
-                        <span className="flex items-center gap-2 text-gray-500 font-bold text-xs">
-                            <Calendar size={12} /> {new Date(match.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                        </span>
-                    )}
+                    <span className="flex items-center gap-2 text-gray-500 font-bold text-xs">
+                        <Calendar size={12} /> {new Date(match.startTime).toLocaleString()}
+                    </span>
                     <span className="text-xs text-gray-600 font-bold uppercase tracking-wider">{match.league}</span>
                 </div>
 
-                {/* Teams */}
                 <div className="flex-1 flex justify-between items-center w-full md:w-auto px-4">
                     <div className="text-right flex-1 font-bold text-white text-lg">{match.homeTeam}</div>
                     <div className="mx-6 text-xs font-bold text-gray-600 bg-white/5 px-2 py-1 rounded">VS</div>
                     <div className="text-left flex-1 font-bold text-white text-lg">{match.awayTeam}</div>
                 </div>
 
-                {/* Odds Buttons */}
                 <div className="flex gap-2 w-full md:w-auto">
+                    {/* H2H Odds */}
                     <OddButton 
                         label="1" 
                         odd={match.markets.h2h[0]} 
                         active={isSelected('home')}
                         onClick={() => onToggle(match, 'home', match.markets.h2h[0])}
                     />
-                    <OddButton 
-                        label="X" 
-                        odd={match.markets.h2h[1]} 
-                        active={isSelected('draw')}
-                        onClick={() => onToggle(match, 'draw', match.markets.h2h[1])}
-                    />
+                    {/* Check if Draw exists (some sports don't have it) */}
+                    {match.markets.h2h[1] > 1.01 && (
+                        <OddButton 
+                            label="X" 
+                            odd={match.markets.h2h[1]} 
+                            active={isSelected('draw')}
+                            onClick={() => onToggle(match, 'draw', match.markets.h2h[1])}
+                        />
+                    )}
                     <OddButton 
                         label="2" 
                         odd={match.markets.h2h[2]} 
@@ -213,7 +182,7 @@ const MatchCard = ({ match, selections, onToggle, index }: {
     );
 };
 
-const OddButton = ({ label, odd, active, onClick }: { label: string, odd: number, active: boolean, onClick: () => void }) => (
+const OddButton = ({ label, odd, active, onClick }: any) => (
     <button 
         onClick={onClick}
         className={`flex-1 md:w-24 py-2 rounded-xl flex flex-col items-center justify-center border transition-all ${
@@ -223,6 +192,6 @@ const OddButton = ({ label, odd, active, onClick }: { label: string, odd: number
         }`}
     >
         <span className={`text-[10px] font-bold ${active ? 'text-black/60' : 'text-gray-600'}`}>{label}</span>
-        <span className="font-bold font-mono">{odd.toFixed(2)}</span>
+        <span className="font-bold font-mono">{odd?.toFixed(2)}</span>
     </button>
 );
