@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from 'wagmi';
 import { bscTestnet } from 'wagmi/chains';
-import { parseEther } from 'viem';
 import { toast } from 'react-hot-toast';
 
 import { CrikzlingBrainV3, ThoughtProcess, DAppContext } from '@/lib/brain/crikzling-brain-v3';
@@ -48,10 +47,16 @@ export function useCrikzlingV3() {
     setCurrentThought(thought);
   }, []);
 
+  // Initialize Brain Logic
   useEffect(() => {
     if (!sessionId) return;
     
+    // Check if brain is already initialized for this session to prevent reset
+    if (brain) return;
+
     const savedLocal = localStorage.getItem(`crikz_brain_v3_${sessionId}`);
+    
+    // Ensure publicClient is ready before initializing if possible, but don't block
     const initialBrain = new CrikzlingBrainV3(
       savedLocal || undefined,
       publicClient,
@@ -68,7 +73,7 @@ export function useCrikzlingV3() {
         : 'Genesis complete. I am Crikzling v3. I can now access the dApp state, my conversation history, and my immutable blockchain memories. How may I assist you?';
       return [{ role: 'bot', content: welcomeMsg, timestamp: Date.now() }];
     });
-  }, [sessionId, thoughtCallback, publicClient]);
+  }, [sessionId, publicClient]); // Removed 'brain' from deps to avoid infinite loop
 
   useEffect(() => {
     if (writeError) {
@@ -116,7 +121,9 @@ export function useCrikzlingV3() {
       currentText += chars[index];
       setMessages(prev => {
         const newMsgs = [...prev];
-        newMsgs[newMsgs.length - 1].content = currentText;
+        if (newMsgs.length > 0) {
+            newMsgs[newMsgs.length - 1].content = currentText;
+        }
         return newMsgs;
       });
       
@@ -148,7 +155,6 @@ export function useCrikzlingV3() {
       setIsThinking(false);
       setCurrentThought(null);
       await typeStreamResponse(response);
-      
     } catch (e) {
       console.error("Brain Processing Error:", e);
       setIsThinking(false);
@@ -182,7 +188,7 @@ export function useCrikzlingV3() {
       const trigger = `V3_MANUAL_SAVE_INTERACTIONS_${state.totalInteractions}_BLOCKCHAIN_SYNCS_${state.blockchainMemories.length}`;
 
       toast.loading('Confirming on Blockchain...', { id: 'crystallize' });
-
+      
       writeContract({
         address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
         abi: CRIKZLING_MEMORY_ABI,
@@ -191,7 +197,6 @@ export function useCrikzlingV3() {
         account: address,
         chain: bscTestnet
       });
-      
     } catch (e: any) {
       console.error(e);
       toast.error('Crystallization failed');
@@ -209,6 +214,7 @@ export function useCrikzlingV3() {
       publicClient,
       CRIKZLING_MEMORY_ADDRESS as `0x${string}`
     );
+    
     newBrain.setThoughtUpdateCallback(thoughtCallback);
     setBrain(newBrain);
     
@@ -224,7 +230,6 @@ export function useCrikzlingV3() {
     setIsThinking(true);
     
     const count = brain.assimilateFile(content);
-    
     if (sessionId) {
       localStorage.setItem(`crikz_brain_v3_${sessionId}`, brain.exportState());
     }

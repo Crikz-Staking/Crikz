@@ -1,5 +1,3 @@
-// src/lib/brain/crikzling-brain-v3.ts
-
 import { 
   AtomicConcept, 
   ConceptRelation,
@@ -69,14 +67,12 @@ const RESPONSE_TEMPLATES = {
     "Greetings! I'm here and ready to help.",
     "Hi! What's on your mind?",
   ],
-  
   acknowledgment: [
     "I understand what you're saying.",
     "That makes sense to me.",
     "I see where you're coming from.",
     "Interesting point.",
   ],
-  
   transition: [
     "Building on that,",
     "What's particularly fascinating is that",
@@ -84,14 +80,12 @@ const RESPONSE_TEMPLATES = {
     "Consider how this relates to",
     "From another angle,",
   ],
-  
   uncertainty: [
     "I'm not entirely certain, but based on what I know,",
     "This is an area where I'm still learning, though",
     "My understanding is evolving on this, and currently",
     "While I can't say definitively,",
   ],
-  
   conclusion: [
     "In essence,",
     "So to summarize,",
@@ -99,6 +93,13 @@ const RESPONSE_TEMPLATES = {
     "What this really means is",
     "Putting it all together,",
   ]
+};
+
+const JSON_REPLACER = (key: string, value: any) => {
+  if (typeof value === 'bigint') {
+    return value.toString();
+  }
+  return value;
 };
 
 export class CrikzlingBrainV3 {
@@ -136,7 +137,6 @@ export class CrikzlingBrainV3 {
       mood: { logic: 60, empathy: 50, curiosity: 60, entropy: 15 },
       lastBlockchainSync: 0,
     };
-
     if (savedJson) {
       try {
         const parsed = JSON.parse(savedJson);
@@ -161,10 +161,10 @@ export class CrikzlingBrainV3 {
 
     try {
       this.updateThought('blockchain_query', 10, 'Querying on-chain memory snapshots');
-      
       const memories: BlockchainMemory[] = [];
-      const recentIndices = [0, 1, 2, 3, 4];
-
+      // Attempt to read the last 5 indices. If we fail on 0, array is empty.
+      const indicesToCheck = [0, 1, 2, 3, 4]; 
+      
       const memoryABI = [{
         inputs: [{ name: '', type: 'uint256' }],
         name: 'memoryTimeline',
@@ -179,7 +179,7 @@ export class CrikzlingBrainV3 {
         type: 'function'
       }] as const;
 
-      for (const idx of recentIndices) {
+      for (const idx of indicesToCheck) {
         try {
           const memoryData = await this.publicClient.readContract({
             address: this.memoryContractAddress,
@@ -198,6 +198,7 @@ export class CrikzlingBrainV3 {
             });
           }
         } catch (memError) {
+          // Typically means index out of bounds, stop checking
           break;
         }
       }
@@ -205,8 +206,8 @@ export class CrikzlingBrainV3 {
       this.state.blockchainMemories = memories;
       this.state.lastBlockchainSync = Date.now();
     } catch (error) {
-      console.error("Blockchain sync error:", error);
-      this.state.blockchainMemories = [];
+      console.warn("Blockchain sync non-critical failure:", error);
+      // Do not clear existing memories on error, just update sync time
       this.state.lastBlockchainSync = Date.now();
     }
   }
@@ -221,26 +222,25 @@ export class CrikzlingBrainV3 {
       this.state.totalInteractions++;
 
       this.updateThought('analyzing', 5, 'Parsing semantic structure');
-      await this.think(400, 800);
+      await this.think(300, 600);
       
       const analysis = this.analyzeInput(cleanInput, dappContext);
-      
       this.updateThought('analyzing', 20, `Intent: ${analysis.intent}`, analysis.keywords.map((k: AtomicConcept) => k.id));
-      await this.think(300, 600);
+      await this.think(200, 400);
 
       this.updateThought('retrieving', 35, 'Accessing memory layers');
-      await this.think(500, 1000);
-
+      await this.think(300, 600);
       const contextMemories = this.retrieveRelevantMemories(analysis.keywords.map((k: AtomicConcept) => k.id));
       
-      if (Date.now() - this.state.lastBlockchainSync > 300000) {
+      // Sync logic: Only try if client exists and sufficient time passed
+      if (this.publicClient && (Date.now() - this.state.lastBlockchainSync > 300000)) {
         this.updateThought('blockchain_query', 45, 'Syncing immutable memory from chain');
         await this.syncBlockchainMemories();
-        await this.think(800, 1200);
+        await this.think(400, 800);
       }
 
       this.updateThought('integrating', 60, 'Fusing dApp state with cognitive model');
-      await this.think(600, 1000);
+      await this.think(300, 500);
 
       const integratedContext = this.integrateContexts(
         analysis,
@@ -250,35 +250,22 @@ export class CrikzlingBrainV3 {
       );
 
       this.updateThought('synthesizing', 80, 'Constructing human-like response');
-      await this.think(800, 1500);
+      await this.think(500, 1000);
 
       const response = this.generateNaturalResponse(integratedContext, analysis);
 
-      this.archiveMemory(
-        'user',
-        cleanInput,
-        Date.now(),
-        analysis.keywords.map((k: AtomicConcept) => k.id),
-        analysis.emotionalWeight,
-        dappContext
-      );
-
-      this.archiveMemory(
-        'bot',
-        response,
-        Date.now(),
-        analysis.keywords.map((k: AtomicConcept) => k.id),
-        0.3,
-        dappContext
-      );
+      // Archive memories
+      const conceptIds = analysis.keywords.map((k: AtomicConcept) => k.id);
+      this.archiveMemory('user', cleanInput, Date.now(), conceptIds, analysis.emotionalWeight, dappContext);
+      this.archiveMemory('bot', response, Date.now(), conceptIds, 0.3, dappContext);
 
       this.updateThought('synthesizing', 100, 'Finalizing transmission');
-      await this.think(200, 400);
+      await this.think(200, 300);
       
-      // Don't clear thought immediately - let it persist briefly
+      // Don't clear thought immediately
       setTimeout(() => {
         this.updateThought(null, 0, '');
-      }, 3000);
+      }, 2000);
 
       return { response };
 
@@ -286,7 +273,7 @@ export class CrikzlingBrainV3 {
       console.error("Processing error:", error);
       this.updateThought(null, 0, '');
       return { 
-        response: "I encountered a momentary cognitive disruption. Could you rephrase that?" 
+        response: "I encountered a momentary cognitive disruption connecting to my deeper neural lattice. I have reset my local thought stream. Please proceed."
       };
     }
   }
@@ -296,10 +283,9 @@ export class CrikzlingBrainV3 {
       'the', 'a', 'an', 'and', 'or', 'but', 'is', 'in', 'on', 'at', 'to', 
       'for', 'with', 'by', 'from', 'as', 'of', 'are', 'was', 'were'
     ]);
-
     const words = input.replace(/[^\w\s]/gi, '').split(/\s+/).filter(w => w.length > 0);
     const keywords: AtomicConcept[] = [];
-
+    
     words.forEach((word: string) => {
       if (!STOP_WORDS.has(word) && this.state.concepts[word]) {
         keywords.push(this.state.concepts[word]);
@@ -342,9 +328,8 @@ export class CrikzlingBrainV3 {
 
   private retrieveRelevantMemories(conceptIds: string[]): Memory[] {
     const relevant: Memory[] = [];
-
     relevant.push(...this.state.shortTermMemory.slice(-5));
-
+    
     const midTermMatches = this.state.midTermMemory.filter((m: Memory) =>
       m.concepts.some((c: string) => conceptIds.includes(c))
     ).slice(-3);
@@ -420,13 +405,11 @@ export class CrikzlingBrainV3 {
       const mainConcept = keywords[0];
       response += this.selectRandom(RESPONSE_TEMPLATES.transition) + ' ';
       response += `${mainConcept.id} ${mainConcept.essence.toLowerCase()}. `;
-
       if (keywords.length > 1) {
         const relatedConcept = keywords[1];
         response += `This relates to ${relatedConcept.id}, which ${relatedConcept.essence.toLowerCase()}. `;
       }
     } else {
-      // Fallback for no keywords found
       response += "I'm processing your message, though I don't have specific knowledge nodes activated for those exact terms. ";
     }
 
@@ -454,7 +437,6 @@ export class CrikzlingBrainV3 {
 
   private generateDAppResponse(input: string, dappState: any): string {
     const responses = [];
-
     if (input.includes('order') || input.includes('stake')) {
       if (dappState.hasActiveOrders) {
         responses.push("You currently have active production orders running.");
@@ -566,7 +548,7 @@ export class CrikzlingBrainV3 {
   }
 
   public exportState(): string {
-    return JSON.stringify(this.state);
+    return JSON.stringify(this.state, JSON_REPLACER);
   }
 
   public needsCrystallization(): boolean {
