@@ -5,7 +5,7 @@ interface CrikzlingBackgroundEffectsProps {
   isThinking: boolean;
   isTyping: boolean;
   currentThought: {
-    phase: 'analyzing' | 'planning' | 'calculating' | 'synthesizing' | 'reviewing';
+    phase: 'analyzing' | 'planning' | 'calculating' | 'synthesizing' | 'reviewing' | 'associating';
     progress: number;
     focus?: string[];
   } | null;
@@ -92,6 +92,7 @@ const CrikzlingBackgroundEffects: React.FC<CrikzlingBackgroundEffectsProps> = ({
     const getPhaseColor = (phase?: string): string => {
       switch (phase) {
         case 'analyzing': return '#3B82F6'; // Blue
+        case 'associating': return '#EC4899'; // Pink - for memory/knowledge linking
         case 'planning': return '#A78BFA'; // Purple
         case 'calculating': return '#10B981'; // Emerald
         case 'synthesizing': return '#F59E0B'; // Amber
