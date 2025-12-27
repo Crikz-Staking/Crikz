@@ -30,7 +30,7 @@ export interface NFTMetadata {
   image: string;
   animation_url?: string;
   external_url?: string;
-  attributes: Array<{ trait_type: string; value: string }>; // FIXED
+  attributes: Array<{ trait_type: string; value: string }>; 
   collection?: string;
   mimeType?: string;
 }
@@ -46,10 +46,9 @@ export interface MarketItem extends NFTItem {
   seller: string;
   nftContract: string;
   isActive: boolean;
-  tokenId: bigint; // FIXED: Added missing property
+  tokenId: bigint; 
 }
 
-// FIXED: Removed invalid code
 export interface Listing {
   seller: `0x${string}`;
   nftContract: `0x${string}`;
@@ -59,8 +58,8 @@ export interface Listing {
 
 // Navigation Types
 export type MainSection = 'active' | 'passive' | 'tools';
-export type ActiveView = 'dashboard' | 'nft';
-export type PassiveView = 'learning' | 'analytics' | 'games' | 'audio' | 'video';
+export type ActiveView = 'dashboard' | 'nft' | 'arcade'; // Added 'arcade'
+export type PassiveView = 'learning' | 'analytics' | 'audio' | 'video'; // Removed 'games'
 export type ToolCategory = 'files' | 'crypto' | 'dev' | 'security';
 export type Language = 'en' | 'sq';
 export type DashboardTab = 'create' | 'orders' | 'analytics';

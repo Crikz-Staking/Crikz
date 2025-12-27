@@ -11,6 +11,7 @@ import Dashboard from '@/features/dashboard/Dashboard';
 import PassiveHub from '@/features/passive/PassiveHub';
 import ToolsLayout from '@/features/tools/ToolsLayout';
 import NFTMarket from '@/features/nft/NFTMarket';
+import BlockchainGames from '@/features/games/BlockchainGames';
 
 import { useAppWatcher } from '@/hooks/useAppWatcher';
 import { MainSection, ActiveView, Language } from '@/types';
@@ -57,7 +58,7 @@ export default function App() {
         <div className="mt-8 transition-all duration-500">
           {currentSection === 'active' && (
             <div className="space-y-8">
-              <div className="flex justify-center gap-4 mb-8">
+              <div className="flex flex-wrap justify-center gap-4 mb-8">
                 <button 
                   onClick={() => setActiveView('dashboard')}
                   className={`px-6 py-2 rounded-full font-bold transition-all ${
@@ -74,13 +75,19 @@ export default function App() {
                 >
                   NFT Marketplace
                 </button>
+                <button 
+                  onClick={() => setActiveView('arcade')}
+                  className={`px-6 py-2 rounded-full font-bold transition-all ${
+                    activeView === 'arcade' ? 'bg-primary-500 text-black shadow-lg shadow-primary-500/20' : 'bg-white/5 hover:bg-white/10 text-gray-400'
+                  }`}
+                >
+                  Active Arcade
+                </button>
               </div>
               
-              {activeView === 'dashboard' ? (
-                <Dashboard dynamicColor={dynamicColor} lang={lang} />
-              ) : (
-                <NFTMarket dynamicColor={dynamicColor} lang={lang} />
-              )}
+              {activeView === 'dashboard' && <Dashboard dynamicColor={dynamicColor} lang={lang} />}
+              {activeView === 'nft' && <NFTMarket dynamicColor={dynamicColor} lang={lang} />}
+              {activeView === 'arcade' && <BlockchainGames dynamicColor={dynamicColor} lang={lang} />}
             </div>
           )}
 
