@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { X, Circle, RotateCcw, Trophy } from 'lucide-react';
+import { X, Circle, RotateCw, Trophy } from 'lucide-react'; // Fixed: Changed RotateCcw to RotateCw
 
 interface GameProps {
   onClose: () => void;
