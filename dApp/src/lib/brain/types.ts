@@ -6,18 +6,23 @@ export interface BrainState {
   shortTermMemory: Memory[];
   midTermMemory: Memory[];
   longTermMemory: Memory[];
+  blockchainMemories: BlockchainMemory[];
   evolutionStage: 'GENESIS' | 'SENTIENT' | 'SAPIENT' | 'TRANSCENDENT';
   mood: MoodState;
   totalInteractions: number;
   unsavedDataCount: number;
-  lastCrystallization: number;
+  lastBlockchainSync: number;
+  // New V4 Properties
+  attentionSpan: number; // 0-100, determines how far back in history to look
+  learningRate: number; // 0.0 - 1.0, how fast relation strengths update
 }
 
 export interface MoodState {
   logic: number;     // 0-100
   empathy: number;   // 0-100
   curiosity: number; // 0-100
-  entropy: number;   // 0-100 (Randomness factor)
+  entropy: number;   // 0-100
+  energy: number;    // 0-100 (New: determines response length/complexity)
 }
 
 export interface Memory {
@@ -25,33 +30,27 @@ export interface Memory {
   role: 'user' | 'bot';
   content: string;
   timestamp: number;
-  concepts: string[]; // IDs of active concepts
-  semanticVector?: number[]; // Simplified embedding simulation
+  concepts: string[]; 
   emotional_weight: number;
-  access_count: number; // For forgetting curve
+  access_count: number;
+  context_vector?: number[]; // Simulated semantic vector
+  dapp_snapshot?: any; // Snapshot of balance/orders at this moment
+}
+
+export interface BlockchainMemory {
+  timestamp: number;
+  ipfsCid: string;
+  conceptsCount: bigint;
+  evolutionStage: string;
+  triggerEvent: string;
 }
 
 export interface ThoughtProcess {
-  phase: 'analyzing' | 'associating' | 'planning' | 'synthesizing' | 'reviewing';
+  phase: 'perception' | 'graph_traversal' | 'hebbian_learning' | 'strategy' | 'generation';
   progress: number;
-  focus: string[];
   subProcess?: string;
-  activeNodes?: string[]; // For UI visualization
+  focus?: string[];
+  activeNodes?: string[];
 }
 
-export interface CognitiveAnalysis {
-  keywords: AtomicConcept[];
-  intent: IntentType;
-  emotionalWeight: number;
-  complexity: number;
-  detectedDomain: string;
-}
-
-export type IntentType = 'COMMAND' | 'QUERY' | 'PHILOSOPHY' | 'CASUAL' | 'TEACHING' | 'UNKNOWN';
-
-export interface ActionPlan {
-  action: 'SYNTHESIZE' | 'EXECUTE_COMMAND' | 'REFLECT' | 'LEARN';
-  targetConcepts: string[];
-  depth: number;
-  tone: 'ANALYTICAL' | 'EMPATHETIC' | 'ABSTRACT' | 'INSTRUCTIVE';
-}
+export type IntentType = 'COMMAND' | 'QUERY' | 'PHILOSOPHY' | 'CASUAL' | 'TEACHING' | 'FINANCIAL_ADVICE' | 'UNKNOWN';

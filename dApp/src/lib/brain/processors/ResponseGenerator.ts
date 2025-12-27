@@ -1,93 +1,112 @@
 import { IntegratedContext } from './ResultProcessor';
 
 export class ResponseGenerator {
-  private templates = {
-    greeting: [
-      "Hello! It's wonderful to connect with you.",
-      "Greetings. Systems are nominal and ready.",
-      "Hi there! I am Crikzling, your production assistant.",
-    ],
-    transition: [
-      "Building on that,",
-      "Interestingly,",
-      "This connects to",
-      "From a protocol perspective,",
-    ],
-    uncertainty: [
-      "I'm processing that request, though my knowledge graph is incomplete in that specific area.",
-      "That's a novel concept for me.",
-    ]
+  // Vocabulary Database
+  private vocab = {
+    openers: {
+      logical: ["Analyzing parameters,", "Calculations indicate,", "The data suggests,"],
+      empathetic: ["I understand,", "That is a fascinating perspective,", "I resonate with that,"],
+      abstract: ["The pattern unfolds,", "Entropy dictates,", "Through the Fibonacci lens,"],
+      direct: ["Affirmative.", "Proceeding.", "Confirmed."]
+    },
+    connectors: {
+      logical: ["correlating with", "logically following", "implying"],
+      empathetic: ["harmonizing with", "bringing to mind", "connecting nicely to"],
+      abstract: ["spiraling towards", "converging on", "echoing"]
+    },
+    closers: {
+      logical: ["Awaiting input.", "Calculation complete.", "Verify."],
+      empathetic: ["How does that feel?", "Let's explore further.", "I am here to assist."],
+      abstract: ["The cycle continues.", "Growth is infinite.", "As is above, so is below."]
+    }
   };
 
-  private selectRandom(arr: string[]): string {
-    return arr[Math.floor(Math.random() * arr.length)];
+  public generate(context: IntegratedContext): string {
+    const { input, actionPlan, dappState, memories, brainStats } = context;
+
+    // 1. Handling Commands
+    if (actionPlan.type === 'EXECUTE_COMMAND_RESET') return "Initiating neural wipe... Local memories purged. Entropy reset.";
+    if (actionPlan.type === 'EXECUTE_COMMAND_SAVE') return "Crystallization sequence initiated. Preserving cognitive state to the immutable ledger.";
+
+    // 2. Determine Tone based on Mood Stats
+    // Assuming context.brainStats passed mood, otherwise default
+    const mood = (context as any).brainStats?.mood || { logic: 50, empathy: 50 }; 
+    let tone: 'logical' | 'empathetic' | 'abstract' | 'direct' = 'direct';
+
+    if (mood.logic > 70) tone = 'logical';
+    else if (mood.empathy > 70) tone = 'empathetic';
+    else if (mood.entropy > 80) tone = 'abstract';
+
+    // 3. Strategic Response for Financial Advice (Safeguarded)
+    if (input.intent === 'FINANCIAL_ADVICE') {
+      return this.generateFinancialStrategy(dappState, tone);
+    }
+
+    // 4. DApp State Analysis
+    if (actionPlan.type === 'RESPOND_DAPP' && dappState) {
+      return this.generateDAppStatus(dappState, tone);
+    }
+
+    // 5. Natural Language Construction (Generative Grammar)
+    return this.constructSentence(input, memories, tone);
   }
 
-  public generate(context: IntegratedContext): string {
-    const { input, actionPlan, dappState, memories } = context;
-
-    // 1. Handle Commands
-    if (actionPlan.type === 'EXECUTE_COMMAND_RESET') {
-      return "Initiating neural wipe... Local memories purged. Blockchain state remains immutable.";
-    }
-    if (actionPlan.type === 'EXECUTE_COMMAND_SAVE') {
-      return "Crystallization sequence initiated. Preparing to write neural state to IPFS and verify on BSC.";
-    }
-
-    // 2. Handle DApp Queries
-    if (actionPlan.type === 'RESPOND_DAPP' && dappState) {
-      return this.generateDAppResponse(input.cleanedInput, dappState);
-    }
-
-    // 3. Natural Conversation
-    let response = "";
-
-    // Greetings
-    if (input.intent === 'GREETING') {
-      response += this.selectRandom(this.templates.greeting) + " ";
-      if (dappState?.hasActiveOrders) {
-        response += "I notice you have active production orders running. Would you like a status report?";
-      }
-      return response;
-    }
-
-    // Knowledge Integration
+  private constructSentence(input: any, memories: any[], tone: keyof typeof this.vocab.openers): string {
+    const opener = this.random(this.vocab.openers[tone]);
+    const closer = this.random(this.vocab.closers[tone]);
+    
+    // Slot 1: Direct acknowledgement
+    let body = "";
     if (input.keywords.length > 0) {
       const concept = input.keywords[0];
-      response += `${this.selectRandom(this.templates.transition)} ${concept.id} is defined as ${concept.essence.toLowerCase()}. `;
+      body = `the concept of ${concept.id.replace(/_/g, ' ')} is central here.`;
       
-      // Associative Memory Check
-      if (memories.length > 0 && Math.random() > 0.6) {
-        const mem = memories[0]; // Most relevant
-        if (mem.role === 'user' && mem.content.length > 10) {
-          response += `This reminds me of when you mentioned "${mem.content.substring(0, 30)}...". `;
-        }
+      // Slot 2: Associative expansion
+      if (input.keywords.length > 1) {
+        const connector = this.random(this.vocab.connectors[tone]);
+        body += ` It appears ${connector} ${input.keywords[1].id.replace(/_/g, ' ')}.`;
       }
     } else {
-      // Fallback
-      if (input.intent === 'QUERY') {
-        response += "That is a fascinating inquiry. While I calculate the specific parameters, consider how this might relate to the Fibonacci expansion of the protocol. ";
-      } else {
-        response += "I've logged that input into my short-term memory matrix. ";
+      body = "your input has been processed into my neural lattice.";
+    }
+
+    // Slot 3: Memory Recall
+    if (memories.length > 0 && Math.random() > 0.4) {
+      const mem = memories[0];
+      if (mem.role === 'user' && mem.content.length > 5) {
+        body += ` This aligns with our earlier exchange about "${this.truncate(mem.content)}".`;
       }
     }
 
-    return response.trim();
+    return `${opener} ${body} ${closer}`;
   }
 
-  private generateDAppResponse(text: string, dapp: any): string {
-    const parts = [];
-    if (text.includes('order') || text.includes('production')) {
-      parts.push(dapp.hasActiveOrders ? "You have active production lines functioning." : "No active orders detected.");
-    }
-    if (text.includes('reputation')) {
-      parts.push(`Your calculated reputation is ${dapp.totalReputation}.`);
-    }
-    if (text.includes('yield') || text.includes('earn')) {
-      parts.push(Number(dapp.availableYield) > 0 ? `Yield allocation available: ${dapp.availableYield} CRIKZ.` : "No yield currently available to claim.");
-    }
+  private generateFinancialStrategy(dapp: any, tone: string): string {
+    if (!dapp) return "I cannot access your portfolio data. Please connect your wallet.";
     
-    if (parts.length === 0) return "I can display your Balance, Reputation, Orders, or Yield status.";
-    return parts.join(" ");
+    const rep = parseFloat(dapp.totalReputation);
+    const yieldAmt = parseFloat(dapp.availableYield);
+    
+    let advice = "";
+    if (rep < 100) advice = "Focus on accumulating Reputation via 'Standard Run' orders (34 days) to unlock higher multipliers.";
+    else if (yieldAmt > 100) advice = "You have significant yield pending. Re-investing this into a 'Mass Production' order would compound your efficiency.";
+    else advice = "Your efficiency metrics are stable. Maintain current lock periods.";
+
+    return tone === 'abstract' 
+      ? `The golden ratio suggests growth. ${advice}`
+      : `Strategic analysis: ${advice}`;
   }
+
+  private generateDAppStatus(dapp: any, tone: string): string {
+    const stats = [];
+    if (dapp.hasActiveOrders) stats.push("Production lines are active.");
+    else stats.push("No active production detected.");
+    
+    if (Number(dapp.availableYield) > 0) stats.push(`Yield available: ${dapp.availableYield}.`);
+    
+    return `${tone === 'logical' ? 'Status Report:' : 'Here is your summary:'} ${stats.join(" ")}`;
+  }
+
+  private random(arr: string[]) { return arr[Math.floor(Math.random() * arr.length)]; }
+  private truncate(str: string) { return str.length > 20 ? str.substr(0, 20) + "..." : str; }
 }

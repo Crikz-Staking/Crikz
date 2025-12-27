@@ -1,64 +1,11 @@
 import { PublicClient } from 'viem';
 import { AtomicConcept, ConceptRelation } from '@/lib/crikzling-atomic-knowledge';
-import { InputProcessor } from './processors/InputProcessor';
+import { InputProcessor, InputAnalysis } from './processors/InputProcessor';
 import { CognitiveProcessor } from './processors/CognitiveProcessor';
-import { ActionProcessor } from './processors/ActionProcessor';
+import { ActionProcessor, ActionPlan } from './processors/ActionProcessor';
 import { ResultProcessor } from './processors/ResultProcessor';
 import { ResponseGenerator } from './processors/ResponseGenerator';
-
-export interface Memory {
-  id: string;
-  role: 'user' | 'bot';
-  content: string;
-  timestamp: number;
-  concepts: string[];
-  emotional_weight: number;
-  dapp_context?: any;
-}
-
-export interface BlockchainMemory {
-  timestamp: number;
-  ipfsCid: string;
-  conceptsCount: bigint;
-  evolutionStage: string;
-  triggerEvent: string;
-}
-
-export interface BrainState {
-  concepts: Record<string, AtomicConcept>;
-  relations: ConceptRelation[];
-  shortTermMemory: Memory[];
-  midTermMemory: Memory[];
-  longTermMemory: Memory[];
-  blockchainMemories: BlockchainMemory[];
-  totalInteractions: number;
-  unsavedDataCount: number;
-  evolutionStage: 'GENESIS' | 'SENTIENT' | 'SAPIENT' | 'TRANSCENDENT';
-  mood: {
-    logic: number;
-    empathy: number;
-    curiosity: number;
-    entropy: number;
-  };
-  lastBlockchainSync: number;
-}
-
-export interface DAppContext {
-  user_balance?: bigint;
-  active_orders_count?: number;
-  total_reputation?: bigint;
-  pending_yield?: bigint;
-  global_fund_balance?: bigint;
-  current_block?: bigint;
-}
-
-export interface ThoughtProcess {
-  phase: 'analyzing' | 'retrieving' | 'planning' | 'synthesizing' |
-         'responding' | 'blockchain_sync';
-  progress: number;
-  subProcess?: string;
-  focus?: string[];
-}
+import { BrainState, DAppContext, ThoughtProcess } from './types';
 
 export class CrikzlingBrainV3 {
   private cognitive: CognitiveProcessor;
@@ -66,7 +13,6 @@ export class CrikzlingBrainV3 {
   private actionProc: ActionProcessor;
   private resultProc: ResultProcessor;
   private generator: ResponseGenerator;
-
   private thoughtCallback?: (thought: ThoughtProcess | null) => void;
 
   constructor(
@@ -91,26 +37,42 @@ export class CrikzlingBrainV3 {
     dappContext?: DAppContext
   ): Promise<{ response: string }> {
     try {
-      this.updateThought('analyzing', 10, 'Deconstructing semantic input');
-      await this.think(200);
-      const inputAnalysis = this.inputProc.process(text, this.cognitive.getConcepts(), dappContext);
-
-      this.updateThought('retrieving', 30, 'Accessing neural lattice');
-      await this.cognitive.syncBlockchainMemories();
-      const relevantMemories = this.cognitive.retrieveRelevantMemories(
-        inputAnalysis.keywords.map(k => k.id)
-      );
-      await this.think(300);
-
-      this.updateThought('planning', 50, `Evaluating intent: ${inputAnalysis.intent}`);
+      // Phase 1: Perception
+      this.updateThought('perception', 10, 'Fuzzy matching & Intent Analysis');
+      await this.think(150);
       const brainState = this.cognitive.getState();
-      const actionPlan = this.actionProc.plan(inputAnalysis, brainState, isOwner);
+      const inputAnalysis = this.inputProc.process(text, brainState.concepts, dappContext);
+
+      // Phase 2: Graph Traversal (Spreading Activation)
+      this.updateThought('graph_traversal', 35, 'Activating neural pathways');
+      const activeNodeIds = inputAnalysis.keywords.map(k => k.id);
       
-      if (actionPlan.type === 'EXECUTE_COMMAND_RESET' && isOwner) {
-        this.cognitive.wipeLocalMemory();
+      // Activate related concepts in the graph
+      const activatedNetwork = this.cognitive.activateNeuralNetwork(activeNodeIds);
+      const secondaryConcepts = Object.keys(activatedNetwork)
+        .filter(id => !activeNodeIds.includes(id))
+        .sort((a, b) => activatedNetwork[b] - activatedNetwork[a])
+        .slice(0, 3); // Top 3 associated concepts
+
+      // Phase 3: Learning & Retrieval
+      this.updateThought('hebbian_learning', 60, 'Strengthening synaptic weights');
+      const allActiveIds = [...activeNodeIds, ...secondaryConcepts];
+      const relevantMemories = this.cognitive.retrieveRelevantMemories(allActiveIds);
+      
+      // Only owner interactions or high-emotion events trigger immediate blockchain sync consideration
+      if (inputAnalysis.emotionalWeight > 0.8) {
+         await this.cognitive.syncBlockchainMemories();
       }
 
-      this.updateThought('synthesizing', 75, 'Integrating context and logic');
+      // Phase 4: Strategy
+      this.updateThought('strategy', 80, `Formulating ${inputAnalysis.intent} response`);
+      const actionPlan = this.actionProc.plan(inputAnalysis, brainState, isOwner);
+      
+      // Execute internal commands
+      if (actionPlan.type === 'EXECUTE_COMMAND_RESET' && isOwner) this.cognitive.wipeLocalMemory();
+
+      // Phase 5: Generation
+      this.updateThought('generation', 95, 'Synthesizing output');
       const integratedContext = this.resultProc.process(
         inputAnalysis,
         actionPlan,
@@ -118,36 +80,41 @@ export class CrikzlingBrainV3 {
         brainState,
         dappContext
       );
-      await this.think(400);
 
-      this.updateThought('responding', 90, 'Formulating natural language');
+      // Pass brain stats for mood-based generation
+      (integratedContext as any).brainStats = { 
+        ...integratedContext.brainStats,
+        mood: brainState.mood 
+      };
+
       const response = this.generator.generate(integratedContext);
 
+      // Archive Interaction
       this.cognitive.archiveMemory(
         'user', 
         inputAnalysis.cleanedInput, 
-        inputAnalysis.keywords.map(k => k.id), 
+        allActiveIds, 
         inputAnalysis.emotionalWeight, 
         dappContext
       );
       this.cognitive.archiveMemory(
         'bot', 
         response, 
-        inputAnalysis.keywords.map(k => k.id), 
+        allActiveIds, 
         0.5, 
         dappContext
       );
 
-      this.updateThought('responding', 100, 'Transmission complete');
-      setTimeout(() => this.updateThought(null as any, 0, ''), 1500);
-
+      this.updateThought(null as any, 100, 'Complete');
       return { response };
+
     } catch (error) {
       console.error("Brain Failure:", error);
-      return { response: "Cognitive dissonance detected. My processors encountered a critical fault. Please retry." };
+      return { response: "Cognitive dissonance detected. My processors encountered a critical fault." };
     }
   }
 
+  // ... (Keep existing export/import/state methods)
   public exportState(): string {
     return JSON.stringify(this.cognitive.getState(), (key, value) => 
       typeof value === 'bigint' ? value.toString() : value
@@ -171,22 +138,23 @@ export class CrikzlingBrainV3 {
   }
 
   public getStats() {
-    const s = this.cognitive.getState();
-    return {
-      nodes: Object.keys(s.concepts).length,
-      relations: s.relations.length,
-      stage: s.evolutionStage,
-      mood: s.mood,
-      unsaved: s.unsavedDataCount,
-      memories: {
-        short: s.shortTermMemory.length,
-        mid: s.midTermMemory.length,
-        long: s.longTermMemory.length,
-        blockchain: s.blockchainMemories.length
-      },
-      interactions: s.totalInteractions,
-      lastBlockchainSync: s.lastBlockchainSync
-    };
+      // Maps V4 stats to UI compatible object
+      const s = this.cognitive.getState();
+      return {
+        nodes: Object.keys(s.concepts).length,
+        relations: s.relations.length,
+        stage: s.evolutionStage,
+        mood: s.mood,
+        unsaved: s.unsavedDataCount,
+        memories: {
+          short: s.shortTermMemory.length,
+          mid: s.midTermMemory.length,
+          long: s.longTermMemory.length,
+          blockchain: s.blockchainMemories.length
+        },
+        interactions: s.totalInteractions,
+        lastBlockchainSync: s.lastBlockchainSync
+      };
   }
 
   public wipe() {
