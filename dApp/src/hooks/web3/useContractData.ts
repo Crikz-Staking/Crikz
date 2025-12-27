@@ -20,7 +20,7 @@ export function useContractData() {
     ],
     query: { 
       enabled: true, 
-      staleTime: 3000 // Reduced stale time for fresher data
+      staleTime: 3000 
     }
   });
 
@@ -29,7 +29,6 @@ export function useContractData() {
   const totalReputation = data?.[2]?.result as bigint | undefined;
   const yieldDebt = data?.[3]?.result as bigint | undefined;
   
-  // SAFE PARSING: Ensure activeOrders is always an array
   const rawOrders = data?.[4]?.result;
   const activeOrders: Order[] = Array.isArray(rawOrders) 
     ? rawOrders.map((o: any) => ({
@@ -40,7 +39,7 @@ export function useContractData() {
         duration: o.duration
       }))
     : [];
-  
+
   const fundRaw = data?.[5]?.result;
   let globalFund = {
     balance: 0n,
@@ -50,6 +49,7 @@ export function useContractData() {
   };
 
   if (fundRaw) {
+    // Handle both array-like tuple and object response from Wagmi
     if (Array.isArray(fundRaw)) {
       globalFund = {
         balance: fundRaw[0],
@@ -58,7 +58,6 @@ export function useContractData() {
         lastUpdate: fundRaw[3]
       };
     } else if (typeof fundRaw === 'object') {
-        // Fallback for object return style
         globalFund = {
             balance: (fundRaw as any).balance || 0n,
             totalReputation: (fundRaw as any).totalReputation || 0n,

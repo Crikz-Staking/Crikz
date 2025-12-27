@@ -1,4 +1,3 @@
-import { WAD } from '@/config/index';
 import { formatTokenAmount } from '@/lib/utils';
 
 export type GameResult = {
@@ -8,17 +7,23 @@ export type GameResult = {
   message: string;
 };
 
+function isPrime(num: number): boolean {
+  for (let i = 2, s = Math.sqrt(num); i <= s; i++) {
+    if (num % i === 0) return false;
+  }
+  return num > 1;
+}
+
 /**
  * Logic for the Fibonacci Dice game
- * Uses a pseudo-random seed (In production, replace with Chainlink VRF)
+ * Current implementation uses client-side randomness for demonstration.
+ * In a mainnet deployment, this should call a contract using Chainlink VRF.
  */
 export const calculateDiceResult = (betAmount: bigint, choice: 'fib' | 'prime'): GameResult => {
   const roll = Math.floor(Math.random() * 100) + 1;
   const fibNumbers = [1, 2, 3, 5, 8, 13, 21, 34, 55, 89];
   const isFib = fibNumbers.includes(roll);
-  
-  // Logic: Choosing 'fib' is harder (10% chance) but pays more (5x)
-  // Choosing 'prime' is easier (25% chance) and pays less (2x)
+
   let won = false;
   let multiplier = 0;
 
@@ -31,7 +36,7 @@ export const calculateDiceResult = (betAmount: bigint, choice: 'fib' | 'prime'):
   }
 
   const reward = won ? betAmount * BigInt(multiplier) : 0n;
-  
+
   return {
     won,
     multiplier,
@@ -41,10 +46,3 @@ export const calculateDiceResult = (betAmount: bigint, choice: 'fib' | 'prime'):
       : `Rolled ${roll}. Better luck next production cycle.`
   };
 };
-
-function isPrime(num: number): boolean {
-  for (let i = 2, s = Math.sqrt(num); i <= s; i++) {
-    if (num % i === 0) return false;
-  }
-  return num > 1;
-}

@@ -12,8 +12,8 @@ export function useMarketListings() {
     const fetchListings = async () => {
         if (!publicClient || !currentBlock) return;
         setIsLoading(true);
-        
         try {
+            // Look back 50k blocks approx
             const fromBlock = currentBlock - 50000n > 0n ? currentBlock - 50000n : 0n;
 
             const logs = await publicClient.getContractEvents({
@@ -22,14 +22,12 @@ export function useMarketListings() {
                 eventName: 'ItemListed',
                 fromBlock: fromBlock
             });
-
             const soldLogs = await publicClient.getContractEvents({
                 address: NFT_MARKETPLACE_ADDRESS,
                 abi: NFT_MARKETPLACE_ABI,
                 eventName: 'ItemSold',
                 fromBlock: fromBlock
             });
-
             const canceledLogs = await publicClient.getContractEvents({
                 address: NFT_MARKETPLACE_ADDRESS,
                 abi: NFT_MARKETPLACE_ABI,
@@ -37,6 +35,7 @@ export function useMarketListings() {
                 fromBlock: fromBlock
             });
 
+            // Reconstruct state from events
             const activeMap = new Map<string, any>();
 
             logs.forEach(log => {
@@ -58,13 +57,13 @@ export function useMarketListings() {
             });
 
             const marketItems: MarketItem[] = Array.from(activeMap.values()).map((item: any) => ({
-                id: item.tokenId,
-                tokenId: item.tokenId,
+                id: item.tokenId,       // Mapped strictly to BigInt
+                tokenId: item.tokenId,  // Redundant but safe for types
                 uri: '', 
-                name: `Artifact #${item.tokenId}`,
+                name: `Artifact #${item.tokenId.toString()}`,
                 description: 'Listed on Crikz Market',
                 image: '', 
-                attributes: [] as Array<{ trait_type: string; value: string }>,
+                attributes: [],
                 price: item.price,
                 seller: item.seller,
                 nftContract: item.nftContract,

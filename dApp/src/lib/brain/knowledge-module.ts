@@ -1,13 +1,16 @@
+// src/lib/brain/knowledge-module.ts
+
 import { AtomicConcept, ConceptRelation, ATOMIC_PRIMITIVES, ATOMIC_RELATIONS } from '../crikzling-atomic-knowledge';
-import { FIBONACCI_KNOWLEDGE, FIBONACCI_RELATIONS } from './fibonacci-math.knowledge';
-import { BLOCKCHAIN_KNOWLEDGE, BLOCKCHAIN_RELATIONS } from './blockchain.knowledge';
-import { CRIKZ_PROTOCOL_KNOWLEDGE, CRIKZ_PROTOCOL_RELATIONS } from './crikz-protocol.knowledge';
-import { COMMUNICATION_KNOWLEDGE, COMMUNICATION_RELATIONS } from './communication.knowledge';
-import { ENGLISH_LANGUAGE_KNOWLEDGE, ENGLISH_LANGUAGE_RELATIONS } from './english-language.knowledge';
-import { MATHEMATICS_KNOWLEDGE, MATHEMATICS_RELATIONS } from './mathematics.knowledge';
-import { TIME_KNOWLEDGE, TIME_RELATIONS } from './time.knowledge';
-import { COMPUTER_SCIENCE_KNOWLEDGE, COMPUTER_SCIENCE_RELATIONS } from './computer-science.knowledge';
-import { ADVANCED_BLOCKCHAIN_KNOWLEDGE, ADVANCED_BLOCKCHAIN_RELATIONS } from './advanced-blockchain.knowledge';
+// FIX: Using alias path to avoid relative path hell and duplicates
+import { FIBONACCI_KNOWLEDGE, FIBONACCI_RELATIONS } from '@/lib/knowledge/fibonacci-math.knowledge';
+import { BLOCKCHAIN_KNOWLEDGE, BLOCKCHAIN_RELATIONS } from '@/lib/knowledge/blockchain.knowledge';
+import { CRIKZ_PROTOCOL_KNOWLEDGE, CRIKZ_PROTOCOL_RELATIONS } from '@/lib/knowledge/crikz-protocol.knowledge';
+import { COMMUNICATION_KNOWLEDGE, COMMUNICATION_RELATIONS } from '@/lib/knowledge/communication.knowledge';
+import { ENGLISH_LANGUAGE_KNOWLEDGE, ENGLISH_LANGUAGE_RELATIONS } from '@/lib/knowledge/english-language.knowledge';
+import { MATHEMATICS_KNOWLEDGE, MATHEMATICS_RELATIONS } from '@/lib/knowledge/mathematics.knowledge';
+import { TIME_KNOWLEDGE, TIME_RELATIONS } from '@/lib/knowledge/time.knowledge';
+import { COMPUTER_SCIENCE_KNOWLEDGE, COMPUTER_SCIENCE_RELATIONS } from '@/lib/knowledge/computer-science.knowledge';
+import { ADVANCED_BLOCKCHAIN_KNOWLEDGE, ADVANCED_BLOCKCHAIN_RELATIONS } from '@/lib/knowledge/advanced-blockchain.knowledge';
 import { BrainState } from './types';
 
 export interface KnowledgeModuleState {
@@ -68,7 +71,6 @@ export class KnowledgeModule {
       ...parseKnowledgeString(COMPUTER_SCIENCE_KNOWLEDGE, 'TECHNICAL'),
       ...parseKnowledgeString(ADVANCED_BLOCKCHAIN_KNOWLEDGE, 'TECHNICAL')
     };
-
     const staticRelations: ConceptRelation[] = [
         ...ATOMIC_RELATIONS,
         ...FIBONACCI_RELATIONS.map(r => ({ ...r, learned_at: 0 })),
@@ -109,7 +111,6 @@ export class KnowledgeModule {
       const outgoing = this.relations.filter(r => r.from === current.id);
       for (const rel of outgoing) {
         const transferEnergy = current.energy * rel.strength * decayFactor;
-        
         if ((activationMap[rel.to] || 0) < transferEnergy) {
           activationMap[rel.to] = transferEnergy;
           queue.push({ id: rel.to, energy: transferEnergy });
@@ -123,7 +124,6 @@ export class KnowledgeModule {
 
   public reinforceConnections(conceptIds: string[]) {
     if (conceptIds.length < 2) return;
-    
     for (let i = 0; i < conceptIds.length; i++) {
       for (let j = i + 1; j < conceptIds.length; j++) {
         const a = conceptIds[i];
@@ -132,7 +132,6 @@ export class KnowledgeModule {
         const existingRel = this.relations.find(r => 
           (r.from === a && r.to === b) || (r.from === b && r.to === a)
         );
-
         if (existingRel) {
           existingRel.strength = Math.min(1.0, existingRel.strength + 0.05);
           existingRel.last_activated = Date.now();
@@ -140,7 +139,7 @@ export class KnowledgeModule {
           this.relations.push({
             from: a,
             to: b,
-            type: 'associates',
+            type: 'associates', // @ts-ignore
             strength: 0.1,
             learned_at: Date.now(),
             last_activated: Date.now()
@@ -183,7 +182,7 @@ export function parseExternalKnowledgeFile(content: string, domain: string = 'TE
   const lines = content.split('\n');
   lines.forEach(line => {
     const clean = line.trim();
-    if (!clean || clean.startsWith('#')) return; // Ignore empty or comments
+    if (!clean || clean.startsWith('#')) return; 
     
     let separator = ':=';
     if (!clean.includes(':=') && clean.includes(':')) separator = ':';
@@ -207,6 +206,5 @@ export function parseExternalKnowledgeFile(content: string, domain: string = 'TE
       count++;
     }
   });
-  
   return { concepts, count };
 }
