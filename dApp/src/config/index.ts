@@ -1,265 +1,112 @@
-// src/config/index.ts
-export const TARGET_CHAIN_ID = 97;
-export const WAD = 1_000_000_000_000_000_000n;
-export const BASE_APR = 6.182;
-export const CRIKZLING_MEMORY_ADDRESS = '0x7CF17EedA18148fD252aE4c93eEcde3F0817dA72';
-export const CRIKZ_TOKEN_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3';
-export const CRIKZ_NFT_ADDRESS = (import.meta.env.VITE_NFT_ADDRESS || '') as `0x${string}`;
-export const NFT_MARKETPLACE_ADDRESS = (import.meta.env.VITE_MARKET_ADDRESS || '') as `0x${string}`;
-
-export const ORDER_TYPES = [
-  { index: 0, name: 'Prototype', days: 5, multiplier: 0.618 },
-  { index: 1, name: 'Small Batch', days: 13, multiplier: 0.787 },
-  { index: 2, name: 'Standard Run', days: 34, multiplier: 1.001 },
-  { index: 3, name: 'Mass Production', days: 89, multiplier: 1.273 },
-  { index: 4, name: 'Industrial', days: 233, multiplier: 1.619 },
-  { index: 5, name: 'Global Scale', days: 610, multiplier: 2.059 },
-  { index: 6, name: 'Monopoly', days: 1597, multiplier: 2.618 },
-] as const;
-
 // ==========================================
-// CONTRACT ABIs
+// CRIKZLING PROTOCOL CONFIGURATION
 // ==========================================
 
-export const CRIKZ_TOKEN_ABI = [
+// 1. Contract Addresses
+// ------------------------------------------------------------------
+export const CRIKZLING_MEMORY_ADDRESS = "0xcFE0Fbdaf71a1c1828Bc4b3aC3A6AE8f888f2571"; 
+
+// If you have a token contract (CRIKZ), add it here. 
+// Otherwise, this placeholder is fine for now.
+export const CRIKZ_TOKEN_ADDRESS = "0x0000000000000000000000000000000000000000"; 
+
+
+// 2. Network Configuration (BSC Testnet)
+// ------------------------------------------------------------------
+export const CHAIN_ID = 97; // BSC Testnet
+export const RPC_URL = "https://data-seed-prebsc-1-s1.binance.org:8545/";
+
+
+// 3. Contract ABIs
+// ------------------------------------------------------------------
+
+export const CRIKZLING_MEMORY_ABI = [
+  // READ Functions
   {
-    name: 'balanceOf',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'account', type: 'address' }],
-    outputs: [{ name: '', type: 'uint256' }],
-  },
-  {
-    name: 'allowance',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'owner', type: 'address' }, { name: 'spender', type: 'address' }],
-    outputs: [{ name: '', type: 'uint256' }],
-  },
-  {
-    name: 'approve',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }],
-    outputs: [{ name: '', type: 'bool' }],
-  },
-  {
-    name: 'productionFund',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [],
-    outputs: [
-      { name: 'balance', type: 'uint256' },
-      { name: 'totalReputation', type: 'uint256' },
-      { name: 'accumulatedYieldPerReputation', type: 'uint256' },
-      { name: 'lastUpdateTime', type: 'uint256' }
-    ],
-  },
-  {
-    name: 'totalCreatorReputation',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: '', type: 'address' }],
-    outputs: [{ name: '', type: 'uint256' }],
-  },
-  {
-    name: 'creatorYieldDebt',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: '', type: 'address' }],
-    outputs: [{ name: '', type: 'uint256' }],
-  },
-  {
-    name: 'getActiveOrders',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'creator', type: 'address' }],
-    outputs: [
+    "inputs": [],
+    "name": "getLatestMemory",
+    "outputs": [
       {
-        components: [
-          { name: 'amount', type: 'uint256' },
-          { name: 'reputation', type: 'uint256' },
-          { name: 'orderType', type: 'uint8' },
-          { name: 'startTime', type: 'uint256' },
-          { name: 'duration', type: 'uint256' },
+        "components": [
+          { "internalType": "uint256", "name": "timestamp", "type": "uint256" },
+          { "internalType": "string", "name": "ipfsCid", "type": "string" },
+          { "internalType": "uint256", "name": "conceptsCount", "type": "uint256" },
+          { "internalType": "string", "name": "evolutionStage", "type": "string" }, // New Field
+          { "internalType": "string", "name": "triggerEvent", "type": "string" }
         ],
-        name: 'orders',
-        type: 'tuple[]',
-      },
+        "internalType": "struct CrikzlingMemory.MemorySnapshot",
+        "name": "",
+        "type": "tuple"
+      }
     ],
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    name: 'createOrder',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [{ name: 'amount', type: 'uint256' }, { name: 'orderType', type: 'uint8' }],
-    outputs: [],
+    "inputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "name": "authorizedTrainers",
+    "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    name: 'completeOrder',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [{ name: 'index', type: 'uint256' }],
-    outputs: [],
+    "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "name": "memoryTimeline",
+    "outputs": [
+      { "internalType": "uint256", "name": "timestamp", "type": "uint256" },
+      { "internalType": "string", "name": "ipfsCid", "type": "string" },
+      { "internalType": "uint256", "name": "conceptsCount", "type": "uint256" },
+      { "internalType": "string", "name": "evolutionStage", "type": "string" }, // New Field
+      { "internalType": "string", "name": "triggerEvent", "type": "string" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
   },
-  {
-    name: 'claimYield',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [],
-    outputs: [],
-  },
-] as const;
 
-export const CRIKZ_NFT_ABI = [
+  // WRITE Functions
   {
-    name: 'mint',
-    type: 'function',
-    stateMutability: 'payable',
-    inputs: [{ name: '_tokenURI', type: 'string' }],
-    outputs: [],
-  },
-  {
-    name: 'totalSupply',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [],
-    outputs: [{ name: '', type: 'uint256' }],
-  },
-  {
-    name: 'balanceOf',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'owner', type: 'address' }],
-    outputs: [{ name: '', type: 'uint256' }],
-  },
-  {
-    name: 'tokenOfOwnerByIndex',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [
-      { name: 'owner', type: 'address' },
-      { name: 'index', type: 'uint256' }
+    "inputs": [
+      { "internalType": "string", "name": "_ipfsCid", "type": "string" },
+      { "internalType": "uint256", "name": "_conceptsCount", "type": "uint256" },
+      { "internalType": "string", "name": "_evolutionStage", "type": "string" }, // New Param
+      { "internalType": "string", "name": "_trigger", "type": "string" }
     ],
-    outputs: [{ name: '', type: 'uint256' }],
+    "name": "crystallizeMemory",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
+  
+  // Events
   {
-    name: 'tokenURI',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'tokenId', type: 'uint256' }],
-    outputs: [{ name: '', type: 'string' }],
-  },
-] as const;
-
-export const NFT_MARKETPLACE_ABI = [
-  {
-    anonymous: false,
-    inputs: [
-      { indexed: true, name: "seller", type: "address" },
-      { indexed: true, name: "nftContract", type: "address" },
-      { indexed: true, name: "tokenId", type: "uint256" },
-      { indexed: false, name: "price", type: "uint256" }
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "uint256", "name": "snapshotId", "type": "uint256" },
+      { "indexed": false, "internalType": "string", "name": "ipfsCid", "type": "string" },
+      { "indexed": false, "internalType": "string", "name": "evolutionStage", "type": "string" }
     ],
-    name: "ItemListed",
-    type: "event"
-  },
-  {
-    anonymous: false,
-    inputs: [
-      { indexed: true, name: "buyer", type: "address" },
-      { indexed: true, name: "nftContract", type: "address" },
-      { indexed: true, name: "tokenId", type: "uint256" },
-      { indexed: false, name: "price", type: "uint256" }
-    ],
-    name: "ItemSold",
-    type: "event"
-  },
-  {
-    anonymous: false,
-    inputs: [
-      { indexed: true, name: "seller", type: "address" },
-      { indexed: true, name: "nftContract", type: "address" },
-      { indexed: true, name: "tokenId", type: "uint256" }
-    ],
-    name: "ItemCanceled",
-    type: "event"
-  },
-  {
-    inputs: [
-      { name: "nftContract", type: "address" },
-      { name: "tokenId", type: "uint256" },
-      { name: "price", type: "uint256" }
-    ],
-    name: "listModel",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function"
-  },
-  {
-    inputs: [
-      { name: "nftContract", type: "address" },
-      { name: "tokenId", type: "uint256" }
-    ],
-    name: "buyItem",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function"
-  },
-  {
-    inputs: [
-        { name: "nftContract", type: "address" },
-        { name: "tokenId", type: "uint256" }
-    ],
-    name: "cancelListing",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function"
+    "name": "MemoryCrystallized",
+    "type": "event"
   }
 ] as const;
 
-// ==========================================
-// CRIKZLING MEMORY CONTRACT (UPDATED)
-// ==========================================
-
-export const CRIKZLING_MEMORY_ABI = [
+// Token ABI (Standard ERC20/BEP20 subset)
+export const CRIKZ_TOKEN_ABI = [
   {
-    inputs: [
-      { name: "_ipfsCid", type: "string" },
-      { name: "_conceptsCount", type: "uint256" },
-      { name: "_trigger", type: "string" }
-    ],
-    name: "crystallizeMemory",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function"
+    "constant": true,
+    "inputs": [{ "name": "_owner", "type": "address" }],
+    "name": "balanceOf",
+    "outputs": [{ "name": "balance", "type": "uint256" }],
+    "type": "function"
   },
   {
-    inputs: [],
-    name: "getLatestMemory",
-    outputs: [
-      {
-        components: [
-          { name: "timestamp", type: "uint256" },
-          { name: "ipfsCid", type: "string" },
-          { name: "conceptsCount", type: "uint256" },
-          { name: "triggerEvent", type: "string" }
-        ],
-        name: "",
-        type: "tuple"
-      }
+    "constant": false,
+    "inputs": [
+      { "name": "_to", "type": "address" },
+      { "name": "_value", "type": "uint256" }
     ],
-    stateMutability: "view",
-    type: "function"
-  },
-  {
-    anonymous: false,
-    inputs: [
-      { indexed: true, name: "snapshotId", type: "uint256" },
-      { indexed: false, name: "ipfsCid", type: "string" },
-      { indexed: false, name: "conceptsCount", type: "uint256" }
-    ],
-    name: "MemoryCrystallized",
-    type: "event"
+    "name": "transfer",
+    "outputs": [{ "name": "", "type": "bool" }],
+    "type": "function"
   }
 ] as const;
