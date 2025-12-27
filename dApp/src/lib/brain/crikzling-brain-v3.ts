@@ -156,7 +156,6 @@ export class CrikzlingBrainV3 {
 
   private async syncBlockchainMemories(): Promise<void> {
     if (!this.publicClient || !this.memoryContractAddress) {
-      console.log("No publicClient or memoryContractAddress configured");
       return;
     }
 
@@ -199,15 +198,12 @@ export class CrikzlingBrainV3 {
             });
           }
         } catch (memError) {
-          console.log(`Memory at index ${idx} not found, stopping sync`);
           break;
         }
       }
 
       this.state.blockchainMemories = memories;
       this.state.lastBlockchainSync = Date.now();
-      
-      console.log(`Successfully synced ${memories.length} blockchain memories`);
     } catch (error) {
       console.error("Blockchain sync error:", error);
       this.state.blockchainMemories = [];
@@ -225,26 +221,26 @@ export class CrikzlingBrainV3 {
       this.state.totalInteractions++;
 
       this.updateThought('analyzing', 5, 'Parsing semantic structure');
-      await this.think(800, 1500);
+      await this.think(400, 800);
       
       const analysis = this.analyzeInput(cleanInput, dappContext);
       
       this.updateThought('analyzing', 20, `Intent: ${analysis.intent}`, analysis.keywords.map((k: AtomicConcept) => k.id));
-      await this.think(600, 1200);
+      await this.think(300, 600);
 
       this.updateThought('retrieving', 35, 'Accessing memory layers');
-      await this.think(1000, 2000);
+      await this.think(500, 1000);
 
       const contextMemories = this.retrieveRelevantMemories(analysis.keywords.map((k: AtomicConcept) => k.id));
       
       if (Date.now() - this.state.lastBlockchainSync > 300000) {
         this.updateThought('blockchain_query', 45, 'Syncing immutable memory from chain');
         await this.syncBlockchainMemories();
-        await this.think(1500, 2500);
+        await this.think(800, 1200);
       }
 
       this.updateThought('integrating', 60, 'Fusing dApp state with cognitive model');
-      await this.think(1200, 2000);
+      await this.think(600, 1000);
 
       const integratedContext = this.integrateContexts(
         analysis,
@@ -254,7 +250,7 @@ export class CrikzlingBrainV3 {
       );
 
       this.updateThought('synthesizing', 80, 'Constructing human-like response');
-      await this.think(1500, 2500);
+      await this.think(800, 1500);
 
       const response = this.generateNaturalResponse(integratedContext, analysis);
 
@@ -279,7 +275,10 @@ export class CrikzlingBrainV3 {
       this.updateThought('synthesizing', 100, 'Finalizing transmission');
       await this.think(200, 400);
       
-      this.updateThought(null, 0, '');
+      // Don't clear thought immediately - let it persist briefly
+      setTimeout(() => {
+        this.updateThought(null, 0, '');
+      }, 3000);
 
       return { response };
 
@@ -298,7 +297,7 @@ export class CrikzlingBrainV3 {
       'for', 'with', 'by', 'from', 'as', 'of', 'are', 'was', 'were'
     ]);
 
-    const words = input.replace(/[^\w\s]/gi, '').split(/\s+/);
+    const words = input.replace(/[^\w\s]/gi, '').split(/\s+/).filter(w => w.length > 0);
     const keywords: AtomicConcept[] = [];
 
     words.forEach((word: string) => {
@@ -324,7 +323,7 @@ export class CrikzlingBrainV3 {
   private classifyIntent(input: string): string {
     if (input.match(/^(reset|wipe|clear)/)) return 'COMMAND';
     if (input.match(/^(save|crystallize)/)) return 'COMMAND';
-    if (input.match(/^(hello|hi|hey|good morning)/)) return 'GREETING';
+    if (input.match(/^(hello|hi|hey|good morning|good day|greetings)/i)) return 'GREETING';
     if (input.includes('?') || input.match(/^(what|why|how|when|where|who)/)) return 'QUESTION';
     if (input.match(/^(explain|define|tell me about)/)) return 'EXPLANATION';
     if (input.match(/(order|stake|yield|reputation|balance)/)) return 'DAPP_QUERY';
@@ -336,7 +335,7 @@ export class CrikzlingBrainV3 {
     let weight = 0;
     if (input.includes('!')) weight += 0.2;
     if (input.includes('?')) weight += 0.1;
-    if (input.match(/(love|great|amazing|wonderful)/)) weight += 0.3;
+    if (input.match(/(love|great|amazing|wonderful|good)/)) weight += 0.3;
     if (input.match(/(bad|terrible|hate|angry)/)) weight -= 0.3;
     return Math.max(0, Math.min(1, weight));
   }
@@ -413,7 +412,7 @@ export class CrikzlingBrainV3 {
         "Good question! ",
         "I'm glad you asked. "
       ]);
-    } else {
+    } else if (intent === 'STATEMENT') {
       response += this.selectRandom(RESPONSE_TEMPLATES.acknowledgment) + ' ';
     }
 
@@ -424,19 +423,21 @@ export class CrikzlingBrainV3 {
 
       if (keywords.length > 1) {
         const relatedConcept = keywords[1];
-        response += `This relates to ${relatedConcept.id}, which `;
-        response += `${relatedConcept.essence.toLowerCase()}. `;
+        response += `This relates to ${relatedConcept.id}, which ${relatedConcept.essence.toLowerCase()}. `;
+      }
+    } else {
+      // Fallback for no keywords found
+      response += "I'm processing your message, though I don't have specific knowledge nodes activated for those exact terms. ";
+    }
+
+    if (recentMemories.length > 0 && Math.random() > 0.7) {
+      const lastUserMemory = [...recentMemories].reverse().find((m: Memory) => m.role === 'user');
+      if (lastUserMemory && lastUserMemory.concepts.length > 0) {
+        response += `Earlier you mentioned ${lastUserMemory.concepts[0]}, which connects to what we're discussing now. `;
       }
     }
 
-    if (recentMemories.length > 0) {
-      const lastUserMemory = recentMemories.reverse().find((m: Memory) => m.role === 'user');
-      if (lastUserMemory && Math.random() > 0.6) {
-        response += `Earlier you mentioned something about ${lastUserMemory.concepts[0]}, which connects to what we're discussing now. `;
-      }
-    }
-
-    if (blockchainHistory.length > 0 && Math.random() > 0.7) {
+    if (blockchainHistory.length > 0 && Math.random() > 0.8) {
       const latestMemory = blockchainHistory[blockchainHistory.length - 1];
       response += `My crystallized memory from ${new Date(latestMemory.timestamp * 1000).toLocaleDateString()} shows I was at ${latestMemory.evolutionStage} stage. `;
     }
