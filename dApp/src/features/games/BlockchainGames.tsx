@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { 
   Gamepad2, Dices, Coins, 
   TrendingUp, Target, ShieldAlert, Ghost,
-  RefreshCw, Scissors, Binary, Rocket, ArrowDownCircle, Spade
+  RefreshCw, Scissors, Binary, Rocket, ArrowDownCircle, Spade, ArrowUp
 } from 'lucide-react';
 import { Language } from '@/types';
 import { toast } from 'react-hot-toast';
@@ -19,7 +19,8 @@ import PhiTacToe from './PhiTacToe';
 import CryptoRoulette from './CryptoRoulette';
 import CryptoCrash from './CryptoCrash';
 import Plinko from './Plinko';
-import NeonBlackjack from './NeonBlackjack'; // <--- Added
+import NeonBlackjack from './NeonBlackjack';
+import NeonTower from './NeonTower'; // <--- NEW
 
 interface BlockchainGamesProps {
   dynamicColor: string;
@@ -27,24 +28,18 @@ interface BlockchainGamesProps {
 }
 
 const GAMES_LIST = [
-    // High Engagement
+    { id: 'tower', title: 'Neon Tower', desc: 'Climb for Riches', icon: ArrowUp, playable: true, featured: true },
     { id: 'blackjack', title: 'Neon Blackjack', desc: 'Beat the Dealer to 21', icon: Spade, playable: true, featured: true },
-    { id: 'crash', title: 'Crypto Crash', desc: 'Cash Out Before the Moon', icon: Rocket, playable: true, featured: true },
-    { id: 'plinko', title: 'Plinko', desc: 'Pegs of Probability', icon: ArrowDownCircle, playable: true, featured: true },
-    
-    // Classics
+    { id: 'crash', title: 'Crypto Crash', desc: 'Cash Out Before the Moon', icon: Rocket, playable: true },
+    { id: 'plinko', title: 'Plinko', desc: 'Pegs of Probability', icon: ArrowDownCircle, playable: true },
     { id: 'roulette', title: 'Crypto Roulette', desc: 'European Standard', icon: Target, playable: true },
     { id: 'dice', title: 'Fibonacci Dice', desc: 'Roll the Golden Ratio', icon: Dices, playable: true },
     { id: 'slots', title: 'Satoshi Slots', desc: 'Provably Fair Spins', icon: Coins, playable: true },
     { id: 'mines', title: 'Crypto Mines', desc: 'Avoid the Rug Pull', icon: ShieldAlert, playable: true },
-    
-    // Strategy / Simple
     { id: 'tictac', title: 'Phi-Tac-Toe', desc: 'Beat the AI Strategy', icon: Binary, playable: true },
     { id: 'highlow', title: 'High / Low', desc: 'Predict the Next Block', icon: TrendingUp, playable: true },
     { id: 'rps', title: 'Rock Paper Scissors', desc: 'PvE Strategy', icon: Scissors, playable: true },
     { id: 'coin', title: 'Quantum Flip', desc: '50/50 Probability', icon: RefreshCw, playable: true },
-    
-    // Coming Soon
     { id: 'ghost', title: 'Ghost Protocol', desc: 'Stealth Strategy', icon: Ghost, playable: false },
 ];
 
@@ -58,6 +53,7 @@ export default function BlockchainGames({ dynamicColor, lang }: BlockchainGamesP
   return (
     <div className="space-y-8">
        {/* Game Overlays */}
+       {activeGame === 'tower' && <NeonTower onClose={() => setActiveGame(null)} balance={demoBalance} onUpdateBalance={updateBalance} dynamicColor={dynamicColor} />}
        {activeGame === 'blackjack' && <NeonBlackjack onClose={() => setActiveGame(null)} balance={demoBalance} onUpdateBalance={updateBalance} dynamicColor={dynamicColor} />}
        {activeGame === 'crash' && <CryptoCrash onClose={() => setActiveGame(null)} balance={demoBalance} onUpdateBalance={updateBalance} dynamicColor={dynamicColor} />}
        {activeGame === 'plinko' && <Plinko onClose={() => setActiveGame(null)} balance={demoBalance} onUpdateBalance={updateBalance} dynamicColor={dynamicColor} />}
