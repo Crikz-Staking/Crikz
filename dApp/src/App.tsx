@@ -81,7 +81,7 @@ export default function App() {
                     activeView === 'arcade' ? 'bg-primary-500 text-black shadow-lg shadow-primary-500/20' : 'bg-white/5 hover:bg-white/10 text-gray-400'
                   }`}
                 >
-                  Active Arcade
+                  Blockchain Games
                 </button>
               </div>
               
