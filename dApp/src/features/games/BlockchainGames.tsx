@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { 
   Gamepad2, Dices, Coins, 
   TrendingUp, Target, ShieldAlert, Ghost,
-  RefreshCw, Scissors, Binary, Rocket, ArrowDownCircle
+  RefreshCw, Scissors, Binary, Rocket, ArrowDownCircle, Spade
 } from 'lucide-react';
 import { Language } from '@/types';
 import { toast } from 'react-hot-toast';
@@ -17,8 +17,9 @@ import HighLow from './HighLow';
 import CryptoMines from './CryptoMines';
 import PhiTacToe from './PhiTacToe';
 import CryptoRoulette from './CryptoRoulette';
-import CryptoCrash from './CryptoCrash';  // <--- NEW
-import Plinko from './Plinko';            // <--- NEW
+import CryptoCrash from './CryptoCrash';
+import Plinko from './Plinko';
+import NeonBlackjack from './NeonBlackjack'; // <--- Added
 
 interface BlockchainGamesProps {
   dynamicColor: string;
@@ -27,6 +28,7 @@ interface BlockchainGamesProps {
 
 const GAMES_LIST = [
     // High Engagement
+    { id: 'blackjack', title: 'Neon Blackjack', desc: 'Beat the Dealer to 21', icon: Spade, playable: true, featured: true },
     { id: 'crash', title: 'Crypto Crash', desc: 'Cash Out Before the Moon', icon: Rocket, playable: true, featured: true },
     { id: 'plinko', title: 'Plinko', desc: 'Pegs of Probability', icon: ArrowDownCircle, playable: true, featured: true },
     
@@ -56,6 +58,7 @@ export default function BlockchainGames({ dynamicColor, lang }: BlockchainGamesP
   return (
     <div className="space-y-8">
        {/* Game Overlays */}
+       {activeGame === 'blackjack' && <NeonBlackjack onClose={() => setActiveGame(null)} balance={demoBalance} onUpdateBalance={updateBalance} dynamicColor={dynamicColor} />}
        {activeGame === 'crash' && <CryptoCrash onClose={() => setActiveGame(null)} balance={demoBalance} onUpdateBalance={updateBalance} dynamicColor={dynamicColor} />}
        {activeGame === 'plinko' && <Plinko onClose={() => setActiveGame(null)} balance={demoBalance} onUpdateBalance={updateBalance} dynamicColor={dynamicColor} />}
        {activeGame === 'dice' && <FibonacciDiceGame onClose={() => setActiveGame(null)} balance={demoBalance} onUpdateBalance={updateBalance} dynamicColor={dynamicColor} />}
@@ -99,7 +102,7 @@ export default function BlockchainGames({ dynamicColor, lang }: BlockchainGamesP
                 onClick={() => game.playable && setActiveGame(game.id)}
              >
                 {(game as any).featured && (
-                    <div className="absolute top-0 right-0 bg-primary-500 text-black text-[9px] font-bold px-2 py-1 rounded-bl-xl">HOT</div>
+                    <div className="absolute top-0 right-0 bg-primary-500 text-black text-[9px] font-bold px-2 py-1 rounded-bl-xl shadow-lg">HOT</div>
                 )}
                 
                 <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 transition-transform group-hover:scale-110 ${game.playable ? 'bg-white/5 text-primary-500' : 'bg-white/5 text-gray-500'}`}>
