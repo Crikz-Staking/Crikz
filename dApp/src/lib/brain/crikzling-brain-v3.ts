@@ -1,14 +1,11 @@
 import { PublicClient } from 'viem';
 import { AtomicConcept, ConceptRelation } from '@/lib/crikzling-atomic-knowledge';
-
-// Import New Processors
 import { InputProcessor } from './processors/InputProcessor';
 import { CognitiveProcessor } from './processors/CognitiveProcessor';
 import { ActionProcessor } from './processors/ActionProcessor';
 import { ResultProcessor } from './processors/ResultProcessor';
 import { ResponseGenerator } from './processors/ResponseGenerator';
 
-// --- Shared Types Definitions ---
 export interface Memory {
   id: string;
   role: 'user' | 'bot';
@@ -56,13 +53,12 @@ export interface DAppContext {
 }
 
 export interface ThoughtProcess {
-  phase: 'analyzing' | 'retrieving' | 'planning' | 'synthesizing' | 'responding' | 'blockchain_sync';
+  phase: 'analyzing' | 'retrieving' | 'planning' | 'synthesizing' |
+         'responding' | 'blockchain_sync';
   progress: number;
   subProcess?: string;
   focus?: string[];
 }
-
-// --- The Brain Class (Orchestrator) ---
 
 export class CrikzlingBrainV3 {
   private cognitive: CognitiveProcessor;
@@ -78,7 +74,6 @@ export class CrikzlingBrainV3 {
     publicClient?: PublicClient,
     memoryContractAddress?: `0x${string}`
   ) {
-    // Initialize Processors
     this.cognitive = new CognitiveProcessor(savedState, publicClient, memoryContractAddress);
     this.inputProc = new InputProcessor();
     this.actionProc = new ActionProcessor();
@@ -90,39 +85,31 @@ export class CrikzlingBrainV3 {
     this.thoughtCallback = callback;
   }
 
-  /**
-   * Main Processing Pipeline
-   */
   public async process(
     text: string, 
     isOwner: boolean,
     dappContext?: DAppContext
   ): Promise<{ response: string }> {
     try {
-      // 1. INPUT PHASE
       this.updateThought('analyzing', 10, 'Deconstructing semantic input');
       await this.think(200);
       const inputAnalysis = this.inputProc.process(text, this.cognitive.getConcepts(), dappContext);
 
-      // 2. COGNITIVE PHASE (Memory & Blockchain)
       this.updateThought('retrieving', 30, 'Accessing neural lattice');
-      await this.cognitive.syncBlockchainMemories(); // Attempt sync if needed
+      await this.cognitive.syncBlockchainMemories();
       const relevantMemories = this.cognitive.retrieveRelevantMemories(
         inputAnalysis.keywords.map(k => k.id)
       );
       await this.think(300);
 
-      // 3. ACTION PHASE
       this.updateThought('planning', 50, `Evaluating intent: ${inputAnalysis.intent}`);
       const brainState = this.cognitive.getState();
       const actionPlan = this.actionProc.plan(inputAnalysis, brainState, isOwner);
       
-      // Execute internal brain commands immediately if needed
       if (actionPlan.type === 'EXECUTE_COMMAND_RESET' && isOwner) {
         this.cognitive.wipeLocalMemory();
       }
 
-      // 4. RESULT/SYNTHESIS PHASE
       this.updateThought('synthesizing', 75, 'Integrating context and logic');
       const integratedContext = this.resultProc.process(
         inputAnalysis,
@@ -133,11 +120,9 @@ export class CrikzlingBrainV3 {
       );
       await this.think(400);
 
-      // 5. GENERATION PHASE
       this.updateThought('responding', 90, 'Formulating natural language');
       const response = this.generator.generate(integratedContext);
 
-      // 6. MEMORY ARCHIVAL (Post-Response)
       this.cognitive.archiveMemory(
         'user', 
         inputAnalysis.cleanedInput, 
@@ -157,14 +142,11 @@ export class CrikzlingBrainV3 {
       setTimeout(() => this.updateThought(null as any, 0, ''), 1500);
 
       return { response };
-
     } catch (error) {
       console.error("Brain Failure:", error);
       return { response: "Cognitive dissonance detected. My processors encountered a critical fault. Please retry." };
     }
   }
-
-  // --- Utility / Exposure Methods ---
 
   public exportState(): string {
     return JSON.stringify(this.cognitive.getState(), (key, value) => 

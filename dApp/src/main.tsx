@@ -7,7 +7,7 @@ import '@rainbow-me/rainbowkit/styles.css';
 
 import App from './App';
 import './index.css';
-import { web3Config } from '@/lib/web3-config'; // Updated Import
+import { web3Config } from '@/lib/web3-config';
 
 const queryClient = new QueryClient();
 
@@ -18,7 +18,7 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
         <RainbowKitProvider 
           theme={darkTheme({
             accentColor: '#f59e0b',
-            accentColorForeground: 'black', // Improved contrast
+            accentColorForeground: 'black', 
             borderRadius: 'large',
             fontStack: 'system',
             overlayBlur: 'small',

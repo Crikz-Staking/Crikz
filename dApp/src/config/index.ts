@@ -1,10 +1,7 @@
 import { parseEther } from 'viem';
 
-// ==========================================
-// PROTOCOL CONSTANTS
-// ==========================================
-export const BASE_APR = 6.182; // Golden Ratio based APR
-export const WAD = parseEther('1'); // 10^18
+export const BASE_APR = 6.182;
+export const WAD = parseEther('1');
 
 export const ORDER_TYPES = [
   { index: 0, days: 5, multiplier: 0.618, name: "Prototype" },
@@ -16,17 +13,10 @@ export const ORDER_TYPES = [
   { index: 6, days: 1597, multiplier: 2.618, name: "Monopoly" }
 ];
 
-// ==========================================
-// CONTRACT ADDRESSES (BSC TESTNET)
-// ==========================================
 export const CRIKZ_TOKEN_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3"; 
 export const CRIKZLING_MEMORY_ADDRESS = "0xcFE0Fbdaf71a1c1828Bc4b3aC3A6AE8f888f2571";
 export const CRIKZ_NFT_ADDRESS = "0x034CCa2037746AA300ef290eA621deB8c1C3c299";
 export const NFT_MARKETPLACE_ADDRESS = "0xeDCC0e9Ce4FFeA40501E58D04C0FbA0bB5dFC725";
-
-// ==========================================
-// ABIs
-// ==========================================
 
 export const CRIKZ_TOKEN_ABI = [
   { "inputs": [{"name": "_owner", "type": "address"}], "name": "balanceOf", "outputs": [{"name": "balance", "type": "uint256"}], "stateMutability": "view", "type": "function" },

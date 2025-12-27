@@ -8,21 +8,20 @@ export interface AtomicConcept {
   essence: string;
   semanticField: string[];
   examples: string[];
-  abstractionLevel: number; // 0.0 to 1.0
+  abstractionLevel: number;
   technical_depth: number;
   domain?: AtomicDomain;
-  frequency?: number; // Added this property
-  emotional_valence?: number; // Added for mood analysis
+  frequency?: number;
+  emotional_valence?: number;
   
-  // Dynamic Activation Properties
   base_activation?: number;
-  current_activation?: number; 
+  current_activation?: number;
 }
 
 export interface ConceptRelation {
   from: string;
   to: string;
-  type: 'synonym' | 'antonym' | 'hypernym' | 'hyponym' | 'meronym' | 
+  type: 'synonym' | 'antonym' | 'hypernym' | 'hyponym' | 'meronym' |
         'cause' | 'effect' | 'requires' | 'enables' | 'stabilizes' | 
         'catalyzes' | 'associates' | 'converges_to' | 'relates_to' | 
         'runs_on' | 'is_implemented_by' | 'scales_to' | 'utilizes' | 

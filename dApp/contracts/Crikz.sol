@@ -85,7 +85,7 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
 
         OrderTypes.OrderType memory typeInfo = orderTypes[orderType];
         _transfer(creator, address(this), amount);
-        
+
         OrderManager.Order memory newOrder = OrderManager.createOrder(
             amount, 
             orderType, 
@@ -115,10 +115,8 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
         }
         
         uint256 pendingYield = totalProduct - creatorYieldDebt[creator];
-        
-        // Use Library for coverage
         pendingYield = pendingYield.min(productionFund.balance);
-        
+
         if (pendingYield == 0) revert InsufficientFundBalance();
 
         creatorYieldDebt[creator] += pendingYield;
@@ -133,8 +131,6 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
         if (index >= orders.length) revert InvalidOrderIndex();
         
         OrderManager.Order memory order = orders[index];
-        
-        // Use Library for coverage
         if (!order.isUnlocked(block.timestamp)) {
             revert OrderStillLocked();
         }
@@ -167,14 +163,14 @@ contract Crikz is ERC20, ERC2771Context, Ownable, ReentrancyGuard, Pausable {
     }
 
     function _msgSender() internal view override(Context, ERC2771Context) returns (address) {
-    return ERC2771Context._msgSender();
-}
+        return ERC2771Context._msgSender();
+    }
 
-function _msgData() internal view override(Context, ERC2771Context) returns (bytes calldata) {
-    return ERC2771Context._msgData();
-}
+    function _msgData() internal view override(Context, ERC2771Context) returns (bytes calldata) {
+        return ERC2771Context._msgData();
+    }
 
-function _contextSuffixLength() internal view override(Context, ERC2771Context) returns (uint256) {
-    return ERC2771Context._contextSuffixLength();
-}
+    function _contextSuffixLength() internal view override(Context, ERC2771Context) returns (uint256) {
+        return ERC2771Context._contextSuffixLength();
+    }
 }

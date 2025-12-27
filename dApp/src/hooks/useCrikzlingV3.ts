@@ -47,16 +47,13 @@ export function useCrikzlingV3() {
     setCurrentThought(thought);
   }, []);
 
-  // Initialize Brain Logic
   useEffect(() => {
     if (!sessionId) return;
     
-    // Check if brain is already initialized for this session to prevent reset
     if (brain) return;
 
     const savedLocal = localStorage.getItem(`crikz_brain_v3_${sessionId}`);
     
-    // Ensure publicClient is ready before initializing if possible, but don't block
     const initialBrain = new CrikzlingBrainV3(
       savedLocal || undefined,
       publicClient,
@@ -73,7 +70,7 @@ export function useCrikzlingV3() {
         : 'Genesis complete. I am Crikzling v3. I can now access the dApp state, my conversation history, and my immutable blockchain memories. How may I assist you?';
       return [{ role: 'bot', content: welcomeMsg, timestamp: Date.now() }];
     });
-  }, [sessionId, publicClient]); // Removed 'brain' from deps to avoid infinite loop
+  }, [sessionId, publicClient]);
 
   useEffect(() => {
     if (writeError) {
@@ -176,12 +173,10 @@ export function useCrikzlingV3() {
     try {
       const state = brain.getState();
       const exportStr = brain.exportState();
-      
       const blob = new Blob([exportStr], { type: 'application/json' });
       const file = new File([blob], `crikz_v3_mem_${Date.now()}.json`);
       
       const cid = await uploadToIPFS(file);
-      
       const conceptCount = BigInt(Object.keys(state.concepts).length);
       const stage = state.evolutionStage;
       
@@ -230,6 +225,7 @@ export function useCrikzlingV3() {
     setIsThinking(true);
     
     const count = brain.assimilateFile(content);
+    
     if (sessionId) {
       localStorage.setItem(`crikz_brain_v3_${sessionId}`, brain.exportState());
     }

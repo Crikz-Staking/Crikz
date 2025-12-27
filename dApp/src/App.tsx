@@ -1,21 +1,17 @@
 import React, { useState } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { useAccount } from 'wagmi';
-
-// Layout & UI
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import GlobalNavigation from '@/components/layout/GlobalNavigation';
 import BackgroundEffects from '@/components/layout/Background';
 import CrikzlingAvatar from '@/components/ui/CrikzlingAvatar';
 
-// Features
 import Dashboard from '@/features/dashboard/Dashboard';
 import PassiveHub from '@/features/passive/PassiveHub';
 import ToolsLayout from '@/features/tools/ToolsLayout';
 import NFTMarket from '@/features/nft/NFTMarket';
 
-// Hooks & Types
 import { useAppWatcher } from '@/hooks/useAppWatcher';
 import { MainSection, ActiveView, Language } from '@/types';
 
@@ -24,16 +20,14 @@ export default function App() {
   const [lang, setLang] = useState<Language>('en');
   const [currentSection, setCurrentSection] = useState<MainSection>('active');
   const [activeView, setActiveView] = useState<ActiveView>('dashboard');
-
-  // Global monitoring hook
+  
   useAppWatcher();
 
-  // Dynamic theme colors based on the active section
   const getThemeColor = () => {
     switch (currentSection) {
-      case 'active': return '#f59e0b'; // Amber/Gold
-      case 'passive': return '#a78bfa'; // Violet
-      case 'tools': return '#22d3ee'; // Cyan
+      case 'active': return '#f59e0b';
+      case 'passive': return '#a78bfa';
+      case 'tools': return '#22d3ee';
       default: return '#f59e0b';
     }
   };
@@ -42,7 +36,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen relative text-white selection:bg-primary-500/30 overflow-x-hidden">
-      {/* Original background effects - restored */}
       <BackgroundEffects />
       
       <Toaster position="bottom-right" reverseOrder={false} />
@@ -61,7 +54,6 @@ export default function App() {
           dynamicColor={dynamicColor} 
         />
 
-        {/* Dynamic Content Rendering */}
         <div className="mt-8 transition-all duration-500">
           {currentSection === 'active' && (
             <div className="space-y-8">
@@ -102,9 +94,6 @@ export default function App() {
         </div>
       </main>
 
-      {/* Crikzling: The Fibonacci-scaled AI Pet 
-          He stays outside the main tag to hover over all content.
-      */}
       <CrikzlingAvatar />
 
       <Footer />

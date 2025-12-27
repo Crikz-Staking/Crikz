@@ -22,10 +22,7 @@ library ProductionDistributor {
         uint256 timePassed = currentTime - fund.lastUpdateTime;
         if (timePassed == 0) return;
 
-        // Yield calculation aligned with 6.182% APR test
-        // APR = (YieldPerSec * SecondsPerYear) / Principal
         uint256 yieldGenerated = (fund.balance * timePassed * 6182) / (100000 * 365 days);
-        
         fund.accumulatedYieldPerReputation += (yieldGenerated * CrikzMath.WAD) / fund.totalReputation;
         fund.lastUpdateTime = currentTime;
     }

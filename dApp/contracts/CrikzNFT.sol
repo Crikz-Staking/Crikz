@@ -8,16 +8,14 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 contract CrikzNFT is ERC721Enumerable, ERC721URIStorage, Ownable, ReentrancyGuard {
     uint256 public nextTokenId = 1;
-    uint256 public mintPrice = 0.01 ether; // 0.01 BNB
+    uint256 public mintPrice = 0.01 ether;
 
     event NFTMinted(address indexed minter, uint256 indexed tokenId, string tokenURI);
 
     constructor() ERC721("Crikz Artifacts", "CRKZ-ART") Ownable(msg.sender) {}
 
-    // 1. Public Minting (Payable in BNB)
     function mint(string memory _tokenURI) external payable nonReentrant {
         require(msg.value >= mintPrice, "Insufficient BNB sent");
-        
         uint256 tokenId = nextTokenId;
         nextTokenId++;
 
@@ -35,10 +33,6 @@ contract CrikzNFT is ERC721Enumerable, ERC721URIStorage, Ownable, ReentrancyGuar
         payable(owner()).transfer(address(this).balance);
     }
 
-    // --- SOLITIDY OVERRIDES (Fixed for OZ v5) ---
-
-    // Enumerable and URIStorage conflict on these, so we define the hierarchy:
-    
     function _update(address to, uint256 tokenId, address auth) 
         internal 
         override(ERC721Enumerable, ERC721) 
