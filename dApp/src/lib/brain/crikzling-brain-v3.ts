@@ -153,14 +153,86 @@ export class CrikzlingBrainV3 {
   }
 
   private async syncBlockchainMemories(): Promise<void> {
-    if (!this.publicClient || !this.memoryContractAddress) return;
+    if (!this.publicClient || !this.memoryContractAddress) {
+      console.log("No publicClient or memoryContractAddress configured");
+      return;
+    }
 
     try {
       this.updateThought('blockchain_query', 10, 'Querying on-chain memory snapshots');
+      
+      const memoryCountData = await this.publicClient.readContract({
+        address: this.memoryContractAddress,
+        abi: [{
+          inputs: [{ name: '', type: 'uint256' }],
+          name: 'memoryTimeline',
+          outputs: [
+            { name: 'timestamp', type: 'uint256' },
+            { name: 'ipfsCid', type: 'string' },
+            { name: 'conceptsCount', type: 'uint256' },
+            { name: 'evolutionStage', type: 'string' },
+            { name: 'triggerEvent', type: 'string' }
+          ],
+          stateMutability: 'view',
+          type: 'function'
+        }],
+        functionName: 'memoryTimeline',
+        args: [0n]
+      });
+
+      if (!memoryCountData) {
+        this.state.blockchainMemories = [];
+        this.state.lastBlockchainSync = Date.now();
+        return;
+      }
+
+      const memories: BlockchainMemory[] = [];
+      const recentIndices = [0, 1, 2, 3, 4];
+
+      for (const idx of recentIndices) {
+        try {
+          const memoryData = await this.publicClient.readContract({
+            address: this.memoryContractAddress,
+            abi: [{
+              inputs: [{ name: '', type: 'uint256' }],
+              name: 'memoryTimeline',
+              outputs: [
+                { name: 'timestamp', type: 'uint256' },
+                { name: 'ipfsCid', type: 'string' },
+                { name: 'conceptsCount', type: 'uint256' },
+                { name: 'evolutionStage', type: 'string' },
+                { name: 'triggerEvent', type: 'string' }
+              ],
+              stateMutability: 'view',
+              type: 'function'
+            }],
+            functionName: 'memoryTimeline',
+            args: [BigInt(idx)]
+          });
+
+          if (memoryData && Array.isArray(memoryData) && memoryData.length === 5) {
+            memories.push({
+              timestamp: Number(memoryData[0]),
+              ipfsCid: memoryData[1] as string,
+              conceptsCount: memoryData[2] as bigint,
+              evolutionStage: memoryData[3] as string,
+              triggerEvent: memoryData[4] as string
+            });
+          }
+        } catch (memError) {
+          console.log(`Memory at index ${idx} not found, stopping sync`);
+          break;
+        }
+      }
+
+      this.state.blockchainMemories = memories;
+      this.state.lastBlockchainSync = Date.now();
+      
+      console.log(`Successfully synced ${memories.length} blockchain memories`);
+    } catch (error) {
+      console.error("Blockchain sync error:", error);
       this.state.blockchainMemories = [];
       this.state.lastBlockchainSync = Date.now();
-    } catch (error) {
-      console.error("Blockchain sync failed:", error);
     }
   }
 
