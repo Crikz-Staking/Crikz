@@ -4,7 +4,7 @@ import Hls from 'hls.js';
 import { 
     Play, Pause, Volume2, X, Upload, Radio, Film, Globe, User, 
     ShieldCheck, RefreshCw, Heart, Database, Tv, Search, AlertCircle, 
-    Music, Mic2, Library, Loader2
+    Music, Mic2, Library, Loader2, Wifi, WifiOff
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { uploadToIPFS } from '@/lib/ipfs-service';
@@ -43,8 +43,14 @@ interface ArchiveItem {
     downloads: number;
 }
 
-// --- PLAYER COMPONENT ---
+// --- CONSTANTS ---
+const RADIO_MIRRORS = [
+    "https://de1.api.radio-browser.info",
+    "https://nl1.api.radio-browser.info",
+    "https://at1.api.radio-browser.info"
+];
 
+// --- PLAYER COMPONENT ---
 const UniversalPlayer = ({ url, title, sub, onClose, isAudio = false }: { url: string, title: string, sub: string, onClose: () => void, isAudio?: boolean }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const audioRef = useRef<HTMLAudioElement>(null);
@@ -62,7 +68,8 @@ const UniversalPlayer = ({ url, title, sub, onClose, isAudio = false }: { url: s
         const handleCanPlay = () => setBuffering(false);
         const handleError = (e: any) => {
             console.error("Media Error:", e);
-            setError(true);
+            // Don't show error immediately for radio, sometimes it takes a second try or codec negotiation
+            if (media.error && media.error.code) setError(true);
             setBuffering(false);
         };
 
@@ -77,7 +84,6 @@ const UniversalPlayer = ({ url, title, sub, onClose, isAudio = false }: { url: s
             hls.on(Hls.Events.MANIFEST_PARSED, () => media.play().catch(() => setPlaying(false)));
             hls.on(Hls.Events.ERROR, (_, data) => { 
                 if(data.fatal) {
-                    console.error("HLS Fatal:", data);
                     setError(true);
                     setBuffering(false);
                 }
@@ -88,11 +94,12 @@ const UniversalPlayer = ({ url, title, sub, onClose, isAudio = false }: { url: s
                 media.removeEventListener('error', handleError);
             };
         } else {
-            // Standard MP3/MP4/Native HLS
+            // Standard Stream
             media.src = url;
             media.play().catch(e => {
-                console.warn("Autoplay blocked or failed:", e);
+                console.warn("Autoplay blocked:", e);
                 setPlaying(false);
+                setBuffering(false);
             });
         }
 
@@ -126,19 +133,15 @@ const UniversalPlayer = ({ url, title, sub, onClose, isAudio = false }: { url: s
                 {buffering && !error && (
                     <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
                         <Loader2 size={48} className="animate-spin text-primary-500"/>
+                        <span className="mt-16 text-xs text-gray-400 absolute">Buffering Stream...</span>
                     </div>
                 )}
 
                 {error ? (
                     <div className="text-center text-gray-500 max-w-md">
                         <AlertCircle size={48} className="mx-auto mb-4 text-red-500 opacity-50"/>
-                        <h3 className="text-white font-bold mb-2">Stream Unavailable</h3>
-                        <p className="text-sm">This typically happens if:</p>
-                        <ul className="text-xs text-left mt-2 space-y-1 list-disc pl-5">
-                            <li>The station is offline.</li>
-                            <li>The stream is HTTP (browsers block mixed content).</li>
-                            <li>The content is geo-blocked in your region.</li>
-                        </ul>
+                        <h3 className="text-white font-bold mb-2">Stream Offline</h3>
+                        <p className="text-sm">The station server is not responding.</p>
                     </div>
                 ) : isAudio ? (
                     <div className="flex flex-col items-center w-full max-w-lg">
@@ -187,6 +190,7 @@ export default function MediaCenter({ type, dynamicColor }: { type: MediaType, d
     
     // --- RADIO STATE ---
     const [stations, setStations] = useState<RadioStation[]>([]);
+    const [radioApi, setRadioApi] = useState<string | null>(null);
     
     // --- ARCHIVE STATE ---
     const [archiveItems, setArchiveItems] = useState<ArchiveItem[]>([]);
@@ -195,9 +199,33 @@ export default function MediaCenter({ type, dynamicColor }: { type: MediaType, d
     const [loadingExt, setLoadingExt] = useState(false);
     const [activeMedia, setActiveMedia] = useState<{url: string, title: string, sub: string, isAudio: boolean} | null>(null);
 
-    // Initial Data Fetching
+    // 1. Resolve Radio API Server (Find the fastest mirror)
     useEffect(() => {
-        setSearch(''); // Reset search on mode switch
+        const resolveServer = async () => {
+            for (const mirror of RADIO_MIRRORS) {
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 2000); // 2s timeout
+                    const res = await fetch(`${mirror}/json/stats`, { signal: controller.signal });
+                    clearTimeout(timeoutId);
+                    if (res.ok) {
+                        setRadioApi(mirror);
+                        console.log("Connected to Radio Mirror:", mirror);
+                        return;
+                    }
+                } catch (e) {
+                    continue;
+                }
+            }
+            // Fallback
+            setRadioApi("https://de1.api.radio-browser.info");
+        };
+        resolveServer();
+    }, []);
+
+    // 2. Fetch Content based on Tab
+    useEffect(() => {
+        setSearch(''); 
         
         const fetchExternal = async () => {
             setLoadingExt(true);
@@ -213,41 +241,39 @@ export default function MediaCenter({ type, dynamicColor }: { type: MediaType, d
                         { name: "Sky News", logo: "", url: "https://skynews.akamaized.net/hls/live/2174360/skynews_1/master.m3u8", category: "News", country: "UK" }
                     ]);
                 } 
-                else if (viewMode === 'radio' && stations.length === 0) {
-                    // Fetch from a reliable Radio Browser mirror
-                    // We filter for HTTPS (is_https=true) to ensure playback on Vercel
-                    // order=clickcount to show popular stations first
-                    const res = await fetch('https://de1.api.radio-browser.info/json/stations/search?limit=24&order=clickcount&is_https=true&hidebroken=true');
+                else if (viewMode === 'radio' && stations.length === 0 && radioApi) {
+                    // Fetch Top Radio Stations - Strict HTTPS filter to prevent mixed content errors
+                    const res = await fetch(`${radioApi}/json/stations/search?limit=24&order=clickcount&is_https=true&hidebroken=true`);
+                    if (!res.ok) throw new Error("Radio API Failed");
                     const data = await res.json();
                     setStations(data);
                 }
                 else if (viewMode === 'archive' && archiveItems.length === 0) {
-                    // Fetch Internet Archive (Audio)
-                    // We search for items with media type audio, specifically mp3 availability
-                    const q = 'mediatype:audio AND (format:VBR MP3 OR format:MP3)';
+                    // Fetch Internet Archive (Audio) - Grateful Dead / Audiobooks
+                    const q = 'mediatype:audio AND (collection:etree OR collection:audio_bookspot) AND downloads:>1000';
                     const res = await fetch(`https://archive.org/advancedsearch.php?q=${q}&fl[]=identifier,title,creator,year,downloads&sort[]=downloads+desc&rows=24&output=json`);
                     const data = await res.json();
                     setArchiveItems(data.response.docs);
                 }
             } catch (e) {
                 console.error("Fetch Error", e);
-                toast.error("Could not fetch external feed");
+                if (viewMode !== 'livetv') toast.error("Could not load feed. API busy.");
             } finally {
                 setLoadingExt(false);
             }
         };
 
         if (viewMode !== 'decentralized') fetchExternal();
-    }, [viewMode]);
+    }, [viewMode, radioApi]);
 
-    // Handle Search
+    // 3. Search Logic
     const handleSearch = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!search.trim()) return;
         setLoadingExt(true);
         try {
-            if (viewMode === 'radio') {
-                const res = await fetch(`https://de1.api.radio-browser.info/json/stations/search?name=${encodeURIComponent(search)}&limit=24&is_https=true`);
+            if (viewMode === 'radio' && radioApi) {
+                const res = await fetch(`${radioApi}/json/stations/search?name=${encodeURIComponent(search)}&limit=24&is_https=true&hidebroken=true`);
                 const data = await res.json();
                 setStations(data);
             } else if (viewMode === 'archive') {
@@ -264,19 +290,23 @@ export default function MediaCenter({ type, dynamicColor }: { type: MediaType, d
         }
     };
 
-    // Helper: Play Archive Item (Resolves the actual MP3 file)
+    // 4. Play Archive Item (Find MP3)
     const playArchiveItem = async (item: ArchiveItem) => {
         const toastId = toast.loading("Locating audio file...");
         try {
-            // Fetch metadata to find the specific mp3 file
+            // Get file metadata
             const res = await fetch(`https://archive.org/metadata/${item.identifier}`);
             const data = await res.json();
             
-            // Find first MP3
-            const mp3File = data.files.find((f: any) => f.format === 'VBR MP3' || f.format === 'MP3');
+            // Look for MP3 files specifically
+            const validFile = data.files.find((f: any) => 
+                (f.format === 'VBR MP3' || f.format === 'MP3' || f.format === '128Kbps MP3') && 
+                !f.name.endsWith('_vbr.m3u') // Exclude playlists
+            );
             
-            if (mp3File) {
-                const url = `https://archive.org/download/${item.identifier}/${mp3File.name}`;
+            if (validFile) {
+                // Construct direct download link
+                const url = `https://${data.d1}${data.dir}/${validFile.name}`;
                 toast.dismiss(toastId);
                 setActiveMedia({ 
                     url, 
@@ -288,7 +318,7 @@ export default function MediaCenter({ type, dynamicColor }: { type: MediaType, d
                 toast.error("No playable MP3 found", { id: toastId });
             }
         } catch (e) {
-            toast.error("Failed to load audio", { id: toastId });
+            toast.error("Failed to load audio metadata", { id: toastId });
         }
     };
 
@@ -456,6 +486,7 @@ export default function MediaCenter({ type, dynamicColor }: { type: MediaType, d
                 </div>
             )}
             
+            {/* EMPTY STATE */}
             {!web3Loading && !loadingExt && (
                 ((viewMode === 'decentralized' && filteredWeb3.length === 0) || 
                  (viewMode === 'livetv' && tvChannels.length === 0) ||
@@ -463,7 +494,10 @@ export default function MediaCenter({ type, dynamicColor }: { type: MediaType, d
                  (viewMode === 'archive' && archiveItems.length === 0))
             ) && (
                 <div className="text-center py-20 text-gray-500">
-                    <p>No content found.</p>
+                    <div className="mb-4 flex justify-center">
+                        {viewMode === 'radio' && !radioApi ? <WifiOff size={40} className="opacity-20"/> : <Globe size={40} className="opacity-20"/>}
+                    </div>
+                    <p>{viewMode === 'radio' && !radioApi ? "Connecting to Global Radio Network..." : "No content found."}</p>
                 </div>
             )}
         </div>
