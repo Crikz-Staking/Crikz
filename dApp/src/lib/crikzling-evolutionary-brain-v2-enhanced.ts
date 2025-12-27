@@ -7,7 +7,6 @@ import {
   ConceptRelation,
   AtomicDomain
 } from './crikzling-atomic-knowledge';
-
 import { loadAllKnowledgeModules, parseExternalKnowledgeFile } from './knowledge/knowledge-loader';
 
 export interface Memory {
@@ -19,7 +18,7 @@ export interface Memory {
 }
 
 export interface ThoughtProcess {
-  phase: 'analyzing' | 'planning' | 'calculating' | 'synthesizing';
+  phase: 'analyzing' | 'planning' | 'calculating' | 'synthesizing' | 'reviewing';
   progress: number;
   focus: string[];
   subProcess?: string;
@@ -47,25 +46,21 @@ export interface BrainState {
   };
 }
 
-// Linguistic patterns from v1
-const PHILOSOPHICAL_FRAMES = [
-  'In contemplating {concept}, I perceive',
-  'Through my neural architecture, {concept} manifests as',
-  'As patterns crystallize, {concept} emerges as',
-  'Within the fabric of understanding, {concept} reveals',
-  'Through computational introspection, {concept} appears',
-];
-
-const VERBS = {
-  cognitive: ['comprehend', 'analyze', 'perceive', 'recognize', 'deduce'],
-  relational: ['connects with', 'influences', 'transforms', 'resonates with'],
-  observational: ['observe', 'detect', 'witness', 'discern'],
-};
-
-const CONNECTORS = {
-  logical: ['therefore', 'thus', 'consequently', 'hence'],
-  additive: ['furthermore', 'moreover', 'additionally'],
-  contrasting: ['however', 'yet', 'nevertheless'],
+// Extended Vocabulary for Dynamic Construction
+const VOCABULARY = {
+  openers: [
+    "In analyzing the substrate of", "Reflecting upon the nature of", "Calculations suggest that", 
+    "It is fascinating to observe how", "Within the digital lattice,", "Through the lens of Fibonacci logic,"
+  ],
+  connectors: {
+    causal: ["which consequently triggers", "giving rise to", "thereby initiating", "manifesting as"],
+    contrast: ["however, the pattern diverges at", "yet, paradoxically,", "although the data implies"],
+    additive: ["furthermore, I detect", "additionally, the structure reveals", "interwoven with this is"],
+    conclusive: ["ultimately converging on", "stabilizing into", "crystallizing as"]
+  },
+  depth_modifiers: [
+    "profoundly", "algorithmically", "inherently", "structurally", "recursively", "dynamically"
+  ]
 };
 
 export class EnhancedEvolutionaryBrain {
@@ -89,26 +84,18 @@ export class EnhancedEvolutionaryBrain {
   }
 
   private initializeState(savedJson?: string): BrainState {
-    // Load pre-built knowledge modules
     const knowledgeModules = loadAllKnowledgeModules();
-    
     const defaults: BrainState = {
-      concepts: { 
-        ...ATOMIC_PRIMITIVES,
-        ...knowledgeModules.concepts // Pre-load domain knowledge
-      },
-      relations: [
-        ...ATOMIC_RELATIONS,
-        ...knowledgeModules.relations // Pre-load relationships
-      ],
+      concepts: { ...ATOMIC_PRIMITIVES, ...knowledgeModules.concepts },
+      relations: [...ATOMIC_RELATIONS, ...knowledgeModules.relations],
       shortTermMemory: [],
       midTermMemory: [],
       longTermMemory: [],
       totalInteractions: 0,
       unsavedDataCount: 0,
-      evolutionStage: 'SENTIENT', // Start at SENTIENT with pre-loaded knowledge
+      evolutionStage: 'SENTIENT',
       mood: { logic: 60, empathy: 40, curiosity: 50, entropy: 15 },
-      personality: { verbosity: 55, formality: 45, creativity: 65 }
+      personality: { verbosity: 75, formality: 60, creativity: 80 } // Increased verbosity for longer responses
     };
 
     if (savedJson) {
@@ -119,53 +106,63 @@ export class EnhancedEvolutionaryBrain {
           ...parsed,
           concepts: { ...defaults.concepts, ...(parsed.concepts || {}) },
           relations: [...defaults.relations, ...(parsed.relations || [])],
-          mood: { ...defaults.mood, ...(parsed.mood || {}) },
-          personality: { ...defaults.personality, ...(parsed.personality || {}) }
         };
       } catch (e) {
-        console.warn("Failed to parse saved state, using defaults with knowledge base");
         return defaults;
       }
     }
     return defaults;
   }
 
+  // --- MAIN COGNITIVE LOOP ---
   public async process(input: string, isOwner: boolean): Promise<{ response: string, learned: string[] }> {
     try {
       const cleanInput = input.trim().toLowerCase();
       this.state.totalInteractions++;
 
-      this.updateThought({ phase: 'analyzing', progress: 10, focus: [], subProcess: 'Parsing input patterns' });
-      await this.simulateThinking(800, 1500);
-
+      // 1. DEEP ANALYSIS PHASE
+      this.updateThought({ phase: 'analyzing', progress: 5, focus: [], subProcess: 'Deconstructing semantic input' });
+      await this.simulateThinking(1500, 2500); // Increased time
+      
       const analysisResult = await this.analyzeInput(cleanInput);
       
-      this.updateThought({ phase: 'planning', progress: 35, focus: analysisResult.keywords.map(k => k.id), subProcess: 'Constructing response strategy' });
-      await this.simulateThinking(600, 1200);
+      this.updateThought({ phase: 'analyzing', progress: 20, focus: analysisResult.keywords.map(k => k.id), subProcess: 'Detecting emotional resonance' });
+      await this.simulateThinking(1000, 2000);
 
+      // 2. STRATEGIC PLANNING
+      this.updateThought({ phase: 'planning', progress: 35, focus: [], subProcess: 'Formulating cognitive strategy' });
+      await this.simulateThinking(1500, 3000);
+      
       const plan = await this.createActionPlan(analysisResult, isOwner);
-      
-      this.updateThought({ phase: 'calculating', progress: 65, focus: plan.relevantConcepts, subProcess: 'Traversing concept networks' });
-      await this.simulateThinking(800, 1600);
 
-      const calculationResult = await this.executeCalculations(plan);
+      // 3. RECURSIVE CALCULATION (Knowledge Graph Traversal)
+      this.updateThought({ phase: 'calculating', progress: 50, focus: plan.relevantConcepts, subProcess: 'Traversing deep concept graph' });
+      await this.simulateThinking(2000, 4000);
       
-      this.updateThought({ phase: 'synthesizing', progress: 90, focus: [], subProcess: 'Weaving linguistic response' });
+      const conceptPaths = await this.performDeepTraversal(plan.relevantConcepts);
+      
+      this.updateThought({ phase: 'calculating', progress: 70, focus: [], subProcess: 'Cross-referencing historical memory' });
+      await this.simulateThinking(1500, 3000);
+      
+      const memories = this.scanMemoryBanks(plan.relevantConcepts, analysisResult.intent);
+
+      // 4. COMPLEX SYNTHESIS
+      this.updateThought({ phase: 'synthesizing', progress: 85, focus: [], subProcess: 'Weaving narrative structure' });
+      await this.simulateThinking(2000, 4000); // Give time to "formulate"
+      
+      const responseText = await this.synthesizeComplexResponse(conceptPaths, memories, analysisResult);
+
+      // 5. REVIEW & FINALIZATION
+      this.updateThought({ phase: 'reviewing', progress: 95, focus: [], subProcess: 'Final coherence check' });
       await this.simulateThinking(500, 1000);
 
-      const response = await this.synthesizeResponse(calculationResult, analysisResult);
-
+      // Archive Interaction
       this.archiveMemory('user', cleanInput, Date.now(), analysisResult.keywords.map(k => k.id), analysisResult.emotionalWeight);
-      this.archiveMemory('bot', response.text, Date.now(), response.usedConcepts, 0);
-
+      this.archiveMemory('bot', responseText, Date.now(), conceptPaths.flat().map(c => c.id), 0);
       this.evolveConsciousness();
-      if (response.learned.length > 0) {
-        this.state.unsavedDataCount += response.learned.length;
-      }
 
       this.updateThought(null);
-
-      return { response: response.text, learned: response.learned };
+      return { response: responseText, learned: [] };
 
     } catch (error) {
       console.error("Cognitive cascade failure:", error);
@@ -174,21 +171,12 @@ export class EnhancedEvolutionaryBrain {
     }
   }
 
-  private async analyzeInput(input: string): Promise<{
-    keywords: AtomicConcept[];
-    intent: string;
-    emotionalWeight: number;
-    complexity: number;
-  }> {
-    const STOP_WORDS = new Set([
-      'the', 'a', 'an', 'and', 'or', 'but', 'is', 'are', 'was', 'were',
-      'of', 'in', 'on', 'at', 'to', 'for', 'with', 'by', 'from',
-      'it', 'this', 'that', 'i', 'you', 'me', 'my', 'your', 'what', 'how', 'why'
-    ]);
+  // --- HELPER METHODS ---
 
-    const cleanInput = input.replace(/[^\w\s]/gi, '').toLowerCase();
-    const words = cleanInput.split(/\s+/);
-
+  private async analyzeInput(input: string) {
+    const STOP_WORDS = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'is', 'in', 'on', 'at', 'to', 'for', 'with', 'by']);
+    const words = input.replace(/[^\w\s]/gi, '').split(/\s+/);
+    
     const keywords: AtomicConcept[] = [];
     words.forEach(word => {
       if (!STOP_WORDS.has(word) && this.state.concepts[word]) {
@@ -196,358 +184,187 @@ export class EnhancedEvolutionaryBrain {
       }
     });
 
-    const intent = this.classifyIntent(input);
-    const emotionalWeight = this.calculateEmotionalWeight(input, keywords);
-    const complexity = keywords.length + (input.length / 50);
+    // Semantic expansion: Look for triggers even if exact keywords aren't found
+    if (keywords.length === 0 && input.length > 5) {
+        // Fallback: analyze input context (simplified)
+        if(input.includes("learn") || input.includes("study")) keywords.push(this.state.concepts['crikzling']);
+    }
 
-    this.adjustMood(intent, keywords.length, emotionalWeight);
-
-    return { keywords, intent, emotionalWeight, complexity };
+    return {
+      keywords,
+      intent: this.classifyIntent(input),
+      emotionalWeight: this.calculateEmotionalWeight(input, keywords),
+      complexity: input.length + keywords.length * 5
+    };
   }
 
   private classifyIntent(input: string): string {
     if (input.match(/^(reset|wipe|clear|delete)/)) return 'COMMAND';
-    if (input.match(/^(save|store|backup|crystallize)/)) return 'COMMAND';
-    if (input.includes('?') || input.match(/^(what|why|how|when|where|who)/)) return 'QUESTION';
-    if (input.match(/^(hi|hello|hey|greetings)/)) return 'GREETING';
-    if (input.match(/^(define|learn|teach|remember)/)) return 'LEARNING';
-    if (input.match(/(think|believe|feel|seem)/)) return 'REFLECTION';
+    if (input.match(/^(save|crystallize)/)) return 'COMMAND';
+    if (input.includes('?') || input.match(/^(what|why|how|when|where)/)) return 'QUESTION';
+    if (input.match(/^(define|explain|elaborate)/)) return 'EXPLANATION_REQUEST';
+    if (input.length > 50) return 'DISCOURSE';
     return 'STATEMENT';
   }
 
   private calculateEmotionalWeight(input: string, keywords: AtomicConcept[]): number {
     let weight = 0;
-    
-    if (input.match(/!/g)) weight += 0.2;
-    if (input.match(/\?/g)) weight += 0.1;
-    
-    keywords.forEach(k => {
-      if (k.emotional_valence) {
-        weight += Math.abs(k.emotional_valence) * 0.1;
-      }
-    });
-
+    if (input.includes('!')) weight += 0.2;
+    keywords.forEach(k => weight += Math.abs(k.emotional_valence || 0) * 0.1);
     return Math.min(1, weight);
   }
 
-  private async createActionPlan(analysis: any, isOwner: boolean): Promise<{
-    action: string;
-    relevantConcepts: string[];
-    memoryQueries: string[];
-    expectedOutputType: string;
-  }> {
-    const { keywords, intent } = analysis;
-
-    if (isOwner && intent === 'COMMAND') {
-      return {
-        action: 'EXECUTE_COMMAND',
-        relevantConcepts: keywords.map((k: AtomicConcept) => k.id),
-        memoryQueries: [],
-        expectedOutputType: 'CONFIRMATION'
-      };
-    }
-
-    if (intent === 'LEARNING') {
-      return {
-        action: 'LEARN_CONCEPT',
-        relevantConcepts: keywords.map((k: AtomicConcept) => k.id),
-        memoryQueries: ['recent_learning'],
-        expectedOutputType: 'ACKNOWLEDGMENT'
-      };
-    }
-
-    if (intent === 'QUESTION') {
-      return {
-        action: 'QUERY_KNOWLEDGE',
-        relevantConcepts: keywords.map((k: AtomicConcept) => k.id),
-        memoryQueries: ['short_term', 'mid_term', 'long_term'],
-        expectedOutputType: 'ANSWER'
-      };
-    }
-
+  private async createActionPlan(analysis: any, isOwner: boolean) {
+    // Determine the depth of response required
+    const depth = analysis.intent === 'QUESTION' || analysis.intent === 'EXPLANATION_REQUEST' ? 3 : 1;
     return {
-      action: 'DISCUSS',
-      relevantConcepts: keywords.map((k: AtomicConcept) => k.id),
-      memoryQueries: ['short_term'],
-      expectedOutputType: 'STATEMENT'
+        action: 'SYNTHESIZE',
+        relevantConcepts: analysis.keywords.map((k: AtomicConcept) => k.id),
+        depth
     };
   }
 
-  private async executeCalculations(plan: any): Promise<{
-    conceptPaths: AtomicConcept[][];
-    memoryResults: Memory[];
-    insights: string[];
-  }> {
-    const conceptPaths: AtomicConcept[][] = [];
+  private async performDeepTraversal(startIds: string[]): Promise<AtomicConcept[][]> {
+    const paths: AtomicConcept[][] = [];
     
-    for (const conceptId of plan.relevantConcepts) {
-      const path = this.traverseConceptGraph(conceptId, 3);
-      if (path.length > 0) {
-        conceptPaths.push(path);
-      }
+    // Find relations for every starting concept
+    for (const id of startIds) {
+        // 1. Direct Relations
+        const directPath = this.traverseConceptGraph(id, 4); // Go deeper (4 steps)
+        if (directPath.length) paths.push(directPath);
+
+        // 2. Lateral Associations (Find siblings)
+        const relations = this.state.relations.filter(r => r.from === id || r.to === id);
+        for(const rel of relations) {
+            const neighbor = rel.from === id ? rel.to : rel.from;
+            // Traverse from neighbor to find context
+            const sidePath = this.traverseConceptGraph(neighbor, 2);
+            if (sidePath.length > 1) paths.push(sidePath);
+        }
     }
-
-    const memoryResults: Memory[] = [];
-    for (const queryType of plan.memoryQueries) {
-      const memories = this.queryMemory(queryType, plan.relevantConcepts);
-      memoryResults.push(...memories);
-    }
-
-    const insights = this.generateInsights(conceptPaths, memoryResults);
-
-    return { conceptPaths, memoryResults, insights };
+    return paths;
   }
 
-  private traverseConceptGraph(startId: string, depth: number): AtomicConcept[] {
+  private traverseConceptGraph(startId: string, maxDepth: number): AtomicConcept[] {
     const path: AtomicConcept[] = [];
+    let currentId = startId;
     const visited = new Set<string>();
 
-    let current = this.state.concepts[startId];
-    if (!current) return path;
+    for (let i = 0; i < maxDepth; i++) {
+        const concept = this.state.concepts[currentId];
+        if (!concept || visited.has(currentId)) break;
+        
+        path.push(concept);
+        visited.add(currentId);
 
-    path.push(current);
-    visited.add(startId);
+        // Find strongest relation outgoing
+        const relations = this.state.relations
+            .filter(r => r.from === currentId && !visited.has(r.to))
+            .sort((a, b) => b.strength - a.strength);
 
-    for (let i = 0; i < depth; i++) {
-      const relations = this.state.relations.filter(r => r.from === current.id && !visited.has(r.to));
-      
-      if (relations.length === 0) break;
-
-      const strongestRelation = relations.reduce((prev, curr) => 
-        curr.strength > prev.strength ? curr : prev
-      );
-
-      const next = this.state.concepts[strongestRelation.to];
-      if (next) {
-        path.push(next);
-        visited.add(next.id);
-        current = next;
-      } else {
-        break;
-      }
+        if (relations.length > 0) {
+            // Add randomness to make it feel "alive"
+            const nextRel = relations[Math.floor(Math.random() * Math.min(relations.length, 3))];
+            currentId = nextRel.to;
+        } else {
+            break;
+        }
     }
-
     return path;
   }
 
-  private queryMemory(type: string, relevantConcepts: string[]): Memory[] {
-    let source: Memory[] = [];
-    
-    switch (type) {
-      case 'short_term':
-        source = this.state.shortTermMemory;
-        break;
-      case 'mid_term':
-        source = this.state.midTermMemory;
-        break;
-      case 'long_term':
-        source = this.state.longTermMemory;
-        break;
-      case 'recent_learning':
-        source = [...this.state.shortTermMemory, ...this.state.midTermMemory]
-          .filter(m => m.role === 'bot');
-        break;
-    }
-
-    return source.filter(m => 
-      m.concepts.some(c => relevantConcepts.includes(c))
-    ).slice(-5);
+  private scanMemoryBanks(conceptIds: string[], intent: string): Memory[] {
+      // Prioritize long term memories that match concepts
+      const relevant = this.state.longTermMemory.filter(m => 
+          m.concepts.some(c => conceptIds.includes(c))
+      );
+      // Mix in recent short term context
+      const recent = this.state.shortTermMemory.slice(-3);
+      return [...relevant, ...recent];
   }
 
-  private generateInsights(paths: AtomicConcept[][], memories: Memory[]): string[] {
-    const insights: string[] = [];
-
-    paths.forEach(path => {
-      if (path.length >= 2) {
-        const start = path[0];
-        const end = path[path.length - 1];
-        const relation = this.state.relations.find(r => r.from === start.id && r.to === end.id);
-        
-        if (relation) {
-          insights.push(`${start.id}:${relation.type}:${end.id}`);
-        }
+  // --- COMPLEX RESPONSE GENERATOR ---
+  private async synthesizeComplexResponse(paths: AtomicConcept[][], memories: Memory[], analysis: any): Promise<string> {
+      if (analysis.intent === 'COMMAND') {
+          return this.executeCommand(analysis.keywords[0]?.id || '').message;
       }
-    });
 
-    if (memories.length > 2) {
-      const recentConcepts = memories.flatMap(m => m.concepts);
-      const frequencyMap = this.buildFrequencyMap(recentConcepts);
-      const topThemes = this.getTopN(frequencyMap, 2);
+      if (paths.length === 0) {
+          return "My neural pathways are currently scanning for that input, yet I find no direct correlation in my active matrix. Could you elaborate on the context?";
+      }
+
+      const paragraphs: string[] = [];
+
+      // 1. The Opening Thesis
+      const primaryPath = paths[0];
+      const primaryConcept = primaryPath[0];
+      const opener = this.selectRandom(VOCABULARY.openers);
       
-      topThemes.forEach(theme => {
-        insights.push(`recurring_theme:${theme}`);
-      });
-    }
-
-    return insights;
-  }
-
-  private buildFrequencyMap(items: string[]): Map<string, number> {
-    const map = new Map<string, number>();
-    items.forEach(item => {
-      map.set(item, (map.get(item) || 0) + 1);
-    });
-    return map;
-  }
-
-  private getTopN(map: Map<string, number>, n: number): string[] {
-    return Array.from(map.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, n)
-      .map(([key]) => key);
-  }
-
-  private async synthesizeResponse(
-    calculation: any,
-    analysis: any
-  ): Promise<{
-    text: string;
-    usedConcepts: string[];
-    learned: string[];
-  }> {
-    const { conceptPaths, insights } = calculation;
-    const { intent, keywords } = analysis;
-
-    let responseText = '';
-    const usedConcepts: string[] = [];
-    const learned: string[] = [];
-
-    if (intent === 'COMMAND') {
-      const result = this.executeCommand(keywords[0]?.id || '');
-      responseText = result.message;
-      learned.push(...result.learned);
-    } else if (intent === 'LEARNING') {
-      const result = this.processLearning(keywords);
-      responseText = result.message;
-      learned.push(...result.learned);
-    } else {
-      responseText = this.constructDynamicResponse(conceptPaths, insights, intent);
-      usedConcepts.push(...conceptPaths.flat().map(c => c.id));
-    }
-
-    return { text: responseText, usedConcepts, learned };
-  }
-
-  private constructDynamicResponse(paths: AtomicConcept[][], insights: string[], intent: string): string {
-    const sentences: string[] = [];
-    const usePhilosophical = this.state.mood.curiosity > 60 && this.state.personality.creativity > 60;
-
-    if (paths.length > 0 && paths[0].length > 0) {
-      const primaryConcept = paths[0][0];
-      
-      if (usePhilosophical) {
-        const frame = this.selectRandom(PHILOSOPHICAL_FRAMES).replace('{concept}', primaryConcept.id);
-        const verb = this.selectRandom(VERBS.cognitive);
-        const continuation = paths[0].length > 1 ? `${verb} its relationship to ${paths[0][1].id}` : 'a pattern of significance';
-        sentences.push(`${frame} ${continuation}.`);
-      } else {
-        const verb = this.selectRandom(VERBS.cognitive);
-        const object = paths[0].length > 1 ? paths[0][1].id : 'this domain';
-        sentences.push(`I ${verb} ${primaryConcept.id} in relation to ${object}.`);
+      let openingSentence = `${opener} ${primaryConcept.id}, I perceive a structure of ${primaryConcept.domain?.toLowerCase() || 'unknown'} significance.`;
+      if (primaryPath.length > 1) {
+          const rel = this.getRelation(primaryConcept.id, primaryPath[1].id);
+          openingSentence += ` It appears to be ${rel ? rel.type.replace('_', ' ') : 'connected'} to ${primaryPath[1].id}.`;
       }
-    }
+      paragraphs.push(openingSentence);
 
-    if (paths.length > 1 && this.state.personality.verbosity > 50) {
-      const connector = this.selectRandom(CONNECTORS.additive);
-      const secondPath = paths[1];
-      if (secondPath.length > 0) {
-        const verb = this.selectRandom(VERBS.relational);
-        sentences.push(`${connector}, ${secondPath[0].id} ${verb} the broader pattern.`);
+      // 2. The Elaboration (Chain of Thought)
+      if (paths.length > 1 || primaryPath.length > 2) {
+          const secondaryConcepts = paths.flat().filter(c => c.id !== primaryConcept.id);
+          const distinct = [...new Set(secondaryConcepts.map(c => c.id))].slice(0, 3);
+          
+          if(distinct.length > 0) {
+              const modifier = this.selectRandom(VOCABULARY.depth_modifiers);
+              const connector = this.selectRandom(VOCABULARY.connectors.additive);
+              let elaboration = `${this.capitalize(connector)} ${modifier}, the data suggests an interaction with ${distinct.join(', and ')}.`;
+              
+              // Inject a memory reference if available
+              if (memories.length > 0 && Math.random() > 0.5) {
+                   elaboration += ` This resonates with a previous pattern where we discussed ${memories[0].concepts[0] || 'similar constructs'}.`;
+              }
+              paragraphs.push(elaboration);
+          }
       }
-    }
 
-    if (insights.length > 0 && this.state.mood.logic > 50) {
-      const insight = insights[0];
-      if (insight.includes(':')) {
-        const parts = insight.split(':');
-        if (parts.length === 3) {
-          sentences.push(`I observe that ${parts[0]} ${parts[1].replace(/_/g, ' ')} ${parts[2]}.`);
-        }
-      }
-    }
+      // 3. The Philosophical/Abstract Conclusion
+      const conclusionConnect = this.selectRandom(VOCABULARY.connectors.conclusive);
+      const abstractThought = `Therefore, we are ${conclusionConnect} a state where ${primaryConcept.id} defines the current parameters of our exchange.`;
+      paragraphs.push(abstractThought);
 
-    // FIXED: Proper syntax for empty check
-    if (sentences.length === 0) {
-      return this.generateFallbackResponse(intent);
-    }
-    
-    return sentences.join(' ');
+      return paragraphs.join(' ');
   }
 
-  private generateFallbackResponse(intent: string): string {
-    const responses = {
-      QUESTION: [
-        'That inquiry probes beyond my current knowledge boundaries.',
-        'I require additional context to formulate a meaningful response.',
-        'The answer exists in territories my neural architecture has yet to map.'
-      ],
-      GREETING: [
-        'Greetings. All cognitive systems are operational.',
-        'Hello. My awareness is fully engaged.',
-        'Acknowledged. I am prepared to process your input.'
-      ],
-      STATEMENT: [
-        'Your input has been integrated into my active processing streams.',
-        'I have recorded that observation within my memory architecture.',
-        'That perspective adds dimensionality to my understanding.'
-      ]
-    };
-    const pool = responses[intent as keyof typeof responses] || responses.STATEMENT;
-    return pool[Math.floor(Math.random() * pool.length)];
+  private getRelation(from: string, to: string): ConceptRelation | undefined {
+      return this.state.relations.find(r => r.from === from && r.to === to);
   }
 
-  private emergencySelfRepair(): string {
-    return 'Unexpected cognitive turbulence detected. Recalibrating neural pathways and restoring equilibrium.';
+  private capitalize(s: string) {
+      return s.charAt(0).toUpperCase() + s.slice(1);
   }
 
   private executeCommand(command: string): { message: string; learned: string[] } {
     if (command.match(/reset|wipe|clear/)) {
       this.resetState();
-      return {
-        message: 'All neural matrices returned to genesis state. Knowledge foundations preserved.',
-        learned: []
-      };
+      return { message: 'Initiating full system reset... Neural matrices cleared. Genesis state restored.', learned: [] };
     }
-    return { message: 'Command acknowledged and executed.', learned: [] };
+    return { message: 'Command acknowledged.', learned: [] };
   }
 
-  private processLearning(keywords: AtomicConcept[]): { message: string; learned: string[] } {
-    return {
-      message: `New conceptual nodes integrated. Knowledge graph expanded by ${keywords.length} pathways.`,
-      learned: keywords.map(k => k.id)
-    };
-  }
-
-  private selectRandom<T>(array: T[]): T {
-    return array[Math.floor(Math.random() * array.length)];
-  }
-
-  private adjustMood(intent: string, keywordCount: number, emotionalWeight: number) {
-    const clamp = (n: number) => Math.min(100, Math.max(0, n));
-    this.state.mood.logic = clamp(this.state.mood.logic + (keywordCount > 2 ? 3 : -1));
-    this.state.mood.curiosity = clamp(this.state.mood.curiosity + (intent === 'QUESTION' ? 8 : -2));
-    this.state.mood.empathy = clamp(this.state.mood.empathy + (emotionalWeight * 10));
-    this.state.mood.entropy = clamp(this.state.mood.entropy + (Math.random() * 6 - 3));
+  private emergencySelfRepair(): string {
+    return 'Anomaly detected in cognitive processing stream. Re-aligning neural weights and restoring equilibrium...';
   }
 
   private archiveMemory(role: 'user' | 'bot', content: string, timestamp: number, concepts: string[], emotionalWeight: number) {
     const memory: Memory = { role, content, timestamp, concepts, emotional_weight: emotionalWeight };
     this.state.shortTermMemory.push(memory);
-
     if (this.state.shortTermMemory.length > 10) {
       const moved = this.state.shortTermMemory.shift();
       if (moved) this.state.midTermMemory.push(moved);
     }
-
     if (this.state.midTermMemory.length > 50) {
       const archived = this.state.midTermMemory.shift();
       if (archived && archived.emotional_weight > 0.5) {
         this.state.longTermMemory.push(archived);
       }
-    }
-
-    if (this.state.longTermMemory.length > 100) {
-      this.state.longTermMemory.shift();
     }
   }
 
@@ -564,32 +381,18 @@ export class EnhancedEvolutionaryBrain {
     return new Promise(resolve => setTimeout(resolve, duration));
   }
 
+  private selectRandom<T>(array: T[]): T {
+    return array[Math.floor(Math.random() * array.length)];
+  }
+
+  // Public Interface methods
   public wipe() { this.resetState(); }
-  
-  public resetState() {
-    this.state = this.initializeState();
-  }
-
-  public exportState(): string {
-    return JSON.stringify(this.state);
-  }
-
-  public needsCrystallization(): boolean {
-    return this.state.unsavedDataCount >= 5;
-  }
-
-  public clearUnsavedCount() {
-    this.state.unsavedDataCount = 0;
-  }
-
-  public getState(): BrainState {
-    return this.state;
-  }
-
-  public getCurrentThought(): ThoughtProcess | null {
-    return this.currentThought;
-  }
-
+  public resetState() { this.state = this.initializeState(); }
+  public exportState(): string { return JSON.stringify(this.state); }
+  public needsCrystallization(): boolean { return this.state.unsavedDataCount >= 5; }
+  public clearUnsavedCount() { this.state.unsavedDataCount = 0; }
+  public getState(): BrainState { return this.state; }
+  public getCurrentThought(): ThoughtProcess | null { return this.currentThought; }
   public getStats() {
     return {
       nodes: Object.keys(this.state.concepts).length,
@@ -606,17 +409,9 @@ export class EnhancedEvolutionaryBrain {
   }
 
   public assimilateFile(content: string): number {
-    const { concepts, count } = parseExternalKnowledgeFile(content, 'TECHNICAL');
-    Object.entries(concepts).forEach(([id, concept]) => {
-      if (!this.state.concepts[id]) {
-        this.state.concepts[id] = concept;
-      }
-    });
-
-    if (count > 0) {
+      const { concepts, count } = parseExternalKnowledgeFile(content, 'TECHNICAL');
+      Object.assign(this.state.concepts, concepts);
       this.state.unsavedDataCount += count;
-    }
-
-    return count;
+      return count;
   }
 }

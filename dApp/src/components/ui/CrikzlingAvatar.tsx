@@ -1,460 +1,372 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+'use client';
+
+import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Send, Save, Trash2, Brain, ChevronDown, Activity, 
-  Network, Lightbulb, Paperclip, Cpu, Zap, Database, 
-  AlertCircle, X, Minimize2, Maximize2, Download, History
+  Send, 
+  Brain as BrainIcon, 
+  Sparkles, 
+  Database, 
+  Cpu, 
+  Activity, 
+  Save, 
+  RefreshCw,
+  Upload,
+  Zap
 } from 'lucide-react';
-
 import { useCrikzling } from '@/hooks/useCrikzling';
+import { ThoughtProcess } from '@/lib/crikzling-evolutionary-brain-v2-enhanced';
 
-const ThoughtVisualization = ({ thought }) => {
-  const phases = {
-    analyzing: { icon: Brain, label: 'Analyzing', color: '#3B82F6', bg: 'rgba(59, 130, 246, 0.1)' },
-    planning: { icon: Network, label: 'Planning', color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.1)' },
-    calculating: { icon: Cpu, label: 'Calculating', color: '#10B981', bg: 'rgba(16, 185, 129, 0.1)' },
-    synthesizing: { icon: Zap, label: 'Synthesizing', color: '#A78BFA', bg: 'rgba(167, 139, 250, 0.1)' }
+// --- SUB-COMPONENT: THOUGHT VISUALIZER ---
+const ThoughtVisualizer = ({ thought }: { thought: ThoughtProcess | null }) => {
+  if (!thought) return null;
+
+  const getPhaseIcon = (phase: string) => {
+    switch (phase) {
+      case 'analyzing': return <Activity className="w-4 h-4 text-blue-400" />;
+      case 'planning': return <BrainIcon className="w-4 h-4 text-purple-400" />;
+      case 'calculating': return <Cpu className="w-4 h-4 text-emerald-400" />;
+      case 'synthesizing': return <Sparkles className="w-4 h-4 text-amber-400" />;
+      case 'reviewing': return <Zap className="w-4 h-4 text-cyan-400" />;
+      default: return <Activity className="w-4 h-4 text-gray-400" />;
+    }
   };
 
-  const phase = phases[thought.phase];
-  const Icon = phase.icon;
+  const getProgressColor = (phase: string) => {
+    switch (phase) {
+      case 'analyzing': return 'bg-blue-500';
+      case 'planning': return 'bg-purple-500';
+      case 'calculating': return 'bg-emerald-500';
+      case 'synthesizing': return 'bg-amber-500';
+      default: return 'bg-cyan-500';
+    }
+  };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
-      className="flex flex-col gap-2 px-4 py-3 rounded-xl border"
-      style={{ backgroundColor: phase.bg, borderColor: phase.color + '40' }}
-    >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Icon size={16} style={{ color: phase.color }} className="animate-pulse" />
-          <span className="text-xs font-bold" style={{ color: phase.color }}>{phase.label}</span>
+    <div className="mx-4 my-2 p-3 rounded-lg bg-black/40 border border-primary-500/20 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
+      <div className="flex items-center gap-3 mb-2">
+        <div className={`p-1.5 rounded-full bg-white/5 animate-pulse`}>
+          {getPhaseIcon(thought.phase)}
         </div>
-        <span className="text-[10px] font-mono text-gray-500">{thought.progress}%</span>
+        <div className="flex-1">
+          <div className="flex justify-between items-center mb-1">
+            <span className="text-xs font-medium text-primary-200 uppercase tracking-wider">
+              {thought.phase}
+            </span>
+            <span className="text-[10px] text-primary-400/60 font-mono">
+              {Math.round(thought.progress)}%
+            </span>
+          </div>
+          <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden">
+            <div 
+              className={`h-full transition-all duration-300 ${getProgressColor(thought.phase)}`}
+              style={{ width: `${thought.progress}%` }}
+            />
+          </div>
+        </div>
       </div>
       
-      <div className="h-1.5 bg-black/20 rounded-full overflow-hidden">
-        <motion.div 
-          className="h-full rounded-full"
-          style={{ backgroundColor: phase.color }}
-          initial={{ width: 0 }}
-          animate={{ width: `${thought.progress}%` }}
-          transition={{ duration: 0.3 }}
-        />
-      </div>
-
       {thought.subProcess && (
-        <div className="text-[10px] text-gray-400 italic mt-1">
-          → {thought.subProcess}
+        <div className="flex items-center gap-2 pl-9">
+          <div className="w-1 h-1 rounded-full bg-primary-500/50" />
+          <span className="text-xs text-primary-300/80 font-mono italic">
+            {thought.subProcess}...
+          </span>
         </div>
       )}
 
-      {thought.focus.length > 0 && (
-        <div className="flex gap-1 mt-2">
-          {thought.focus.map((item, i) => (
-            <span key={i} className="text-[9px] px-2 py-0.5 rounded-full bg-black/30 text-gray-400 font-mono">
-              {item}
+      {thought.focus && thought.focus.length > 0 && (
+        <div className="mt-2 pl-9 flex flex-wrap gap-1">
+          {thought.focus.slice(0, 3).map((tag, i) => (
+            <span key={i} className="text-[9px] px-1.5 py-0.5 rounded bg-primary-500/10 text-primary-400 border border-primary-500/10">
+              {tag}
             </span>
           ))}
         </div>
       )}
-    </motion.div>
+    </div>
   );
 };
 
-const StatBar = ({ label, value, color, icon: Icon }) => (
-  <div className="flex flex-col gap-1.5">
-    <div className="flex justify-between items-center text-[10px]">
-      <span className="flex items-center gap-1 text-gray-400 font-bold uppercase tracking-wider">
-        <Icon size={10} /> {label}
-      </span>
-      <span className="font-mono text-gray-300">{Math.round(value)}%</span>
-    </div>
-    <div className="h-1.5 bg-black/30 rounded-full overflow-hidden">
-      <motion.div 
-        initial={{ width: 0 }} 
-        animate={{ width: `${value}%` }} 
-        className="h-full rounded-full shadow-sm" 
-        style={{ backgroundColor: color }}
-        transition={{ duration: 0.5 }}
-      />
-    </div>
-  </div>
-);
-
-const CrystallizationBanner = ({ needsSave, isSyncing, onCrystallize, unsavedCount }) => {
-  if (!needsSave) return null;
-
-  return (
-    <motion.div 
-      initial={{ height: 0, opacity: 0 }} 
-      animate={{ height: 'auto', opacity: 1 }}
-      exit={{ height: 0, opacity: 0 }}
-      className="relative w-full overflow-hidden"
-      style={{
-        background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-        boxShadow: '0 4px 20px rgba(245, 158, 11, 0.3)'
-      }}
-    >
-      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAwIDEwIEwgNDAgMTAgTSAxMCAwIEwgMTAgNDAgTSAwIDIwIEwgNDAgMjAgTSAyMCAwIEwgMjAgNDAgTSAwIDMwIEwgNDAgMzAgTSAzMCAwIEwgMzAgNDAiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS1vcGFjaXR5PSIwLjA1IiBzdHJva2Utd2lkdGg9IjEiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz48L3N2Zz4=')] opacity-20" />
-      
-      <div className="relative z-10 flex items-center justify-between p-4 gap-4">
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <div className="flex-shrink-0">
-            <AlertCircle size={20} className="text-white animate-pulse" />
-          </div>
-          <div className="flex flex-col min-w-0">
-            <span className="text-sm font-black text-white uppercase tracking-tight">
-              Memory Crystallization Ready
-            </span>
-            <span className="text-xs text-white/80 truncate">
-              {unsavedCount} concepts awaiting permanent storage
-            </span>
-          </div>
-        </div>
-        
-        <button 
-          onClick={onCrystallize}
-          disabled={isSyncing}
-          className="flex-shrink-0 bg-white text-amber-600 px-4 py-2 rounded-lg text-xs font-black hover:bg-black hover:text-white transition-all shadow-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isSyncing ? (
-            <>
-              <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-              SYNCING
-            </>
-          ) : (
-            <>
-              <Save size={14} />
-              SAVE NOW
-            </>
-          )}
-        </button>
-      </div>
-    </motion.div>
-  );
-};
-
-export default function CrikzlingAvatar() {
-  const [isOpen, setIsOpen] = useState(false);
-  const [isMinimized, setIsMinimized] = useState(false);
-  const [input, setInput] = useState('');
-  const [showHistory, setShowHistory] = useState(false);
+// --- SUB-COMPONENT: MESSAGE BUBBLE ---
+const MessageBubble = ({ msg, isLatest }: { msg: any, isLatest: boolean }) => {
+  const isBot = msg.role === 'bot';
   
-  const messagesEndRef = useRef(null);
-  const fileInputRef = useRef(null);
+  return (
+    <div className={`flex w-full ${isBot ? 'justify-start' : 'justify-end'} mb-4 animate-in fade-in slide-in-from-bottom-1`}>
+      <div className={`
+        max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed
+        ${isBot 
+          ? 'bg-black/40 border border-white/5 text-gray-100 rounded-tl-sm shadow-[0_0_15px_rgba(0,0,0,0.2)]' 
+          : 'bg-primary-600/20 border border-primary-500/20 text-white rounded-tr-sm'
+        }
+      `}>
+        {isBot && (
+          <div className="flex items-center gap-2 mb-1 opacity-50 border-b border-white/5 pb-1">
+            <BrainIcon size={10} className="text-primary-400" />
+            <span className="text-[9px] font-mono tracking-widest text-primary-300">CRIKZLING CORE</span>
+          </div>
+        )}
+        
+        <div className="whitespace-pre-wrap font-sans">
+            {msg.content}
+            {isBot && isLatest && msg.content.length === 0 && (
+                 <span className="inline-block w-1.5 h-3 bg-primary-400 ml-1 animate-pulse"/>
+            )}
+        </div>
 
+        <div className={`text-[9px] mt-2 opacity-40 flex items-center gap-1 ${isBot ? 'justify-start' : 'justify-end'}`}>
+          <span>{new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+          {isBot && <span className="font-mono">:: SENTIENT_V2</span>}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- MAIN COMPONENT ---
+export default function CrikzlingAvatar() {
+  const [input, setInput] = useState('');
+  const [showStats, setShowStats] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  
   const { 
     messages, 
     sendMessage, 
-    uploadFile, 
     crystallize, 
-    resetBrain, 
     needsSave, 
-    isOwner, 
     isSyncing, 
     brainStats,
     isThinking,
-    currentThought
+    isTyping,
+    currentThought,
+    uploadFile,
+    resetBrain
   } = useCrikzling();
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
+  // Auto-scroll to bottom
   useEffect(() => {
-    if (isOpen) scrollToBottom();
-  }, [messages, isThinking, isOpen]);
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages, currentThought, isTyping]);
 
   const handleSend = async () => {
-    if (!input.trim() || isThinking) return;
+    if (!input.trim() || isThinking || isTyping) return;
     const userText = input;
     setInput('');
     await sendMessage(userText);
   };
 
-  const handleKeyPress = (e) => {
+  const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
   };
 
-  const handleFileUpload = async (e) => {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    
-    try {
-      const text = await file.text();
-      await uploadFile(text);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    } catch (error) {
-      console.error('File upload error:', error);
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target?.result as string;
+        uploadFile(text);
+      };
+      reader.readAsText(file);
     }
   };
 
-  const downloadChatHistory = () => {
-    const history = messages.map(m => `[${new Date(m.timestamp).toLocaleString()}] ${m.role.toUpperCase()}: ${m.content}`).join('\n\n');
-    const blob = new Blob([history], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `crikzling-chat-${Date.now()}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
   return (
-    <>
-      <motion.button
-        onClick={() => setIsOpen(!isOpen)}
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        className="fixed bottom-6 right-6 z-[100] w-16 h-16 rounded-full border shadow-2xl flex items-center justify-center overflow-hidden group"
-        style={{
-          background: 'linear-gradient(135deg, #0a0a0f 0%, #1a1a24 100%)',
-          borderColor: needsSave ? '#f59e0b' : 'rgba(255, 255, 255, 0.1)',
-          boxShadow: needsSave ? '0 0 40px rgba(245, 158, 11, 0.4)' : '0 10px 40px rgba(0, 0, 0, 0.5)'
-        }}
-      >
-        <div className="absolute inset-0 bg-gradient-to-tr from-primary-900/40 to-transparent opacity-50 group-hover:opacity-100 transition-opacity" />
-        
-        {needsSave && (
-          <motion.div
-            className="absolute inset-0 rounded-full border-2"
-            style={{ borderColor: '#f59e0b' }}
-            animate={{
-              scale: [1, 1.15, 1],
-              opacity: [0.5, 0.8, 0.5]
-            }}
-            transition={{
-              duration: 2,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-          />
-        )}
-        
-        <AnimatePresence mode="wait">
-          {isOpen ? (
-            <motion.div key="close" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }}>
-              <ChevronDown className="text-white" size={24} />
-            </motion.div>
-          ) : (
-            <motion.div key="brain" className="relative">
-              <Brain 
-                className="text-primary-500"
-                size={32}
-                style={{
-                  filter: needsSave ? 'drop-shadow(0 0 8px rgba(245, 158, 11, 0.8))' : 'none',
-                  animation: needsSave ? 'pulse 2s ease-in-out infinite' : 'none'
-                }}
-              />
-              {needsSave && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-black flex items-center justify-center">
-                  <span className="text-[8px] font-bold">{brainStats.unsaved}</span>
-                </span>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </motion.button>
-
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            transition={{ type: 'spring', damping: 25 }}
-            className="fixed bottom-24 right-6 z-[100] w-[min(450px,calc(100vw-3rem))] flex flex-col overflow-hidden rounded-3xl border shadow-2xl"
-            style={{
-              height: isMinimized ? 'auto' : 'min(700px, 75vh)',
-              maxHeight: isMinimized ? '60px' : '75vh',
-              background: 'rgba(10, 10, 15, 0.98)',
-              backdropFilter: 'blur(20px)',
-              borderColor: 'rgba(255, 255, 255, 0.1)',
-              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.6)'
-            }}
-          >
-            <div className="flex flex-col h-full">
-              <div className="p-4 border-b relative z-20" style={{ background: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(255, 255, 255, 0.05)' }}>
-                <div className="flex justify-between items-start mb-3">
-                  <div className="flex-1">
-                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                      <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-                      Crikzling Neural Core
-                      <span className="px-2 py-0.5 rounded-full text-[9px] uppercase font-black tracking-wider" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' }}>
-                        {brainStats.stage}
-                      </span>
-                    </h3>
-                    <div className="flex gap-3 mt-1.5 text-[10px] font-medium text-gray-500">
-                      <span>Nodes: <span className="text-white">{brainStats.nodes}</span></span>
-                      <span>Links: <span className="text-white">{brainStats.relations}</span></span>
-                      <span>Unsaved: <span className={needsSave ? "text-amber-500 font-bold" : "text-gray-400"}>{brainStats.unsaved}</span></span>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={() => setIsMinimized(!isMinimized)}
-                      className="p-1.5 rounded-lg hover:bg-white/5 transition-colors"
-                    >
-                      {isMinimized ? <Maximize2 size={14} className="text-gray-400" /> : <Minimize2 size={14} className="text-gray-400" />}
-                    </button>
-                    <button 
-                      onClick={() => setIsOpen(false)}
-                      className="p-1.5 rounded-lg hover:bg-white/5 transition-colors"
-                    >
-                      <X size={14} className="text-gray-400" />
-                    </button>
-                  </div>
-                </div>
-
-                {!isMinimized && (
-                  <div className="grid grid-cols-2 gap-2 mt-3">
-                    <StatBar label="Logic" value={brainStats.mood.logic} color="#3B82F6" icon={Cpu} />
-                    <StatBar label="Empathy" value={brainStats.mood.empathy} color="#EC4899" icon={Activity} />
-                    <StatBar label="Curiosity" value={brainStats.mood.curiosity} color="#F59E0B" icon={Lightbulb} />
-                    <StatBar label="Entropy" value={brainStats.mood.entropy} color="#10B981" icon={Network} />
-                  </div>
-                )}
-              </div>
-
-              {!isMinimized && (
-                <>
-                  <CrystallizationBanner 
-                    needsSave={needsSave} 
-                    isSyncing={isSyncing} 
-                    onCrystallize={crystallize}
-                    unsavedCount={brainStats.unsaved}
-                  />
-
-                  <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-[300px]" style={{ background: 'rgba(0, 0, 0, 0.2)' }}>
-                    {messages.length === 0 && (
-                      <div className="flex flex-col items-center justify-center h-full opacity-20 text-center p-8">
-                        <Brain size={48} className="mb-4" />
-                        <p className="text-sm text-gray-500">Neural pathways initialized...</p>
-                      </div>
-                    )}
-                    
-                    <AnimatePresence mode="popLayout">
-                      {messages.map((m, i) => (
-                        <motion.div 
-                          key={i}
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -10 }}
-                          className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                        >
-                          <div className={`max-w-[85%] px-4 py-3 rounded-2xl text-xs leading-relaxed ${
-                            m.role === 'user' 
-                              ? 'bg-primary-500 text-black font-medium rounded-tr-none shadow-lg' 
-                              : 'bg-white/5 text-gray-200 border rounded-tl-none'
-                          }`}
-                          style={m.role !== 'user' ? { borderColor: 'rgba(255, 255, 255, 0.05)' } : {}}
-                          >
-                            {m.content}
-                            <div className={`text-[9px] mt-1.5 opacity-50 font-mono ${m.role === 'user' ? 'text-black' : 'text-gray-500'}`}>
-                              {new Date(m.timestamp).toLocaleTimeString()}
-                            </div>
-                          </div>
-                        </motion.div>
-                      ))}
-                    </AnimatePresence>
-
-                    {isThinking && currentThought && (
-                      <div className="flex justify-start">
-                        <div className="max-w-[85%]">
-                          <ThoughtVisualization thought={currentThought} />
-                        </div>
-                      </div>
-                    )}
-
-                    {isThinking && !currentThought && (
-                      <div className="flex justify-start">
-                        <div className="bg-white/5 px-4 py-3 rounded-2xl rounded-tl-none border" style={{ borderColor: 'rgba(255, 255, 255, 0.05)' }}>
-                          <div className="flex gap-1 items-center h-4">
-                            <span className="w-1.5 h-1.5 bg-primary-500 rounded-full animate-bounce" />
-                            <span className="w-1.5 h-1.5 bg-primary-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
-                            <span className="w-1.5 h-1.5 bg-primary-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    
-                    <div ref={messagesEndRef} />
-                  </div>
-
-                  <div className="p-4 border-t" style={{ background: 'rgba(0, 0, 0, 0.4)', borderColor: 'rgba(255, 255, 255, 0.05)' }}>
-                    <div className="flex gap-2 mb-2">
-                      <input 
-                        type="file" 
-                        ref={fileInputRef} 
-                        onChange={handleFileUpload} 
-                        className="hidden" 
-                        accept=".txt"
-                      />
-                      <button 
-                        onClick={() => fileInputRef.current?.click()}
-                        className="p-2 text-gray-500 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
-                        title="Upload knowledge"
-                      >
-                        <Paperclip size={18} />
-                      </button>
-
-                      <button 
-                        onClick={downloadChatHistory}
-                        className="p-2 text-gray-500 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
-                        title="Download chat history"
-                      >
-                        <Download size={18} />
-                      </button>
-                      
-                      <div className="flex-1 relative">
-                        <input
-                          type="text"
-                          value={input}
-                          onChange={(e) => setInput(e.target.value)}
-                          onKeyPress={handleKeyPress}
-                          placeholder={isOwner ? "Interact with Crikzling..." : "Ask me anything..."}
-                          disabled={isThinking}
-                          className="w-full bg-white/5 border rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-primary-500/50 transition-all pr-10 disabled:opacity-50"
-                          style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }}
-                        />
-                        <button 
-                          onClick={handleSend}
-                          disabled={!input.trim() || isThinking}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 text-primary-500 disabled:text-gray-600 transition-colors p-1 hover:bg-white/5 rounded"
-                        >
-                          <Send size={16} />
-                        </button>
-                      </div>
-
-                      {isOwner && (
-                        <button 
-                          onClick={resetBrain}
-                          className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/5 rounded-lg transition-colors"
-                          title="Reset memory"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-center gap-2 text-[9px] text-gray-600">
-                      <Database size={10} />
-                      <span>STM:{brainStats.memories.short} | MTM:{brainStats.memories.mid} | LTM:{brainStats.memories.long}</span>
-                    </div>
-                  </div>
-                </>
-              )}
+    <div className="w-full max-w-4xl mx-auto h-[600px] flex flex-col rounded-2xl overflow-hidden border border-white/10 bg-[#0a0a0a] shadow-2xl relative">
+      
+      {/* HEADER HUD */}
+      <div className="h-14 bg-black/60 backdrop-blur-md border-b border-white/5 flex items-center justify-between px-4 z-20">
+        <div className="flex items-center gap-3">
+          <div className="relative group cursor-pointer" onClick={() => setShowStats(!showStats)}>
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center bg-gradient-to-br from-primary-500/20 to-purple-500/20 border border-primary-500/30 transition-all ${isThinking ? 'animate-pulse shadow-[0_0_10px_rgba(59,130,246,0.5)]' : ''}`}>
+              <BrainIcon size={16} className={`text-primary-400 ${isThinking ? 'animate-spin-slow' : ''}`} />
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </>
+            <div className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-green-500 border-2 border-black rounded-full shadow-[0_0_5px_rgba(34,197,94,0.8)]"></div>
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-gray-100 tracking-wide font-mono">CRIKZLING <span className="text-[9px] text-primary-500 bg-primary-500/10 px-1 py-0.5 rounded border border-primary-500/20">V2.1-ENHANCED</span></h3>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-gray-500 flex items-center gap-1">
+                <span className={`w-1.5 h-1.5 rounded-full ${isThinking ? 'bg-amber-500 animate-ping' : isTyping ? 'bg-blue-400' : 'bg-gray-600'}`}></span>
+                {isThinking ? 'PROCESSING NEURAL MATRIX...' : isTyping ? 'TRANSMITTING DATA...' : 'SYSTEMS STABLE'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {needsSave && (
+            <button 
+              onClick={crystallize}
+              disabled={isSyncing}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 rounded-lg text-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
+            >
+              {isSyncing ? <RefreshCw size={12} className="animate-spin" /> : <Save size={12} />}
+              <span>{isSyncing ? 'CRYSTALLIZING...' : 'SAVE MEMORY'}</span>
+              <div className="absolute top-12 right-4 w-48 p-2 bg-black/90 border border-amber-500/20 text-amber-200 text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                New neural pathways detected. Save to blockchain to make them permanent.
+              </div>
+            </button>
+          )}
+          
+          <div className="h-6 w-px bg-white/10 mx-1"></div>
+          
+          <label className="cursor-pointer p-2 text-gray-400 hover:text-primary-400 hover:bg-white/5 rounded-lg transition-colors" title="Assimilate Knowledge File">
+            <Upload size={16} />
+            <input type="file" className="hidden" onChange={handleFileUpload} accept=".txt,.json,.md" />
+          </label>
+          
+          <button 
+            onClick={resetBrain}
+            className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" 
+            title="Reset Cognitive State"
+          >
+            <RefreshCw size={16} />
+          </button>
+        </div>
+      </div>
+
+      {/* STATS OVERLAY PANEL */}
+      {showStats && (
+        <div className="absolute top-14 left-4 z-30 w-64 bg-black/95 backdrop-blur-xl border border-white/10 rounded-xl p-4 shadow-2xl animate-in fade-in slide-in-from-top-2">
+          <h4 className="text-xs font-bold text-gray-400 uppercase mb-3 flex items-center gap-2">
+            <Activity size={12} /> Neural Metrics
+          </h4>
+          
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <div className="flex justify-between text-[10px] text-gray-400">
+                <span>Evolution Stage</span>
+                <span className="text-primary-400 font-mono">{brainStats.stage}</span>
+              </div>
+              <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-blue-500 to-purple-500 w-[60%]"></div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-white/5 rounded p-2 text-center border border-white/5">
+                <div className="text-xs font-mono text-white">{brainStats.nodes}</div>
+                <div className="text-[9px] text-gray-500 uppercase">Concepts</div>
+              </div>
+              <div className="bg-white/5 rounded p-2 text-center border border-white/5">
+                <div className="text-xs font-mono text-white">{brainStats.relations}</div>
+                <div className="text-[9px] text-gray-500 uppercase">Synapses</div>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-white/5">
+               <div className="flex justify-between text-[10px] text-gray-500 mb-1">
+                 <span>Logic</span>
+                 <span>{Math.round(brainStats.mood.logic)}%</span>
+               </div>
+               <div className="flex justify-between text-[10px] text-gray-500 mb-1">
+                 <span>Empathy</span>
+                 <span>{Math.round(brainStats.mood.empathy)}%</span>
+               </div>
+               <div className="flex justify-between text-[10px] text-gray-500">
+                 <span>Entropy</span>
+                 <span>{Math.round(brainStats.mood.entropy)}%</span>
+               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CHAT AREA */}
+      <div className="flex-1 overflow-hidden relative bg-gradient-to-b from-[#050505] to-[#0a0a0a]">
+        {/* Background Grid Decoration */}
+        <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))] opacity-5 pointer-events-none"></div>
+
+        <div 
+          ref={scrollRef}
+          className="h-full overflow-y-auto p-4 space-y-2 scroll-smooth scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent"
+        >
+          {messages.length === 0 && (
+            <div className="h-full flex flex-col items-center justify-center text-center p-8 opacity-40">
+              <BrainIcon size={48} className="text-primary-500 mb-4 animate-pulse" />
+              <p className="text-sm text-gray-300 font-mono">NEURAL INTERFACE INITIALIZED</p>
+              <p className="text-xs text-gray-500 mt-2">Waiting for sensory input...</p>
+            </div>
+          )}
+
+          {messages.map((msg, idx) => (
+            <MessageBubble 
+                key={idx} 
+                msg={msg} 
+                isLatest={idx === messages.length - 1} 
+            />
+          ))}
+
+          {/* Render the thought process visualization if thinking */}
+          {isThinking && currentThought && (
+            <ThoughtVisualizer thought={currentThought} />
+          )}
+
+          {/* Typing indicator (only shown if simple typing without thought data) */}
+          {isTyping && !isThinking && (
+             <div className="ml-4 text-[10px] text-primary-500/50 font-mono animate-pulse flex items-center gap-2">
+                <span className="w-1 h-1 bg-primary-500 rounded-full"></span>
+                INCOMING TRANSMISSION...
+             </div>
+          )}
+          
+          <div className="h-4"></div> {/* Spacer */}
+        </div>
+      </div>
+
+      {/* INPUT AREA */}
+      <div className="p-4 bg-black/80 backdrop-blur border-t border-white/5 z-20">
+        <div className="flex items-center gap-3">
+          <div className="flex-1 relative">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyPress}
+              placeholder={
+                isThinking ? "Processing neural patterns..." :
+                isTyping ? "Receiving data stream..." :
+                "Transmit data to Crikzling..."
+              }
+              disabled={isThinking || isTyping || isSyncing}
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary-500/50 transition-all pr-12 text-gray-200 placeholder-gray-600 disabled:opacity-50 disabled:cursor-not-allowed font-sans"
+            />
+            
+            <button 
+              onClick={handleSend}
+              disabled={!input.trim() || isThinking || isTyping || isSyncing}
+              className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-all
+                ${!input.trim() || isThinking || isTyping 
+                  ? 'text-gray-600 cursor-not-allowed' 
+                  : 'text-primary-400 hover:bg-primary-500/10 hover:text-primary-300 active:scale-95'
+                }`}
+            >
+              {isThinking ? (
+                <Cpu size={18} className="animate-spin-slow" />
+              ) : (
+                <Send size={18} />
+              )}
+            </button>
+          </div>
+        </div>
+        
+        <div className="flex justify-between mt-2 px-1">
+             <div className="text-[10px] text-gray-600 font-mono">
+                MEM: {brainStats.memories.short} STM / {brainStats.memories.long} LTM
+             </div>
+             {brainStats.unsaved > 0 && (
+                <div className="text-[10px] text-amber-500/70 font-mono animate-pulse">
+                    ! {brainStats.unsaved} Unsaved Concepts
+                </div>
+             )}
+        </div>
+      </div>
+    </div>
   );
 }
