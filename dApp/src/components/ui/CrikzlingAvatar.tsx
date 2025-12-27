@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Send, Brain, Sparkles, Database, Cpu, Activity, Save, RefreshCw, Upload, Zap, AlertTriangle 
+  Send, Brain, Database, Cpu, Activity, Save, RefreshCw, Upload, Zap, AlertTriangle,
+  TrendingUp, Layers, Clock, Lock
 } from 'lucide-react';
 import { useCrikzling } from '@/hooks/useCrikzling';
-import CrikzlingChatBackground from '@/components/visual/CrikzlingChatBackground';
 
-// Simplified for the artifact - use actual ThoughtProcess type in your project
 interface ThoughtProcess {
   phase: string;
   progress: number;
@@ -13,46 +12,60 @@ interface ThoughtProcess {
   focus?: string[];
 }
 
-// --- SUB-COMPONENT: THOUGHT VISUALIZER ---
 const ThoughtVisualizer = ({ thought }: { thought: ThoughtProcess | null }) => {
   if (!thought) return null;
 
   const getProgressColor = (phase: string) => {
     switch (phase) {
-      case 'analyzing': return 'bg-blue-500';
-      case 'associating': return 'bg-pink-500';
-      case 'planning': return 'bg-purple-500';
-      case 'calculating': return 'bg-emerald-500';
-      case 'synthesizing': return 'bg-amber-500';
-      default: return 'bg-cyan-500';
+      case 'analyzing': return 'from-blue-500 to-blue-600';
+      case 'associating': return 'from-pink-500 to-pink-600';
+      case 'planning': return 'from-purple-500 to-purple-600';
+      case 'calculating': return 'from-emerald-500 to-emerald-600';
+      case 'synthesizing': return 'from-amber-500 to-amber-600';
+      default: return 'from-cyan-500 to-cyan-600';
     }
   };
 
   return (
-    <div className="mx-4 my-2 p-3 rounded-lg bg-black/40 border border-yellow-500/20">
-      <div className="flex items-center gap-3 mb-2">
-        <Activity className="w-4 h-4 text-yellow-400 animate-pulse" />
-        <div className="flex-1">
+    <div className="px-4 py-3 bg-black/60 backdrop-blur-sm border-y border-yellow-500/20">
+      <div className="flex items-center gap-3">
+        <Activity className="w-4 h-4 text-yellow-400 animate-pulse flex-shrink-0" />
+        <div className="flex-1 min-w-0">
           <div className="flex justify-between items-center mb-1">
-            <span className="text-xs font-medium text-yellow-200 uppercase">{thought.phase}</span>
-            <span className="text-xs text-yellow-400/60 font-mono">{Math.round(thought.progress)}%</span>
+            <span className="text-xs font-bold text-yellow-200 uppercase truncate">
+              {thought.phase}
+            </span>
+            <span className="text-xs text-yellow-400/60 font-mono ml-2 flex-shrink-0">
+              {Math.round(thought.progress)}%
+            </span>
           </div>
-          <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden">
+          <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
             <div 
-              className={`h-full transition-all duration-300 ${getProgressColor(thought.phase)}`}
+              className={`h-full bg-gradient-to-r ${getProgressColor(thought.phase)} transition-all duration-300`}
               style={{ width: `${thought.progress}%` }}
             />
           </div>
+          {thought.subProcess && (
+            <div className="text-xs text-yellow-300/80 font-mono italic mt-1 truncate">
+              {thought.subProcess}
+            </div>
+          )}
         </div>
       </div>
-      {thought.subProcess && (
-        <div className="text-xs text-yellow-300/80 font-mono italic pl-9">{thought.subProcess}...</div>
-      )}
     </div>
   );
 };
 
-// --- MAIN COMPONENT ---
+const StatCard = ({ icon: Icon, label, value, color }: any) => (
+  <div className="bg-black/40 backdrop-blur-sm border border-white/10 rounded-xl p-3 hover:border-primary-500/30 transition-colors">
+    <div className="flex items-center gap-2 mb-1">
+      <Icon size={14} className="text-gray-500" />
+      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{label}</span>
+    </div>
+    <div className="text-lg font-black" style={{ color }}>{value}</div>
+  </div>
+);
+
 export default function CrikzlingAvatar() {
   const [input, setInput] = useState('');
   const [showStats, setShowStats] = useState(false);
@@ -106,63 +119,55 @@ export default function CrikzlingAvatar() {
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto h-[600px] flex flex-col rounded-2xl overflow-hidden border border-white/10 bg-black shadow-2xl relative">
+    <div className="fixed bottom-6 right-6 z-50 w-[420px] max-h-[700px] flex flex-col rounded-2xl overflow-hidden border border-white/10 bg-gradient-to-br from-black/95 to-black/90 backdrop-blur-xl shadow-2xl">
       
-      {/* COGNITIVE BACKGROUND - New addition */}
-      <CrikzlingChatBackground 
-        isThinking={isThinking}
-        isTyping={isTyping}
-        currentThought={currentThought}
-      />
-      
-      {/* HEADER WITH PROMINENT SAVE BUTTON */}
-      <div className="h-16 bg-black/80 backdrop-blur-md border-b border-white/10 flex items-center justify-between px-4 z-20 relative">
+      <div className="h-16 bg-gradient-to-r from-yellow-600/20 to-purple-600/20 backdrop-blur-md border-b border-white/10 flex items-center justify-between px-4 relative z-20">
         <div className="flex items-center gap-3">
-          <div className="relative cursor-pointer" onClick={() => setShowStats(!showStats)}>
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center bg-gradient-to-br from-yellow-500/20 to-purple-500/20 border border-yellow-500/30 ${isThinking ? 'animate-pulse' : ''}`}>
+          <button 
+            onClick={() => setShowStats(!showStats)}
+            className="relative group"
+          >
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center bg-gradient-to-br from-yellow-500/20 to-purple-500/20 border border-yellow-500/30 transition-all ${isThinking ? 'animate-pulse' : ''}`}>
               <Brain size={20} className="text-yellow-400" />
             </div>
             <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-black rounded-full"></div>
-          </div>
+          </button>
           <div>
             <h3 className="text-sm font-bold text-white font-mono">CRIKZLING</h3>
-            <span className="text-[10px] text-gray-500">{isThinking ? 'THINKING...' : 'ONLINE'}</span>
+            <span className="text-[10px] text-gray-500">{isThinking ? 'PROCESSING' : 'READY'}</span>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* ⭐ CRYSTALLIZATION BUTTON - ALWAYS VISIBLE WHEN NEEDED */}
+        <div className="flex items-center gap-2">
           {needsSave && (
             <button 
               onClick={crystallize}
               disabled={isSyncing || !isOwner}
-              className="flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-black rounded-xl text-sm font-black transition-all disabled:opacity-50 shadow-lg shadow-amber-500/30 animate-pulse"
+              className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black rounded-lg text-xs font-black transition-all disabled:opacity-50 shadow-lg"
             >
               {isSyncing ? (
                 <>
-                  <RefreshCw size={16} className="animate-spin" />
-                  SAVING...
+                  <RefreshCw size={14} className="animate-spin" />
+                  SAVING
                 </>
               ) : (
                 <>
-                  <Save size={16} />
-                  SAVE MEMORY
-                  <span className="bg-black/30 px-2 py-0.5 rounded text-xs">{brainStats.unsaved}</span>
+                  <Save size={14} />
+                  SAVE
+                  <span className="bg-black/30 px-1.5 py-0.5 rounded text-[10px]">{brainStats.unsaved}</span>
                 </>
               )}
             </button>
           )}
           
-          {/* Show warning if not owner */}
           {!isOwner && needsSave && (
-            <div className="px-3 py-1.5 bg-red-500/20 border border-red-500/30 rounded-lg flex items-center gap-2">
-              <AlertTriangle size={14} className="text-red-400" />
-              <span className="text-xs text-red-400 font-bold">OWNER ONLY</span>
+            <div className="px-2 py-1 bg-red-500/20 border border-red-500/30 rounded-lg flex items-center gap-1">
+              <Lock size={12} className="text-red-400" />
             </div>
           )}
           
           <label className="p-2 text-gray-400 hover:text-yellow-400 rounded-lg transition-colors cursor-pointer">
-            <Upload size={18} />
+            <Upload size={16} />
             <input type="file" className="hidden" onChange={handleFileUpload} accept=".txt,.json,.md" />
           </label>
           
@@ -171,41 +176,45 @@ export default function CrikzlingAvatar() {
             disabled={!isOwner}
             className="p-2 text-gray-400 hover:text-red-400 rounded-lg transition-colors disabled:opacity-30" 
           >
-            <RefreshCw size={18} />
+            <RefreshCw size={16} />
           </button>
         </div>
       </div>
 
-      {/* STATS PANEL */}
       {showStats && (
-        <div className="absolute top-16 left-4 z-30 w-64 bg-black/95 border border-white/10 rounded-xl p-4 shadow-2xl">
-          <div className="text-xs font-bold text-gray-400 uppercase mb-3">Neural Metrics</div>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-500">Stage:</span>
-              <span className="text-yellow-400 font-mono">{brainStats.stage}</span>
+        <div className="p-4 bg-black/95 border-b border-white/10 z-30">
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            <StatCard icon={Layers} label="Stage" value={brainStats.stage} color="#f59e0b" />
+            <StatCard icon={Database} label="Concepts" value={brainStats.nodes} color="#22d3ee" />
+            <StatCard icon={TrendingUp} label="Unsaved" value={brainStats.unsaved} color="#f59e0b" />
+            <StatCard icon={Clock} label="Relations" value={brainStats.relations} color="#a78bfa" />
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="bg-black/40 backdrop-blur-sm border border-white/10 rounded-lg p-2 text-center">
+              <div className="text-[10px] text-gray-500 mb-1">STM</div>
+              <div className="text-sm font-bold text-white">{brainStats.memories.short}</div>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Concepts:</span>
-              <span className="text-white font-mono">{brainStats.nodes}</span>
+            <div className="bg-black/40 backdrop-blur-sm border border-white/10 rounded-lg p-2 text-center">
+              <div className="text-[10px] text-gray-500 mb-1">MTM</div>
+              <div className="text-sm font-bold text-white">{brainStats.memories.mid}</div>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Unsaved:</span>
-              <span className="text-amber-400 font-mono">{brainStats.unsaved}</span>
+            <div className="bg-black/40 backdrop-blur-sm border border-white/10 rounded-lg p-2 text-center">
+              <div className="text-[10px] text-gray-500 mb-1">LTM</div>
+              <div className="text-sm font-bold text-white">{brainStats.memories.long}</div>
             </div>
           </div>
         </div>
       )}
 
-      {/* CHAT AREA */}
       <div 
         ref={scrollRef}
-        className="flex-1 overflow-y-auto p-4 space-y-3 relative z-10"
+        className="flex-1 overflow-y-auto p-4 space-y-3 relative z-10 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent"
       >
         {messages.length === 0 && (
           <div className="h-full flex flex-col items-center justify-center opacity-40">
             <Brain size={48} className="text-yellow-500 mb-4 animate-pulse" />
-            <p className="text-sm text-gray-300 font-mono">NEURAL INTERFACE READY</p>
+            <p className="text-sm text-gray-300 font-mono text-center">NEURAL INTERFACE READY</p>
+            <p className="text-xs text-gray-500 font-mono text-center mt-2">Fibonacci-based AI</p>
           </div>
         )}
 
@@ -216,8 +225,8 @@ export default function CrikzlingAvatar() {
           >
             <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${
               msg.role === 'bot' 
-                ? 'bg-black/40 border border-white/5 text-gray-100' 
-                : 'bg-yellow-600/20 border border-yellow-500/20 text-white'
+                ? 'bg-black/60 backdrop-blur-sm border border-white/10 text-gray-100' 
+                : 'bg-yellow-600/20 border border-yellow-500/20 text-white backdrop-blur-sm'
             }`}>
               {msg.content}
             </div>
@@ -230,17 +239,16 @@ export default function CrikzlingAvatar() {
         )}
       </div>
 
-      {/* INPUT AREA */}
-      <div className="p-4 bg-black/80 border-t border-white/5 relative z-10">
+      <div className="p-4 bg-black/90 border-t border-white/10 relative z-10">
         <div className="flex items-center gap-3">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyPress}
-            placeholder="Transmit data to Crikzling..."
+            placeholder="Communicate with Crikzling..."
             disabled={isThinking || isTyping || isSyncing}
-            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-yellow-500/50 text-white placeholder-gray-600 disabled:opacity-50"
+            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-yellow-500/50 text-white placeholder-gray-600 disabled:opacity-50 backdrop-blur-sm"
           />
           <button 
             onClick={handleSend}
@@ -253,12 +261,12 @@ export default function CrikzlingAvatar() {
         
         <div className="flex justify-between mt-2 px-1 text-[10px]">
           <span className="text-gray-600 font-mono">
-            MEM: {brainStats.memories.short} STM / {brainStats.memories.long} LTM
+            MEM: {brainStats.memories.short} / {brainStats.memories.mid} / {brainStats.memories.long}
           </span>
           {brainStats.unsaved > 0 && (
             <span className="text-amber-500 font-mono animate-pulse flex items-center gap-1">
               <AlertTriangle size={10} />
-              ! {brainStats.unsaved} Unsaved
+              {brainStats.unsaved} Unsaved
             </span>
           )}
         </div>
