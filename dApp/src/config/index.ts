@@ -51,3 +51,49 @@ export const NFT_MARKETPLACE_ABI = [
   { "inputs": [{"name": "nftContract", "type": "address"}, {"name": "tokenId", "type": "uint256"}, {"name": "price", "type": "uint256"}], "name": "listModel", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
   { "inputs": [{"name": "nftContract", "type": "address"}, {"name": "tokenId", "type": "uint256"}], "name": "buyItem", "outputs": [], "stateMutability": "nonpayable", "type": "function" }
 ] as const;
+
+// Add this placeholder (You must deploy the contract to get the real address)
+export const CRIKZ_MEDIA_ADDRESS = "0xc9BCd9bC3abF27739B67CAa50C7dD7258dc409de"; 
+
+export const CRIKZ_MEDIA_ABI = [
+  {
+    "inputs": [
+      { "internalType": "string", "name": "_cid", "type": "string" },
+      { "internalType": "string", "name": "_title", "type": "string" },
+      { "internalType": "uint8", "name": "_type", "type": "uint8" }
+    ],
+    "name": "publishMedia",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getAllMedia",
+    "outputs": [
+      {
+        "components": [
+          { "internalType": "uint256", "name": "id", "type": "uint256" },
+          { "internalType": "address", "name": "author", "type": "address" },
+          { "internalType": "string", "name": "cid", "type": "string" },
+          { "internalType": "string", "name": "title", "type": "string" },
+          { "internalType": "uint8", "name": "mediaType", "type": "uint8" },
+          { "internalType": "uint256", "name": "timestamp", "type": "uint256" },
+          { "internalType": "uint256", "name": "tipsReceived", "type": "uint256" }
+        ],
+        "internalType": "struct CrikzMedia.MediaItem[]",
+        "name": "",
+        "type": "tuple[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "_id", "type": "uint256" }],
+    "name": "tipAuthor",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  }
+] as const;
