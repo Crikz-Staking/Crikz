@@ -6,7 +6,9 @@ import { useAccount } from 'wagmi';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import GlobalNavigation from '@/components/layout/GlobalNavigation';
-import BackgroundEffects from '@/components/layout/Background';
+// OLD: import BackgroundEffects from '@/components/layout/Background';
+// NEW: Import the Crikzling-aware background
+import CrikzlingBackgroundEffects from '@/components/visual/CrikzlingBackground';
 import CrikzlingAvatar from '@/components/ui/CrikzlingAvatar';
 
 // Features
@@ -17,6 +19,7 @@ import NFTMarket from '@/features/nft/NFTMarket';
 
 // Hooks & Types
 import { useAppWatcher } from '@/hooks/useAppWatcher';
+import { useCrikzling } from '@/hooks/useCrikzling';
 import { MainSection, ActiveView, Language } from '@/types';
 
 export default function App() {
@@ -27,6 +30,14 @@ export default function App() {
 
   // Global monitoring hook
   useAppWatcher();
+
+  // Get Crikzling's real-time state for background visualization
+  const { 
+    isThinking, 
+    isTyping, 
+    currentThought, 
+    brainStats 
+  } = useCrikzling();
 
   // Dynamic theme colors based on the active section
   const getThemeColor = () => {
@@ -42,7 +53,14 @@ export default function App() {
 
   return (
     <div className="min-h-screen relative text-white selection:bg-primary-500/30 overflow-x-hidden">
-      <BackgroundEffects />
+      {/* NEW: Crikzling-aware background with cognitive visualization */}
+      <CrikzlingBackgroundEffects 
+        isThinking={isThinking}
+        isTyping={isTyping}
+        currentThought={currentThought}
+        brainStats={brainStats}
+      />
+      
       <Toaster position="bottom-right" reverseOrder={false} />
 
       <Header 
