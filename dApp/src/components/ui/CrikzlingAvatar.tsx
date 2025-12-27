@@ -3,6 +3,7 @@ import {
   Send, Brain, Sparkles, Database, Cpu, Activity, Save, RefreshCw, Upload, Zap, AlertTriangle 
 } from 'lucide-react';
 import { useCrikzling } from '@/hooks/useCrikzling';
+import CrikzlingChatBackground from '@/components/visual/CrikzlingChatBackground';
 
 // Simplified for the artifact - use actual ThoughtProcess type in your project
 interface ThoughtProcess {
@@ -19,6 +20,7 @@ const ThoughtVisualizer = ({ thought }: { thought: ThoughtProcess | null }) => {
   const getProgressColor = (phase: string) => {
     switch (phase) {
       case 'analyzing': return 'bg-blue-500';
+      case 'associating': return 'bg-pink-500';
       case 'planning': return 'bg-purple-500';
       case 'calculating': return 'bg-emerald-500';
       case 'synthesizing': return 'bg-amber-500';
@@ -106,8 +108,15 @@ export default function CrikzlingAvatar() {
   return (
     <div className="w-full max-w-4xl mx-auto h-[600px] flex flex-col rounded-2xl overflow-hidden border border-white/10 bg-black shadow-2xl relative">
       
+      {/* COGNITIVE BACKGROUND - New addition */}
+      <CrikzlingChatBackground 
+        isThinking={isThinking}
+        isTyping={isTyping}
+        currentThought={currentThought}
+      />
+      
       {/* HEADER WITH PROMINENT SAVE BUTTON */}
-      <div className="h-16 bg-black/80 backdrop-blur-md border-b border-white/10 flex items-center justify-between px-4 z-20">
+      <div className="h-16 bg-black/80 backdrop-blur-md border-b border-white/10 flex items-center justify-between px-4 z-20 relative">
         <div className="flex items-center gap-3">
           <div className="relative cursor-pointer" onClick={() => setShowStats(!showStats)}>
             <div className={`w-10 h-10 rounded-lg flex items-center justify-center bg-gradient-to-br from-yellow-500/20 to-purple-500/20 border border-yellow-500/30 ${isThinking ? 'animate-pulse' : ''}`}>
@@ -191,7 +200,7 @@ export default function CrikzlingAvatar() {
       {/* CHAT AREA */}
       <div 
         ref={scrollRef}
-        className="flex-1 overflow-y-auto p-4 space-y-3"
+        className="flex-1 overflow-y-auto p-4 space-y-3 relative z-10"
       >
         {messages.length === 0 && (
           <div className="h-full flex flex-col items-center justify-center opacity-40">
@@ -222,7 +231,7 @@ export default function CrikzlingAvatar() {
       </div>
 
       {/* INPUT AREA */}
-      <div className="p-4 bg-black/80 border-t border-white/5">
+      <div className="p-4 bg-black/80 border-t border-white/5 relative z-10">
         <div className="flex items-center gap-3">
           <input
             type="text"
