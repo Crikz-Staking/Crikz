@@ -18,19 +18,29 @@ export default function CryptoMines({ onClose, balance, onUpdateBalance, dynamic
   const [gemsFound, setGemsFound] = useState(0);
   const [gameOver, setGameOver] = useState(false);
 
-  // Multiplier logic: (25! / (25-n)!) / ((25-m)! / (25-m-n)!) approx logic for fair odds + house edge
+  // Accurate Probability Logic
+  // Multiplier = (Total Spots / Safe Spots Remaining) * (1 - House Edge)
+  // Simplified for demo: Exponential Growth
   const calculateNextMultiplier = (gems: number) => {
-      // Simplified exponential growth for demo
-      const base = 1 + (mineCount * 0.05);
-      const mult = Math.pow(base, gems + 1);
-      return parseFloat(mult.toFixed(2));
+      const totalTiles = 25;
+      const safeTiles = totalTiles - mineCount;
+      let multiplier = 1;
+      
+      for(let i=0; i<gems+1; i++) {
+          // Probability of picking a gem on this turn
+          // (total - i) / (safe - i) is inverse prob
+          const probability = (safeTiles - i) / (totalTiles - i);
+          multiplier *= (1 / probability);
+      }
+      
+      // Apply 1% House Edge
+      return parseFloat((multiplier * 0.99).toFixed(2));
   };
 
   const startGame = () => {
     if (balance < bet) return;
     onUpdateBalance(-bet);
     
-    // Generate mines
     const newMines: number[] = [];
     while(newMines.length < mineCount) {
         const r = Math.floor(Math.random() * 25);
@@ -61,8 +71,8 @@ export default function CryptoMines({ onClose, balance, onUpdateBalance, dynamic
 
     if (mines.includes(idx)) {
         setGameOver(true);
-        // Do not reset active here to show "Boom" state
-        revealAll();
+        // Do not turn off active immediately so we can show the board state
+        setGrid(Array(25).fill(true)); // Reveal all
     } else {
         setGemsFound(prev => prev + 1);
     }
@@ -94,7 +104,7 @@ export default function CryptoMines({ onClose, balance, onUpdateBalance, dynamic
             )}
         </div>
 
-        <div className="grid grid-cols-5 gap-2 mb-6">
+        <div className="grid grid-cols-5 gap-2 mb-6 relative">
             {Array.from({length: 25}).map((_, i) => (
                 <button
                     key={i}
@@ -113,16 +123,17 @@ export default function CryptoMines({ onClose, balance, onUpdateBalance, dynamic
                     )}
                 </button>
             ))}
+            
+            {gameOver && (
+                <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-20 rounded-xl">
+                    <div className="text-center p-4 bg-black/80 rounded-2xl border border-red-500/50 shadow-2xl">
+                        <Skull size={48} className="text-red-500 mx-auto mb-2"/>
+                        <h3 className="text-2xl font-black text-white">BUSTED</h3>
+                        <button onClick={() => { setActive(false); setGameOver(false); }} className="mt-4 px-6 py-2 bg-white text-black font-bold rounded-lg hover:bg-gray-200">Reset</button>
+                    </div>
+                </div>
+            )}
         </div>
-
-        {gameOver && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-10 backdrop-blur-sm">
-                <Skull size={48} className="text-red-500 mb-4" />
-                <h3 className="text-2xl font-black text-white mb-2">BOOM!</h3>
-                <p className="text-gray-400 mb-6">You hit a mine.</p>
-                <button onClick={() => setGameOver(false)} className="px-8 py-3 bg-white text-black font-bold rounded-xl hover:bg-gray-200">Try Again</button>
-            </motion.div>
-        )}
 
         {!active && !gameOver ? (
             <div className="space-y-4">
@@ -144,7 +155,7 @@ export default function CryptoMines({ onClose, balance, onUpdateBalance, dynamic
             !gameOver && (
                 <button onClick={cashOut} className="w-full py-4 bg-emerald-500 text-black font-black text-lg rounded-xl hover:bg-emerald-400 transition-all shadow-[0_0_20px_rgba(16,185,129,0.4)]">
                     CASH OUT {Math.floor(bet * currentMult)} PTS
-                    <span className="block text-xs opacity-70 font-normal">Next: {nextMult}x</span>
+                    <span className="block text-xs opacity-70 font-normal">Next Multiplier: {nextMult}x</span>
                 </button>
             )
         )}

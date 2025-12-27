@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ArrowDownCircle, Settings2 } from 'lucide-react';
 
@@ -9,60 +9,61 @@ interface GameProps {
   dynamicColor: string;
 }
 
-const ROWS = 12; // Increased rows
-const RISK_MULTIPLIERS = {
-    low: [5.6, 2.1, 1.1, 1, 0.5, 1, 1.1, 2.1, 5.6], // Needs padding for 12 rows, simplified logic below
-    medium: [13, 3, 1.3, 0.7, 0.4, 0.7, 1.3, 3, 13],
-    high: [29, 4, 1.5, 0.3, 0.2, 0.3, 1.5, 4, 29]
-};
-
-// Generate multipliers dynamically for row count
-const generateMultipliers = (rows: number, risk: 'low'|'medium'|'high') => {
-    // This is a mock function to simulate bell curve payouts
-    const len = rows + 1;
-    const center = Math.floor(len / 2);
-    const arr = new Array(len).fill(0).map((_, i) => {
-        const dist = Math.abs(i - center);
-        const factor = risk === 'high' ? 3.5 : risk === 'medium' ? 2.5 : 1.5;
-        let mult = Math.pow(factor, dist) * 0.2;
-        if(dist === 0) mult = 0.3; // Center sink
-        return parseFloat(mult.toFixed(1));
-    });
-    // Scale edges
-    arr[0] *= (risk === 'high' ? 3 : 1.5);
-    arr[arr.length-1] *= (risk === 'high' ? 3 : 1.5);
-    return arr;
-};
+const ROWS = 12; // 12 Rows means 13 Buckets
 
 export default function Plinko({ onClose, balance, onUpdateBalance, dynamicColor }: GameProps) {
   const [bet, setBet] = useState(50);
   const [risk, setRisk] = useState<'low'|'medium'|'high'>('medium');
-  const [activeBalls, setActiveBalls] = useState<{ id: number; path: number[]; multiplier: number }[]>([]);
+  const [activeBalls, setActiveBalls] = useState<{ id: number; path: number[]; bucket: number }[]>([]);
   const ballIdCounter = useRef(0);
-  const multipliers = generateMultipliers(ROWS, risk);
+
+  // Generate Multipliers dynamically based on risk profile
+  const multipliers = useMemo(() => {
+      const count = ROWS + 1; // 13 buckets
+      const center = Math.floor(count / 2);
+      
+      return Array.from({ length: count }).map((_, i) => {
+          const dist = Math.abs(i - center);
+          // Bell curve logic
+          if (risk === 'high') {
+              if (dist === 0) return 0.2;
+              if (dist === center) return 29; 
+              return parseFloat(Math.pow(1.8, dist).toFixed(1));
+          } else if (risk === 'medium') {
+              if (dist === 0) return 0.4;
+              if (dist === center) return 13;
+              return parseFloat(Math.pow(1.5, dist).toFixed(1));
+          } else {
+              // Low risk
+              if (dist === 0) return 0.5;
+              if (dist === center) return 5.6;
+              return parseFloat(Math.pow(1.2, dist).toFixed(1));
+          }
+      });
+  }, [risk]);
 
   const dropBall = () => {
     if (balance < bet) return;
     onUpdateBalance(-bet);
 
-    // Path generation with slight center bias (approximate normal distribution)
+    // Path Logic: 0 = Left, 1 = Right
     const path: number[] = []; 
     for(let i=0; i<ROWS; i++) {
-        // 0 = Left, 1 = Right.
         path.push(Math.random() > 0.5 ? 1 : 0);
     }
 
     const bucketIndex = path.reduce((a, b) => a + b, 0);
     const multiplier = multipliers[bucketIndex];
     
-    const newBall = { id: ballIdCounter.current++, path, multiplier };
+    const newBall = { id: ballIdCounter.current++, path, bucket: bucketIndex };
     setActiveBalls(prev => [...prev, newBall]);
 
+    // Delay payout until animation finishes (approx 2.5s)
     setTimeout(() => {
         const win = Math.floor(bet * multiplier);
         if (win > 0) onUpdateBalance(win);
         setActiveBalls(prev => prev.filter(b => b.id !== newBall.id));
-    }, 3000); 
+    }, 2500); 
   };
 
   return (
@@ -123,7 +124,7 @@ export default function Plinko({ onClose, balance, onUpdateBalance, dynamicColor
                 <div className="bg-black/30 p-4 rounded-xl border border-white/5">
                     <label className="text-[10px] font-bold text-gray-500 uppercase mb-2 block">Bet Amount</label>
                     <div className="flex gap-2">
-                        <input type="number" value={bet} onChange={e => setBet(Math.max(10, parseInt(e.target.value)))} className="flex-1 bg-white/5 rounded-lg px-3 py-2 text-white font-bold"/>
+                        <input type="number" value={bet} onChange={e => setBet(Math.max(10, parseInt(e.target.value)))} className="flex-1 bg-white/5 rounded-lg px-3 py-2 text-white font-bold outline-none"/>
                         <button onClick={() => setBet(bet * 2)} className="px-3 bg-white/5 rounded-lg text-xs font-bold text-gray-400">2x</button>
                     </div>
                 </div>
@@ -160,35 +161,36 @@ export default function Plinko({ onClose, balance, onUpdateBalance, dynamicColor
 }
 
 function PlinkoBall({ path, rows }: { path: number[], rows: number }) {
-    // Generate simple keyframes approximating physics
-    // x follows the path array (0 left, 1 right)
-    // y accelerates downwards
-    
     // We map 0..1 to percentage across container width
-    const moves = path.length;
     const keyframesX = ['50%'];
     const keyframesY = ['0%'];
     
-    let currentX = 50; // Percent
-    const stepX = 80 / rows; // Spread over 80% width
+    let currentX = 50; // Percent center
+    // Adjust stepX to account for the triangular spread
+    // At row R, there are R+3 pins.
     
     path.forEach((dir, i) => {
-        // Adding random jitter for "bouncing" look
-        const jitter = (Math.random() - 0.5) * 2; 
-        currentX += (dir === 0 ? -stepX/2 : stepX/2) + jitter;
+        // Simple logic: Left (-1) or Right (+1) relative to current
+        // The spread gets wider as we go down
+        const deviation = 4; // Approx % shift per row
+        
+        // Random jitter for natural look
+        const jitter = (Math.random() - 0.5) * 1.5; 
+        
+        currentX += (dir === 0 ? -deviation : deviation) + jitter;
+        
         keyframesX.push(`${currentX}%`);
-        keyframesY.push(`${((i + 1) / rows) * 90}%`); // Stop at 90% height (buckets)
+        keyframesY.push(`${((i + 1) / rows) * 90}%`); // Stop above buckets
     });
 
     return (
         <motion.div
-            initial={{ left: '50%', top: '5%', opacity: 1, scale: 1 }}
+            initial={{ left: '50%', top: '5%', opacity: 1 }}
             animate={{ 
                 left: keyframesX,
                 top: keyframesY
             }}
             transition={{ duration: 2.5, ease: "linear" }}
-            onAnimationComplete={() => {}} // Could trigger sound here
             className="absolute w-3 h-3 bg-primary-500 rounded-full shadow-[0_0_8px_#f59e0b] z-20"
         />
     );

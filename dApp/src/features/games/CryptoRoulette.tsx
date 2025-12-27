@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion, useAnimation } from 'framer-motion';
-import { X, Target, Disc, ChevronRight } from 'lucide-react';
+import { X, Disc } from 'lucide-react';
 
 interface GameProps {
   onClose: () => void;
@@ -12,7 +12,7 @@ interface GameProps {
 type BetType = 'red' | 'black' | 'green' | 'odd' | 'even' | 'low' | 'high' | number;
 
 const RED_NUMBERS = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
-// Wheel order for rotation calculation
+// Standard European Roulette Order
 const WHEEL_ORDER = [
   0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10,
   5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26
@@ -24,7 +24,9 @@ export default function CryptoRoulette({ onClose, balance, onUpdateBalance, dyna
   const [spinning, setSpinning] = useState(false);
   const [lastWin, setLastWin] = useState(0);
   const [result, setResult] = useState<number | null>(null);
+  
   const controls = useAnimation();
+  const currentRotation = useRef(0);
 
   const placeBet = (type: BetType) => {
     if (spinning) return;
@@ -48,29 +50,47 @@ export default function CryptoRoulette({ onClose, balance, onUpdateBalance, dyna
     setLastWin(0);
     setResult(null);
 
-    // Determine Result
     const winningIndex = Math.floor(Math.random() * WHEEL_ORDER.length);
     const winningNum = WHEEL_ORDER[winningIndex];
     
-    // Calculate Rotation: 
-    // 360 / 37 = 9.72 degrees per segment.
-    // Base spin (5 full rotations) + specific segment offset
-    const segmentAngle = 360 / 37;
-    const targetAngle = 360 * 5 + (360 - (winningIndex * segmentAngle)); 
+    // Calculate Rotation:
+    // We want to land on 'winningIndex'. 
+    // Wheel is fixed, we rotate the div. 
+    // If angle 0 is top (Index 0), then Index i is at (i * 360/37).
+    // To bring Index i to top, we rotate NEGATIVE (i * 360/37).
+    
+    const singleSlice = 360 / 37;
+    const targetSliceAngle = winningIndex * singleSlice;
+    
+    // Add multiple full rotations (5 to 10 spins)
+    const extraSpins = 360 * (5 + Math.floor(Math.random() * 5));
+    
+    // Calculate final absolute rotation needed
+    // Current - (Current % 360) resets to 0 visually (aligned), then subtract target offset
+    // We actually want to increase rotation to spin clockwise visually
+    
+    const newRotation = currentRotation.current + extraSpins + (360 - (targetSliceAngle - (currentRotation.current % 360)));
+    
+    // Just force it to align perfectly:
+    // This logic approximates for visual flair. 
+    // Precise: currentRotation + (360 * 5) + (angle_difference_to_target)
+    
+    const finalRotation = currentRotation.current + extraSpins + (360 - targetSliceAngle); 
+    
+    currentRotation.current = finalRotation;
 
     await controls.start({ 
-        rotate: targetAngle, 
-        transition: { duration: 4, ease: [0.1, 0, 0.2, 1] } 
+        rotate: finalRotation, 
+        transition: { duration: 4, ease: [0.2, 0, 0.2, 1] } 
     });
 
     setResult(winningNum);
-    controls.set({ rotate: targetAngle % 360 }); // Reset for next without visual glitch
 
     // Calculate Winnings
     let winTotal = 0;
     bets.forEach(bet => {
         let won = false;
-        if (typeof bet.type === 'number' && bet.type === winningNum) won = true; // Straight up (35:1)
+        if (typeof bet.type === 'number' && bet.type === winningNum) won = true;
         else if (bet.type === 'red' && RED_NUMBERS.includes(winningNum)) won = true;
         else if (bet.type === 'black' && winningNum !== 0 && !RED_NUMBERS.includes(winningNum)) won = true;
         else if (bet.type === 'even' && winningNum !== 0 && winningNum % 2 === 0) won = true;
@@ -79,7 +99,7 @@ export default function CryptoRoulette({ onClose, balance, onUpdateBalance, dyna
         else if (bet.type === 'high' && winningNum >= 19 && winningNum <= 36) won = true;
         
         if (won) {
-            const multiplier = typeof bet.type === 'number' ? 36 : 2; // Simplified multipliers
+            const multiplier = typeof bet.type === 'number' ? 36 : 2; 
             winTotal += bet.amount * multiplier;
         }
     });
@@ -103,21 +123,12 @@ export default function CryptoRoulette({ onClose, balance, onUpdateBalance, dyna
 
         {/* Left: Wheel */}
         <div className="flex-1 bg-[#0A0A0F] border-r border-white/5 flex flex-col items-center justify-center p-8 relative overflow-hidden">
-            <div className="absolute top-4 left-4 z-10 bg-black/60 backdrop-blur px-4 py-2 rounded-xl border border-white/10">
-                <span className="text-xs text-gray-500 uppercase font-bold block">History</span>
-                <div className="flex gap-2 mt-1">
-                    {[14, 2, 0, 32].map(n => (
-                        <div key={n} className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${getNumberColor(n)}`}>{n}</div>
-                    ))}
-                </div>
-            </div>
-
             <div className="relative w-64 h-64 md:w-80 md:h-80">
                 <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-white z-20 text-3xl drop-shadow-lg">▼</div>
                 <motion.div 
                     animate={controls}
                     className="w-full h-full rounded-full border-4 border-[#1A1A24] relative shadow-2xl"
-                    style={{ background: 'conic-gradient(#10B981 0deg 9.7deg, #EF4444 9.7deg 19.4deg, #1f2937 19.4deg 29.1deg, #EF4444 29.1deg 38.8deg, #1f2937 38.8deg 48.5deg)' }} // Simplified gradient for demo
+                    style={{ background: 'conic-gradient(#10B981 0deg 9.7deg, #EF4444 9.7deg 19.4deg, #1f2937 19.4deg 29.1deg, #EF4444 29.1deg 38.8deg, #1f2937 38.8deg 48.5deg)' }} 
                 >
                     <div className="absolute inset-0 flex items-center justify-center">
                         <div className="w-48 h-48 bg-[#12121A] rounded-full flex flex-col items-center justify-center border border-white/10 shadow-inner">
@@ -153,13 +164,11 @@ export default function CryptoRoulette({ onClose, balance, onUpdateBalance, dyna
             {/* Board Grid */}
             <div className="flex-1 overflow-y-auto">
                 <div className="flex h-full gap-1">
-                    {/* Zero */}
                     <button onClick={() => placeBet(0)} className="w-12 bg-emerald-500/20 border border-emerald-500/30 rounded-l-lg hover:bg-emerald-500/40 flex items-center justify-center text-emerald-500 font-bold relative">
                         0
                         {bets.some(b => b.type === 0) && <div className="absolute inset-0 bg-yellow-400/30 rounded-l-lg border-2 border-yellow-400 animate-pulse"/>}
                     </button>
                     
-                    {/* Numbers Grid */}
                     <div className="flex-1 grid grid-cols-3 grid-rows-12 gap-1">
                         {Array.from({length: 36}).map((_, i) => {
                             const num = i + 1;
@@ -178,7 +187,6 @@ export default function CryptoRoulette({ onClose, balance, onUpdateBalance, dyna
                         })}
                     </div>
 
-                    {/* Side Bets */}
                     <div className="w-16 flex flex-col gap-1">
                         <button onClick={() => placeBet('red')} className="flex-1 bg-red-500/20 text-red-500 font-bold text-[10px] rounded hover:bg-red-500/30 relative">RED {bets.some(b=>b.type==='red') && <div className="absolute inset-0 border-2 border-yellow-400 rounded"/>}</button>
                         <button onClick={() => placeBet('black')} className="flex-1 bg-gray-700/40 text-gray-300 font-bold text-[10px] rounded hover:bg-gray-700/60 relative">BLK {bets.some(b=>b.type==='black') && <div className="absolute inset-0 border-2 border-yellow-400 rounded"/>}</button>
