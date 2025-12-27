@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Layers, Shield, RefreshCw } from 'lucide-react';
+import { X, Layers, Shield } from 'lucide-react';
 
 interface GameProps {
   onClose: () => void;
@@ -19,7 +19,7 @@ interface Card {
   id: string;
 }
 
-export default function NeonBlackjack({ onClose, balance, onUpdateBalance, dynamicColor }: GameProps) {
+export default function NeonBlackjack({ onClose, balance, onUpdateBalance }: GameProps) {
   const [bet, setBet] = useState(50);
   const [deck, setDeck] = useState<Card[]>([]);
   const [playerHand, setPlayerHand] = useState<Card[]>([]);
@@ -85,19 +85,13 @@ export default function NeonBlackjack({ onClose, balance, onUpdateBalance, dynam
     // Initial Deal Sequence
     d = dealCard('player', d) as Card[];
     await new Promise(r => setTimeout(r, 400));
-    d = dealCard('dealer', d) as Card[]; // Hidden card logic handled in render
+    d = dealCard('dealer', d) as Card[]; 
     await new Promise(r => setTimeout(r, 400));
     d = dealCard('player', d) as Card[];
     await new Promise(r => setTimeout(r, 400));
-    d = dealCard('dealer', d) as Card[]; // Visible card
+    d = dealCard('dealer', d) as Card[]; 
     
     setDeck(d);
-
-    // Check Instant Blackjack
-    setTimeout(() => {
-        const pScore = calculateScore(playerHand); // Note: state might lag, calc usually done on effect, but here simplified
-        // We rely on effect hook for score checks to ensure state consistency
-    }, 500);
   };
 
   // Check Blackjack immediately after deal
@@ -171,8 +165,8 @@ export default function NeonBlackjack({ onClose, balance, onUpdateBalance, dynam
   return (
     <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex items-center justify-center p-4">
       <div className="bg-[#0f2e20] border-4 border-[#1a4c35] rounded-[3rem] w-full max-w-4xl h-[85vh] relative overflow-hidden shadow-2xl flex flex-col">
-        {/* Felt Texture */}
-        <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")` }} />
+        {/* Felt Texture Overlay */}
+        <div className="absolute inset-0 opacity-20 pointer-events-none bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:16px_16px]" />
         
         <button onClick={onClose} className="absolute top-6 right-6 z-50 text-white/50 hover:text-white"><X size={24}/></button>
 
@@ -221,7 +215,7 @@ export default function NeonBlackjack({ onClose, balance, onUpdateBalance, dynam
                 </AnimatePresence>
             </div>
             {playerHand.length > 0 && (
-                <div className="mb-2 text-xs font-bold text-white/70 uppercase tracking-widest bg-black/40 px-3 py-1 rounded-full">
+                <div className="mb-2 text-xs font-bold text-white/70 uppercase tracking-widest bg-black/40 px-3 py-1 rounded-full border border-white/10">
                     Player: {calculateScore(playerHand)}
                 </div>
             )}

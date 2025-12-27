@@ -9,7 +9,8 @@ interface GameProps {
   dynamicColor: string;
 }
 
-const ROWS = 12; // 12 Rows means 13 Buckets
+// 12 Rows results in 13 Buckets (Index 0 to 12)
+const ROWS = 12;
 
 export default function Plinko({ onClose, balance, onUpdateBalance, dynamicColor }: GameProps) {
   const [bet, setBet] = useState(50);
@@ -17,36 +18,33 @@ export default function Plinko({ onClose, balance, onUpdateBalance, dynamicColor
   const [activeBalls, setActiveBalls] = useState<{ id: number; path: number[]; bucket: number }[]>([]);
   const ballIdCounter = useRef(0);
 
-  // Generate Multipliers dynamically based on risk profile
+  // Multipliers based on bell curve probability
   const multipliers = useMemo(() => {
-      const count = ROWS + 1; // 13 buckets
+      const count = ROWS + 1; 
       const center = Math.floor(count / 2);
       
       return Array.from({ length: count }).map((_, i) => {
           const dist = Math.abs(i - center);
-          // Bell curve logic
           if (risk === 'high') {
-              if (dist === 0) return 0.2;
               if (dist === center) return 29; 
-              return parseFloat(Math.pow(1.8, dist).toFixed(1));
+              if (dist >= center - 2) return 9;
+              return i % 2 === 0 ? 0.2 : 0.3;
           } else if (risk === 'medium') {
-              if (dist === 0) return 0.4;
               if (dist === center) return 13;
-              return parseFloat(Math.pow(1.5, dist).toFixed(1));
+              if (dist >= center - 2) return 3;
+              return dist === 0 ? 0.4 : 0.6;
           } else {
-              // Low risk
-              if (dist === 0) return 0.5;
               if (dist === center) return 5.6;
-              return parseFloat(Math.pow(1.2, dist).toFixed(1));
+              return dist === 0 ? 0.5 : 1 + (dist * 0.1);
           }
-      });
+      }).map(n => parseFloat(n.toFixed(1)));
   }, [risk]);
 
   const dropBall = () => {
     if (balance < bet) return;
     onUpdateBalance(-bet);
 
-    // Path Logic: 0 = Left, 1 = Right
+    // Path Logic: 0 = Left (-0.5 width), 1 = Right (+0.5 width)
     const path: number[] = []; 
     for(let i=0; i<ROWS; i++) {
         path.push(Math.random() > 0.5 ? 1 : 0);
@@ -58,12 +56,11 @@ export default function Plinko({ onClose, balance, onUpdateBalance, dynamicColor
     const newBall = { id: ballIdCounter.current++, path, bucket: bucketIndex };
     setActiveBalls(prev => [...prev, newBall]);
 
-    // Delay payout until animation finishes (approx 2.5s)
     setTimeout(() => {
         const win = Math.floor(bet * multiplier);
         if (win > 0) onUpdateBalance(win);
         setActiveBalls(prev => prev.filter(b => b.id !== newBall.id));
-    }, 2500); 
+    }, 2200); 
   };
 
   return (
@@ -72,20 +69,24 @@ export default function Plinko({ onClose, balance, onUpdateBalance, dynamicColor
         <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-white z-20"><X size={20}/></button>
 
         {/* Game Board */}
-        <div className="flex-[2] bg-[#0A0A0F] relative p-4 flex flex-col items-center justify-center border-r border-white/5">
+        <div className="flex-[2] bg-[#0A0A0F] relative p-4 flex flex-col items-center justify-center border-r border-white/5 overflow-hidden">
             <div className="relative w-full max-w-md h-full flex flex-col justify-end pb-8">
-                {/* Pins */}
-                <div className="absolute top-10 left-0 right-0 bottom-16 flex flex-col justify-between">
-                    {Array.from({ length: ROWS }).map((_, row) => (
-                        <div key={row} className="flex justify-center gap-[4%] h-2">
-                            {Array.from({ length: row + 3 }).map((_, col) => (
-                                <div key={col} className="w-1.5 h-1.5 bg-white/20 rounded-full shadow-[0_0_5px_rgba(255,255,255,0.2)]" />
-                            ))}
-                        </div>
-                    ))}
+                
+                {/* Pin Pyramid */}
+                <div className="absolute top-10 left-0 right-0 bottom-16 flex flex-col justify-between z-10">
+                    {Array.from({ length: ROWS }).map((_, row) => {
+                        const pinsInRow = row + 3; // Starting small
+                        return (
+                            <div key={row} className="flex justify-center gap-[6%]" style={{ marginBottom: 'auto' }}>
+                                {Array.from({ length: pinsInRow }).map((_, col) => (
+                                    <div key={col} className="w-1.5 h-1.5 bg-white/20 rounded-full shadow-[0_0_5px_rgba(255,255,255,0.2)]" />
+                                ))}
+                            </div>
+                        );
+                    })}
                 </div>
 
-                {/* Balls */}
+                {/* Balls Layer */}
                 <AnimatePresence>
                     {activeBalls.map(ball => (
                         <PlinkoBall key={ball.id} path={ball.path} rows={ROWS} />
@@ -93,16 +94,16 @@ export default function Plinko({ onClose, balance, onUpdateBalance, dynamicColor
                 </AnimatePresence>
 
                 {/* Buckets */}
-                <div className="flex gap-1 w-full mt-auto pt-4">
+                <div className="flex gap-1 w-full mt-auto pt-4 relative z-20">
                     {multipliers.map((m, i) => {
-                        let color = 'bg-white/5 text-gray-500';
-                        if (m >= 10) color = 'bg-red-500/20 text-red-500 border-red-500/50 shadow-[0_0_10px_#EF4444]';
+                        let color = 'bg-[#1a1a24] text-gray-500';
+                        if (m >= 10) color = 'bg-red-500/20 text-red-500 border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.3)]';
                         else if (m >= 3) color = 'bg-orange-500/20 text-orange-500 border-orange-500/50';
-                        else if (m >= 1) color = 'bg-emerald-500/20 text-emerald-500 border-emerald-500/50';
-                        else color = 'bg-blue-500/10 text-blue-500/50';
+                        else if (m >= 1.1) color = 'bg-emerald-500/20 text-emerald-500 border-emerald-500/50';
+                        else color = 'bg-blue-500/10 text-blue-400/50';
                         
                         return (
-                            <div key={i} className={`flex-1 h-8 flex items-center justify-center rounded-sm border border-white/5 text-[9px] font-bold ${color}`}>
+                            <div key={i} className={`flex-1 h-10 flex items-center justify-center rounded-md border border-white/5 text-[9px] font-bold ${color} transition-all`}>
                                 {m}x
                             </div>
                         );
@@ -125,7 +126,7 @@ export default function Plinko({ onClose, balance, onUpdateBalance, dynamicColor
                     <label className="text-[10px] font-bold text-gray-500 uppercase mb-2 block">Bet Amount</label>
                     <div className="flex gap-2">
                         <input type="number" value={bet} onChange={e => setBet(Math.max(10, parseInt(e.target.value)))} className="flex-1 bg-white/5 rounded-lg px-3 py-2 text-white font-bold outline-none"/>
-                        <button onClick={() => setBet(bet * 2)} className="px-3 bg-white/5 rounded-lg text-xs font-bold text-gray-400">2x</button>
+                        <button onClick={() => setBet(bet * 2)} className="px-3 bg-white/5 rounded-lg text-xs font-bold text-gray-400 hover:text-white">2x</button>
                     </div>
                 </div>
 
@@ -150,7 +151,7 @@ export default function Plinko({ onClose, balance, onUpdateBalance, dynamicColor
             <button 
                 onClick={dropBall}
                 disabled={balance < bet}
-                className="mt-auto w-full py-4 bg-primary-500 text-black font-black text-lg rounded-xl hover:bg-primary-400 hover:translate-y-[-2px] active:translate-y-[0px] transition-all shadow-glow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                className="mt-auto w-full py-4 bg-primary-500 text-black font-black text-lg rounded-xl hover:bg-primary-400 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-glow-md disabled:opacity-50 disabled:cursor-not-allowed"
             >
                 DROP BALL
             </button>
@@ -161,37 +162,40 @@ export default function Plinko({ onClose, balance, onUpdateBalance, dynamicColor
 }
 
 function PlinkoBall({ path, rows }: { path: number[], rows: number }) {
-    // We map 0..1 to percentage across container width
-    const keyframesX = ['50%'];
-    const keyframesY = ['0%'];
+    // Starting Position (Top Center)
+    const startX = 50; 
     
-    let currentX = 50; // Percent center
-    // Adjust stepX to account for the triangular spread
-    // At row R, there are R+3 pins.
+    // Generate keyframes
+    const keyframesX = [`${startX}%`];
+    const keyframesY = [`5%`]; // Start near top
+    
+    let currentX = startX;
     
     path.forEach((dir, i) => {
-        // Simple logic: Left (-1) or Right (+1) relative to current
-        // The spread gets wider as we go down
-        const deviation = 4; // Approx % shift per row
+        // Calculate step width based on row depth to create pyramid spread
+        // The bucket row (bottom) is 100% width.
+        // Each step roughly moves 1/13th of width (approx 7.6%)
+        // Adding random jitter makes it look physics-based
         
-        // Random jitter for natural look
-        const jitter = (Math.random() - 0.5) * 1.5; 
+        const stepSize = 3.8; // Half of 7.6
+        const jitter = (Math.random() - 0.5) * 1.5;
         
-        currentX += (dir === 0 ? -deviation : deviation) + jitter;
+        // 0 = Left (-), 1 = Right (+)
+        currentX += (dir === 0 ? -stepSize : stepSize) + jitter;
         
         keyframesX.push(`${currentX}%`);
-        keyframesY.push(`${((i + 1) / rows) * 90}%`); // Stop above buckets
+        keyframesY.push(`${((i + 1) / rows) * 90}%`); // Vertical progress
     });
 
     return (
         <motion.div
-            initial={{ left: '50%', top: '5%', opacity: 1 }}
+            initial={{ left: `${startX}%`, top: '5%', opacity: 1 }}
             animate={{ 
                 left: keyframesX,
                 top: keyframesY
             }}
-            transition={{ duration: 2.5, ease: "linear" }}
-            className="absolute w-3 h-3 bg-primary-500 rounded-full shadow-[0_0_8px_#f59e0b] z-20"
+            transition={{ duration: 2, ease: "linear" }}
+            className="absolute w-3 h-3 bg-primary-500 rounded-full shadow-[0_0_8px_#f59e0b] z-30"
         />
     );
 }

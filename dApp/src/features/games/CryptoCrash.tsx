@@ -18,14 +18,12 @@ export default function CryptoCrash({ onClose, balance, onUpdateBalance, dynamic
   const [gameState, setGameState] = useState<CrashState>('idle');
   const [history, setHistory] = useState<number[]>([]);
   
-  // Refs for loop logic to avoid closure staleness
   const stateRef = useRef<CrashState>('idle');
   const crashPointRef = useRef(0);
   const startTimeRef = useRef(0);
   const reqRef = useRef<number>();
   const betRef = useRef(100);
 
-  // Sync state ref
   useEffect(() => { stateRef.current = gameState; }, [gameState]);
   useEffect(() => { betRef.current = bet; }, [bet]);
 
@@ -33,7 +31,7 @@ export default function CryptoCrash({ onClose, balance, onUpdateBalance, dynamic
     if (balance < bet) return;
     onUpdateBalance(-bet);
     
-    // Crash logic: 3% instant crash (House Edge), otherwise Pareto distribution
+    // Crash logic: 3% instant crash (House Edge)
     const instantCrash = Math.random() < 0.03;
     const limit = instantCrash ? 1.00 : Math.max(1.01, (0.99 / (1 - Math.random())));
     
@@ -47,21 +45,17 @@ export default function CryptoCrash({ onClose, balance, onUpdateBalance, dynamic
 
   const runGame = () => {
     const elapsed = (Date.now() - startTimeRef.current) / 1000;
-    // Growth function: 1.00 * e^(0.15 * t) - slightly slower for tension
-    const nextMult = 1.00 * Math.exp(0.15 * elapsed);
+    const nextMult = 1.00 * Math.exp(0.12 * elapsed); // Slightly slower curve for tension
 
     if (nextMult >= crashPointRef.current) {
-      // CRASH
       setMultiplier(crashPointRef.current);
       setGameState('crashed');
       setHistory(prev => [crashPointRef.current, ...prev].slice(0, 7));
     } else {
       setMultiplier(nextMult);
       
-      // Auto Cashout Logic
       if (stateRef.current === 'running' && autoCashout && nextMult >= Number(autoCashout)) {
           handleCashOut(Number(autoCashout));
-          // Continue animation until crash for visual effect, but user is safe
           reqRef.current = requestAnimationFrame(runGame);
       } else {
           reqRef.current = requestAnimationFrame(runGame);
@@ -81,32 +75,27 @@ export default function CryptoCrash({ onClose, balance, onUpdateBalance, dynamic
   };
 
   useEffect(() => {
-    return () => {
-        if (reqRef.current) cancelAnimationFrame(reqRef.current);
-    };
+    return () => { if (reqRef.current) cancelAnimationFrame(reqRef.current); };
   }, []);
 
-  // SVG Graph Logic
+  // SVG Logic
   const width = 600;
   const height = 300;
-  // Clamp graph to viewbox
-  const displayMult = Math.min(multiplier, crashPointRef.current || 10);
-  const normX = Math.min(width, (displayMult - 1) * 100); 
-  const normY = height - Math.min(height, (displayMult - 1) * 150);
-  const path = `M 0 ${height} Q ${width/4} ${height} ${normX} ${normY}`;
+  const maxDisplay = Math.max(2, multiplier * 1.1); // Keep line somewhat grounded
+  const normX = Math.min(width, (Math.log(multiplier) / Math.log(maxDisplay)) * width); 
+  const normY = height - ((multiplier - 1) / (maxDisplay - 1)) * height * 0.8; // Use 80% height max
+  
+  const path = `M 0 ${height} Q ${width/4} ${height} ${normX} ${Math.max(20, normY)}`;
 
   return (
     <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex items-center justify-center p-4">
       <div className="bg-[#12121A] border border-white/10 rounded-3xl w-full max-w-4xl overflow-hidden relative flex flex-col md:flex-row shadow-2xl">
         <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-white z-20"><X size={20}/></button>
 
-        {/* Graph Area */}
         <div className="flex-[2] bg-[#0A0A0F] relative flex flex-col border-r border-white/5 min-h-[350px] overflow-hidden">
-          {/* Grid */}
           <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'linear-gradient(#333 1px, transparent 1px), linear-gradient(90deg, #333 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
 
-          {/* Graph Line */}
-          <svg className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="none" viewBox={`0 0 ${width} ${height}`}>
+          <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox={`0 0 ${width} ${height}`}>
              <defs>
                 <linearGradient id="crashGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor={dynamicColor} stopOpacity="0.5" />
@@ -115,13 +104,12 @@ export default function CryptoCrash({ onClose, balance, onUpdateBalance, dynamic
              </defs>
              {gameState !== 'idle' && (
                  <>
-                    <path d={path} fill="none" stroke={gameState === 'crashed' ? '#EF4444' : dynamicColor} strokeWidth="4" />
+                    <path d={path} fill="none" stroke={gameState === 'crashed' ? '#EF4444' : dynamicColor} strokeWidth="4" strokeLinecap="round"/>
                     <path d={`${path} V ${height} H 0 Z`} fill="url(#crashGrad)" stroke="none" />
                  </>
              )}
           </svg>
 
-          {/* Multiplier Text */}
           <div className="relative z-10 flex-1 flex flex-col items-center justify-center">
              <div className={`text-7xl font-black font-mono tracking-tighter transition-colors ${
                  gameState === 'crashed' ? 'text-red-500' : 
@@ -136,7 +124,6 @@ export default function CryptoCrash({ onClose, balance, onUpdateBalance, dynamic
              </div>
           </div>
 
-          {/* History */}
           <div className="absolute top-4 left-4 flex gap-2 z-10">
              {history.map((h, i) => (
                <div key={i} className={`text-[10px] font-bold px-2 py-1 rounded border ${h >= 2 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' : 'bg-red-500/10 border-red-500/30 text-red-500'}`}>
