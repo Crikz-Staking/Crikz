@@ -9,23 +9,25 @@ import DeFiSuite from './DeFiSuite';
 import DevSuite from './DevSuite';
 import SecuritySuite from './SecuritySuite';
 import FileConverter from './FileConverter';
-import SignatureTool from './SignatureTool'; // <--- NEW IMPORT
-import VanityGen from './VanityGen';         // <--- NEW IMPORT
+import SignatureTool from './SignatureTool';
+import VanityGen from './VanityGen';
+import TokenInspector from './TokenInspector'; // <--- NEW
+import QRCodeGen from './QRCodeGen';           // <--- NEW
+import DataTransformer from './DataTransformer'; // <--- NEW
 
 interface ToolsLayoutProps {
   dynamicColor: string;
 }
 
 export default function ToolsLayout({ dynamicColor }: ToolsLayoutProps) {
-  // Added 'crypto' tab for the new tools
   const [activeTab, setActiveTab] = useState<'defi' | 'dev' | 'sec' | 'crypto' | 'gen'>('defi');
 
   const tabs = [
     { id: 'defi', label: 'DeFi Data', icon: LayoutGrid },
     { id: 'dev', label: 'Dev Utils', icon: Code },
     { id: 'sec', label: 'Security', icon: Shield },
-    { id: 'crypto', label: 'Crypto Tools', icon: PenTool }, // New Tab
-    { id: 'gen', label: 'Files', icon: Wrench },
+    { id: 'crypto', label: 'Crypto Tools', icon: PenTool },
+    { id: 'gen', label: 'Utilities', icon: Wrench },
   ];
 
   return (
@@ -68,8 +70,18 @@ export default function ToolsLayout({ dynamicColor }: ToolsLayoutProps) {
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
         >
-            {activeTab === 'defi' && <DeFiSuite />}
-            {activeTab === 'dev' && <DevSuite />}
+            {activeTab === 'defi' && (
+                <div className="grid gap-6">
+                    <DeFiSuite />
+                    <TokenInspector />
+                </div>
+            )}
+            {activeTab === 'dev' && (
+                <div className="grid gap-6">
+                    <DevSuite />
+                    <DataTransformer />
+                </div>
+            )}
             {activeTab === 'sec' && <SecuritySuite />}
             {activeTab === 'crypto' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -78,8 +90,9 @@ export default function ToolsLayout({ dynamicColor }: ToolsLayoutProps) {
                 </div>
             )}
             {activeTab === 'gen' && (
-                <div className="grid gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <FileConverter dynamicColor={dynamicColor} />
+                    <QRCodeGen />
                 </div>
             )}
         </motion.div>
