@@ -2,8 +2,9 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Hls from 'hls.js';
 import { 
-    Play, Volume2, X, Upload, Radio, Film, Globe, User, 
-    ShieldCheck, RefreshCw, Heart, Database, Tv, Search, AlertCircle
+    Play, Pause, Volume2, X, Upload, Radio, Film, Globe, User, 
+    ShieldCheck, RefreshCw, Heart, Database, Tv, Search, AlertCircle, 
+    Music, Mic2, Library
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { uploadToIPFS } from '@/lib/ipfs-service';
@@ -12,7 +13,7 @@ import { shortenAddress } from '@/lib/utils';
 
 // --- TYPES ---
 type MediaType = 'video' | 'audio';
-type ViewMode = 'decentralized' | 'livetv';
+type ViewMode = 'decentralized' | 'livetv' | 'radio' | 'archive';
 
 interface IPTVChannel {
     name: string;
@@ -20,134 +21,99 @@ interface IPTVChannel {
     url: string;
     category: string;
     country: string;
-    languages: string[];
 }
 
-// --- COMPONENTS ---
+interface RadioStation {
+    stationuuid: string;
+    name: string;
+    favicon: string;
+    url_resolved: string;
+    country: string;
+    tags: string;
+    votes: number;
+}
 
-const LiveTVPlayer = ({ channel, onClose }: { channel: IPTVChannel, onClose: () => void }) => {
+interface ArchiveItem {
+    identifier: string;
+    title: string;
+    creator: string;
+    year: string;
+    downloads: number;
+}
+
+// --- PLAYER COMPONENTS ---
+
+const UniversalPlayer = ({ url, title, sub, onClose, isAudio = false }: { url: string, title: string, sub: string, onClose: () => void, isAudio?: boolean }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
+    const audioRef = useRef<HTMLAudioElement>(null);
     const [error, setError] = useState(false);
+    const [playing, setPlaying] = useState(true);
 
     useEffect(() => {
-        const video = videoRef.current;
-        if (!video) return;
+        const media = isAudio ? audioRef.current : videoRef.current;
+        if (!media) return;
 
-        // Reset error state on new channel
         setError(false);
 
-        if (Hls.isSupported()) {
+        // HLS Support
+        if (url.includes('.m3u8') && Hls.isSupported()) {
             const hls = new Hls();
-            hls.loadSource(channel.url);
-            hls.attachMedia(video);
-            
-            hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                video.play().catch(() => console.log("Autoplay blocked"));
-            });
-            
-            // Fixed TypeScript "implicit any" errors here
-            hls.on(Hls.Events.ERROR, (_event: string, data: any) => {
-                if (data.fatal) {
-                    setError(true);
-                    hls.destroy();
-                }
-            });
-            
+            hls.loadSource(url);
+            hls.attachMedia(media);
+            hls.on(Hls.Events.MANIFEST_PARSED, () => media.play().catch(() => setPlaying(false)));
+            hls.on(Hls.Events.ERROR, (_, data) => { if(data.fatal) setError(true); });
             return () => hls.destroy();
-        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-            // Safari / Native Support
-            video.src = channel.url;
-            video.play().catch(() => console.log("Autoplay blocked"));
         } else {
-            setError(true);
+            // Standard MP3/MP4/Native HLS
+            media.src = url;
+            media.play().catch(() => setPlaying(false));
         }
-    }, [channel]);
+    }, [url, isAudio]);
 
     return (
         <motion.div 
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex flex-col"
         >
+            {/* Header */}
             <div className="h-16 border-b border-white/10 flex justify-between items-center px-6">
                 <div className="flex items-center gap-4">
-                    {channel.logo && <img src={channel.logo} alt="logo" className="w-8 h-8 rounded bg-white/10 object-contain"/>}
-                    <div>
-                        <h3 className="font-bold text-white">{channel.name}</h3>
-                        <p className="text-[10px] text-gray-400">{channel.country} • {channel.category}</p>
+                    <div className={`p-2 rounded-full ${isAudio ? 'bg-accent-purple/20 text-accent-purple' : 'bg-primary-500/20 text-primary-500'}`}>
+                        {isAudio ? <Radio size={20} className="animate-pulse" /> : <Tv size={20} />}
                     </div>
-                    <div className="px-2 py-0.5 rounded bg-red-500 text-white text-[10px] font-bold animate-pulse">
-                        LIVE
+                    <div className="overflow-hidden">
+                        <h3 className="font-bold text-white truncate max-w-xs md:max-w-md">{title}</h3>
+                        <p className="text-[10px] text-gray-400 truncate">{sub}</p>
                     </div>
                 </div>
-                <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full"><X size={24}/></button>
+                <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full text-gray-400 hover:text-white"><X size={24}/></button>
             </div>
 
-            <div className="flex-1 flex items-center justify-center p-4 bg-black">
+            {/* Media Area */}
+            <div className="flex-1 flex flex-col items-center justify-center p-8 bg-black/50 relative">
                 {error ? (
                     <div className="text-center text-gray-500">
                         <AlertCircle size={48} className="mx-auto mb-4 text-red-500 opacity-50"/>
-                        <p>Stream unavailable or blocked by CORS.</p>
-                        <p className="text-xs mt-2">Try a different channel.</p>
+                        <p>Stream offline or geo-blocked.</p>
                     </div>
-                ) : (
-                    <video ref={videoRef} className="w-full h-full max-h-[80vh] object-contain" controls />
-                )}
-            </div>
-        </motion.div>
-    );
-};
-
-const DecentralizedPlayer = ({ item, onClose }: { item: Web3MediaItem, onClose: () => void }) => {
-    const videoRef = useRef<HTMLVideoElement>(null);
-    const audioRef = useRef<HTMLAudioElement>(null);
-    const [isPlaying, setIsPlaying] = useState(false);
-
-    // Resolve Gateway
-    const url = `https://gateway.pinata.cloud/ipfs/${item.cid}`;
-
-    return (
-        <motion.div 
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex flex-col"
-        >
-            <div className="h-16 border-b border-white/10 flex justify-between items-center px-6">
-                <div className="flex items-center gap-4">
-                    <h3 className="font-bold text-white truncate max-w-md">{item.title}</h3>
-                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-accent-cyan/10 text-accent-cyan border border-accent-cyan/20">
-                        <Database size={12}/> On-Chain
-                    </div>
-                </div>
-                <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full"><X size={24}/></button>
-            </div>
-
-            <div className="flex-1 flex items-center justify-center p-4 relative overflow-hidden">
-                {item.mediaType === 0 ? (
-                    <div className="relative w-full max-w-5xl aspect-video bg-black rounded-2xl overflow-hidden border border-white/10 shadow-2xl">
-                        <video 
-                            ref={videoRef} src={url} className="w-full h-full object-contain"
-                            controls={true} onPlay={() => setIsPlaying(true)} onPause={() => setIsPlaying(false)}
-                        />
-                    </div>
-                ) : (
-                    <div className="w-full max-w-3xl glass-card p-12 rounded-3xl border border-white/10 flex flex-col items-center text-center">
-                        <div className="w-48 h-48 rounded-full bg-gradient-to-tr from-primary-500/20 to-accent-purple/20 flex items-center justify-center mb-8 border-4 border-white/5 animate-pulse-slow">
-                            <Volume2 size={64} className="text-white opacity-80" />
+                ) : isAudio ? (
+                    <div className="flex flex-col items-center w-full max-w-lg">
+                        {/* Audio Visualizer Placeholder */}
+                        <div className="flex items-end justify-center gap-1 h-32 mb-8">
+                            {[...Array(20)].map((_, i) => (
+                                <motion.div 
+                                    key={i} 
+                                    className="w-2 bg-accent-purple/50 rounded-t-sm"
+                                    animate={{ height: playing ? [10, Math.random() * 100 + 20, 10] : 10 }}
+                                    transition={{ duration: 0.5, repeat: Infinity, ease: "easeInOut", delay: i * 0.05 }}
+                                />
+                            ))}
                         </div>
-                        <h2 className="text-3xl font-black text-white mb-2">{item.title}</h2>
-                        <p className="text-gray-400 mb-8 font-mono text-sm">Author: {shortenAddress(item.author)}</p>
-                        <audio ref={audioRef} src={url} onEnded={() => setIsPlaying(false)} controls className="w-full" />
+                        <audio ref={audioRef} controls className="w-full" onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} />
                     </div>
+                ) : (
+                    <video ref={videoRef} className="w-full h-full max-h-[70vh] object-contain" controls />
                 )}
-            </div>
-
-            <div className="h-20 bg-background-elevated border-t border-white/5 px-8 flex justify-between items-center">
-                <div className="flex flex-col">
-                    <span className="text-[10px] text-gray-500 uppercase font-bold">Immutable CID</span>
-                    <span className="font-mono text-xs text-accent-emerald">{item.cid}</span>
-                </div>
-                <button className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-lg text-sm font-bold hover:bg-white/10 transition-colors text-pink-500">
-                    <Heart size={16} /> Tip Author
-                </button>
             </div>
         </motion.div>
     );
@@ -156,230 +122,253 @@ const DecentralizedPlayer = ({ item, onClose }: { item: Web3MediaItem, onClose: 
 // --- MAIN COMPONENT ---
 export default function MediaCenter({ type, dynamicColor }: { type: MediaType, dynamicColor: string }) {
     const [viewMode, setViewMode] = useState<ViewMode>('decentralized');
+    const [search, setSearch] = useState('');
     
-    // Web3 State
-    const { mediaList, isLoading, publishToBlockchain, isPublishing } = useMediaRegistry();
-    const [selectedItem, setSelectedItem] = useState<Web3MediaItem | null>(null);
-    const [isUploadingIPFS, setIsUploadingIPFS] = useState(false);
-
-    // Live TV State
+    // --- WEB3 STATE ---
+    const { mediaList, isLoading: web3Loading, publishToBlockchain, isPublishing } = useMediaRegistry();
+    
+    // --- LIVE TV STATE ---
     const [tvChannels, setTvChannels] = useState<IPTVChannel[]>([]);
-    const [loadingChannels, setLoadingChannels] = useState(false);
-    const [selectedChannel, setSelectedChannel] = useState<IPTVChannel | null>(null);
-    const [tvSearch, setTvSearch] = useState('');
-    const [tvCategory] = useState('All');
+    
+    // --- RADIO STATE ---
+    const [stations, setStations] = useState<RadioStation[]>([]);
+    
+    // --- ARCHIVE STATE ---
+    const [archiveItems, setArchiveItems] = useState<ArchiveItem[]>([]);
 
-    // Fetch Live TV Channels
+    // --- SHARED STATE ---
+    const [loadingExt, setLoadingExt] = useState(false);
+    const [activeMedia, setActiveMedia] = useState<{url: string, title: string, sub: string, isAudio: boolean} | null>(null);
+
+    // Initial Data Fetching
     useEffect(() => {
-        if (viewMode === 'livetv' && tvChannels.length === 0) {
-            setLoadingChannels(true);
-            
-            // Using a curated high-quality list for the demo to ensure they work
-            const curated = [
-                { name: "NASA TV", logo: "https://i.imgur.com/k6X5sM8.png", url: "https://ntv1.akamaized.net/hls/live/2013530/NASA-TV-Public/master.m3u8", category: "Science", country: "USA", languages: ["English"] },
-                { name: "Al Jazeera English", logo: "https://i.imgur.com/v8tX6qI.png", url: "https://live-hls-web-aje.getaj.net/AJE/03.m3u8", category: "News", country: "Qatar", languages: ["English"] },
-                { name: "Red Bull TV", logo: "https://i.imgur.com/3Y3Y3Y3.png", url: "https://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master.m3u8", category: "Sports", country: "Austria", languages: ["English"] },
-                { name: "DW English", logo: "https://i.imgur.com/8Q8Q8Q8.png", url: "https://dwamdstream102.akamaized.net/hls/live/2015525/dwstream102/index.m3u8", category: "News", country: "Germany", languages: ["English"] },
-                { name: "Fashion TV", logo: "", url: "https://fash1043.cloudycdn.services/slive/_definst_/ftv_paris_adaptive.smil/playlist.m3u8", category: "Lifestyle", country: "France", languages: ["English"] },
-                { name: "ABC News (US)", logo: "", url: "https://content.uplynk.com/channel/3324f2467c414329b3b0cc5cd987b6be.m3u8", category: "News", country: "USA", languages: ["English"] },
-                { name: "Sky News", logo: "", url: "https://skynews.akamaized.net/hls/live/2174360/skynews_1/master.m3u8", category: "News", country: "UK", languages: ["English"] },
-                { name: "Bloomberg TV", logo: "", url: "https://liveproduseast.global.ssl.fastly.net/us/Channel-SG/index.m3u8", category: "Business", country: "USA", languages: ["English"] },
-            ];
-            
-            // Simulate fetch delay for effect
-            setTimeout(() => {
-                setTvChannels(curated);
-                setLoadingChannels(false);
-            }, 500);
-        }
-    }, [viewMode, tvChannels.length]);
+        setSearch(''); // Reset search on mode switch
+        
+        const fetchExternal = async () => {
+            setLoadingExt(true);
+            try {
+                if (viewMode === 'livetv' && tvChannels.length === 0) {
+                    // Curated IPTV List
+                    setTvChannels([
+                        { name: "NASA TV", logo: "https://i.imgur.com/k6X5sM8.png", url: "https://ntv1.akamaized.net/hls/live/2013530/NASA-TV-Public/master.m3u8", category: "Science", country: "USA" },
+                        { name: "Al Jazeera English", logo: "https://i.imgur.com/v8tX6qI.png", url: "https://live-hls-web-aje.getaj.net/AJE/03.m3u8", category: "News", country: "Qatar" },
+                        { name: "Bloomberg TV", logo: "", url: "https://liveproduseast.global.ssl.fastly.net/us/Channel-SG/index.m3u8", category: "Business", country: "USA" },
+                        { name: "Red Bull TV", logo: "https://i.imgur.com/3Y3Y3Y3.png", url: "https://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master.m3u8", category: "Sports", country: "Austria" },
+                        { name: "Fashion TV", logo: "", url: "https://fash1043.cloudycdn.services/slive/_definst_/ftv_paris_adaptive.smil/playlist.m3u8", category: "Lifestyle", country: "France" },
+                        { name: "Sky News", logo: "", url: "https://skynews.akamaized.net/hls/live/2174360/skynews_1/master.m3u8", category: "News", country: "UK" }
+                    ]);
+                } 
+                else if (viewMode === 'radio' && stations.length === 0) {
+                    // Fetch Top Radio Stations
+                    const res = await fetch('https://de1.api.radio-browser.info/json/stations/topclick/24');
+                    const data = await res.json();
+                    setStations(data);
+                }
+                else if (viewMode === 'archive' && archiveItems.length === 0) {
+                    // Fetch Internet Archive (Audio)
+                    const q = 'mediatype:audio AND (collection:etree OR collection:audio_bookspot)';
+                    const res = await fetch(`https://archive.org/advancedsearch.php?q=${q}&fl[]=identifier,title,creator,year,downloads&sort[]=downloads+desc&rows=24&output=json`);
+                    const data = await res.json();
+                    setArchiveItems(data.response.docs);
+                }
+            } catch (e) {
+                console.error("Fetch Error", e);
+                toast.error("Could not fetch external feed");
+            } finally {
+                setLoadingExt(false);
+            }
+        };
 
-    // Filtering Logic
-    const targetType = type === 'video' ? 0 : 1;
-    const filteredWeb3Items = mediaList.filter((item: Web3MediaItem) => item.mediaType === targetType);
+        if (viewMode !== 'decentralized') fetchExternal();
+    }, [viewMode]);
 
-    const filteredTvChannels = useMemo(() => {
-        return tvChannels.filter(c => {
-            const matchesSearch = c.name.toLowerCase().includes(tvSearch.toLowerCase());
-            const matchesCat = tvCategory === 'All' || c.category === tvCategory;
-            return matchesSearch && matchesCat;
-        });
-    }, [tvChannels, tvSearch, tvCategory]);
+    // Handle Search
+    const handleSearch = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!search.trim()) return;
+        setLoadingExt(true);
+        try {
+            if (viewMode === 'radio') {
+                const res = await fetch(`https://de1.api.radio-browser.info/json/stations/search?name=${encodeURIComponent(search)}&limit=24`);
+                const data = await res.json();
+                setStations(data);
+            } else if (viewMode === 'archive') {
+                const q = `mediatype:audio AND title:(${search})`;
+                const res = await fetch(`https://archive.org/advancedsearch.php?q=${q}&fl[]=identifier,title,creator,year,downloads&sort[]=downloads+desc&rows=24&output=json`);
+                const data = await res.json();
+                setArchiveItems(data.response.docs);
+            }
+        } catch(e) { console.error(e); } finally { setLoadingExt(false); }
+    };
 
     const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
-
-        setIsUploadingIPFS(true);
-        const toastId = toast.loading('1/2 Uploading to IPFS...');
-
+        
+        const toastId = toast.loading('Uploading to IPFS...');
         try {
             const url = await uploadToIPFS(file);
-            // Mock CID for demo if real IPFS isn't connected
-            const fakeCid = url.includes('blob:') ? `Qm${Math.random().toString(36).substr(2, 15)}` : url; 
-            
-            toast.loading('2/2 Waiting for Wallet Signature...', { id: toastId });
-            
-            publishToBlockchain(fakeCid, file.name, type);
-            
+            const cid = url.includes('blob:') ? `Qm${Math.random().toString(36).substr(2, 15)}` : url; 
+            toast.loading('Confirming Transaction...', { id: toastId });
+            publishToBlockchain(cid, file.name, type);
         } catch (err) {
             toast.error('Upload Failed', { id: toastId });
-        } finally {
-            setIsUploadingIPFS(false);
         }
     };
+
+    // Filter Web3 List
+    const targetType = type === 'video' ? 0 : 1;
+    const filteredWeb3 = mediaList.filter((item) => item.mediaType === targetType);
 
     return (
         <div className="min-h-[600px] relative">
             <AnimatePresence>
-                {selectedItem && <DecentralizedPlayer item={selectedItem} onClose={() => setSelectedItem(null)} />}
-                {selectedChannel && <LiveTVPlayer channel={selectedChannel} onClose={() => setSelectedChannel(null)} />}
+                {activeMedia && (
+                    <UniversalPlayer 
+                        url={activeMedia.url} 
+                        title={activeMedia.title} 
+                        sub={activeMedia.sub} 
+                        isAudio={activeMedia.isAudio}
+                        onClose={() => setActiveMedia(null)} 
+                    />
+                )}
             </AnimatePresence>
 
             {/* --- HEADER --- */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-                <div className="flex items-center gap-4 bg-black/40 p-1 rounded-xl border border-white/10">
+                <div className="flex items-center gap-2 bg-black/40 p-1 rounded-xl border border-white/10 overflow-x-auto max-w-full no-scrollbar">
                     <button 
                         onClick={() => setViewMode('decentralized')}
-                        className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${viewMode === 'decentralized' ? 'bg-white/10 text-white' : 'text-gray-500 hover:text-white'}`}
+                        className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap ${viewMode === 'decentralized' ? 'bg-white/10 text-white' : 'text-gray-500 hover:text-white'}`}
                     >
                         <Database size={14} /> Decentralized
                     </button>
-                    <button 
-                        onClick={() => setViewMode('livetv')}
-                        className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${viewMode === 'livetv' ? 'bg-primary-500 text-black' : 'text-gray-500 hover:text-white'}`}
-                    >
-                        <Tv size={14} /> Global Live TV
-                    </button>
+                    
+                    {type === 'video' ? (
+                        <button 
+                            onClick={() => setViewMode('livetv')}
+                            className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap ${viewMode === 'livetv' ? 'bg-primary-500 text-black' : 'text-gray-500 hover:text-white'}`}
+                        >
+                            <Tv size={14} /> Global TV
+                        </button>
+                    ) : (
+                        <>
+                            <button 
+                                onClick={() => setViewMode('radio')}
+                                className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap ${viewMode === 'radio' ? 'bg-accent-purple text-black' : 'text-gray-500 hover:text-white'}`}
+                            >
+                                <Radio size={14} /> Global Radio
+                            </button>
+                            <button 
+                                onClick={() => setViewMode('archive')}
+                                className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap ${viewMode === 'archive' ? 'bg-accent-cyan text-black' : 'text-gray-500 hover:text-white'}`}
+                            >
+                                <Library size={14} /> Audio Archive
+                            </button>
+                        </>
+                    )}
                 </div>
 
-                {viewMode === 'decentralized' && (
+                {viewMode === 'decentralized' ? (
                     <div className="relative group">
-                        <input 
-                            type="file" 
-                            accept={type === 'video' ? "video/*" : "audio/*"}
-                            className="hidden" 
-                            id="media-upload"
-                            onChange={handleUpload}
-                            disabled={isUploadingIPFS || isPublishing}
-                        />
-                        <label 
-                            htmlFor="media-upload"
-                            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold cursor-pointer transition-all ${
-                                (isUploadingIPFS || isPublishing) 
-                                ? 'bg-white/5 text-gray-500 cursor-not-allowed' 
-                                : 'bg-primary-500 text-black hover:bg-primary-400'
-                            }`}
-                        >
-                            {isUploadingIPFS ? 'Uploading IPFS...' : isPublishing ? 'Confirming TX...' : 'Upload New'}
-                            <Upload size={16} />
+                        <input type="file" accept={type === 'video' ? "video/*" : "audio/*"} className="hidden" id="media-upload" onChange={handleUpload} disabled={isPublishing} />
+                        <label htmlFor="media-upload" className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold cursor-pointer transition-all ${isPublishing ? 'bg-white/5 text-gray-500' : 'bg-primary-500 text-black hover:bg-primary-400'}`}>
+                            {isPublishing ? 'Confirming...' : 'Upload New'} <Upload size={16} />
                         </label>
                     </div>
-                )}
-
-                {viewMode === 'livetv' && (
-                    <div className="relative">
+                ) : (
+                    <form onSubmit={handleSearch} className="relative">
                         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"/>
-                        <input 
-                            value={tvSearch}
-                            onChange={(e) => setTvSearch(e.target.value)}
-                            placeholder="Search channels..."
-                            className="bg-black/40 border border-white/10 rounded-xl pl-9 pr-4 py-2 text-sm text-white focus:border-primary-500 outline-none"
-                        />
-                    </div>
+                        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={viewMode === 'radio' ? "Search stations..." : "Search archive..."} className="bg-black/40 border border-white/10 rounded-xl pl-9 pr-4 py-2 text-sm text-white focus:border-primary-500 outline-none w-full md:w-64" />
+                    </form>
                 )}
             </div>
 
-            {/* --- WEB3 CONTENT --- */}
-            {viewMode === 'decentralized' && (
-                <>
-                    {isLoading ? (
-                        <div className="flex justify-center py-20"><div className="animate-spin text-primary-500"><RefreshCw size={32}/></div></div>
-                    ) : filteredWeb3Items.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-20 text-center border-2 border-dashed border-white/5 rounded-3xl">
-                            <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-4">
-                                <Globe size={32} className="text-gray-600"/>
+            {/* --- CONTENT GRID --- */}
+            {web3Loading || loadingExt ? (
+                <div className="flex justify-center py-20"><div className="animate-spin text-primary-500"><RefreshCw size={32}/></div></div>
+            ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    
+                    {/* DECENTRALIZED */}
+                    {viewMode === 'decentralized' && filteredWeb3.map((item) => (
+                        <motion.div
+                            key={item.id.toString()}
+                            initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+                            onClick={() => setActiveMedia({ url: `https://gateway.pinata.cloud/ipfs/${item.cid}`, title: item.title, sub: `By ${shortenAddress(item.author)}`, isAudio: type === 'audio' })}
+                            className="glass-card p-4 rounded-xl cursor-pointer hover:border-primary-500/50 transition-all group"
+                        >
+                            <div className="aspect-video bg-black/40 rounded-lg flex items-center justify-center mb-4 relative overflow-hidden">
+                                {type === 'video' ? <Film size={32} className="text-gray-600"/> : <Music size={32} className="text-gray-600"/>}
+                                <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors flex items-center justify-center">
+                                    <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center pl-1 group-hover:scale-110 group-hover:bg-primary-500 group-hover:text-black transition-all">
+                                        <Play size={16} fill="currentColor" />
+                                    </div>
+                                </div>
                             </div>
-                            <h3 className="text-xl font-bold text-white mb-2">Registry Empty</h3>
-                            <p className="text-gray-500 text-sm max-w-xs">Be the first to publish content to the Crikz smart contract.</p>
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {filteredWeb3Items.map((item: Web3MediaItem) => (
-                                <motion.div
-                                    key={item.id.toString()}
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    onClick={() => setSelectedItem(item)}
-                                    className="glass-card rounded-2xl overflow-hidden border border-white/10 group cursor-pointer bg-background-elevated hover:border-primary-500/30 transition-all hover:-translate-y-1"
-                                >
-                                    <div className="aspect-video bg-black/60 relative flex items-center justify-center overflow-hidden">
-                                        <div className="absolute inset-0 bg-gradient-to-br from-gray-900 to-black flex items-center justify-center">
-                                            {type === 'video' ? <Film size={40} className="text-gray-700"/> : <Radio size={40} className="text-gray-700"/>}
-                                        </div>
-                                        <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center">
-                                            <div className="w-12 h-12 bg-white/10 backdrop-blur-sm rounded-full flex items-center justify-center pl-1 group-hover:scale-110 group-hover:bg-primary-500 group-hover:text-black transition-all">
-                                                <Play size={20} className="text-white group-hover:text-black" fill="currentColor" />
-                                            </div>
-                                        </div>
-                                        <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2 py-1 rounded text-[9px] font-bold text-emerald-400 flex items-center gap-1 border border-white/10">
-                                            <ShieldCheck size={10} /> ON-CHAIN
-                                        </div>
-                                    </div>
+                            <h4 className="font-bold text-white truncate">{item.title}</h4>
+                            <div className="flex justify-between mt-2 text-xs text-gray-500">
+                                <span>{shortenAddress(item.author)}</span>
+                                <span className="flex items-center gap-1 text-emerald-500"><ShieldCheck size={10}/> Web3</span>
+                            </div>
+                        </motion.div>
+                    ))}
 
-                                    <div className="p-4">
-                                        <h4 className="text-white font-bold truncate mb-1 group-hover:text-primary-500 transition-colors">{item.title}</h4>
-                                        <div className="flex justify-between items-center text-xs text-gray-500">
-                                            <span className="flex items-center gap-1"><User size={10}/> {shortenAddress(item.author)}</span>
-                                            <span>{new Date(Number(item.timestamp) * 1000).toLocaleDateString()}</span>
-                                        </div>
-                                    </div>
-                                </motion.div>
-                            ))}
-                        </div>
-                    )}
-                </>
+                    {/* LIVE TV */}
+                    {viewMode === 'livetv' && tvChannels.map((c, i) => (
+                        <motion.div key={i} initial={{ opacity: 0 }} animate={{ opacity: 1 }} onClick={() => setActiveMedia({ url: c.url, title: c.name, sub: `${c.category} • ${c.country}`, isAudio: false })}
+                            className="bg-[#12121A] border border-white/5 hover:border-primary-500/50 p-4 rounded-xl cursor-pointer group flex flex-col gap-3 transition-all hover:bg-white/5"
+                        >
+                            <div className="flex justify-between items-start">
+                                <div className="w-10 h-10 bg-white/10 rounded flex items-center justify-center p-1">
+                                    {c.logo ? <img src={c.logo} className="w-full h-full object-contain" /> : <Tv size={18}/>}
+                                </div>
+                                <div className="bg-red-500/20 text-red-500 text-[9px] font-bold px-1.5 py-0.5 rounded border border-red-500/20 animate-pulse">LIVE</div>
+                            </div>
+                            <h4 className="font-bold text-white text-sm line-clamp-1 group-hover:text-primary-500">{c.name}</h4>
+                        </motion.div>
+                    ))}
+
+                    {/* RADIO */}
+                    {viewMode === 'radio' && stations.map((s) => (
+                        <motion.div key={s.stationuuid} initial={{ opacity: 0 }} animate={{ opacity: 1 }} onClick={() => setActiveMedia({ url: s.url_resolved, title: s.name, sub: s.country, isAudio: true })}
+                            className="bg-[#12121A] border border-white/5 hover:border-accent-purple/50 p-4 rounded-xl cursor-pointer group hover:bg-white/5"
+                        >
+                            <div className="flex items-center gap-3 mb-3">
+                                {s.favicon ? <img src={s.favicon} className="w-8 h-8 rounded bg-white/10 object-cover" onError={(e) => (e.currentTarget.style.display = 'none')} /> : <Radio size={24} className="text-gray-600"/>}
+                                <div className="flex-1 min-w-0">
+                                    <h4 className="font-bold text-white text-sm truncate group-hover:text-accent-purple">{s.name}</h4>
+                                    <p className="text-[10px] text-gray-500">{s.country}</p>
+                                </div>
+                            </div>
+                            <div className="flex gap-2 flex-wrap">
+                                {s.tags.split(',').slice(0,3).map(tag => tag && <span key={tag} className="text-[9px] bg-white/5 px-1.5 py-0.5 rounded text-gray-400">{tag}</span>)}
+                            </div>
+                        </motion.div>
+                    ))}
+
+                    {/* ARCHIVE */}
+                    {viewMode === 'archive' && archiveItems.map((a) => (
+                        <motion.div key={a.identifier} initial={{ opacity: 0 }} animate={{ opacity: 1 }} onClick={() => setActiveMedia({ url: `https://archive.org/download/${a.identifier}/${a.identifier}_vbr.m3u`, title: a.title, sub: a.creator ? `By ${a.creator}` : 'Public Domain', isAudio: true })}
+                            className="bg-[#12121A] border border-white/5 hover:border-accent-cyan/50 p-4 rounded-xl cursor-pointer group hover:bg-white/5"
+                        >
+                            <div className="mb-3 w-10 h-10 bg-accent-cyan/10 rounded flex items-center justify-center text-accent-cyan">
+                                <Library size={20} />
+                            </div>
+                            <h4 className="font-bold text-white text-sm line-clamp-2 group-hover:text-accent-cyan mb-1">{a.title}</h4>
+                            <p className="text-[10px] text-gray-500 mb-2">{a.year || 'Unknown Year'}</p>
+                            <div className="text-[9px] bg-white/5 px-2 py-1 rounded inline-block text-gray-400">
+                                {a.downloads?.toLocaleString()} Downloads
+                            </div>
+                        </motion.div>
+                    ))}
+                </div>
             )}
-
-            {/* --- LIVE TV CONTENT --- */}
-            {viewMode === 'livetv' && (
-                <>
-                    {loadingChannels ? (
-                        <div className="flex justify-center py-20"><div className="animate-spin text-primary-500"><RefreshCw size={32}/></div></div>
-                    ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                            {filteredTvChannels.map((channel, idx) => (
-                                <motion.div
-                                    key={idx}
-                                    initial={{ opacity: 0, scale: 0.95 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    onClick={() => setSelectedChannel(channel)}
-                                    className="bg-[#12121A] border border-white/5 hover:border-primary-500/50 p-4 rounded-xl cursor-pointer group flex flex-col gap-3 transition-all hover:bg-white/5"
-                                >
-                                    <div className="flex justify-between items-start">
-                                        <div className="w-10 h-10 bg-white/10 rounded flex items-center justify-center p-1">
-                                            {channel.logo ? (
-                                                <img src={channel.logo} alt={channel.name} className="w-full h-full object-contain" onError={(e) => (e.currentTarget.style.display = 'none')}/>
-                                            ) : <Tv size={18} className="text-gray-500"/>}
-                                        </div>
-                                        <div className="bg-red-500/20 text-red-500 text-[9px] font-bold px-1.5 py-0.5 rounded border border-red-500/20">LIVE</div>
-                                    </div>
-                                    
-                                    <div>
-                                        <h4 className="font-bold text-white text-sm line-clamp-1 group-hover:text-primary-500 transition-colors">{channel.name}</h4>
-                                        <div className="flex gap-2 mt-1">
-                                            <span className="text-[10px] text-gray-500 bg-white/5 px-1.5 py-0.5 rounded">{channel.category}</span>
-                                            <span className="text-[10px] text-gray-500 bg-white/5 px-1.5 py-0.5 rounded">{channel.country}</span>
-                                        </div>
-                                    </div>
-                                </motion.div>
-                            ))}
-                        </div>
-                    )}
-                    <div className="mt-8 text-center text-xs text-gray-500">
-                        <p>Feed provided by Public IPTV Registry. Some channels may be geo-blocked.</p>
-                    </div>
-                </>
+            
+            {!web3Loading && !loadingExt && (filteredWeb3.length === 0 && tvChannels.length === 0 && stations.length === 0 && archiveItems.length === 0) && (
+                <div className="text-center py-20 text-gray-500">
+                    <p>No content found.</p>
+                </div>
             )}
         </div>
     );
