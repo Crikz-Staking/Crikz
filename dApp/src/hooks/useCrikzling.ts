@@ -19,6 +19,8 @@ export function useCrikzling() {
   const [currentThought, setCurrentThought] = useState<ThoughtProcess | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
 
+
+
   // Guest Session Management
   const sessionId = useMemo(() => {
     if (address) return address;
@@ -198,7 +200,12 @@ export function useCrikzling() {
       relations: stats?.edges || 0,
       unsaved: stats?.unsaved || 0,
       mood: stats?.mood || { logic: 0, empathy: 0, curiosity: 0, entropy: 0 },
-      memories: stats?.memories || { short: 0, mid: 0, long: 0 }
+      // FIXED: flattened the memories structure to match CrikzlingAvatar expectation or updated the UI
+      memories: { 
+        short: stats?.memories?.short || 0, 
+        mid: stats?.memories?.mid || 0, 
+        long: stats?.memories?.long || 0 
+      }
     },
     isThinking,
     isTyping,

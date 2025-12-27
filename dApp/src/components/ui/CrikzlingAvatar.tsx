@@ -1,20 +1,9 @@
-'use client';
-
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Send, 
-  Brain as BrainIcon, 
-  Sparkles, 
-  Database, 
-  Cpu, 
-  Activity, 
-  Save, 
-  RefreshCw,
-  Upload,
-  Zap
+  Send, Brain as BrainIcon, Sparkles, Database, Cpu, Activity, Save, RefreshCw, Upload, Zap 
 } from 'lucide-react';
 import { useCrikzling } from '@/hooks/useCrikzling';
-import { ThoughtProcess } from '@/lib/crikzling-evolutionary-brain-v2-enhanced';
+import { ThoughtProcess } from '@/lib/brain/types';
 
 // --- SUB-COMPONENT: THOUGHT VISUALIZER ---
 const ThoughtVisualizer = ({ thought }: { thought: ThoughtProcess | null }) => {
