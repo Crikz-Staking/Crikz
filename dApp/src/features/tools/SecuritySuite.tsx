@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { ShieldCheck, Key, Lock, Trash2, Copy, Check } from 'lucide-react';
+import { ShieldCheck, Key, Lock, Search, Copy, Check, AlertTriangle } from 'lucide-react';
+import { useReadContract, useAccount } from 'wagmi';
+import { formatUnits } from 'viem';
 import { toast } from 'react-hot-toast';
 
-// --- KEY GENERATOR ---
+// --- KEY GENERATOR (Retained) ---
 const KeyGenerator = () => {
     const [key, setKey] = useState('');
     const [copied, setCopied] = useState(false);
@@ -37,50 +39,75 @@ const KeyGenerator = () => {
     );
 };
 
-// --- APPROVAL REVOKER (SIMULATION) ---
-const ApprovalRevoker = () => {
-    // Mock Data
-    const [allowances, setAllowances] = useState([
-        { id: 1, token: 'USDT', spender: '0xUnverified...Contract', risk: 'High', amount: 'Unlimited' },
-        { id: 2, token: 'CRIKZ', spender: '0xMarketplace', risk: 'Low', amount: '500.00' },
-    ]);
+// --- REAL ALLOWANCE CHECKER ---
+const AllowanceChecker = () => {
+    const { address } = useAccount();
+    const [token, setToken] = useState<string>('');
+    const [spender, setSpender] = useState<string>('');
+    const [trigger, setTrigger] = useState(0);
 
-    const revoke = (id: number) => {
-        toast.success("Transaction Submitted: Revoke");
-        setAllowances(prev => prev.filter(a => a.id !== id));
+    const { data: allowance, isLoading, isError } = useReadContract({
+        address: token as `0x${string}`,
+        abi: [{
+            name: 'allowance',
+            type: 'function',
+            stateMutability: 'view',
+            inputs: [{name: 'owner', type: 'address'}, {name: 'spender', type: 'address'}],
+            outputs: [{name: '', type: 'uint256'}]
+        }],
+        functionName: 'allowance',
+        args: address && spender ? [address, spender as `0x${string}`] : undefined,
+        query: {
+            enabled: !!(token && spender && address && trigger > 0)
+        }
+    });
+
+    const check = () => {
+        if(!token || !spender) {
+            toast.error("Enter addresses");
+            return;
+        }
+        setTrigger(prev => prev + 1);
     };
+
+    const allowanceFormatted = allowance ? formatUnits(allowance as bigint, 18) : '0';
+    const isUnlimited = allowance && (allowance as bigint) > 1000000000000000000000000000n;
 
     return (
         <div className="glass-card p-6 rounded-3xl border border-white/10 bg-background-elevated">
-            <h3 className="font-bold text-white mb-4 flex items-center gap-2"><ShieldCheck size={18} className="text-blue-500"/> Token Approvals</h3>
+            <h3 className="font-bold text-white mb-4 flex items-center gap-2"><ShieldCheck size={18} className="text-blue-500"/> Allowance Checker</h3>
             
-            {allowances.length === 0 ? (
-                <div className="text-center py-8 text-gray-500 text-sm">
-                    <Check size={30} className="mx-auto mb-2 text-emerald-500"/>
-                    No risky approvals found.
+            <div className="space-y-3 mb-4">
+                <div>
+                    <label className="text-[10px] uppercase font-bold text-gray-500">Token Address</label>
+                    <input value={token} onChange={e=>setToken(e.target.value)} className="input-field text-xs font-mono" placeholder="0x..." />
                 </div>
-            ) : (
-                <div className="space-y-2">
-                    {allowances.map(a => (
-                        <div key={a.id} className="bg-black/20 p-3 rounded-xl border border-white/5 flex justify-between items-center">
-                            <div>
-                                <div className="font-bold text-white text-sm">{a.token} <span className="text-gray-500 font-normal">for</span> {a.amount}</div>
-                                <div className="text-[10px] text-gray-500 font-mono">{a.spender}</div>
-                            </div>
-                            <button 
-                                onClick={() => revoke(a.id)}
-                                className={`p-2 rounded-lg ${a.risk === 'High' ? 'bg-red-500/20 text-red-500 hover:bg-red-500/30' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
-                                title="Revoke"
-                            >
-                                <Trash2 size={16} />
-                            </button>
-                        </div>
-                    ))}
+                <div>
+                    <label className="text-[10px] uppercase font-bold text-gray-500">Spender Address</label>
+                    <input value={spender} onChange={e=>setSpender(e.target.value)} className="input-field text-xs font-mono" placeholder="0x..." />
+                </div>
+            </div>
+
+            <button onClick={check} disabled={isLoading} className="btn-primary w-full py-2 text-sm mb-4">
+                {isLoading ? 'Checking Chain...' : 'Check Allowance'}
+            </button>
+
+            {trigger > 0 && !isLoading && !isError && (
+                <div className={`p-4 rounded-xl border ${Number(allowanceFormatted) > 0 ? 'bg-red-500/10 border-red-500/30' : 'bg-emerald-500/10 border-emerald-500/30'}`}>
+                    <div className="flex items-center gap-2 mb-1">
+                        {Number(allowanceFormatted) > 0 ? <AlertTriangle size={16} className="text-red-500" /> : <ShieldCheck size={16} className="text-emerald-500" />}
+                        <span className={`font-bold text-sm ${Number(allowanceFormatted) > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                            {Number(allowanceFormatted) > 0 ? 'Risk Detected' : 'Safe'}
+                        </span>
+                    </div>
+                    <div className="text-xs text-gray-300">
+                        Current Allowance: <span className="font-mono font-bold text-white">{isUnlimited ? 'Unlimited' : allowanceFormatted}</span>
+                    </div>
                 </div>
             )}
-            <div className="mt-4 text-[10px] text-gray-600 text-center">
-                *Simulated Data for Demo
-            </div>
+            {isError && trigger > 0 && (
+                <div className="text-center text-red-500 text-xs font-bold">Error reading contract. Is it an ERC20?</div>
+            )}
         </div>
     );
 };
@@ -89,7 +116,7 @@ export default function SecuritySuite() {
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <KeyGenerator />
-            <ApprovalRevoker />
+            <AllowanceChecker />
         </div>
     );
 }

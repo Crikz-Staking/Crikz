@@ -1,27 +1,31 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-    LayoutGrid, Code, Shield, Wrench, Search
+    LayoutGrid, Code, Shield, Wrench, PenTool
 } from 'lucide-react';
 
 // Import Suites
 import DeFiSuite from './DeFiSuite';
 import DevSuite from './DevSuite';
 import SecuritySuite from './SecuritySuite';
-import FileConverter from './FileConverter'; // Use existing file converter as "General"
+import FileConverter from './FileConverter';
+import SignatureTool from './SignatureTool'; // <--- NEW IMPORT
+import VanityGen from './VanityGen';         // <--- NEW IMPORT
 
 interface ToolsLayoutProps {
   dynamicColor: string;
 }
 
 export default function ToolsLayout({ dynamicColor }: ToolsLayoutProps) {
-  const [activeTab, setActiveTab] = useState<'defi' | 'dev' | 'sec' | 'gen'>('defi');
+  // Added 'crypto' tab for the new tools
+  const [activeTab, setActiveTab] = useState<'defi' | 'dev' | 'sec' | 'crypto' | 'gen'>('defi');
 
   const tabs = [
-    { id: 'defi', label: 'DeFi & Stats', icon: LayoutGrid },
-    { id: 'dev', label: 'Developer', icon: Code },
+    { id: 'defi', label: 'DeFi Data', icon: LayoutGrid },
+    { id: 'dev', label: 'Dev Utils', icon: Code },
     { id: 'sec', label: 'Security', icon: Shield },
-    { id: 'gen', label: 'Utilities', icon: Wrench },
+    { id: 'crypto', label: 'Crypto Tools', icon: PenTool }, // New Tab
+    { id: 'gen', label: 'Files', icon: Wrench },
   ];
 
   return (
@@ -33,7 +37,7 @@ export default function ToolsLayout({ dynamicColor }: ToolsLayoutProps) {
             <p className="text-gray-400">Essential utilities for the decentralized web.</p>
         </div>
 
-        <div className="bg-background-elevated p-1 rounded-2xl border border-white/10 flex gap-1">
+        <div className="bg-background-elevated p-1 rounded-2xl border border-white/10 flex gap-1 flex-wrap sm:flex-nowrap">
             {tabs.map(tab => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
@@ -41,7 +45,7 @@ export default function ToolsLayout({ dynamicColor }: ToolsLayoutProps) {
                     <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id as any)}
-                        className={`flex items-center gap-2 px-4 py-3 rounded-xl font-bold text-sm transition-all ${
+                        className={`flex items-center gap-2 px-4 py-3 rounded-xl font-bold text-sm transition-all flex-1 sm:flex-none justify-center ${
                             isActive 
                             ? 'bg-primary-500 text-black shadow-lg shadow-primary-500/20' 
                             : 'text-gray-500 hover:text-white hover:bg-white/5'
@@ -67,10 +71,15 @@ export default function ToolsLayout({ dynamicColor }: ToolsLayoutProps) {
             {activeTab === 'defi' && <DeFiSuite />}
             {activeTab === 'dev' && <DevSuite />}
             {activeTab === 'sec' && <SecuritySuite />}
+            {activeTab === 'crypto' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <SignatureTool />
+                    <VanityGen />
+                </div>
+            )}
             {activeTab === 'gen' && (
                 <div className="grid gap-6">
                     <FileConverter dynamicColor={dynamicColor} />
-                    {/* Add more general tools here if needed */}
                 </div>
             )}
         </motion.div>

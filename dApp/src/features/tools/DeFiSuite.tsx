@@ -1,47 +1,52 @@
 import React, { useState, useEffect } from 'react';
 import { Calculator, ArrowDown, Fuel, RefreshCw, AlertTriangle } from 'lucide-react';
 import { formatUnits, parseUnits } from 'viem';
+import { useGasPrice } from 'wagmi'; // <--- UPDATED IMPORT
 import { motion } from 'framer-motion';
 
-// --- SUB-COMPONENT: GAS STATION ---
+// --- SUB-COMPONENT: REAL GAS STATION ---
 const GasStation = () => {
-  const [gas, setGas] = useState({ standard: 3, fast: 5, instant: 7 });
+  const { data: gasPrice, refetch } = useGasPrice();
   
-  // Simulate live gas updates
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const base = 3 + Math.random() * 2;
-      setGas({
-        standard: Math.floor(base),
-        fast: Math.floor(base * 1.2),
-        instant: Math.floor(base * 1.5)
-      });
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
+  // Logic to estimate Fast/Instant based on base fee (simple multiplier for demo)
+  const standard = gasPrice ? Number(formatUnits(gasPrice, 9)) : 0;
+  const fast = standard * 1.1;
+  const instant = standard * 1.5;
 
   return (
     <div className="glass-card p-6 rounded-3xl border border-white/10 bg-background-elevated relative overflow-hidden">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="p-2 bg-orange-500/20 rounded-lg text-orange-500"><Fuel size={20} /></div>
-        <h3 className="font-bold text-white">Network Gas</h3>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+            <div className="p-2 bg-orange-500/20 rounded-lg text-orange-500"><Fuel size={20} /></div>
+            <h3 className="font-bold text-white">Live Gas</h3>
+        </div>
+        <button onClick={() => refetch()} className="text-gray-500 hover:text-white transition-colors">
+            <RefreshCw size={14} />
+        </button>
       </div>
-      <div className="grid grid-cols-3 gap-2">
-        {[
-            { label: 'Std', val: gas.standard, color: 'text-emerald-400' },
-            { label: 'Fast', val: gas.fast, color: 'text-blue-400' },
-            { label: 'Instant', val: gas.instant, color: 'text-purple-400' }
-        ].map(g => (
-            <div key={g.label} className="bg-black/30 p-2 rounded-xl text-center border border-white/5">
-                <div className="text-[10px] text-gray-500 uppercase font-bold">{g.label}</div>
-                <div className={`text-xl font-black ${g.color}`}>{g.val}</div>
-                <div className="text-[9px] text-gray-600">GWEI</div>
-            </div>
-        ))}
-      </div>
+      
+      {standard > 0 ? (
+          <div className="grid grid-cols-3 gap-2">
+            {[
+                { label: 'Standard', val: standard.toFixed(2), color: 'text-emerald-400' },
+                { label: 'Fast', val: fast.toFixed(2), color: 'text-blue-400' },
+                { label: 'Instant', val: instant.toFixed(2), color: 'text-purple-400' }
+            ].map(g => (
+                <div key={g.label} className="bg-black/30 p-2 rounded-xl text-center border border-white/5">
+                    <div className="text-[10px] text-gray-500 uppercase font-bold">{g.label}</div>
+                    <div className={`text-lg font-black ${g.color}`}>{g.val}</div>
+                    <div className="text-[9px] text-gray-600">GWEI</div>
+                </div>
+            ))}
+          </div>
+      ) : (
+          <div className="text-center text-xs text-gray-500 py-4">Fetching chain data...</div>
+      )}
     </div>
   );
 };
+
+// ... [Keep UnitConverter and ILCalculator exactly as they were in the original file] ...
 
 // --- SUB-COMPONENT: UNIT CONVERTER ---
 const UnitConverter = () => {
