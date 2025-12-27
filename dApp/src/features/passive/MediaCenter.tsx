@@ -2,8 +2,8 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Hls from 'hls.js';
 import { 
-    Play, Pause, Volume2, X, Upload, Radio, Film, Globe, User, 
-    ShieldCheck, RefreshCw, Share2, Heart, Database, Tv, Search, AlertCircle
+    Play, Volume2, X, Upload, Radio, Film, Globe, User, 
+    ShieldCheck, RefreshCw, Heart, Database, Tv, Search, AlertCircle
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { uploadToIPFS } from '@/lib/ipfs-service';
@@ -40,20 +40,24 @@ const LiveTVPlayer = ({ channel, onClose }: { channel: IPTVChannel, onClose: () 
             const hls = new Hls();
             hls.loadSource(channel.url);
             hls.attachMedia(video);
+            
             hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                video.play().catch(e => console.log("Autoplay blocked"));
+                video.play().catch(() => console.log("Autoplay blocked"));
             });
-            hls.on(Hls.Events.ERROR, (event, data) => {
+            
+            // Fixed TypeScript "implicit any" errors here
+            hls.on(Hls.Events.ERROR, (_event: string, data: any) => {
                 if (data.fatal) {
                     setError(true);
                     hls.destroy();
                 }
             });
+            
             return () => hls.destroy();
         } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
             // Safari / Native Support
             video.src = channel.url;
-            video.play().catch(e => console.log("Autoplay blocked"));
+            video.play().catch(() => console.log("Autoplay blocked"));
         } else {
             setError(true);
         }
@@ -163,52 +167,32 @@ export default function MediaCenter({ type, dynamicColor }: { type: MediaType, d
     const [loadingChannels, setLoadingChannels] = useState(false);
     const [selectedChannel, setSelectedChannel] = useState<IPTVChannel | null>(null);
     const [tvSearch, setTvSearch] = useState('');
-    const [tvCategory, setTvCategory] = useState('All');
+    const [tvCategory] = useState('All');
 
     // Fetch Live TV Channels
     useEffect(() => {
         if (viewMode === 'livetv' && tvChannels.length === 0) {
             setLoadingChannels(true);
-            // Fetching a curated list of HTTPS streams from IPTV-org
-            fetch('https://iptv-org.github.io/iptv/index.categories.json')
-                .then(res => res.json())
-                .then(() => {
-                    // Fetch full index (Warning: Large file)
-                    // For better UX, we'll fetch a filtered subset or standard streams
-                    return fetch('https://iptv-org.github.io/iptv/channels.json');
-                })
-                .then(res => res.json())
-                .then(data => {
-                    // Fetch streams
-                    return fetch('https://iptv-org.github.io/iptv/streams.json');
-                })
-                .then(res => res.json())
-                .then(streams => {
-                    // This is complex to join in client-side.
-                    // Simplified Approach: Use a curated m3u-to-json API or predefined list
-                    // FALLBACK: Mock reliable channels for Demo + some real logic
-                    
-                    // Actually, let's fetch the `index.m3u` parsed to JSON from a reliable source or use a static list for stability
-                    // Using a curated high-quality list for the demo to ensure they work
-                    const curated = [
-                        { name: "NASA TV", logo: "https://i.imgur.com/k6X5sM8.png", url: "https://ntv1.akamaized.net/hls/live/2013530/NASA-TV-Public/master.m3u8", category: "Science", country: "USA", languages: ["English"] },
-                        { name: "Al Jazeera English", logo: "https://i.imgur.com/v8tX6qI.png", url: "https://live-hls-web-aje.getaj.net/AJE/03.m3u8", category: "News", country: "Qatar", languages: ["English"] },
-                        { name: "Red Bull TV", logo: "https://i.imgur.com/3Y3Y3Y3.png", url: "https://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master.m3u8", category: "Sports", country: "Austria", languages: ["English"] },
-                        { name: "DW English", logo: "https://i.imgur.com/8Q8Q8Q8.png", url: "https://dwamdstream102.akamaized.net/hls/live/2015525/dwstream102/index.m3u8", category: "News", country: "Germany", languages: ["English"] },
-                        { name: "Fashion TV", logo: "", url: "https://fash1043.cloudycdn.services/slive/_definst_/ftv_paris_adaptive.smil/playlist.m3u8", category: "Lifestyle", country: "France", languages: ["English"] },
-                        { name: "ABC News (US)", logo: "", url: "https://content.uplynk.com/channel/3324f2467c414329b3b0cc5cd987b6be.m3u8", category: "News", country: "USA", languages: ["English"] },
-                        { name: "Sky News", logo: "", url: "https://skynews.akamaized.net/hls/live/2174360/skynews_1/master.m3u8", category: "News", country: "UK", languages: ["English"] },
-                        { name: "Bloomberg TV", logo: "", url: "https://liveproduseast.global.ssl.fastly.net/us/Channel-SG/index.m3u8", category: "Business", country: "USA", languages: ["English"] },
-                    ];
-                    setTvChannels(curated);
-                    setLoadingChannels(false);
-                })
-                .catch(e => {
-                    console.error(e);
-                    setLoadingChannels(false);
-                });
+            
+            // Using a curated high-quality list for the demo to ensure they work
+            const curated = [
+                { name: "NASA TV", logo: "https://i.imgur.com/k6X5sM8.png", url: "https://ntv1.akamaized.net/hls/live/2013530/NASA-TV-Public/master.m3u8", category: "Science", country: "USA", languages: ["English"] },
+                { name: "Al Jazeera English", logo: "https://i.imgur.com/v8tX6qI.png", url: "https://live-hls-web-aje.getaj.net/AJE/03.m3u8", category: "News", country: "Qatar", languages: ["English"] },
+                { name: "Red Bull TV", logo: "https://i.imgur.com/3Y3Y3Y3.png", url: "https://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master.m3u8", category: "Sports", country: "Austria", languages: ["English"] },
+                { name: "DW English", logo: "https://i.imgur.com/8Q8Q8Q8.png", url: "https://dwamdstream102.akamaized.net/hls/live/2015525/dwstream102/index.m3u8", category: "News", country: "Germany", languages: ["English"] },
+                { name: "Fashion TV", logo: "", url: "https://fash1043.cloudycdn.services/slive/_definst_/ftv_paris_adaptive.smil/playlist.m3u8", category: "Lifestyle", country: "France", languages: ["English"] },
+                { name: "ABC News (US)", logo: "", url: "https://content.uplynk.com/channel/3324f2467c414329b3b0cc5cd987b6be.m3u8", category: "News", country: "USA", languages: ["English"] },
+                { name: "Sky News", logo: "", url: "https://skynews.akamaized.net/hls/live/2174360/skynews_1/master.m3u8", category: "News", country: "UK", languages: ["English"] },
+                { name: "Bloomberg TV", logo: "", url: "https://liveproduseast.global.ssl.fastly.net/us/Channel-SG/index.m3u8", category: "Business", country: "USA", languages: ["English"] },
+            ];
+            
+            // Simulate fetch delay for effect
+            setTimeout(() => {
+                setTvChannels(curated);
+                setLoadingChannels(false);
+            }, 500);
         }
-    }, [viewMode]);
+    }, [viewMode, tvChannels.length]);
 
     // Filtering Logic
     const targetType = type === 'video' ? 0 : 1;
@@ -231,9 +215,13 @@ export default function MediaCenter({ type, dynamicColor }: { type: MediaType, d
 
         try {
             const url = await uploadToIPFS(file);
+            // Mock CID for demo if real IPFS isn't connected
             const fakeCid = url.includes('blob:') ? `Qm${Math.random().toString(36).substr(2, 15)}` : url; 
+            
             toast.loading('2/2 Waiting for Wallet Signature...', { id: toastId });
+            
             publishToBlockchain(fakeCid, file.name, type);
+            
         } catch (err) {
             toast.error('Upload Failed', { id: toastId });
         } finally {
