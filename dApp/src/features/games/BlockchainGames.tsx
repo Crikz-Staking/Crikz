@@ -15,6 +15,8 @@ import CoinFlip from './CoinFlip';
 import RockPaperScissors from './RockPaperScissors';
 import HighLow from './HighLow';
 import CryptoMines from './CryptoMines';
+import PhiTacToe from './PhiTacToe';        // <--- NEW
+import CryptoRoulette from './CryptoRoulette'; // <--- NEW
 
 interface BlockchainGamesProps {
   dynamicColor: string;
@@ -24,6 +26,8 @@ interface BlockchainGamesProps {
 const GAMES_LIST = [
     { id: 'dice', title: 'Fibonacci Dice', desc: 'Roll the Golden Ratio', icon: Dices, playable: true },
     { id: 'slots', title: 'Satoshi Slots', desc: 'Provably Fair Spins', icon: Coins, playable: true },
+    { id: 'tictac', title: 'Phi-Tac-Toe', desc: 'Beat the AI Strategy', icon: Binary, playable: true }, // Enabled
+    { id: 'roulette', title: 'Crypto Roulette', desc: 'European Standard', icon: Target, playable: true }, // Enabled
     { id: 'coin', title: 'Quantum Flip', desc: '50/50 Probability', icon: RefreshCw, playable: true },
     { id: 'rps', title: 'Rock Paper Scissors', desc: 'PvE Strategy', icon: Scissors, playable: true },
     { id: 'highlow', title: 'High / Low', desc: 'Predict the Next Block', icon: TrendingUp, playable: true },
@@ -31,9 +35,6 @@ const GAMES_LIST = [
     
     // Future Games
     { id: 'chess', title: 'Grandmaster Chess', desc: 'Elo Rated Matches', icon: Crown, playable: false },
-    { id: 'poker', title: 'Texas Hold\'em', desc: 'No-Limit Tables', icon: Dices, playable: false },
-    { id: 'tictac', title: 'Phi-Tac-Toe', desc: 'Beat the AI', icon: Binary, playable: false },
-    { id: 'roulette', title: 'Crypto Roulette', desc: 'European Standard', icon: Target, playable: false },
     { id: 'ghost', title: 'Ghost Protocol', desc: 'Stealth Strategy', icon: Ghost, playable: false },
 ];
 
@@ -41,8 +42,6 @@ export default function BlockchainGames({ dynamicColor, lang }: BlockchainGamesP
   const [activeGame, setActiveGame] = useState<string | null>(null);
   
   // GLOBAL DEMO POINTS STATE
-  // In a real app, this would fetch from a contract or backend.
-  // Here it acts as a session wallet for the games.
   const [demoBalance, setDemoBalance] = useState(1000);
 
   const updateBalance = (amount: number) => {
@@ -56,7 +55,7 @@ export default function BlockchainGames({ dynamicColor, lang }: BlockchainGamesP
 
   return (
     <div className="space-y-8">
-       {/* Game Overlays - Passing Session State */}
+       {/* Game Overlays */}
        {activeGame === 'dice' && (
          <FibonacciDiceGame 
             onClose={() => setActiveGame(null)} 
@@ -67,6 +66,22 @@ export default function BlockchainGames({ dynamicColor, lang }: BlockchainGamesP
        )}
        {activeGame === 'slots' && (
          <SatoshiSlots 
+            onClose={() => setActiveGame(null)} 
+            balance={demoBalance} 
+            onUpdateBalance={updateBalance}
+            dynamicColor={dynamicColor} 
+         />
+       )}
+       {activeGame === 'tictac' && (
+         <PhiTacToe
+            onClose={() => setActiveGame(null)} 
+            balance={demoBalance} 
+            onUpdateBalance={updateBalance}
+            dynamicColor={dynamicColor} 
+         />
+       )}
+       {activeGame === 'roulette' && (
+         <CryptoRoulette
             onClose={() => setActiveGame(null)} 
             balance={demoBalance} 
             onUpdateBalance={updateBalance}
