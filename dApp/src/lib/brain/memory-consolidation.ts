@@ -1,4 +1,4 @@
-import { Memory, BrainState } from './types';
+import { Memory, BrainState, Vector } from './types';
 import { AtomicConcept } from '../crikzling-atomic-knowledge';
 
 export interface MemoryConsolidation {
@@ -113,9 +113,13 @@ export class MemoryConsolidationEngine {
     role: 'user' | 'bot',
     content: string,
     concepts: string[],
-    emotionalWeight: number
+    emotionalWeight: number,
+    vector?: Vector 
   ): void {
     
+    // Default zero vector if none provided
+    const safeVector: Vector = vector || [0, 0, 0, 0, 0, 0];
+
     const memory: Memory = {
       id: this.generateMemoryId(),
       role,
@@ -123,7 +127,8 @@ export class MemoryConsolidationEngine {
       timestamp: Date.now(),
       concepts,
       emotional_weight: emotionalWeight,
-      access_count: 0
+      access_count: 0,
+      vector: safeVector 
     };
     
     this.workingMemory.push(memory);

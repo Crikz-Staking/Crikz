@@ -134,7 +134,6 @@ export class CognitiveProcessor {
       concepts, emotional_weight: emotionalWeight,
       dapp_context: dappContext,
       access_count: 0,
-      context_vector: [], // Deprecated in favor of 'vector'
       vector // Storing the V5 vector
     };
 
@@ -221,11 +220,45 @@ export class CognitiveProcessor {
   }
 
   public async syncBlockchainMemories(): Promise<void> {
-    // (Keep existing implementation logic)
     if (!this.publicClient || !this.memoryContractAddress) return;
     if (Date.now() - this.state.lastBlockchainSync < 300000) return;
     try {
-        // ... (Blockchain read logic) ...
+        const memories: BlockchainMemory[] = [];
+        const memoryABI = [{
+          inputs: [{ name: '', type: 'uint256' }],
+          name: 'memoryTimeline',
+          outputs: [
+            { name: 'timestamp', type: 'uint256' },
+            { name: 'ipfsCid', type: 'string' },
+            { name: 'conceptsCount', type: 'uint256' },
+            { name: 'evolutionStage', type: 'string' },
+            { name: 'triggerEvent', type: 'string' }
+          ],
+          stateMutability: 'view',
+          type: 'function'
+        }] as const;
+  
+        for (let i = 0; i < 5; i++) {
+          try {
+            const data = await this.publicClient.readContract({
+              address: this.memoryContractAddress,
+              abi: memoryABI,
+              functionName: 'memoryTimeline',
+              args: [BigInt(i)],
+            });
+            if (data && Array.isArray(data)) {
+              memories.push({
+                timestamp: Number(data[0]),
+                ipfsCid: data[1] as string,
+                conceptsCount: data[2] as bigint,
+                evolutionStage: data[3] as string,
+                triggerEvent: data[4] as string
+              });
+            }
+          } catch (e) { break; }
+        }
+        
+        this.state.blockchainMemories = memories;
         this.state.lastBlockchainSync = Date.now();
     } catch (e) { console.warn("Sync failed"); }
   }
