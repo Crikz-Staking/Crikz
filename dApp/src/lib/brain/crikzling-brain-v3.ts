@@ -21,8 +21,8 @@ export class CrikzlingBrainV3 {
   private pendingInsight: string | null = null;
   private lastTick: number = Date.now();
 
-  // Configuration for recursive depth
-  private readonly MAX_THOUGHT_CYCLES = 3;
+  // Configuration for recursive depth - Increased for deeper thinking
+  private readonly MAX_THOUGHT_CYCLES = 5;
 
   constructor(
     savedState?: string,
@@ -86,12 +86,12 @@ export class CrikzlingBrainV3 {
   ): Promise<{ response: string; actionPlan: ActionPlan }> { 
     try {
       // 1. PERCEPTION
-      this.updateThought('perception', 10, 'Deconstructing input semantics');
+      this.updateThought('perception', 5, 'Deconstructing input semantics');
       const brainState = this.cognitive.getState();
       const inputAnalysis = this.inputProc.process(text, brainState.concepts, dappContext);
       
       // 2. SPREADING ACTIVATION
-      this.updateThought('spreading_activation', 25, 'Igniting neural pathways');
+      this.updateThought('spreading_activation', 15, 'Igniting neural pathways');
       const activeIds = inputAnalysis.keywords.map(k => k.id);
       this.cognitive.stimulateNetwork(activeIds, brainState.drives.energy);
       
@@ -105,10 +105,13 @@ export class CrikzlingBrainV3 {
       }
 
       for (let cycle = 1; cycle <= this.MAX_THOUGHT_CYCLES; cycle++) {
-          const progress = 25 + (cycle * 15); // 40, 55, 70
+          // Progress scales from 20% to ~80%
+          const progress = 20 + (cycle * (60 / this.MAX_THOUGHT_CYCLES)); 
           
-          this.updateThought('introspection', progress, `Cycle ${cycle}: Querying graph...`);
-          await this.think(300); // Simulate synaptic latency
+          this.updateThought('introspection', progress, `Cycle ${cycle}: Querying conceptual graph...`);
+          
+          // Enhanced Latency: Simulates deeper cognitive load (800ms - 1300ms per cycle)
+          await this.think(800 + Math.random() * 500); 
 
           // A. Memory Retrieval
           const memories = this.cognitive.retrieveRelevantMemories(currentFocus, inputAnalysis.inputVector);
@@ -138,8 +141,10 @@ export class CrikzlingBrainV3 {
       }
 
       // 4. STRATEGY
-      this.updateThought('strategy', 85, 'Collapsing wave function');
-      const actionPlan = this.actionProc.plan(inputAnalysis, brainState, isOwner);
+      this.updateThought('strategy', 90, 'Collapsing wave function');
+      
+      // FIX: Passed 'deepContext' as the 4th argument to satisfy ActionProcessor signature
+      const actionPlan = this.actionProc.plan(inputAnalysis, brainState, isOwner, deepContext);
       
       if (actionPlan.type === 'EXECUTE_COMMAND_RESET' && isOwner) this.cognitive.wipeLocalMemory();
 
