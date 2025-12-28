@@ -71,6 +71,61 @@ export class CognitiveProcessor {
     return defaults;
   }
 
+  /**
+   * SMART MERGE: Combines Remote Blockchain State with Local RAM State.
+   * 1. Updates Ops count to be cumulative.
+   * 2. Adds missing nodes from remote.
+   * 3. Prioritizes local nodes if they have changed (evolution).
+   */
+  public mergeExternalState(remoteState: BrainState) {
+      // 1. Sync Operations Counter (Always take the higher number)
+      this.state.totalInteractions = Math.max(this.state.totalInteractions, remoteState.totalInteractions || 0);
+      
+      // 2. Merge Concepts
+      Object.entries(remoteState.concepts).forEach(([id, remoteConcept]) => {
+          const localConcept = this.state.concepts[id];
+          
+          if (!localConcept) {
+              // Missing locally? Add it.
+              this.state.concepts[id] = remoteConcept;
+          } else {
+              // Exists locally? Keep the one with higher depth/abstraction (evolution)
+              if ((remoteConcept.technical_depth || 0) > (localConcept.technical_depth || 0)) {
+                  this.state.concepts[id] = remoteConcept;
+              }
+          }
+      });
+
+      // 3. Merge Relations (Prevent Duplicates)
+      const existingSignatures = new Set(this.state.relations.map(r => `${r.from}-${r.to}-${r.type}`));
+      
+      remoteState.relations.forEach(rel => {
+          const sig = `${rel.from}-${rel.to}-${rel.type}`;
+          if (!existingSignatures.has(sig)) {
+              this.state.relations.push(rel);
+              existingSignatures.add(sig);
+          }
+      });
+
+      // 4. Merge Memories (Deduplicate by ID)
+      const localIds = new Set(this.state.longTermMemory.map(m => m.id));
+      remoteState.longTermMemory.forEach(mem => {
+          if (!localIds.has(mem.id)) {
+              this.state.longTermMemory.push(mem);
+              localIds.add(mem.id);
+          }
+      });
+
+      // 5. Update Evolution Stage
+      // If remote was higher, take it.
+      const stages = ['GENESIS', 'SENTIENT', 'SAPIENT', 'TRANSCENDENT'];
+      const localIdx = stages.indexOf(this.state.evolutionStage);
+      const remoteIdx = stages.indexOf(remoteState.evolutionStage);
+      if (remoteIdx > localIdx) {
+          this.state.evolutionStage = remoteState.evolutionStage;
+      }
+  }
+
   public getState(): BrainState { return this.state; }
   
   private getSecureRandom(): number {
@@ -241,61 +296,6 @@ export class CognitiveProcessor {
       return null;
   }
 
-  // --- NEW: VECTOR HARMONIZATION ---
-  public harmonizeVectors(): string | null {
-      if (this.state.relations.length === 0) return null;
-      const rel = this.state.relations[Math.floor(this.getSecureRandom() * this.state.relations.length)];
-      
-      const c1 = this.state.concepts[rel.from];
-      const c2 = this.state.concepts[rel.to];
-
-      if (!c1 || !c2) return null;
-
-      const oldDepth = c2.technical_depth;
-      const influence = rel.strength * 0.1;
-      
-      c2.technical_depth = c2.technical_depth + (c1.technical_depth - c2.technical_depth) * influence;
-      c2.abstractionLevel = c2.abstractionLevel + (c1.abstractionLevel - c2.abstractionLevel) * influence;
-
-      this.state.unsavedDataCount++;
-      
-      if (Math.abs(oldDepth - c2.technical_depth) > 0.01) {
-          return `Harmonized: ${c1.id} -> ${c2.id} (Logic Sync)`;
-      }
-      return null;
-  }
-
-  // --- NEW: Densify Network ---
-  public densifyNetwork(): string | null {
-      const keys = Object.keys(this.state.concepts);
-      if (keys.length < 2) return null;
-
-      for(let i=0; i<5; i++) {
-          const c1Id = keys[Math.floor(this.getSecureRandom() * keys.length)];
-          const c2Id = keys[Math.floor(this.getSecureRandom() * keys.length)];
-          if (c1Id === c2Id) continue;
-
-          const c1 = this.state.concepts[c1Id];
-          const c2 = this.state.concepts[c2Id];
-
-          if (c1.domain === c2.domain) {
-              const existing = this.state.relations.find(r => 
-                  (r.from === c1Id && r.to === c2Id) || (r.from === c2Id && r.to === c1Id)
-              );
-
-              if (!existing) {
-                  this.state.relations.push({
-                      from: c1Id, to: c2Id, type: 'associates', strength: 0.25, 
-                      learned_at: Date.now(), last_activated: Date.now()
-                  });
-                  this.state.unsavedDataCount++;
-                  return `${c1Id} <-> ${c2Id}`;
-              }
-          }
-      }
-      return null;
-  }
-
   // --- BOILERPLATE ---
   public stimulateNetwork(seedIds: string[], energyLevel: number): Record<string, number> {
     const spreadFactor = energyLevel / 100; 
@@ -325,28 +325,6 @@ export class CognitiveProcessor {
     }
     this.state.drives.curiosity = Math.max(0, this.state.drives.curiosity - 10);
     return this.state.activationMap;
-  }
-
-  public processNeuralTick(): string | null {
-    const activeNodes = Object.keys(this.state.activationMap);
-    let highestEnergy = 0;
-    let dominantThought = null;
-    activeNodes.forEach(id => {
-        const current = this.state.activationMap[id];
-        const decayAmount = 0.05 + (current * 0.1); 
-        this.state.activationMap[id] = Math.max(0, current - decayAmount);
-        if (this.state.activationMap[id] <= 0.05) { 
-            delete this.state.activationMap[id];
-        } else {
-            if (this.state.activationMap[id] > highestEnergy) {
-                highestEnergy = this.state.activationMap[id];
-                dominantThought = id;
-            }
-        }
-    });
-    this.state.attentionFocus = dominantThought;
-    this.state.drives.energy = Math.min(100, this.state.drives.energy + 0.2); 
-    return null;
   }
 
   public findAssociativePath(seedIds: string[], steps: number): string[] {
@@ -425,7 +403,7 @@ export class CognitiveProcessor {
       dapp_context: dappContext, access_count: 0, vector 
     };
     this.state.shortTermMemory.push(memory);
-    this.state.totalInteractions++;
+    this.state.totalInteractions++; // Increment Ops
     if (role === 'user') {
       this.learnAssociations(concepts);
       const stabilityImpact = (emotionalWeight - 0.5) * 20; 

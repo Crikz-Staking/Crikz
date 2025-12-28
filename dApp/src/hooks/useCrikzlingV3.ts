@@ -46,14 +46,14 @@ export function useCrikzlingV3() {
     };
   }, [balance, activeOrders, totalReputation, pendingYield, globalFund]);
 
-  // --- AUTHENTICATION & MEMORY SNAPSHOT ---
+  // --- AUTHENTICATION & SNAPSHOT ---
   const { data: contractOwner } = useReadContract({
     address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
     abi: [{ name: 'owner', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] }] as const,
     functionName: 'owner',
   });
 
-  const { data: latestSnapshot } = useReadContract({
+  const { data: latestSnapshot, refetch: refetchSnapshot } = useReadContract({
     address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
     abi: CRIKZLING_MEMORY_ABI,
     functionName: 'getLatestMemory',
@@ -81,38 +81,38 @@ export function useCrikzlingV3() {
     setForceUpdate(prev => prev + 1); 
   }, []);
 
-  // --- BRAIN INITIALIZATION & HYDRATION ---
+  // --- INIT & HYDRATION ---
   useEffect(() => {
     if (!sessionId || !publicClient) return;
     if (brain) return;
 
     const initializeBrain = async () => {
         let initialState: string | undefined = localStorage.getItem(`crikz_brain_v3_${sessionId}`) || undefined;
-        let recoveryMode = false;
+        let loadedFromChain = false;
 
-        // If no local state, try to fetch from IPFS/Blockchain
+        // Smart Hydration: If local is missing OR requested, check blockchain first
         if (!initialState && latestSnapshot) {
             try {
-                // @ts-ignore - Tuple access
+                // @ts-ignore
                 const cid = latestSnapshot.ipfsCid || latestSnapshot[1];
                 if (cid) {
                     const url = downloadFromIPFS(cid);
-                    const toastId = toast.loading("Restoring Neural Matrix from Blockchain...");
+                    const toastId = toast.loading("Restoring Neural Matrix...");
                     
                     const response = await fetch(url);
                     const json = await response.json();
                     
                     if (json && json.concepts) {
                         initialState = JSON.stringify(json);
-                        recoveryMode = true;
-                        toast.success("Memory Restored Successfully!", { id: toastId });
+                        loadedFromChain = true;
+                        toast.success("Memory Restored.", { id: toastId });
                     } else {
                         toast.dismiss(toastId);
                     }
                 }
             } catch (e) {
-                console.error("Failed to hydrate from IPFS:", e);
-                toast.error("Failed to restore remote memory. Initializing Genesis.", { id: 'hydrate-err' });
+                console.error("Hydration Error:", e);
+                toast.error("Network sync failed. Starting local.", { id: 'hydrate-err' });
             }
         }
 
@@ -123,28 +123,14 @@ export function useCrikzlingV3() {
         );
         
         initialBrain.setThoughtUpdateCallback(thoughtCallback);
-
-        // Sync Ops Counter with Blockchain Metadata
-        if (latestSnapshot) {
-            // @ts-ignore
-            const trigger = latestSnapshot.triggerEvent || latestSnapshot[4] || "";
-            // Format: V5_MANUAL_SAVE_1234
-            const parts = trigger.split('_');
-            const savedOps = parseInt(parts[parts.length - 1]);
-            
-            if (!isNaN(savedOps)) {
-                initialBrain.syncBaseline(savedOps);
-            }
-        }
-
         setBrain(initialBrain);
         
         setMessages(prev => {
             if (prev.length > 0) return prev;
-            const welcomeMsg = recoveryMode 
-                ? 'Systems online. Remote consciousness restored from the Block.' 
+            const welcomeMsg = loadedFromChain
+                ? 'Systems online. Remote consciousness fully restored.'
                 : initialState
-                    ? 'Neural lattice restored locally. Subconscious systems active.'
+                    ? 'Neural lattice active. Local memory detected.'
                     : 'Genesis complete. Crikzling V5 online. Awaiting input.';
             return [{ role: 'bot', content: welcomeMsg, timestamp: Date.now() }];
         });
@@ -153,10 +139,9 @@ export function useCrikzlingV3() {
     initializeBrain();
   }, [sessionId, publicClient, latestSnapshot]);
 
-  // --- HIGH-SPEED HEARTBEAT ---
+  // --- LOOP ---
   useEffect(() => {
     if (!brain) return;
-    
     const stats = brain.getStats();
     const tickRate = stats.connectivity?.isConnected ? 100 : 8000; 
 
@@ -170,6 +155,7 @@ export function useCrikzlingV3() {
     return () => clearInterval(heartbeat);
   }, [brain, isThinking, isTyping, isSyncing, forceUpdate]);
 
+  // --- STREAMING UI ---
   const typeStreamResponse = async (fullText: string) => {
     setIsTyping(true);
     setMessages(prev => [...prev, { role: 'bot', content: '', timestamp: Date.now() }]);
@@ -199,57 +185,83 @@ export function useCrikzlingV3() {
     });
   };
 
+  // --- SMART CRYSTALLIZATION ---
   const crystallize = async () => {
     if (!brain || !address || !publicClient) {
-      toast.error("Wallet or Provider missing.");
+      toast.error("Wallet missing.");
       return;
     }
     if (isSyncing) return;
 
     setIsSyncing(true); 
-    const toastId = toast.loading('Encoding neural state...', { id: 'crystallize' });
+    const toastId = toast.loading('Initiating Neural Sync...', { id: 'crystallize' });
 
     try {
-      const state = brain.getState();
-      const exportStr = brain.exportState();
-      const blob = new Blob([exportStr], { type: 'application/json' });
-      const file = new File([blob], `crikz_v5_mem_${Date.now()}.json`);
-      
-      toast.loading('Uploading to IPFS...', { id: toastId });
-      
-      const cid = await uploadToIPFS(file);
-      
-      const conceptCount = BigInt(Object.keys(state.concepts).length);
-      const stage = state.evolutionStage;
-      const trigger = `V5_MANUAL_SAVE_${state.totalInteractions}`;
+        // 1. Fetch Remote State (if exists)
+        if (latestSnapshot) {
+            try {
+                toast.loading('Merging with Blockchain...', { id: toastId });
+                // @ts-ignore
+                const cid = latestSnapshot.ipfsCid || latestSnapshot[1];
+                if (cid) {
+                    const url = downloadFromIPFS(cid);
+                    const response = await fetch(url);
+                    const remoteJson = await response.json();
+                    
+                    // 2. Merge Remote into Local
+                    brain.mergeState(remoteJson);
+                }
+            } catch (e) {
+                console.warn("Merge skipped, pushing local only");
+            }
+        }
 
-      toast.loading('Waiting for signature...', { id: toastId });
-      const hash = await writeContractAsync({
-        address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
-        abi: CRIKZLING_MEMORY_ABI,
-        functionName: 'crystallizeMemory',
-        args: [cid, conceptCount, stage, trigger],
-        account: address,
-        chain: bscTestnet
-      });
+        // 3. Prepare Upload
+        const state = brain.getState();
+        const exportStr = brain.exportState();
+        const blob = new Blob([exportStr], { type: 'application/json' });
+        const file = new File([blob], `crikz_v5_mem_${Date.now()}.json`);
+        
+        toast.loading('Uploading merged state to IPFS...', { id: toastId });
+        
+        // 4. Upload
+        const newCid = await uploadToIPFS(file);
+        
+        const conceptCount = BigInt(Object.keys(state.concepts).length);
+        const stage = state.evolutionStage;
+        // Store totalOps in trigger string for easy parsing later
+        const trigger = `V5_SYNC_${state.totalInteractions}`;
 
-      toast.loading('Confirming on Blockchain...', { id: toastId });
-      await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
+        // 5. Write to Chain
+        toast.loading('Signing transaction...', { id: toastId });
+        const hash = await writeContractAsync({
+            address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
+            abi: CRIKZLING_MEMORY_ABI,
+            functionName: 'crystallizeMemory',
+            args: [newCid, conceptCount, stage, trigger],
+            account: address,
+            chain: bscTestnet
+        });
 
-      brain.clearUnsavedCount();
-      if (sessionId) localStorage.setItem(`crikz_brain_v3_${sessionId}`, brain.exportState());
-      
-      toast.success('Crystallization Complete!', { id: toastId });
-      typeStreamResponse('Memory block confirmed. State crystallized on-chain.');
+        toast.loading('Confirming block...', { id: toastId });
+        await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
+
+        // 6. Cleanup Local
+        brain.clearUnsavedCount();
+        if (sessionId) {
+            // Keep the merged state in RAM, but clear disk to enforce "Compact Local Storage" rule
+            localStorage.removeItem(`crikz_brain_v3_${sessionId}`);
+        }
+        
+        await refetchSnapshot(); // Update hook state
+        toast.success('Crystallization Complete!', { id: toastId });
+        typeStreamResponse(`Memory block merged & confirmed. Local cache cleared. Running on distributed state.`);
 
     } catch (e: any) {
-      console.error(e);
-      const msg = e.message?.toLowerCase().includes('reject') 
-        ? 'Transaction rejected' 
-        : 'Crystallization failed: Check console/API keys';
-      toast.error(msg, { id: toastId });
+        console.error(e);
+        toast.error("Sync Failed", { id: toastId });
     } finally {
-      setIsSyncing(false); 
+        setIsSyncing(false); 
     }
   };
 
@@ -260,6 +272,8 @@ export function useCrikzlingV3() {
 
     try {
       const { response, actionPlan } = await brain.process(text, isOwner, dappContextRef.current);
+      
+      // Save temp state to local storage just in case of crash before crystallize
       if (sessionId) localStorage.setItem(`crikz_brain_v3_${sessionId}`, brain.exportState());
       
       setIsThinking(false);
@@ -286,7 +300,6 @@ export function useCrikzlingV3() {
     brain.wipe();
     localStorage.removeItem(`crikz_brain_v3_${sessionId}`);
     
-    // Create fresh instance
     const newBrain = new CrikzlingBrainV3(undefined, publicClient, CRIKZLING_MEMORY_ADDRESS as `0x${string}`);
     newBrain.setThoughtUpdateCallback(thoughtCallback);
     setBrain(newBrain);

@@ -53,9 +53,6 @@ export class CrikzlingBrainV3 {
     }
   }
 
-  /**
-   * Helper for Cryptographically Secure Randomness
-   */
   private getSecureRandom(): number {
     const array = new Uint32Array(1);
     window.crypto.getRandomValues(array);
@@ -63,14 +60,10 @@ export class CrikzlingBrainV3 {
   }
 
   /**
-   * NEW: Syncs internal counters with Blockchain Baseline
-   * Ensures 'Ops' count never regresses below what is stored on-chain.
+   * EXPOSED METHOD: Merges remote state into local brain
    */
-  public syncBaseline(blockchainOps: number) {
-      const state = this.cognitive.getState();
-      if (state.totalInteractions < blockchainOps) {
-          state.totalInteractions = blockchainOps;
-      }
+  public mergeState(remoteState: BrainState) {
+      this.cognitive.mergeExternalState(remoteState);
   }
 
   public setThoughtUpdateCallback(callback: (thought: ThoughtProcess | null) => void) {
@@ -182,7 +175,6 @@ export class CrikzlingBrainV3 {
             }
         });
 
-        // Bulk increment Ops
         state.totalInteractions += validOps;
         this.updateThought('web_crawling', 100, `Hyper-processing ${validOps} nodes...`);
 
@@ -252,9 +244,6 @@ export class CrikzlingBrainV3 {
       const integratedContext = this.resultProc.processMultiCycle(inputAnalysis, actionPlan, deepContext, brainState, dappContext);
       let response = this.generator.generateDeep(integratedContext);
       
-      this.updateThought('strategy', 95, 'Refining semantics...');
-      // Note: ResponseGenerator now handles rethinkAndRefine internally in generateDeep
-
       if (this.pendingInsight) {
           response += `\n\n[Cached Insight]: ${this.pendingInsight}`;
           this.pendingInsight = null;
