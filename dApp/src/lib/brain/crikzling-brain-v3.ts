@@ -160,6 +160,9 @@ export class CrikzlingBrainV3 {
             }
 
             if (actionLog) {
+                // INCREMENT OPS COUNTER FOR BACKGROUND WORK
+                state.totalInteractions++;
+
                 this.updateThought('web_crawling', 50, actionLog);
                 this.logEvent({
                     type: 'WEB_SYNC',
@@ -183,6 +186,9 @@ export class CrikzlingBrainV3 {
     if (!isConnected && state.drives.energy > 80 && this.getSecureRandom() < 0.05) {
         const dream = this.cognitive.dream();
         if (dream) {
+            // INCREMENT OPS COUNTER FOR DREAMING
+            state.totalInteractions++;
+
             this.logEvent({ type: 'DREAM', input: 'Subconscious', output: dream, intent: 'DISCOURSE', emotionalShift: 0, activeNodes: [], vectors: {input:[0,0,0,0,0,0], response:[0,0,0,0,0,0]}, thoughtCycles: [], executionTimeMs: 0 });
         }
     }
