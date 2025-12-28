@@ -5,13 +5,13 @@ import {
     X, Search, ChevronRight, Terminal, Lock, Sliders, 
     PlusCircle, Save, Globe, Zap, Battery, Download, FileText,
     Wallet, Award, TrendingUp, Layers, ArrowRight, ShieldCheck, AlertTriangle,
-    HardDrive, Check, History, RotateCcw
+    HardDrive, Check, History, RotateCcw, RefreshCw // <--- ADDED HERE
 } from 'lucide-react';
 import { CognitiveLogEntry, InternalDrives } from '@/lib/brain/types';
 import { AtomicConcept } from '@/lib/crikzling-atomic-knowledge';
 import { formatEther } from 'viem';
 import { useMemoryTimeline, MemorySnapshot } from '@/hooks/web3/useMemoryTimeline';
-import { useCrikzlingV3 } from '@/hooks/useCrikzlingV3'; // Import for restoreMemory
+import { useCrikzlingV3 } from '@/hooks/useCrikzlingV3';
 
 // --- ROBUST DOWNLOAD UTILITY ---
 const downloadData = (filename: string, data: any) => {
@@ -25,7 +25,7 @@ const downloadData = (filename: string, data: any) => {
         a.download = filename;
         a.style.display = 'none';
         
-        document.body.appendChild(a); // Required for Firefox/some browsers
+        document.body.appendChild(a);
         a.click();
         
         setTimeout(() => {
@@ -57,11 +57,6 @@ export default function NeuralDashboard({
     const [view, setView] = useState<'monitor' | 'synapse' | 'cortex' | 'matrix' | 'timeline'>('monitor');
     const { isConnected, stamina, bandwidthUsage } = brainStats.connectivity;
     
-    // We need restoreMemory from the hook, but it's not passed as prop. 
-    // Ideally NeuralDashboard should be inside the context or pass it down.
-    // For now, let's assume we can re-use the hook or add it to props.
-    // However, calling hook inside a conditional component is risky.
-    // Let's instantiate it just for the restoration function.
     const { restoreMemory } = useCrikzlingV3(); 
 
     if (!isOpen) return null;
@@ -171,7 +166,6 @@ export default function NeuralDashboard({
     );
 }
 
-// --- NEW COMPONENT: TIMELINE VIEW ---
 function TimelineView({ isOwner, onRestore }: { isOwner: boolean, onRestore: (s: MemorySnapshot) => void }) {
     const { timeline, loading, refresh } = useMemoryTimeline();
 
@@ -235,9 +229,7 @@ function TimelineView({ isOwner, onRestore }: { isOwner: boolean, onRestore: (s:
     );
 }
 
-// ... [Keep MonitorView, SynapseView, CortexView, MatrixView, NetworkTerminal, AccessDenied, Utils exactly as before] ...
-
-// Live Terminal: Shows actual WEB_SYNC events mixed with packet noise
+// Live Terminal
 const NetworkTerminal = ({ logs }: { logs: CognitiveLogEntry[] }) => {
     const [lines, setLines] = useState<string[]>([]);
     const bottomRef = useRef<HTMLDivElement>(null);
@@ -245,14 +237,12 @@ const NetworkTerminal = ({ logs }: { logs: CognitiveLogEntry[] }) => {
 
     useEffect(() => {
         const interval = setInterval(() => {
-            // Check for new real logs first
             const latest = logs[0];
             if (latest && latest.type === 'WEB_SYNC' && latest.id !== lastLogIdRef.current) {
                 lastLogIdRef.current = latest.id;
                 const msg = `[${new Date(latest.timestamp).toLocaleTimeString()}] >> ${latest.output.toUpperCase()}`;
                 setLines(prev => [...prev.slice(-15), msg]);
             } else {
-                // Background noise
                 const actions = ['PACKET_IN', 'HANDSHAKE', 'SYN_ACK', 'GET_BLOCK', 'PARSING', 'VALIDATING'];
                 const randomAction = actions[Math.floor(Math.random() * actions.length)];
                 const hash = Math.random().toString(36).substring(7);
@@ -365,7 +355,6 @@ function SynapseView({ onTrain, lastLog }: { onTrain: (txt: string) => void, las
     );
 }
 
-// --- CORTEX VIEW ---
 function CortexView({ logs }: { logs: CognitiveLogEntry[] }) {
     const [selected, setSelected] = useState<CognitiveLogEntry | null>(logs[0] || null);
 
@@ -519,8 +508,6 @@ function MatrixView({ stats, onUpdate }: { stats: any, onUpdate: (d: InternalDri
         </div>
     );
 }
-
-// --- UTILS ---
 
 function ContextMetric({ label, value, icon: Icon, color }: any) {
     return (

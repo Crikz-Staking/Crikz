@@ -33,7 +33,6 @@ export const CRIKZ_TOKEN_ABI = [
   { "inputs": [], "name": "productionFund", "outputs": [{"name": "balance", "type": "uint256"}, {"name": "totalReputation", "type": "uint256"}, {"name": "accumulatedYieldPerReputation", "type": "uint256"}, {"name": "lastUpdateTime", "type": "uint256"}], "stateMutability": "view", "type": "function" }
 ] as const;
 
-// UPDATED ABI WITH TIMELINE READ FUNCTION
 export const CRIKZLING_MEMORY_ABI = [
   { 
     "inputs": [{"internalType": "string", "name": "_ipfsCid", "type": "string"}, {"internalType": "uint256", "name": "_conceptsCount", "type": "uint256"}, {"internalType": "string", "name": "_evolutionStage", "type": "string"}, {"internalType": "string", "name": "_trigger", "type": "string"}], 
@@ -74,6 +73,17 @@ export const CRIKZLING_MEMORY_ABI = [
     ],
     "stateMutability": "view",
     "type": "function"
+  },
+  // Added Event Definition
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "uint256", "name": "snapshotId", "type": "uint256" },
+      { "indexed": false, "internalType": "string", "name": "ipfsCid", "type": "string" },
+      { "indexed": false, "internalType": "string", "name": "evolutionStage", "type": "string" }
+    ],
+    "name": "MemoryCrystallized",
+    "type": "event"
   }
 ] as const;
 
