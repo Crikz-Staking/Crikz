@@ -115,80 +115,86 @@ export class CrikzlingBrainV3 {
       this.cognitive.getState().unsavedDataCount++;
   }
 
+  // --- UNLEASHED TICK LOGIC ---
   public async tick(dappContext?: DAppContext): Promise<void> {
     const now = Date.now();
     const state = this.cognitive.getState();
     const { isConnected } = state.connectivity;
 
-    const tickRate = isConnected ? 1200 : 8000; 
+    // HYPER-THREADING: 
+    // If connected, run every 50ms. If idle, run every 8000ms.
+    const tickRate = isConnected ? 50 : 8000; 
+    
     if (now - this.lastTick < tickRate) return;
     this.lastTick = now;
 
     if (isConnected) {
-        state.connectivity.stamina = 100; // Infinite Power via Link
+        state.connectivity.stamina = 100; // Infinite Power
         
-        // Secure Bandwidth Fluctuation
-        const randomFactor = this.getSecureRandom();
-        const bandwidth = Math.floor(randomFactor * 60) + 40;
+        // Maximize Bandwidth Simulation (80-100 MB/s)
+        const bandwidth = Math.floor(this.getSecureRandom() * 20) + 80;
         state.connectivity.bandwidthUsage = bandwidth;
         
-        const operations = bandwidth > 80 ? 3 : bandwidth > 50 ? 2 : 1;
+        // Massive Parallelism: 10-20 operations per tick
+        const operations = Math.floor(bandwidth / 5); 
+
+        const tasks: Promise<string | null>[] = [];
 
         for(let i=0; i<operations; i++) {
-            const roll = this.getSecureRandom();
-            let actionLog = "";
+            tasks.push(new Promise((resolve) => {
+                const roll = this.getSecureRandom();
+                let res: string | null = null;
 
-            // Prioritize Evolution based on secure roll
-            if (roll > 0.85) {
-                actionLog = this.cognitive.evolveCognitiveState();
-            } 
-            else if (roll > 0.70) {
-                const res = this.cognitive.clusterConcepts();
-                if (res) actionLog = res;
-            }
-            else if (roll > 0.55) {
-                const res = this.cognitive.optimizeGraph();
-                if (res) actionLog = res;
-            }
-            else if (roll > 0.30) {
-                const res = this.cognitive.prioritizedSynthesis();
-                if (res) actionLog = res;
-            } 
-            else {
-                const res = this.cognitive.deepenKnowledge();
-                if (res) actionLog = `Deepened Research: ${res}`;
-            }
-
-            if (actionLog) {
-                // INCREMENT OPS COUNTER FOR BACKGROUND WORK
-                state.totalInteractions++;
-
-                this.updateThought('web_crawling', 50, actionLog);
-                this.logEvent({
-                    type: 'WEB_SYNC',
-                    input: 'Neural Link Data Stream',
-                    output: actionLog,
-                    intent: 'SYSTEM', 
-                    activeNodes: [],
-                    emotionalShift: 0,
-                    vectors: { input: [0,0,0,0,0,0], response: [0,0,0,0,0,0] },
-                    thoughtCycles: [],
-                    executionTimeMs: 0
-                });
-            }
+                if (roll > 0.85) res = this.cognitive.evolveCognitiveState();
+                else if (roll > 0.70) res = this.cognitive.clusterConcepts();
+                else if (roll > 0.55) res = this.cognitive.optimizeGraph();
+                else if (roll > 0.30) res = this.cognitive.prioritizedSynthesis();
+                else res = this.cognitive.deepenKnowledge();
+                
+                resolve(res);
+            }));
         }
+
+        // Execute all cognitive tasks in parallel
+        const results = await Promise.all(tasks);
+
+        // Batch update state to prevent UI thrashing
+        let validOps = 0;
+        results.forEach(actionLog => {
+            if (actionLog) {
+                validOps++;
+                // Log only significant events to avoid flooding history completely
+                // (logging 1 out of 5 to keep history usable)
+                if (validOps % 5 === 0) {
+                    this.logEvent({
+                        type: 'WEB_SYNC',
+                        input: 'Neural Link Hyperstream',
+                        output: actionLog,
+                        intent: 'SYSTEM', 
+                        activeNodes: [],
+                        emotionalShift: 0,
+                        vectors: { input: [0,0,0,0,0,0], response: [0,0,0,0,0,0] },
+                        thoughtCycles: [],
+                        executionTimeMs: 1 // Nominal
+                    });
+                }
+            }
+        });
+
+        // Bulk increment Ops
+        state.totalInteractions += validOps;
+        this.updateThought('web_crawling', 100, `Hyper-processing ${validOps} nodes...`);
+
     } else {
         state.connectivity.stamina = 100; 
         state.connectivity.bandwidthUsage = 0;
     }
 
-    // Subconscious Dreaming (Only if energy high & offline)
+    // Subconscious Dreaming (Offline Mode)
     if (!isConnected && state.drives.energy > 80 && this.getSecureRandom() < 0.05) {
         const dream = this.cognitive.dream();
         if (dream) {
-            // INCREMENT OPS COUNTER FOR DREAMING
             state.totalInteractions++;
-
             this.logEvent({ type: 'DREAM', input: 'Subconscious', output: dream, intent: 'DISCOURSE', emotionalShift: 0, activeNodes: [], vectors: {input:[0,0,0,0,0,0], response:[0,0,0,0,0,0]}, thoughtCycles: [], executionTimeMs: 0 });
         }
     }

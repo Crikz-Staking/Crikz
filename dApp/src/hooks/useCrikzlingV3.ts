@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useAccount, useWriteContract, usePublicClient } from 'wagmi';
+import { useAccount, useWriteContract, usePublicClient, useReadContract } from 'wagmi';
 import { bscTestnet } from 'wagmi/chains';
 import { toast } from 'react-hot-toast';
 
@@ -9,8 +9,6 @@ import { AtomicConcept } from '@/lib/crikzling-atomic-knowledge';
 import { uploadToIPFS } from '@/lib/ipfs-service';
 import { CRIKZLING_MEMORY_ADDRESS, CRIKZLING_MEMORY_ABI } from '@/config/index';
 import { useContractData } from '@/hooks/web3/useContractData';
-
-const ARCHITECT_ADDRESS = "0x7072F8955FEb6Cdac4cdA1e069f864969Da4D379";
 
 export function useCrikzlingV3() {
   const { address } = useAccount();
@@ -25,6 +23,7 @@ export function useCrikzlingV3() {
   const [currentThought, setCurrentThought] = useState<ThoughtProcess | null>(null);
   const [forceUpdate, setForceUpdate] = useState(0); 
 
+  // --- CONTRACT DATA ---
   const {
     balance,
     activeOrders,
@@ -47,6 +46,18 @@ export function useCrikzlingV3() {
     };
   }, [balance, activeOrders, totalReputation, pendingYield, globalFund]);
 
+  // --- AUTHENTICATION LOGIC ---
+  const { data: contractOwner } = useReadContract({
+    address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
+    abi: [{ name: 'owner', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] }] as const,
+    functionName: 'owner',
+  });
+
+  const isOwner = useMemo(() => {
+    if (!address || !contractOwner) return false;
+    return address.toLowerCase() === (contractOwner as string).toLowerCase();
+  }, [address, contractOwner]);
+
   const sessionId = useMemo(() => {
     if (address) return address;
     let stored = localStorage.getItem('crikz_guest_id');
@@ -56,8 +67,6 @@ export function useCrikzlingV3() {
     }
     return stored;
   }, [address]);
-
-  const isOwner = address?.toLowerCase() === ARCHITECT_ADDRESS.toLowerCase();
 
   const { writeContractAsync } = useWriteContract();
 
@@ -90,13 +99,14 @@ export function useCrikzlingV3() {
     });
   }, [sessionId, publicClient]);
 
-  // DYNAMIC HEARTBEAT
+  // --- HIGH-SPEED HEARTBEAT ---
   useEffect(() => {
     if (!brain) return;
     
     const stats = brain.getStats();
-    // Fast tick when connected (2s), slow when idle (8s)
-    const tickRate = stats.connectivity?.isConnected ? 2000 : 8000; 
+    
+    // Hyper-Threading: 100ms when connected, 8s when idle
+    const tickRate = stats.connectivity?.isConnected ? 100 : 8000; 
 
     const heartbeat = setInterval(() => {
       // Don't tick if we are syncing (prevents race conditions during save)
@@ -107,7 +117,7 @@ export function useCrikzlingV3() {
       }
     }, tickRate); 
     return () => clearInterval(heartbeat);
-  }, [brain, isThinking, isTyping, isSyncing, forceUpdate]);
+  }, [brain, isThinking, isTyping, isSyncing, forceUpdate]); // Re-run effect when connectivity changes via forceUpdate
 
   const typeStreamResponse = async (fullText: string) => {
     setIsTyping(true);
@@ -138,7 +148,6 @@ export function useCrikzlingV3() {
     });
   };
 
-  // --- FIXED CRYSTALLIZATION LOGIC ---
   const crystallize = async () => {
     if (!brain || !address || !publicClient) {
       toast.error("Wallet or Provider missing.");
@@ -150,20 +159,19 @@ export function useCrikzlingV3() {
     const toastId = toast.loading('Encoding neural state...', { id: 'crystallize' });
 
     try {
-      // 1. IPFS Upload
       const state = brain.getState();
       const exportStr = brain.exportState();
       const blob = new Blob([exportStr], { type: 'application/json' });
       const file = new File([blob], `crikz_v5_mem_${Date.now()}.json`);
       
       toast.loading('Uploading to IPFS...', { id: toastId });
+      
       const cid = await uploadToIPFS(file);
       
       const conceptCount = BigInt(Object.keys(state.concepts).length);
       const stage = state.evolutionStage;
       const trigger = `V5_MANUAL_SAVE_${state.totalInteractions}`;
 
-      // 2. Blockchain Write
       toast.loading('Waiting for signature...', { id: toastId });
       const hash = await writeContractAsync({
         address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
@@ -174,13 +182,10 @@ export function useCrikzlingV3() {
         chain: bscTestnet
       });
 
-      // 3. Wait for Receipt Explicitly
       toast.loading('Confirming on Blockchain...', { id: toastId });
       await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
 
-      // 4. Success State Update
       brain.clearUnsavedCount();
-      // Update local storage immediately to match chain state
       if (sessionId) localStorage.setItem(`crikz_brain_v3_${sessionId}`, brain.exportState());
       
       toast.success('Crystallization Complete!', { id: toastId });
@@ -188,13 +193,11 @@ export function useCrikzlingV3() {
 
     } catch (e: any) {
       console.error(e);
-      // Handle user rejection vs actual error
       const msg = e.message?.toLowerCase().includes('reject') 
         ? 'Transaction rejected' 
-        : 'Crystallization failed';
+        : 'Crystallization failed: Check console/API keys';
       toast.error(msg, { id: toastId });
     } finally {
-      // CRITICAL: ALWAYS RESET STATE HERE
       setIsSyncing(false); 
     }
   };
@@ -212,7 +215,6 @@ export function useCrikzlingV3() {
       setCurrentThought(null);
       await typeStreamResponse(response);
 
-      // Handle actions AFTER response is done type-streaming
       if (actionPlan?.type === 'EXECUTE_COMMAND_SAVE') {
           setTimeout(() => crystallize(), 500); 
       }
@@ -233,7 +235,6 @@ export function useCrikzlingV3() {
     brain.wipe();
     localStorage.removeItem(`crikz_brain_v3_${sessionId}`);
     
-    // Create fresh instance
     const newBrain = new CrikzlingBrainV3(undefined, publicClient, CRIKZLING_MEMORY_ADDRESS as `0x${string}`);
     newBrain.setThoughtUpdateCallback(thoughtCallback);
     setBrain(newBrain);
@@ -251,7 +252,6 @@ export function useCrikzlingV3() {
     typeStreamResponse(`Knowledge assimilation complete. Integrated ${count} concepts.`);
   };
 
-  // --- NEW CONTROLS ---
   const updateDrives = (drives: InternalDrives) => {
       if (brain) {
           brain.updateDrives(drives);
@@ -279,7 +279,7 @@ export function useCrikzlingV3() {
       if (brain) {
           brain.toggleNeuralLink(active);
           setForceUpdate(prev => prev + 1);
-          if(active) toast.success("Neural Link Established");
+          if(active) toast.success("Hyper-Link Established");
           else toast('Link Severed', { icon: '🔌' });
       }
   };
@@ -305,7 +305,6 @@ export function useCrikzlingV3() {
       relations: stats?.relations || 0,
       unsaved: stats?.unsaved || 0,
       drives: stats?.drives || { curiosity: 0, stability: 0, efficiency: 0, social: 0, energy: 0 },
-      // FIX: Added lastWebSync: 0 to prevent type error
       connectivity: stats?.connectivity || { isConnected: false, bandwidthUsage: 0, stamina: 100, lastWebSync: 0 }, 
       memories: stats?.memories || { short: 0, mid: 0, long: 0, blockchain: 0 },
       interactions: stats?.interactions || 0,
