@@ -118,41 +118,43 @@ export class CrikzlingBrainV3 {
       this.cognitive.getState().unsavedDataCount++;
   }
 
-  // --- IMPROVED CORE LOOP ---
+  // --- CORE LOOP ---
   public async tick(dappContext?: DAppContext): Promise<void> {
     const now = Date.now();
     const state = this.cognitive.getState();
     const { isConnected } = state.connectivity;
 
-    const tickRate = isConnected ? 2000 : 8000; 
+    // Faster Tick Rate when connected (1.5s) to show faster results
+    const tickRate = isConnected ? 1500 : 8000; 
     if (now - this.lastTick < tickRate) return;
     this.lastTick = now;
 
-    // --- NEURAL LINK LOGIC ---
+    // --- NEURAL LINK LOGIC (Connected State) ---
     if (isConnected) {
         if (state.connectivity.stamina > 0) {
             // 1. Drain Fuel
-            state.connectivity.stamina = Math.max(0, state.connectivity.stamina - 2);
-            state.connectivity.bandwidthUsage = Math.floor(Math.random() * 40) + 60;
+            state.connectivity.stamina = Math.max(0, state.connectivity.stamina - 1.5);
+            state.connectivity.bandwidthUsage = Math.floor(Math.random() * 60) + 40;
             
-            // 2. Perform Intelligent Operations based on probability
+            // 2. Intelligent Operations (Probabilities tuned for visibility)
             const roll = Math.random();
             let actionLog = "";
 
-            if (roll > 0.8) {
-                // High Cost: Create New Node (Synthesis)
+            if (roll > 0.7) {
+                // 30% Chance: SYNTHESIS (New Node) - Increases Node Count
                 const newId = this.cognitive.synthesizeConcept();
                 if (newId) actionLog = `Synthesized Concept: ${newId}`;
-            } else if (roll > 0.5) {
-                // Medium Cost: Create New Link (Densify)
+            } else if (roll > 0.3) {
+                // 40% Chance: DENSIFICATION (New Relation) - Increases Relation Count
                 const link = this.cognitive.densifyNetwork();
                 if (link) actionLog = `Reinforced Logic: ${link}`;
-            } else if (roll > 0.2) {
-                // Low Cost: Refine existing (Deepen)
+            } else {
+                // 30% Chance: DEEPENING (Refinement) - Updates existing nodes
                 const depth = this.cognitive.deepenKnowledge();
                 if (depth) actionLog = `Deepened Research: ${depth}`;
             }
 
+            // Only log if something actually happened
             if (actionLog) {
                 this.updateThought('web_crawling', 50, actionLog);
                 this.logEvent({
@@ -162,6 +164,8 @@ export class CrikzlingBrainV3 {
                     intent: 'SYSTEM', 
                     activeNodes: [], 
                 });
+            } else {
+                this.updateThought('web_crawling', 30, 'Scanning...');
             }
 
         } else {
@@ -171,11 +175,11 @@ export class CrikzlingBrainV3 {
         }
     } else {
         // Regen Stamina when offline
-        state.connectivity.stamina = Math.min(100, state.connectivity.stamina + 1);
+        state.connectivity.stamina = Math.min(100, state.connectivity.stamina + 2);
         state.connectivity.bandwidthUsage = 0;
     }
 
-    // Dreaming (Offline)
+    // Dreaming (Offline Mode)
     if (!isConnected && state.drives.energy > 80 && Math.random() < 0.05) {
         const dream = this.cognitive.dream();
         if (dream) {

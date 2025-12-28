@@ -79,20 +79,6 @@ export class CognitiveProcessor {
       return array[0] / (0xFFFFFFFF + 1);
   }
 
-  public calculateEntropy(): number {
-      const activations = Object.values(this.state.activationMap);
-      if (activations.length === 0) return 0;
-      const totalEnergy = activations.reduce((sum, val) => sum + val, 0);
-      if (totalEnergy === 0) return 0;
-      let entropy = 0;
-      for (const energy of activations) {
-          const p = energy / totalEnergy;
-          if (p > 0) entropy -= p * Math.log2(p);
-      }
-      const maxEntropy = Math.log2(activations.length || 1);
-      return maxEntropy === 0 ? 0 : Math.min(100, (entropy / maxEntropy) * 100);
-  }
-
   public processNeuralTick(): string | null {
     const activeNodes = Object.keys(this.state.activationMap);
     let highestEnergy = 0;
@@ -125,13 +111,13 @@ export class CognitiveProcessor {
     return null;
   }
 
-  // --- IMPROVED: Logical Network Densification ---
+  // --- LOGIC: Creates new relations between existing nodes (Densification) ---
   public densifyNetwork(): string | null {
       const keys = Object.keys(this.state.concepts);
       if (keys.length < 2) return null;
 
-      // Try 3 times to find a logical match
-      for(let i=0; i<3; i++) {
+      // Try multiple times to find a valid unconnected pair
+      for(let i=0; i<5; i++) {
           const c1Id = keys[Math.floor(this.getSecureRandom() * keys.length)];
           const c2Id = keys[Math.floor(this.getSecureRandom() * keys.length)];
           
@@ -140,7 +126,7 @@ export class CognitiveProcessor {
           const c1 = this.state.concepts[c1Id];
           const c2 = this.state.concepts[c2Id];
 
-          // Logic: Prefer connecting concepts in same domain
+          // Logic: Prefer connecting concepts in same domain for stronger logic
           if (c1.domain === c2.domain) {
               const existing = this.state.relations.find(r => 
                   (r.from === c1Id && r.to === c2Id) || (r.from === c2Id && r.to === c1Id)
@@ -151,19 +137,19 @@ export class CognitiveProcessor {
                       from: c1Id,
                       to: c2Id,
                       type: 'associates',
-                      strength: 0.2, // Stronger start for logical link
+                      strength: 0.25, 
                       learned_at: Date.now(),
                       last_activated: Date.now()
                   });
                   this.state.unsavedDataCount++;
-                  return `${c1Id} <-> ${c2Id} (Domain: ${c1.domain})`;
+                  return `${c1Id} <-> ${c2Id}`;
               }
           }
       }
       return null;
   }
 
-  // --- NEW: Deepen Knowledge (Refining existing nodes) ---
+  // --- LOGIC: Improves existing nodes (Deepening) ---
   public deepenKnowledge(): string | null {
       const keys = Object.keys(this.state.concepts);
       if (keys.length === 0) return null;
@@ -171,50 +157,61 @@ export class CognitiveProcessor {
       const targetId = keys[Math.floor(this.getSecureRandom() * keys.length)];
       const concept = this.state.concepts[targetId];
 
-      if (concept.technical_depth < 1.0) {
-          concept.technical_depth = Math.min(1.0, concept.technical_depth + 0.1);
-          concept.abstractionLevel = Math.min(1.0, concept.abstractionLevel + 0.05);
-          this.state.unsavedDataCount++;
-          return `${targetId} (Depth: ${(concept.technical_depth * 100).toFixed(0)}%)`;
+      // Only deepen if not already maxed
+      if (concept.technical_depth < 1.0 || concept.abstractionLevel < 1.0) {
+          const oldDepth = concept.technical_depth;
+          concept.technical_depth = Math.min(1.0, concept.technical_depth + 0.15);
+          concept.abstractionLevel = Math.min(1.0, concept.abstractionLevel + 0.1);
+          
+          this.state.unsavedDataCount++; // Counts as a change
+          return `${targetId} (Depth: ${(oldDepth * 100).toFixed(0)}% -> ${(concept.technical_depth * 100).toFixed(0)}%)`;
       }
       return null;
   }
 
-  // --- NEW: Synthesize Concept (Creating NEW Nodes) ---
+  // --- LOGIC: Creates NEW Nodes from existing ones (Synthesis) ---
   public synthesizeConcept(): string | null {
-      // Find two highly connected concepts and merge them
       const keys = Object.keys(this.state.concepts);
-      const c1Id = keys[Math.floor(this.getSecureRandom() * keys.length)];
-      
-      // Find a neighbor
-      const relation = this.state.relations.find(r => r.from === c1Id || r.to === c1Id);
-      if (!relation) return null;
-      
-      const c2Id = relation.from === c1Id ? relation.to : relation.from;
-      const newId = `${c1Id}_${c2Id}`.substring(0, 30); // Prevent massive IDs
+      if (keys.length < 2) return null;
 
-      if (!this.state.concepts[newId]) {
-          this.state.concepts[newId] = {
-              id: newId,
-              essence: `Emergent synthesis of ${c1Id} and ${c2Id}`,
-              semanticField: [c1Id, c2Id, 'hybrid'],
-              examples: [],
-              abstractionLevel: 0.8,
-              technical_depth: 0.5,
-              domain: 'META'
-          };
+      for (let i = 0; i < 5; i++) {
+          const c1Id = keys[Math.floor(this.getSecureRandom() * keys.length)];
+          const c2Id = keys[Math.floor(this.getSecureRandom() * keys.length)];
           
-          // Link back to parents
-          this.state.relations.push({ from: newId, to: c1Id, type: 'requires', strength: 0.9, learned_at: Date.now() });
-          this.state.relations.push({ from: newId, to: c2Id, type: 'requires', strength: 0.9, learned_at: Date.now() });
-          
-          this.state.unsavedDataCount += 3; // 1 node + 2 links
-          return newId;
+          if (c1Id === c2Id) continue;
+
+          // Simple heuristic: "DeFi" + "Risk" = "defi_risk"
+          // We check if a composite already exists
+          const newId = `${c1Id}_${c2Id}`.substring(0, 40).toLowerCase(); 
+          const altId = `${c2Id}_${c1Id}`.substring(0, 40).toLowerCase();
+
+          if (!this.state.concepts[newId] && !this.state.concepts[altId]) {
+              const c1 = this.state.concepts[c1Id];
+              const c2 = this.state.concepts[c2Id];
+
+              // New Concept Creation
+              this.state.concepts[newId] = {
+                  id: newId,
+                  essence: `Synthesized logic derived from ${c1Id} and ${c2Id}`,
+                  semanticField: [c1Id, c2Id, 'synthesis'],
+                  examples: [],
+                  abstractionLevel: (c1.abstractionLevel + c2.abstractionLevel) / 2,
+                  technical_depth: 0.5,
+                  domain: c1.domain || 'META'
+              };
+              
+              // Link back to parents immediately
+              this.state.relations.push({ from: newId, to: c1Id, type: 'requires', strength: 0.9, learned_at: Date.now() });
+              this.state.relations.push({ from: newId, to: c2Id, type: 'requires', strength: 0.9, learned_at: Date.now() });
+              
+              this.state.unsavedDataCount += 3; // 1 Node + 2 Relations created
+              return newId;
+          }
       }
       return null;
   }
 
-  // Standard Brain Functions
+  // Standard Functions ...
   public stimulateNetwork(seedIds: string[], energyLevel: number): Record<string, number> {
     const spreadFactor = energyLevel / 100; 
     const queue: { id: string, energy: number, depth: number }[] = [];
