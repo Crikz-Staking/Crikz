@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Send, Minimize2, Save, RefreshCw, Upload, 
-  Terminal, Database, Cpu, Activity, Zap, Lock
+  Terminal, Database, Cpu, Activity, Zap, Lock, Brain 
 } from 'lucide-react';
 import { useCrikzlingV3 } from '@/hooks/useCrikzlingV3';
 import { GeometricCore } from './CrikzlingVisuals';
