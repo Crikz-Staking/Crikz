@@ -3,7 +3,6 @@ import { AtomicConcept, ConceptRelation, ATOMIC_PRIMITIVES, ATOMIC_RELATIONS } f
 import { loadAllKnowledgeModules, parseExternalKnowledgeFile } from '@/lib/knowledge/knowledge-loader';
 import { BrainState, Memory, Vector, InternalDrives } from '../types';
 
-// Helper to safely serialize BigInts
 const bigIntReplacer = (_key: string, value: any) => 
   typeof value === 'bigint' ? value.toString() : value;
 
@@ -55,11 +54,10 @@ export class CognitiveProcessor {
         try {
             const base = JSON.parse(baseJson);
             state = { ...state, ...base };
-            // Ensure concepts are merged, not just replaced if partial
             state.concepts = { ...state.concepts, ...base.concepts };
             state.relations = Array.isArray(base.relations) ? base.relations : state.relations;
             
-            // Explicitly cast to number
+            // Explicit cast to number
             const baseInteractions = Number(base.totalInteractions || 0);
             state.totalInteractions = baseInteractions;
 
@@ -73,15 +71,31 @@ export class CognitiveProcessor {
     if (diffJson) {
         try {
             const diff = JSON.parse(diffJson);
-            
             if (diff.concepts) {
                 Object.entries(diff.concepts).forEach(([k, v]) => {
                     state.concepts[k] = v as AtomicConcept;
                     this.unsavedIds.concepts.add(k);
                 });
             }
+            if (diff.relations && Array.isArray(diff.relations)) {
+                diff.relations.forEach((r: ConceptRelation) => {
+                    state.relations.push(r);
+                    this.unsavedIds.relations.add(`${r.from}-${r.to}-${r.type}`);
+                });
+            }
+            const memoryKeys = ['shortTermMemory', 'midTermMemory', 'longTermMemory'] as const;
+            memoryKeys.forEach(key => {
+                if (diff[key] && Array.isArray(diff[key])) {
+                    const targetArray = state[key] as Memory[];
+                    diff[key].forEach((m: Memory) => {
+                        if (!targetArray.find((ex) => ex.id === m.id)) {
+                            targetArray.push(m);
+                            this.unsavedIds.memories.add(m.id);
+                        }
+                    });
+                }
+            });
 
-            // Restore Counters (Max of existing vs diff)
             const diffInteractions = Number(diff.totalInteractions || 0);
             if (diffInteractions > state.totalInteractions) {
                 state.totalInteractions = diffInteractions;
@@ -89,48 +103,40 @@ export class CognitiveProcessor {
             if (diff.unsavedDataCount) {
                 state.unsavedDataCount = diff.unsavedDataCount;
             }
-
         } catch (e) { console.error("Diff Merge Error", e); }
     }
 
     return state;
   }
 
-  /**
-   * SMART MERGE: This function is the authority on state.
-   * It takes the Blockchain JSON and updates the local BrainState.
-   */
   public mergeExternalState(remoteState: any) {
-      // 1. Extract Remote Counts (Handle inconsistent naming)
       const remoteOps = Number(remoteState.totalInteractions || remoteState.interactions || 0);
       const currentOps = Number(this.state.totalInteractions || 0);
 
-      // 2. FORCE UPDATE OPS: Always take the max. 
-      // If we refreshed, local is 0, remote is X. This sets it to X.
+      console.log(`[Cognitive] 📥 MERGE | Blockchain Ops: ${remoteOps} | Local Ops: ${currentOps}`);
+
+      // Always KEEP the higher number. Never downgrade.
       this.state.totalInteractions = Math.max(currentOps, remoteOps);
       this.state.lastBlockchainSync = Date.now();
 
-      console.log(`[Cognitive] 🔗 Merging State. Nodes: ${Object.keys(remoteState.concepts || {}).length}, Ops: ${this.state.totalInteractions}`);
-
-      // 3. Merge Concepts (Nodes)
       if (remoteState.concepts) {
+          let newNodes = 0;
           Object.entries(remoteState.concepts).forEach(([id, remoteConceptRaw]) => {
               const remoteConcept = remoteConceptRaw as AtomicConcept;
               const localConcept = this.state.concepts[id];
               
               if (!localConcept) {
-                  // New concept from blockchain
                   this.state.concepts[id] = remoteConcept;
+                  newNodes++;
               } else {
-                  // Existing concept: Update if remote is newer/deeper
-                  if ((remoteConcept.technical_depth || 0) >= (localConcept.technical_depth || 0)) {
+                  if ((remoteConcept.technical_depth || 0) > (localConcept.technical_depth || 0)) {
                       this.state.concepts[id] = { ...localConcept, ...remoteConcept };
                   }
               }
           });
+          if(newNodes > 0) console.log(`[Cognitive] Added ${newNodes} nodes from blockchain.`);
       }
 
-      // 4. Merge Relations
       if (remoteState.relations && Array.isArray(remoteState.relations)) {
           const existingSignatures = new Set(this.state.relations.map(r => `${r.from}-${r.to}-${r.type}`));
           remoteState.relations.forEach((rel: any) => {
@@ -142,7 +148,16 @@ export class CognitiveProcessor {
           });
       }
 
-      // 5. Update Stage
+      if (remoteState.longTermMemory && Array.isArray(remoteState.longTermMemory)) {
+          const localIds = new Set(this.state.longTermMemory.map(m => m.id));
+          remoteState.longTermMemory.forEach((mem: Memory) => {
+              if (!localIds.has(mem.id)) {
+                  this.state.longTermMemory.push(mem);
+                  localIds.add(mem.id);
+              }
+          });
+      }
+
       const stages = ['GENESIS', 'SENTIENT', 'SAPIENT', 'TRANSCENDENT'];
       const localIdx = stages.indexOf(this.state.evolutionStage);
       const remoteIdx = stages.indexOf(remoteState.evolutionStage || 'GENESIS');
@@ -155,11 +170,25 @@ export class CognitiveProcessor {
 
   public getState(): BrainState { return this.state; }
   
-  // ... (Rest of getters and private helpers) ...
+  private getSecureRandom(): number {
+      const array = new Uint32Array(1);
+      if (typeof window !== 'undefined' && window.crypto) {
+          window.crypto.getRandomValues(array);
+          return array[0] / (0xFFFFFFFF + 1);
+      }
+      return Math.random();
+  }
+
+  private getPriorityNodes(): string[] {
+      const active = Object.keys(this.state.activationMap);
+      const recent = this.state.shortTermMemory.slice(-5).flatMap((m: Memory) => m.concepts);
+      const pool = [...new Set([...active, ...recent])];
+      return pool.length > 0 ? pool : Object.keys(this.state.concepts);
+  }
 
   public exportDiff(): string {
       const diff: any = {
-          totalInteractions: this.state.totalInteractions, // Always include full count
+          totalInteractions: this.state.totalInteractions,
           unsavedDataCount: this.state.unsavedDataCount,
           concepts: {},
           relations: [],
@@ -195,8 +224,6 @@ export class CognitiveProcessor {
       this.unsavedIds.relations.clear();
   }
 
-  // --- Logic Processing (Stripped for brevity, unchanged from previous correct version) ---
-  // Ensure "totalInteractions" increments on user input
   public archiveMemory(role: 'user'|'bot'|'subconscious'|'system', content: string, concepts: string[], emotionalWeight: number, dappContext: any, vector: Vector = [0,0,0,0,0,0]) {
     const memory: Memory = {
       id: crypto.randomUUID(), role, content, timestamp: Date.now(),
@@ -207,21 +234,18 @@ export class CognitiveProcessor {
     this.state.shortTermMemory.push(memory);
     this.unsavedIds.memories.add(memory.id);
     
-    // Increment Ops
     if (role === 'user' || role === 'system') {
         this.state.totalInteractions++; 
     }
 
     if (role === 'user') {
       this.learnAssociations(concepts);
-      // Update drives logic...
       const stabilityImpact = (emotionalWeight - 0.5) * 20; 
       this.state.drives.stability = Math.max(0, Math.min(100, this.state.drives.stability - Math.abs(stabilityImpact)));
       this.state.drives.energy = Math.max(0, this.state.drives.energy - (concepts.length * 2));
       this.state.drives.curiosity = Math.min(100, this.state.drives.curiosity + 5); 
     }
     
-    // Memory consolidation logic...
     if (this.state.shortTermMemory.length > 10) {
       const moved = this.state.shortTermMemory.shift();
       if (moved) this.state.midTermMemory.push(moved);
@@ -268,7 +292,6 @@ export class CognitiveProcessor {
       else this.state.evolutionStage = 'GENESIS';
   }
 
-  // ... (Other helper methods remain unchanged)
   public retrieveRelevantMemories(conceptIds: string[], queryVector?: Vector): Memory[] {
     const allMemories = [...this.state.shortTermMemory, ...this.state.midTermMemory, ...this.state.longTermMemory];
     return allMemories.map(m => {
@@ -349,7 +372,7 @@ export class CognitiveProcessor {
     return [...new Set(path)];
   }
 
-  public clusterConcepts(): string | null { return null; } // Simplified for brevity
+  public clusterConcepts(): string | null { return null; }
   public optimizeGraph(): string | null { return null; }
   public prioritizedSynthesis(): string | null { return null; }
   public deepenKnowledge(): string | null { return null; }

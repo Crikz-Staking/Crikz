@@ -88,7 +88,7 @@ export function useCrikzlingV3() {
 
   // --- 1. BRAIN INITIALIZATION ---
   useEffect(() => {
-    if (!sessionId || !publicClient) return;
+    if (!sessionId) return;
     if (brain) return;
 
     const diffStateJson = localStorage.getItem(`crikz_brain_diff_${sessionId}`) || undefined;
@@ -103,10 +103,9 @@ export function useCrikzlingV3() {
     initialBrain.setThoughtUpdateCallback(thoughtCallback);
     setBrain(initialBrain);
     
-    // Default "waiting" message
     setMessages([{ role: 'bot', content: 'Connecting to Neural Graph...', timestamp: Date.now() }]);
     
-  }, [sessionId, publicClient]);
+  }, [sessionId, publicClient]); // Added publicClient
 
   // --- 2. HYDRATION LOGIC (BLOCKCHAIN) ---
   useEffect(() => {
@@ -127,12 +126,11 @@ export function useCrikzlingV3() {
                   const remoteJson = await response.json();
                   
                   if (remoteJson) {
-                      // MERGE
                       brain.mergeState(remoteJson);
                       setHasHydrated(true);
                       setSyncAttempts(0); 
                       
-                      const stats = brain.getStats(); // Get FRESH stats
+                      const stats = brain.getStats();
                       
                       setMessages([
                           { 
@@ -146,7 +144,7 @@ export function useCrikzlingV3() {
                               timestamp: Date.now() + 100
                           }
                       ]);
-                      setForceUpdate(prev => prev + 1); // Trigger React re-render of stats
+                      setForceUpdate(prev => prev + 1);
                   }
               } else {
                   if (!hasHydrated) {
@@ -209,6 +207,8 @@ export function useCrikzlingV3() {
 
   const crystallize = async () => {
     if (!brain || !address) { toast.error("Wallet missing"); return; }
+    if (!publicClient) { toast.error("Client not ready"); return; } // Extra check
+    
     setIsSyncing(true); 
     const toastId = toast.loading('Exporting...');
 
@@ -231,7 +231,9 @@ export function useCrikzlingV3() {
             chain: bscTestnet
         });
 
-        await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
+        // FIX: Non-null assertion added here
+        await publicClient!.waitForTransactionReceipt({ hash, confirmations: 1 });
+
         brain.clearUnsavedCount();
         if (sessionId) localStorage.removeItem(`crikz_brain_diff_${sessionId}`);
         await refetchSnapshot(); 
