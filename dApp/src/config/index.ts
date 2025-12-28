@@ -33,7 +33,7 @@ export const CRIKZ_TOKEN_ABI = [
   { "inputs": [], "name": "productionFund", "outputs": [{"name": "balance", "type": "uint256"}, {"name": "totalReputation", "type": "uint256"}, {"name": "accumulatedYieldPerReputation", "type": "uint256"}, {"name": "lastUpdateTime", "type": "uint256"}], "stateMutability": "view", "type": "function" }
 ] as const;
 
-// UPDATED ABI WITH READ FUNCTION
+// UPDATED ABI WITH TIMELINE READ FUNCTION
 export const CRIKZLING_MEMORY_ABI = [
   { 
     "inputs": [{"internalType": "string", "name": "_ipfsCid", "type": "string"}, {"internalType": "uint256", "name": "_conceptsCount", "type": "uint256"}, {"internalType": "string", "name": "_evolutionStage", "type": "string"}, {"internalType": "string", "name": "_trigger", "type": "string"}], 
@@ -61,6 +61,19 @@ export const CRIKZLING_MEMORY_ABI = [
     ], 
     "stateMutability": "view", 
     "type": "function" 
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "name": "memoryTimeline",
+    "outputs": [
+      { "internalType": "uint256", "name": "timestamp", "type": "uint256" },
+      { "internalType": "string", "name": "ipfsCid", "type": "string" },
+      { "internalType": "uint256", "name": "conceptsCount", "type": "uint256" },
+      { "internalType": "string", "name": "evolutionStage", "type": "string" },
+      { "internalType": "string", "name": "triggerEvent", "type": "string" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
   }
 ] as const;
 

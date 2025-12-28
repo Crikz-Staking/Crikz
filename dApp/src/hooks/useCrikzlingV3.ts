@@ -9,6 +9,7 @@ import { AtomicConcept } from '@/lib/crikzling-atomic-knowledge';
 import { uploadToIPFS, downloadFromIPFS } from '@/lib/ipfs-service';
 import { CRIKZLING_MEMORY_ADDRESS, CRIKZLING_MEMORY_ABI } from '@/config/index';
 import { useContractData } from '@/hooks/web3/useContractData';
+import { MemorySnapshot } from './web3/useMemoryTimeline';
 
 export function useCrikzlingV3() {
   const { address } = useAccount();
@@ -25,7 +26,7 @@ export function useCrikzlingV3() {
   const [forceUpdate, setForceUpdate] = useState(0); 
   
   const [initialLoading, setInitialLoading] = useState(false);
-  const [hasHydrated, setHasHydrated] = useState(false); // Used to track sync status
+  const [hasHydrated, setHasHydrated] = useState(false); 
 
   // --- CONTRACT DATA ---
   const { balance, activeOrders, totalReputation, pendingYield, globalFund } = useContractData();
@@ -90,7 +91,6 @@ export function useCrikzlingV3() {
     setForceUpdate(prev => prev + 1); 
   }, []);
 
-  // --- 1. BRAIN INITIALIZATION ---
   useEffect(() => {
     if (!sessionId) return;
     if (brain) return;
@@ -107,7 +107,6 @@ export function useCrikzlingV3() {
     initialBrain.setThoughtUpdateCallback(thoughtCallback);
     setBrain(initialBrain);
     
-    // UPDATED INITIAL MESSAGE
     setMessages([{ 
         role: 'system', 
         content: 'Hello, I am Crikzling, an artificial intelligence built on blockchain. Please click SYNC button below to synchronize my data with the latest blockchain data saved. [SYNC_REQUIRED]', 
@@ -116,14 +115,11 @@ export function useCrikzlingV3() {
     
   }, [sessionId, publicClient]);
 
-  // --- 2. MANUAL SYNC WITH SIGNATURE ---
   const syncWithBlockchain = useCallback(async () => {
     if (!brain) return;
 
     try {
       setInitialLoading(true);
-
-      // 1. Signature Request
       await signMessageAsync({ 
         message: `Authenticate Neural Uplink\nTimestamp: ${Date.now()}\nRequest: Sync State` 
       });
@@ -133,10 +129,9 @@ export function useCrikzlingV3() {
       const { data: freshData, error } = await refetchSnapshot();
       
       if (error || !freshData) {
-          console.warn("[HOOK] Contract Read Error (Likely Empty):", error);
           toast.error("Genesis State (No History)", { id: 'sync' });
-          setHasHydrated(true); // Unlock chat even if empty
-          setMessages(prev => [...prev, { role: 'system', content: `[GENESIS STATE] Blockchain memory is empty. Starting fresh pathway.`, timestamp: Date.now() }]);
+          setHasHydrated(true); 
+          setMessages(prev => [...prev, { role: 'system', content: `[GENESIS STATE] Blockchain memory is empty. Starting fresh.`, timestamp: Date.now() }]);
           return;
       }
 
@@ -146,8 +141,6 @@ export function useCrikzlingV3() {
       if (trigger && typeof trigger === 'string' && trigger.includes('_')) {
          blockchainOps = parseInt(trigger.split('_')[1]) || 0;
       }
-
-      console.log(`[HOOK] Found CID: ${cid} | Ops: ${blockchainOps}`);
 
       if (cid && cid.length > 5) {
           const url = downloadFromIPFS(cid);
@@ -161,7 +154,7 @@ export function useCrikzlingV3() {
 
               brain.mergeState(remoteJson);
               localStorage.removeItem(`crikz_brain_diff_${sessionId}`);
-              setHasHydrated(true); // Unlock chat
+              setHasHydrated(true); 
               
               toast.success(`Synced: ${blockchainOps} Ops`, { id: 'sync' });
               setMessages(prev => [
@@ -176,7 +169,7 @@ export function useCrikzlingV3() {
           }
       } else {
           toast.error("Invalid CID on chain", { id: 'sync' });
-          setHasHydrated(true); // Unlock to allow saving first block
+          setHasHydrated(true);
       }
     } catch (error: any) {
       console.error("Sync Failed:", error);
@@ -190,7 +183,37 @@ export function useCrikzlingV3() {
     }
   }, [brain, signMessageAsync, refetchSnapshot, sessionId]);
 
-  // --- SAVE DIFF ---
+  // --- RESTORE SNAPSHOT (Owner Only) ---
+  const restoreMemory = async (snapshot: MemorySnapshot) => {
+      if (!isOwner || !publicClient) return;
+      const toastId = toast.loading("Restoring snapshot...");
+      
+      try {
+          const hash = await writeContractAsync({
+              address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
+              abi: CRIKZLING_MEMORY_ABI,
+              functionName: 'crystallizeMemory',
+              args: [
+                  snapshot.ipfsCid, 
+                  snapshot.conceptsCount, 
+                  snapshot.evolutionStage, 
+                  `RESTORE_${snapshot.opsCount}`
+              ],
+              account: address,
+              chain: bscTestnet
+          });
+
+          await publicClient!.waitForTransactionReceipt({ hash, confirmations: 1 });
+          
+          toast.success("Snapshot Restored!", { id: toastId });
+          await refetchSnapshot(); // Update local pointer
+          
+      } catch (e) {
+          console.error(e);
+          toast.error("Restore Failed", { id: toastId });
+      }
+  };
+
   useEffect(() => {
       if (brain && sessionId) {
           const diff = brain.exportDiffState();
@@ -198,7 +221,6 @@ export function useCrikzlingV3() {
       }
   }, [forceUpdate, brain, sessionId]);
 
-  // --- HEARTBEAT ---
   useEffect(() => {
     if (!brain) return;
     const tickRate = 8000; 
@@ -261,7 +283,6 @@ export function useCrikzlingV3() {
 
         await publicClient!.waitForTransactionReceipt({ hash, confirmations: 1 });
 
-        // IMPORTANT: Clear local diffs because we just saved EVERYTHING to chain
         brain.clearUnsavedCount();
         if (sessionId) localStorage.removeItem(`crikz_brain_diff_${sessionId}`);
         
@@ -336,9 +357,8 @@ export function useCrikzlingV3() {
 
   return {
     messages, sendMessage, uploadFile, crystallize, resetBrain, updateDrives, trainConcept, simpleTrain, toggleNeuralLink,
-    syncWithBlockchain, initialLoading,
+    syncWithBlockchain, initialLoading, isSynced: hasHydrated, restoreMemory, // <--- EXPORTED restoreMemory
     needsSave: brain?.needsCrystallization() || false, isSyncing, 
-    isSynced: hasHydrated, // <--- EXPORTED AS 'isSynced' FOR UI
     brainStats: {
       stage: stats?.stage || 'GENESIS',
       nodes: stats?.nodes || 0,

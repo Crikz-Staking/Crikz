@@ -5,11 +5,13 @@ import {
     X, Search, ChevronRight, Terminal, Lock, Sliders, 
     PlusCircle, Save, Globe, Zap, Battery, Download, FileText,
     Wallet, Award, TrendingUp, Layers, ArrowRight, ShieldCheck, AlertTriangle,
-    HardDrive, Check
+    HardDrive, Check, History, RotateCcw
 } from 'lucide-react';
 import { CognitiveLogEntry, InternalDrives } from '@/lib/brain/types';
 import { AtomicConcept } from '@/lib/crikzling-atomic-knowledge';
 import { formatEther } from 'viem';
+import { useMemoryTimeline, MemorySnapshot } from '@/hooks/web3/useMemoryTimeline';
+import { useCrikzlingV3 } from '@/hooks/useCrikzlingV3'; // Import for restoreMemory
 
 // --- ROBUST DOWNLOAD UTILITY ---
 const downloadData = (filename: string, data: any) => {
@@ -52,10 +54,15 @@ export default function NeuralDashboard({
     isOpen, onClose, logs, brainStats, isOwner, 
     updateDrives, trainConcept, simpleTrain, toggleNeuralLink 
 }: NeuralDashboardProps) {
-    const [view, setView] = useState<'monitor' | 'synapse' | 'cortex' | 'matrix'>('monitor');
-    
-    // Connectivity
+    const [view, setView] = useState<'monitor' | 'synapse' | 'cortex' | 'matrix' | 'timeline'>('monitor');
     const { isConnected, stamina, bandwidthUsage } = brainStats.connectivity;
+    
+    // We need restoreMemory from the hook, but it's not passed as prop. 
+    // Ideally NeuralDashboard should be inside the context or pass it down.
+    // For now, let's assume we can re-use the hook or add it to props.
+    // However, calling hook inside a conditional component is risky.
+    // Let's instantiate it just for the restoration function.
+    const { restoreMemory } = useCrikzlingV3(); 
 
     if (!isOpen) return null;
 
@@ -81,6 +88,7 @@ export default function NeuralDashboard({
                 <NavButton active={view === 'synapse'} onClick={() => setView('synapse')} icon={Zap} label="Synapse" locked={!isOwner} />
                 <NavButton active={view === 'cortex'} onClick={() => setView('cortex')} icon={Database} label="Cortex" />
                 <NavButton active={view === 'matrix'} onClick={() => setView('matrix')} icon={Sliders} label="Matrix" locked={!isOwner} />
+                <NavButton active={view === 'timeline'} onClick={() => setView('timeline')} icon={History} label="History" />
 
                 <div className="md:mt-auto flex flex-col gap-4 items-center">
                     {isOwner && (
@@ -144,7 +152,7 @@ export default function NeuralDashboard({
                             exit={{ opacity: 0, y: -10 }}
                             className="h-full"
                         >
-                            {!isOwner && view !== 'monitor' && view !== 'cortex' ? (
+                            {!isOwner && view !== 'monitor' && view !== 'cortex' && view !== 'timeline' ? (
                                 <AccessDenied />
                             ) : (
                                 <>
@@ -152,6 +160,7 @@ export default function NeuralDashboard({
                                     {view === 'synapse' && simpleTrain && <SynapseView onTrain={simpleTrain} lastLog={logs[0]} />}
                                     {view === 'cortex' && <CortexView logs={logs} />}
                                     {view === 'matrix' && updateDrives && <MatrixView stats={brainStats} onUpdate={updateDrives} />}
+                                    {view === 'timeline' && <TimelineView isOwner={isOwner} onRestore={restoreMemory} />}
                                 </>
                             )}
                         </motion.div>
@@ -162,7 +171,71 @@ export default function NeuralDashboard({
     );
 }
 
-// --- VIEW COMPONENTS ---
+// --- NEW COMPONENT: TIMELINE VIEW ---
+function TimelineView({ isOwner, onRestore }: { isOwner: boolean, onRestore: (s: MemorySnapshot) => void }) {
+    const { timeline, loading, refresh } = useMemoryTimeline();
+
+    return (
+        <div className="glass-card p-6 rounded-3xl border border-white/10 bg-background-elevated h-full flex flex-col">
+            <div className="flex justify-between items-center mb-6">
+                <div>
+                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                        <History className="text-purple-500" /> Neural Timeline
+                    </h3>
+                    <p className="text-xs text-gray-500">Immutable blockchain snapshots.</p>
+                </div>
+                <button onClick={refresh} className="p-2 bg-white/5 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors">
+                    <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+                </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto custom-scrollbar">
+                <table className="w-full text-left border-collapse">
+                    <thead className="sticky top-0 bg-[#12121A] z-10">
+                        <tr className="text-[10px] font-bold text-gray-500 uppercase border-b border-white/10">
+                            <th className="py-3 pl-4">ID</th>
+                            <th className="py-3">Timestamp</th>
+                            <th className="py-3">Nodes</th>
+                            <th className="py-3">Ops</th>
+                            <th className="py-3">CID</th>
+                            <th className="py-3 pr-4 text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                        {timeline.map((snap) => (
+                            <tr key={snap.id} className="hover:bg-white/5 transition-colors group">
+                                <td className="py-3 pl-4 text-sm font-mono text-gray-400">#{snap.id}</td>
+                                <td className="py-3 text-xs text-white">{new Date(snap.timestamp * 1000).toLocaleString()}</td>
+                                <td className="py-3">
+                                    <span className="bg-blue-500/10 text-blue-400 px-2 py-1 rounded text-xs font-bold">{snap.conceptsCount.toString()}</span>
+                                </td>
+                                <td className="py-3">
+                                    <span className="bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded text-xs font-bold">{snap.opsCount}</span>
+                                </td>
+                                <td className="py-3 text-xs font-mono text-gray-500 truncate max-w-[100px]">{snap.ipfsCid.substring(0, 10)}...</td>
+                                <td className="py-3 pr-4 text-right">
+                                    {isOwner && (
+                                        <button 
+                                            onClick={() => { if(confirm(`Restore state #${snap.id}? This will append a new snapshot.`)) onRestore(snap); }}
+                                            className="px-3 py-1 bg-white/5 hover:bg-purple-500 hover:text-white text-gray-400 rounded text-xs font-bold transition-all flex items-center gap-1 ml-auto"
+                                        >
+                                            <RotateCcw size={12} /> Restore
+                                        </button>
+                                    )}
+                                </td>
+                            </tr>
+                        ))}
+                        {timeline.length === 0 && !loading && (
+                            <tr><td colSpan={6} className="text-center py-8 text-gray-500">No history found.</td></tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+}
+
+// ... [Keep MonitorView, SynapseView, CortexView, MatrixView, NetworkTerminal, AccessDenied, Utils exactly as before] ...
 
 // Live Terminal: Shows actual WEB_SYNC events mixed with packet noise
 const NetworkTerminal = ({ logs }: { logs: CognitiveLogEntry[] }) => {
