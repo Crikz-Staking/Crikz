@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Upload, Sparkles, File, Box, FolderPlus, Check } from 'lucide-react';
+import { Upload, Sparkles, File, Box, FolderPlus, Check, X } from 'lucide-react';
 import { useWriteContract, useWaitForTransactionReceipt, useAccount } from 'wagmi';
 import { parseEther, decodeEventLog } from 'viem';
 import { toast } from 'react-hot-toast';
@@ -26,27 +26,14 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
   
   const { isLoading: isConfirming } = useWaitForTransactionReceipt({ 
     hash,
-    // When transaction confirms, we map the new ID to the collection
     query: {
         enabled: !!hash,
     }
   });
 
-  // Watch for success to trigger mapping logic
+  // Watch for success
   React.useEffect(() => {
       if (hash && !isConfirming) {
-          // In a real production environment, we would parse the logs from the receipt here
-          // to get the exact Token ID. For this dApp structure, we will fetch the user's
-          // latest token index or simply rely on the UserCollection refresh to pick it up.
-          // However, to "Assign" it, we technically need the ID.
-          
-          // Workaround for demo: We will wait for the UserCollection to sync (next re-render)
-          // or we rely on the metadata "Collection" attribute which we set below.
-          // But to support the "Move" logic, we really should update the local mapping.
-          
-          // Let's rely on metadata for display fallback, but we can't map ID 
-          // without an event listener.
-          
           toast.success("Minted Successfully!");
           setFile(null);
           setMetadata({ name: '', description: '' });
@@ -80,7 +67,6 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
     if (isNewColl && newCollName) {
         targetColId = createCollection(newCollName, "Created during mint");
         targetColName = newCollName;
-        // We don't need to wait, hook updates state
     }
 
     try {
@@ -108,10 +94,6 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
         args: [finalMetadata],
         value: parseEther('0.01')
       });
-      
-      // Note: Actual assignment to the mapping happens by user manually moving later 
-      // OR we implement robust event parsing. For now, we set metadata correctly so
-      // it's verifiable.
       
       toast.dismiss('mint-proc');
     } catch (err) {
