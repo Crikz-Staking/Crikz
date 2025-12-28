@@ -1,6 +1,6 @@
 import { InputAnalysis } from './InputProcessor';
 import { ActionPlan } from './ActionProcessor';
-import { Memory, BrainState, DAppContext, BlockchainMemory, SimulationResult, InternalDrives } from '../types';
+import { Memory, BrainState, DAppContext, BlockchainMemory, SimulationResult, InternalDrives, DeepThoughtCycle } from '../types';
 
 export interface IntegratedContext {
   input: InputAnalysis;
@@ -8,11 +8,12 @@ export interface IntegratedContext {
   memories: Memory[];
   blockchainHistory: BlockchainMemory[];
   dappState: DAppIntegratedState | null;
-  simulation?: SimulationResult | null;
+  // NEW: Array of thought cycles
+  deepContext: DeepThoughtCycle[];
   brainStats: {
     evolutionStage: string;
     unsavedCount: number;
-    drives: InternalDrives; // Using V5 Drives
+    drives: InternalDrives;
     currentFocus: string | null;
   };
 }
@@ -27,13 +28,12 @@ export interface DAppIntegratedState {
 
 export class ResultProcessor {
   
-  public process(
+  public processMultiCycle(
     input: InputAnalysis,
     plan: ActionPlan,
-    memories: Memory[],
+    deepContext: DeepThoughtCycle[],
     brainState: BrainState,
-    dappContext?: DAppContext,
-    simulationResult?: SimulationResult | null
+    dappContext?: DAppContext
   ): IntegratedContext {
     
     let integratedDApp: DAppIntegratedState | null = null;
@@ -48,13 +48,16 @@ export class ResultProcessor {
       };
     }
 
+    // Flatten memories from all cycles for reference
+    const allMemories = deepContext.flatMap(c => c.retrievedMemories);
+
     return {
       input,
       actionPlan: plan,
-      memories,
+      memories: [...new Set(allMemories)], // Unique memories
       blockchainHistory: brainState.blockchainMemories,
       dappState: integratedDApp,
-      simulation: simulationResult,
+      deepContext: deepContext,
       brainStats: {
         evolutionStage: brainState.evolutionStage,
         unsavedCount: brainState.unsavedDataCount,

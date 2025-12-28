@@ -9,7 +9,6 @@ export class CognitiveProcessor {
   private memoryContractAddress?: `0x${string}`;
 
   private readonly DECAY_RATE = 0.05; 
-  private readonly SPREAD_FACTOR = 0.6; 
 
   constructor(savedStateJson?: string, publicClient?: PublicClient, memoryContractAddress?: `0x${string}`) {
     this.state = this.initializeState(savedStateJson);
@@ -20,7 +19,7 @@ export class CognitiveProcessor {
   private initializeState(savedJson?: string): BrainState {
     const knowledgeModules = loadAllKnowledgeModules();
     
-    // Strong defaults for Drives to prevent 0% stats
+    // Strong defaults for Drives
     const defaultDrives: InternalDrives = { 
         curiosity: 80, 
         stability: 50, 
@@ -50,15 +49,11 @@ export class CognitiveProcessor {
     if (savedJson) {
       try {
         const parsed = JSON.parse(savedJson);
-        
-        // Robust Drive Hydration Logic
         let loadedDrives = defaultDrives;
         
         if (parsed.drives) {
-            // New V3 format
             loadedDrives = { ...defaultDrives, ...parsed.drives };
         } else if (parsed.mood) {
-            // Migration from legacy V1/V2 mood structure
             loadedDrives = {
                 curiosity: parsed.mood.curiosity || 50,
                 stability: 100 - (parsed.mood.entropy || 50),
@@ -106,11 +101,11 @@ export class CognitiveProcessor {
 
     this.state.attentionFocus = dominantThought;
 
-    // Natural regeneration of drives
+    // Natural regeneration
     this.state.drives.energy = Math.min(100, this.state.drives.energy + 0.5); 
     this.state.drives.curiosity = Math.min(100, this.state.drives.curiosity + 0.1);
     
-    // Spontaneous Dreaming (Background Processing)
+    // Spontaneous Dreaming
     if (this.state.drives.energy > 80 && this.state.drives.curiosity > 90 && !dominantThought) {
         return this.dream();
     }
@@ -118,7 +113,11 @@ export class CognitiveProcessor {
     return null;
   }
 
-  public stimulateNetwork(seedIds: string[]): Record<string, number> {
+  /**
+   * Activates network based on energy level. High energy = wider spread.
+   */
+  public stimulateNetwork(seedIds: string[], energyLevel: number): Record<string, number> {
+    const spreadFactor = energyLevel > 70 ? 0.8 : 0.5; // High energy allows deeper traversal
     const queue: { id: string, energy: number, depth: number }[] = [];
 
     seedIds.forEach(id => {
@@ -128,10 +127,10 @@ export class CognitiveProcessor {
       }
     });
 
-    const MAX_DEPTH = 2; 
+    const MAX_DEPTH = energyLevel > 80 ? 3 : 2; 
     let cycles = 0;
 
-    while (queue.length > 0 && cycles < 50) {
+    while (queue.length > 0 && cycles < 100) {
       const current = queue.shift()!;
       if (current.depth >= MAX_DEPTH) continue;
 
@@ -139,10 +138,10 @@ export class CognitiveProcessor {
       
       for (const rel of neighbors) {
         const neighborId = rel.from === current.id ? rel.to : rel.from;
-        const transfer = current.energy * rel.strength * this.SPREAD_FACTOR;
+        const transfer = current.energy * rel.strength * spreadFactor;
         
         const currentVal = this.state.activationMap[neighborId] || 0;
-        if (transfer > 0.1 && (currentVal < transfer)) {
+        if (transfer > 0.15 && (currentVal < transfer)) {
             this.state.activationMap[neighborId] = Math.min(1.0, currentVal + transfer);
             queue.push({ id: neighborId, energy: transfer, depth: current.depth + 1 });
         }
@@ -150,8 +149,46 @@ export class CognitiveProcessor {
       cycles++;
     }
 
-    this.state.drives.curiosity = Math.max(0, this.state.drives.curiosity - 20);
+    this.state.drives.curiosity = Math.max(0, this.state.drives.curiosity - 15);
     return this.state.activationMap;
+  }
+
+  /**
+   * Lateral Thinking: Random walk to find related concepts
+   */
+  public findAssociativePath(seedIds: string[], steps: number): string[] {
+    let currentSet = [...seedIds];
+    const path: string[] = [];
+
+    for (let i = 0; i < steps; i++) {
+        const nextSet: string[] = [];
+        
+        currentSet.forEach(id => {
+            // Find relations originating from this concept
+            const neighbors = this.state.relations
+                .filter(r => r.from === id)
+                .sort((a, b) => b.strength - a.strength);
+            
+            // Heuristic: Prefer strong connections but allow randomness (Curiosity)
+            const top = neighbors.slice(0, 3);
+            if (neighbors.length > 5) {
+                // Add a "wildcard" random association
+                top.push(neighbors[Math.floor(Math.random() * neighbors.length)]);
+            }
+
+            top.forEach(rel => {
+                if (!path.includes(rel.to) && !seedIds.includes(rel.to)) {
+                    nextSet.push(rel.to);
+                    path.push(rel.to);
+                }
+            });
+        });
+
+        if (nextSet.length === 0) break;
+        currentSet = nextSet;
+    }
+
+    return [...new Set(path)];
   }
 
   public dream(): string {
@@ -173,8 +210,6 @@ export class CognitiveProcessor {
         return `Recalling the link between ${c1} and ${c2}...`;
     }
   }
-
-  // --- MEMORY METHODS ---
 
   public learnAssociations(conceptIds: string[]) {
     if (conceptIds.length < 2) return;
@@ -280,6 +315,4 @@ export class CognitiveProcessor {
   }
 
   public markSaved() { this.state.unsavedDataCount = 0; }
-  
-  public async syncBlockchainMemories(): Promise<void> { /* Sync Stub */ }
 }

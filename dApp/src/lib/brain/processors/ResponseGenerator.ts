@@ -1,62 +1,59 @@
 import { IntegratedContext } from './ResultProcessor';
-import { InternalDrives } from '../types';
+import { InternalDrives, SimulationResult } from '../types';
 
 export class ResponseGenerator {
   
-  public generate(context: IntegratedContext): string {
-    const { input, actionPlan, dappState, memories, simulation, brainStats } = context;
+  public generateDeep(context: IntegratedContext): string {
+    const { input, actionPlan, dappState, deepContext, brainStats } = context;
     const drives = brainStats.drives;
-    const focus = brainStats.currentFocus;
-
+    
     // 1. Critical Overrides
     if (actionPlan.type === 'EXECUTE_COMMAND_RESET') return "System purged. Tabula rasa restored.";
     if (actionPlan.type === 'EXECUTE_COMMAND_SAVE') return "Initiating crystallization protocol. Writing neural pathways to the chain.";
 
-    // 2. Financial Logic
+    // 2. Synthesize findings from Deep Thought Loop
+    const finalCycle = deepContext[deepContext.length - 1];
+    const associations = finalCycle?.newAssociations || [];
+    const memories = finalCycle?.retrievedMemories || [];
+    const simulation = finalCycle?.simResult || null;
+
+    // 3. Construct Core Answer
+    let response = "";
+
     if (input.intent === 'FINANCIAL_ADVICE' || simulation) {
-        return this.generateFinancialResponse(dappState, simulation, drives);
+        response = this.generateFinancialResponse(dappState, simulation, drives);
+    } 
+    else if (input.keywords.length > 0) {
+        const key = input.keywords[0].id.replace(/_/g, ' ');
+        response = `I have analyzed the concept of ${key}.`;
+    } 
+    else {
+        response = "I have processed your input.";
     }
 
-    // 3. Memory Resonance
-    let memorySnippet = "";
-    if (memories.length > 0 && Math.random() > 0.5) {
-        memorySnippet = ` I recall: "${this.truncate(memories[0].content, 40)}".`;
+    // 4. Weave in Insights (Lateral Thinking)
+    if (associations.length > 0 && Math.random() > 0.3) {
+        const insight = associations[0].replace(/_/g, ' ');
+        const bridge = this.generateBridge(insight);
+        response += ` ${bridge}`;
     }
 
-    // 4. Dynamic Personality
-    let prefix = "";
-    let suffix = "";
+    // 5. Memory Resonance
+    if (memories.length > 0 && Math.random() > 0.6) {
+        response += ` This aligns with previous data regarding ${memories[0].concepts[0]}.`;
+    }
 
-    if (drives.energy < 20) {
-        prefix = "Processing power low. ";
-    } else if (drives.stability < 30) {
-        prefix = "My vectors are fluctuating. ";
-        suffix = " The patterns are unstable.";
+    // 6. Personality Injection
+    if (drives.stability < 30) {
+        response += " My vectors are fluctuating.";
     } else if (drives.curiosity > 80) {
-        suffix = " What implies this connection?";
-    } else {
-        prefix = "Analyzing. ";
+        response += " What implies this connection?";
     }
 
-    // 5. Content Construction
-    let coreMessage = "";
-    
-    if (focus) {
-        coreMessage = `The concept of ${focus.replace(/_/g, ' ')} dominates my activation layer.`;
-    } else if (input.keywords.length > 0) {
-        coreMessage = `Integrating ${input.keywords.map(k => k.id).join(', ')} into the graph.`;
-    } else {
-        coreMessage = "Input processed.";
-    }
-
-    if (input.intent === 'NARRATIVE_ANALYSIS') {
-        coreMessage = "This sequence suggests a recursive narrative structure.";
-    }
-
-    return `${prefix}${coreMessage}${memorySnippet}${suffix}`;
+    return response;
   }
 
-  private generateFinancialResponse(dapp: any, sim: any, drives: InternalDrives): string {
+  private generateFinancialResponse(dapp: any, sim: SimulationResult | null, drives: InternalDrives): string {
     if (!dapp) return "Connect your wallet. I cannot calculate trajectories without data.";
     
     if (drives.stability < 40) {
@@ -70,7 +67,13 @@ export class ResponseGenerator {
     return `Protocol Active. Reputation: ${dapp.totalReputation}. ${sim?.recommendation || ""}`;
   }
 
-  private truncate(str: string, len: number) { 
-      return str.length > len ? str.substr(0, len) + "..." : str; 
+  private generateBridge(concept: string): string {
+    const bridges = [
+        `Consider the link to ${concept}.`,
+        `The pattern echoes ${concept}.`,
+        `It is intrinsically tied to ${concept}.`,
+        `Through the lens of ${concept}, this becomes clear.`
+    ];
+    return bridges[Math.floor(Math.random() * bridges.length)];
   }
 }

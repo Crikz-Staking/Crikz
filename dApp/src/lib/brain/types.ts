@@ -90,6 +90,14 @@ export interface ThoughtProcess {
   activeNodes?: string[];
 }
 
+export interface DeepThoughtCycle {
+  cycleIndex: number;
+  focusConcepts: string[];
+  retrievedMemories: Memory[];
+  newAssociations: string[];
+  simResult: SimulationResult | null;
+}
+
 export interface DAppContext {
   user_balance?: bigint;
   active_orders_count?: number;

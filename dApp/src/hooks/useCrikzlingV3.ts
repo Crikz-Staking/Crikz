@@ -89,6 +89,7 @@ export function useCrikzlingV3() {
     });
   }, [sessionId, publicClient]);
 
+  // OPTIMIZED HEARTBEAT: 8000ms
   useEffect(() => {
     if (!brain) return;
     const heartbeat = setInterval(() => {
@@ -97,7 +98,7 @@ export function useCrikzlingV3() {
             setForceUpdate(prev => prev + 1);
         });
       }
-    }, 4000); 
+    }, 8000); 
     return () => clearInterval(heartbeat);
   }, [brain, isThinking, isTyping]);
 
@@ -240,7 +241,6 @@ export function useCrikzlingV3() {
       nodes: stats?.nodes || 0,
       relations: stats?.relations || 0,
       unsaved: stats?.unsaved || 0,
-      // Pass the new drives object to the UI
       drives: stats?.drives || { curiosity: 0, stability: 0, efficiency: 0, social: 0, energy: 0 },
       memories: stats?.memories || { short: 0, mid: 0, long: 0, blockchain: 0 },
       interactions: stats?.interactions || 0,

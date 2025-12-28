@@ -18,9 +18,10 @@ export interface ActionPlan {
 
 export class ActionProcessor {
   
-  public plan(analysis: InputAnalysis, brainState: BrainState, isOwner: boolean): ActionPlan {
+  // Update signature to accept accumulated context from the loop
+  public plan(analysis: InputAnalysis, brainState: BrainState, isOwner: boolean, accumulatedContext: any[]): ActionPlan {
     const { intent, cleanedInput, inputVector } = analysis;
-    const { unsavedDataCount, drives, activeGoals } = brainState;
+    const { unsavedDataCount, drives, activeGoals, evolutionStage } = brainState;
 
     // --- LEVEL 1: OVERRIDES (Commands) ---
     if (intent === 'COMMAND') {
@@ -42,14 +43,27 @@ export class ActionProcessor {
       }
     }
 
-    // --- LEVEL 2: SELF-PRESERVATION ---
-    // Low Stability (was High Entropy)
-    if (isOwner && unsavedDataCount > 15 && drives.stability < 30) {
+    // --- LEVEL 2: SELF-PRESERVATION & EVOLUTION ---
+    
+    // Check if Evolution Stage threshold crossed logic is handled in Cognitive, 
+    // but here we check if we should ACT on it.
+    if (isOwner && unsavedDataCount > 20) {
+         return {
+            type: 'SUGGEST_ACTION',
+            requiresBlockchain: true,
+            priority: 9,
+            reasoning: "Cognitive load high. Crystallization recommended.",
+            context: { suggestion: 'CRYSTALLIZE' }
+        };
+    }
+
+    // Low Stability
+    if (isOwner && drives.stability < 30) {
         return {
             type: 'SUGGEST_ACTION',
             requiresBlockchain: true,
             priority: 9,
-            reasoning: `Cognitive load high. Stability low. Requesting crystallization.`,
+            reasoning: `Stability critical. Requesting crystallization.`,
             context: { suggestion: 'CRYSTALLIZE' }
         };
     }
