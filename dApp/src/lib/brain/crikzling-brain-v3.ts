@@ -12,6 +12,10 @@ import {
 } from './types'; 
 import { AtomicConcept } from '@/lib/crikzling-atomic-knowledge';
 
+// Helper to safely serialize BigInts (Fixes "Do not know how to serialize a BigInt")
+const bigIntReplacer = (_key: string, value: any) => 
+  typeof value === 'bigint' ? value.toString() : value;
+
 export class CrikzlingBrainV3 { 
   private cognitive: CognitiveProcessor;
   private inputProc: InputProcessor;
@@ -45,9 +49,6 @@ export class CrikzlingBrainV3 {
 
   // --- CORE METHODS ---
 
-  /**
-   * Helper for Cryptographically Secure Randomness
-   */
   private getSecureRandom(): number {
     const array = new Uint32Array(1);
     if (typeof window !== 'undefined' && window.crypto) {
@@ -57,23 +58,19 @@ export class CrikzlingBrainV3 {
     return Math.random();
   }
 
-  /**
-   * Merges remote blockchain state into local brain
-   */
   public mergeState(remoteState: BrainState) {
       this.cognitive.mergeExternalState(remoteState);
   }
 
   /**
-   * Exports for storage
+   * Exports for storage with BigInt safety
    */
   public exportFullState(): string {
-    // Force a sync of stats before export to ensure JSON is accurate
     const state = this.cognitive.getState();
     return JSON.stringify({
         ...state,
-        exportedAt: Date.now() // Timestamp the export for version tracking
-    });
+        exportedAt: Date.now()
+    }, bigIntReplacer); // <--- Critical Fix Applied Here
   }
 
   public exportDiffState(): string {

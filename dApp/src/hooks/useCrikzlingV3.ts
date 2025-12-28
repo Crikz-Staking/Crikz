@@ -60,17 +60,21 @@ export function useCrikzlingV3() {
     abi: CRIKZLING_MEMORY_ABI,
     functionName: 'getLatestMemory',
     query: {
-        refetchInterval: 5000 // Poll faster for updates
+        refetchInterval: 5000 
     }
   });
 
-  // Helper to extract clean data from potential array or object return
+  // Safe extraction of snapshot data
   const snapshotData = useMemo(() => {
       if (!latestSnapshot) return null;
       const snap = latestSnapshot as any;
+      
+      // Wagmi can return array or object depending on config
       // Struct: timestamp, ipfsCid, conceptsCount, evolutionStage, triggerEvent
+      const cid = snap.ipfsCid || snap[1];
+      // Note: snap[2] is conceptsCount (BigInt), snap[3] is evolutionStage
       return {
-          cid: snap.ipfsCid || snap[1],
+          cid: cid,
           count: snap.conceptsCount || snap[2],
           stage: snap.evolutionStage || snap[3]
       };
@@ -103,7 +107,6 @@ export function useCrikzlingV3() {
     if (!sessionId || !publicClient) return;
     if (brain) return;
 
-    // Initialize with local diffs first
     const diffStateJson = localStorage.getItem(`crikz_brain_diff_${sessionId}`) || undefined;
     
     const initialBrain = new CrikzlingBrainV3(
@@ -131,6 +134,7 @@ export function useCrikzlingV3() {
               
               if (cid && cid.length > 5) {
                   const url = downloadFromIPFS(cid);
+                  
                   // Force fetch to bypass some aggressive caching
                   const response = await fetch(url, { cache: "no-store" });
                   
@@ -141,22 +145,20 @@ export function useCrikzlingV3() {
                   if (remoteJson && (remoteJson.concepts || remoteJson.totalInteractions)) {
                       console.log("✅ Remote JSON Parsed. Merging...", remoteJson.totalInteractions);
                       
-                      // CRITICAL: Merge logic
                       brain.mergeState(remoteJson);
                       setHasHydrated(true);
                       
                       const stats = brain.getStats();
                       
-                      // Update Chat to reflect Reality
                       setMessages([
                           { 
                               role: 'system', 
-                              content: `[SYSTEM] 🔗 Blockchain Memory Synced.\nCID: ${cid}\nRemote Ops: ${remoteJson.totalInteractions}\nGraph Nodes: ${stats.nodes}`, 
+                              content: `[SYSTEM] 🔗 Blockchain Uplink Established.\nCID: ${cid.substring(0,10)}...\nNodes: ${stats.nodes} | Total Ops: ${stats.interactions}`, 
                               timestamp: Date.now() 
                           },
                           {
                               role: 'bot',
-                              content: `I am fully operational. I have recalled ${stats.interactions} interactions and ${stats.nodes} concepts from the immutable ledger.`,
+                              content: `I have restored my memory from the immutable ledger. I am operating at stage ${stats.stage} with access to ${stats.nodes} crystallized concepts and ${stats.interactions} recorded operations.`,
                               timestamp: Date.now() + 100
                           }
                       ]);
@@ -190,7 +192,7 @@ export function useCrikzlingV3() {
       }
   }, [snapshotData, brain, hasHydrated, syncAttempts]);
 
-  // --- SAVE DIFF ON UPDATE ---
+  // --- SAVE DIFF ---
   useEffect(() => {
       if (brain && sessionId) {
           const diff = brain.exportDiffState();
@@ -198,7 +200,7 @@ export function useCrikzlingV3() {
       }
   }, [forceUpdate, brain, sessionId]);
 
-  // --- TICK ---
+  // --- HEARTBEAT ---
   useEffect(() => {
     if (!brain) return;
     const stats = brain.getStats();
@@ -234,7 +236,7 @@ export function useCrikzlingV3() {
                 if (newMsgs.length > 0) newMsgs[newMsgs.length - 1].content = currentText;
                 return newMsgs;
             });
-            let delay = 10; // Faster typing for better UX
+            let delay = 10;
             if (chars[index] === ' ') delay *= 0.3;
             if (['.', '!', '?', ','].includes(chars[index])) delay *= 5;
             setTimeout(() => typeChar(index + 1), delay);
@@ -285,18 +287,16 @@ export function useCrikzlingV3() {
         toast.loading('Confirming block...', { id: toastId });
         await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
 
-        // 2. Mark Saved & Clear Local Diff
+        // 2. Mark Saved
         brain.clearUnsavedCount();
         if (sessionId) {
             localStorage.removeItem(`crikz_brain_diff_${sessionId}`);
         }
         
-        // Refetch immediately to update UI "latest snapshot" if used elsewhere
         await refetchSnapshot(); 
         
         toast.success('Crystallization Complete!', { id: toastId });
         
-        // Don't auto-type response, let the user see the system update
         setMessages(prev => [...prev, { 
             role: 'system', 
             content: `[SYSTEM] Memory Crystallized. New State: ${state.totalInteractions} Ops saved.`, 
@@ -346,7 +346,7 @@ export function useCrikzlingV3() {
     const newBrain = new CrikzlingBrainV3(undefined, undefined, publicClient, CRIKZLING_MEMORY_ADDRESS as `0x${string}`);
     newBrain.setThoughtUpdateCallback(thoughtCallback);
     setBrain(newBrain);
-    setHasHydrated(false); // Reset hydration to allow re-sync if needed
+    setHasHydrated(false); 
     
     setMessages([{ role: 'bot', content: 'Local state purged. Re-synchronizing...', timestamp: Date.now() }]);
     setForceUpdate(prev => prev + 1);
@@ -415,7 +415,7 @@ export function useCrikzlingV3() {
       drives: stats?.drives || { curiosity: 0, stability: 0, efficiency: 0, social: 0, energy: 0 },
       connectivity: stats?.connectivity || { isConnected: false, bandwidthUsage: 0, stamina: 100, lastWebSync: 0 }, 
       memories: stats?.memories || { short: 0, mid: 0, long: 0, blockchain: 0 },
-      interactions: stats?.interactions || 0, // This will now correctly reflect the merged state
+      interactions: stats?.interactions || 0,
       learningRate: stats?.learningRate || 0.15,
       lastBlockchainSync: stats?.lastBlockchainSync || 0,
     },
