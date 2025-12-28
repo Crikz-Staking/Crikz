@@ -68,6 +68,25 @@ export class CrikzlingBrainV3 {
     return this.cognitive.exportDiff();
   }
 
+  // --- FEATURE: Network Optimization ---
+  public optimizeNeuralGraph() {
+      // Trigger deduplication and cleanup
+      const result = this.cognitive.pruneDuplicates();
+      const graphRes = this.cognitive.optimizeGraph();
+      if (result || graphRes) {
+          this.logEvent({ 
+              type: 'SYSTEM', 
+              input: 'NEURAL_OPTIMIZATION', 
+              output: `${result} ${graphRes || ''}`, 
+              intent: 'SYSTEM',
+              activeNodes: [],
+              vectors: {input:[0,0,0,0,0,0], response:[0,0,0,0,0,0]},
+              thoughtCycles: [],
+              executionTimeMs: 0
+          });
+      }
+  }
+
   public async tick(dappContext?: DAppContext): Promise<void> {
     const now = Date.now();
     const state = this.cognitive.getState();
@@ -80,8 +99,13 @@ export class CrikzlingBrainV3 {
     if (isConnected) {
         state.connectivity.stamina = 100; 
         state.connectivity.bandwidthUsage = Math.floor(this.getSecureRandom() * 20) + 80;
-        const operations = Math.floor(state.connectivity.bandwidthUsage / 5); 
         
+        // Randomly trigger optimization when connected
+        if (this.getSecureRandom() < 0.05) {
+            this.optimizeNeuralGraph();
+        }
+
+        const operations = Math.floor(state.connectivity.bandwidthUsage / 5); 
         for(let i=0; i<operations; i++) {
             const roll = this.getSecureRandom();
             if (roll > 0.85) this.cognitive.evolveCognitiveState();
