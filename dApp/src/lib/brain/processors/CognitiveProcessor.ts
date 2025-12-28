@@ -26,7 +26,10 @@ export class CognitiveProcessor {
   }
 
   /**
-   * HYDRATION LOGIC
+   * HYDRATION LOGIC:
+   * 1. Loads Static defaults.
+   * 2. Overwrites with Base State (Blockchain/IPFS).
+   * 3. Merges Diff State (Local Unsaved Changes).
    */
   private initializeState(baseJson?: string, diffJson?: string): BrainState {
     const knowledgeModules = loadAllKnowledgeModules();
@@ -62,7 +65,7 @@ export class CognitiveProcessor {
             state.concepts = { ...state.concepts, ...base.concepts };
             state.relations = Array.isArray(base.relations) ? base.relations : state.relations;
             
-            // Explicitly cast to number to avoid string/int mismatches
+            // Explicitly cast to number
             const baseInteractions = Number(base.totalInteractions || 0);
             state.totalInteractions = baseInteractions;
 
@@ -72,7 +75,7 @@ export class CognitiveProcessor {
         } catch (e) { console.error("Base Load Error", e); }
     }
 
-    // 2. Apply Diff (Local Storage)
+    // 2. Apply Diff (Local Storage) - This restores unsaved chats after refresh
     if (diffJson) {
         try {
             const diff = JSON.parse(diffJson);
@@ -104,7 +107,7 @@ export class CognitiveProcessor {
                 }
             });
 
-            // Restore Counters logic: Take the max to ensure we don't go backward
+            // CRITICAL: Ensure local progress isn't lost on init
             const diffInteractions = Number(diff.totalInteractions || 0);
             if (diffInteractions > state.totalInteractions) {
                 state.totalInteractions = diffInteractions;
@@ -122,44 +125,48 @@ export class CognitiveProcessor {
 
   /**
    * SMART MERGE: Combines Remote Blockchain State into Current State.
-   * This is the critical function fixing the issue.
+   * Forces upgrade to blockchain state but preserves local progress if higher.
    */
-  public mergeExternalState(remoteState: BrainState) {
-      const remoteOps = Number(remoteState.totalInteractions || 0);
+  public mergeExternalState(remoteState: any) {
+      // Handle potential property name mismatches from older saves
+      const remoteOps = Number(remoteState.totalInteractions || remoteState.interactions || 0);
       const currentOps = Number(this.state.totalInteractions || 0);
 
-      console.log(`[Cognitive] 📥 INCOMING MERGE | Remote: ${remoteOps} | Local: ${currentOps}`);
+      console.log(`[Cognitive] 📥 MERGE CHECK | Remote: ${remoteOps} | Local: ${currentOps}`);
 
-      // 1. Force Sync Operations Counter
-      // Always take the higher number. If remote is 500 and local is 0, we jump to 500.
-      if (remoteOps > currentOps) {
-          this.state.totalInteractions = remoteOps;
-      }
+      // 1. Force Sync Operations Counter (Monotonic Increase)
+      // We take the MAX. If local is 505 (unsaved) and remote is 500, keep 505.
+      // If local is 0 (fresh load) and remote is 500, jump to 500.
+      this.state.totalInteractions = Math.max(currentOps, remoteOps);
       
       this.state.lastBlockchainSync = Date.now();
 
-      // 2. Merge Concepts (Knowledge)
+      // 2. Merge Concepts (Knowledge Graph)
       if (remoteState.concepts) {
           let newNodes = 0;
-          Object.entries(remoteState.concepts).forEach(([id, remoteConcept]) => {
+          Object.entries(remoteState.concepts).forEach(([id, remoteConceptRaw]) => {
+              const remoteConcept = remoteConceptRaw as AtomicConcept;
               const localConcept = this.state.concepts[id];
-              // If missing or remote is deeper, overwrite
+              
               if (!localConcept) {
                   this.state.concepts[id] = remoteConcept;
                   newNodes++;
-              } else if ((remoteConcept.technical_depth || 0) > (localConcept.technical_depth || 0)) {
-                  this.state.concepts[id] = { ...localConcept, ...remoteConcept };
+              } else {
+                  // Merge properties if remote is more detailed
+                  if ((remoteConcept.technical_depth || 0) > (localConcept.technical_depth || 0)) {
+                      this.state.concepts[id] = { ...localConcept, ...remoteConcept };
+                  }
               }
           });
-          if(newNodes > 0) console.log(`[Cognitive] Hydrated ${newNodes} new concepts.`);
+          if(newNodes > 0) console.log(`[Cognitive] Hydrated ${newNodes} new concepts from ledger.`);
       }
 
-      // 3. Merge Relations (Connections)
+      // 3. Merge Relations
       if (remoteState.relations && Array.isArray(remoteState.relations)) {
           const existingSignatures = new Set(this.state.relations.map(r => `${r.from}-${r.to}-${r.type}`));
           let newEdges = 0;
           
-          remoteState.relations.forEach(rel => {
+          remoteState.relations.forEach((rel: any) => {
               const sig = `${rel.from}-${rel.to}-${rel.type}`;
               if (!existingSignatures.has(sig)) {
                   this.state.relations.push(rel);
@@ -169,10 +176,10 @@ export class CognitiveProcessor {
           });
       }
 
-      // 4. Merge Long Term Memory
-      const localIds = new Set(this.state.longTermMemory.map(m => m.id));
+      // 4. Merge Memories
       if (remoteState.longTermMemory && Array.isArray(remoteState.longTermMemory)) {
-          remoteState.longTermMemory.forEach(mem => {
+          const localIds = new Set(this.state.longTermMemory.map(m => m.id));
+          remoteState.longTermMemory.forEach((mem: Memory) => {
               if (!localIds.has(mem.id)) {
                   this.state.longTermMemory.push(mem);
                   localIds.add(mem.id);
@@ -214,7 +221,7 @@ export class CognitiveProcessor {
 
   public exportDiff(): string {
       const diff: any = {
-          totalInteractions: this.state.totalInteractions,
+          totalInteractions: this.state.totalInteractions, // Always save current MAX count
           unsavedDataCount: this.state.unsavedDataCount,
           concepts: {},
           relations: [],

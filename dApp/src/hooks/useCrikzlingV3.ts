@@ -60,11 +60,11 @@ export function useCrikzlingV3() {
     abi: CRIKZLING_MEMORY_ABI,
     functionName: 'getLatestMemory',
     query: {
-        refetchInterval: 5000 
+        refetchInterval: 5000 // Poll faster for updates
     }
   });
 
-  // Safe extraction of snapshot data
+  // Helper to extract clean data from potential array or object return
   const snapshotData = useMemo(() => {
       if (!latestSnapshot) return null;
       const snap = latestSnapshot as any;
@@ -107,6 +107,7 @@ export function useCrikzlingV3() {
     if (!sessionId || !publicClient) return;
     if (brain) return;
 
+    // Initialize with local diffs first
     const diffStateJson = localStorage.getItem(`crikz_brain_diff_${sessionId}`) || undefined;
     
     const initialBrain = new CrikzlingBrainV3(
@@ -119,15 +120,20 @@ export function useCrikzlingV3() {
     initialBrain.setThoughtUpdateCallback(thoughtCallback);
     setBrain(initialBrain);
     
+    // Initial loading message while waiting for hydration
+    setMessages([{ role: 'bot', content: 'Connecting to Crikz Protocol... Loading Neural Graph from Blockchain...', timestamp: Date.now() }]);
+    
   }, [sessionId, publicClient]);
 
   // --- 2. HYDRATION LOGIC (BLOCKCHAIN) ---
   useEffect(() => {
       const syncBlockchain = async () => {
           if (!brain || !snapshotData) return;
-          if (hasHydrated) return;
+          
+          // Prevent double hydration on same snapshot, unless retrying
+          if (hasHydrated && syncAttempts === 0) return;
 
-          console.log("🔄 Attempting Hydration from Snapshot:", snapshotData);
+          console.log(`🔄 Attempting Hydration (Try ${syncAttempts + 1}) from Snapshot:`, snapshotData.cid);
 
           try {
               const { cid, stage } = snapshotData;
@@ -145,11 +151,14 @@ export function useCrikzlingV3() {
                   if (remoteJson && (remoteJson.concepts || remoteJson.totalInteractions)) {
                       console.log("✅ Remote JSON Parsed. Merging...", remoteJson.totalInteractions);
                       
+                      // CRITICAL: Merge logic in processor now handles Math.max for ops
                       brain.mergeState(remoteJson);
                       setHasHydrated(true);
+                      setSyncAttempts(0); // Reset attempts on success
                       
                       const stats = brain.getStats();
                       
+                      // RESET messages to start fresh with the Hive Mind context
                       setMessages([
                           { 
                               role: 'system', 
@@ -175,13 +184,14 @@ export function useCrikzlingV3() {
                   }
               }
           } catch (e) {
-              console.warn(`Background Sync Failed (Attempt ${syncAttempts}):`, e);
+              console.warn(`Background Sync Failed (Attempt ${syncAttempts + 1}):`, e);
               if (syncAttempts < 3) {
-                  setTimeout(() => setSyncAttempts(p => p + 1), 2000);
+                  const delay = 2000 * (syncAttempts + 1);
+                  setTimeout(() => setSyncAttempts(p => p + 1), delay);
               } else {
                   if (!hasHydrated) {
-                       setMessages([{ role: 'bot', content: '⚠️ Connection to Hive Mind unstable. Operating on local cache only.', timestamp: Date.now() }]);
-                       setHasHydrated(true);
+                       setMessages([{ role: 'bot', content: '⚠️ Connection to Hive Mind unstable (IPFS Timeout). Operating on local cache.', timestamp: Date.now() }]);
+                       setHasHydrated(true); // Stop retrying
                   }
               }
           }
@@ -192,7 +202,7 @@ export function useCrikzlingV3() {
       }
   }, [snapshotData, brain, hasHydrated, syncAttempts]);
 
-  // --- SAVE DIFF ---
+  // --- SAVE DIFF ON UPDATE ---
   useEffect(() => {
       if (brain && sessionId) {
           const diff = brain.exportDiffState();
@@ -200,7 +210,7 @@ export function useCrikzlingV3() {
       }
   }, [forceUpdate, brain, sessionId]);
 
-  // --- HEARTBEAT ---
+  // --- HIGH-SPEED HEARTBEAT ---
   useEffect(() => {
     if (!brain) return;
     const stats = brain.getStats();
@@ -256,7 +266,7 @@ export function useCrikzlingV3() {
     const toastId = toast.loading('Initiating Neural Sync...', { id: 'crystallize' });
 
     try {
-        // 1. Export Full State
+        // 1. Export Full State (Includes new Nodes + Ops Count)
         const exportStr = brain.exportFullState();
         
         // Debug Log
@@ -287,7 +297,7 @@ export function useCrikzlingV3() {
         toast.loading('Confirming block...', { id: toastId });
         await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
 
-        // 2. Mark Saved
+        // 2. Mark Saved & Clear Local Diff
         brain.clearUnsavedCount();
         if (sessionId) {
             localStorage.removeItem(`crikz_brain_diff_${sessionId}`);
