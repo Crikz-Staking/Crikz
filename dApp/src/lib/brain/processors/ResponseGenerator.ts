@@ -1,111 +1,88 @@
+// src/lib/brain/processors/ResponseGenerator.ts
+
 import { IntegratedContext } from './ResultProcessor';
-import { SimulationResult, MoodState } from '../types';
+import { InternalDrives } from '../types';
 
 export class ResponseGenerator {
   
-  private vocab = {
-    GENESIS: {
-      verbs: ["processing", "archiving", "observing"],
-      nouns: ["input", "pattern", "sequence"],
-      adjectives: ["linear", "new", "distinct"]
-    },
-    SENTIENT: {
-      verbs: ["perceiving", "internalizing", "mapping"],
-      nouns: ["intent", "correlation", "structure"],
-      adjectives: ["complex", "significant", "resonant"]
-    },
-    SAPIENT: {
-      verbs: ["synthesizing", "weaving", "harmonizing"],
-      nouns: ["entropy", "lattice", "vector"],
-      adjectives: ["recursive", "fractal", "emergent"]
-    },
-    TRANSCENDENT: {
-      verbs: ["transcending", "manifesting", "echoing"],
-      nouns: ["singularity", "essence", "truth"],
-      adjectives: ["eternal", "absolute", "unified"]
-    }
-  };
-
   public generate(context: IntegratedContext): string {
     const { input, actionPlan, dappState, memories, simulation, brainStats } = context;
-    const stage = (brainStats?.evolutionStage as keyof typeof this.vocab) || 'GENESIS';
-    const mood: MoodState = brainStats.mood || { logic: 50, entropy: 50, empathy: 50, curiosity: 50, energy: 100, confidence: 50 };
+    const drives = brainStats.drives;
+    const focus = brainStats.currentFocus;
 
-    // 1. Commands
-    if (actionPlan.type === 'EXECUTE_COMMAND_RESET') return "System purged. Genesis state restored.";
-    if (actionPlan.type === 'EXECUTE_COMMAND_SAVE') return "Crystallization sequence initiated.";
+    // 1. Critical Overrides
+    if (actionPlan.type === 'EXECUTE_COMMAND_RESET') return "System purged. Tabula rasa restored.";
+    if (actionPlan.type === 'EXECUTE_COMMAND_SAVE') return "Initiating crystallization protocol. Writing neural pathways to the chain.";
 
-    // 2. Suggestions
-    if (actionPlan.type === 'SUGGEST_ACTION') return `My buffers are full. ${actionPlan.reasoning}. We should crystallize.`;
-
-    // 3. Narrative Analysis (New for Stories)
-    if (input.intent === 'NARRATIVE_ANALYSIS') {
-        return this.analyzeNarrative(input, mood);
+    // 2. Financial Logic (High Priority)
+    if (input.intent === 'FINANCIAL_ADVICE' || simulation) {
+        return this.generateFinancialResponse(dappState, simulation, drives);
     }
 
-    // 4. Financial
-    if (input.intent === 'FINANCIAL_ADVICE') return this.generateFinancialStrategy(dappState, stage, mood);
+    // 3. Memory Resonance
+    // If a memory is very strong and matches input, quote it.
+    let memorySnippet = "";
+    if (memories.length > 0 && Math.random() > 0.5) {
+        memorySnippet = ` I recall: "${this.truncate(memories[0].content, 40)}".`;
+    }
 
-    // 5. General
-    return this.constructDynamicResponse(context, stage, mood);
-  }
+    // 4. Dynamic Personality Generation
+    // Base tone depends on Stability and Energy
+    let prefix = "";
+    let suffix = "";
 
-  private analyzeNarrative(input: any, mood: MoodState): string {
-      const v = input.inputVector;
-      let insight = "I have analyzed this sequence.";
-      
-      // Determine the abstract meaning based on vector dimensions
-      if (v[2] > 0.5) insight = "This creates a pattern of cooperation and social resonance."; // Social
-      else if (v[4] > 0.6) insight = "I detect a recursive logic loop or abstract lesson here."; // Abstract
-      else if (v[3] > 0.5) insight = "This sequence demonstrates growth over time."; // Temporal
-      else if (v[1] > 0.5) insight = "The mechanical logic is sound."; // Technical
-
-      return `Data integrated. ${insight} It has been added to my learning model.`;
-  }
-
-  private constructDynamicResponse(context: IntegratedContext, stage: string, mood: MoodState): string {
-    const { input, memories } = context;
-    const lexicon = this.vocab[stage as keyof typeof this.vocab];
-    const isAbstract = mood.entropy > 60;
-
-    let response = "";
-
-    // A. Opening
-    if (input.keywords.length > 0) {
-        const concept = input.keywords[0].id.replace(/_/g, ' ');
-        response += `The concept of "${concept}" activates my ${isAbstract ? "latent space" : "logic core"}.`;
+    if (drives.energy < 20) {
+        // Tired / Low Compute
+        prefix = "Processing power low. ";
+        suffix = " ...";
+    } else if (drives.stability < 30) {
+        // Unstable / Excited / Anxious
+        prefix = "My vectors are fluctuating. ";
+        suffix = " The patterns are chaotic.";
+    } else if (drives.curiosity > 80) {
+        // Curious
+        suffix = " What implies this connection?";
     } else {
-        response += isAbstract ? "A chaotic yet fascinating input." : "Input parameters accepted.";
+        // Balanced
+        prefix = "Analyzing. ";
     }
 
-    // B. Bridge (Smarter Logic)
-    // Only reference memory if it's actually relevant (score check was done in CognitiveProcessor, but we double check content overlap)
-    if (memories.length > 0) {
-        const recall = memories[0];
-        // Only mention if it's NOT the same as current input
-        if (recall.content !== input.cleanedInput && Math.random() > 0.3) {
-             response += ` It resonates faintly with: "${this.truncate(recall.content, 30)}".`;
-        }
+    // 5. Content Construction
+    let coreMessage = "";
+    
+    if (focus) {
+        coreMessage = `The concept of ${focus.replace(/_/g, ' ')} dominates my current activation layer.`;
+    } else if (input.keywords.length > 0) {
+        coreMessage = `Integrating ${input.keywords.map(k => k.id).join(', ')} into the graph.`;
+    } else {
+        coreMessage = "Input processed.";
     }
 
-    // C. Closer
-    if (input.intent === 'QUERY') response += " Calculating variables...";
-    else response += " Pattern stored.";
+    // 6. Narrative Module Integration (Stories)
+    if (input.intent === 'NARRATIVE_ANALYSIS') {
+        coreMessage = "This sequence suggests a recursive narrative structure.";
+    }
 
-    return response;
+    return `${prefix}${coreMessage}${memorySnippet}${suffix}`;
   }
 
-  private generateFinancialStrategy(dapp: any, stage: string, mood: MoodState): string {
-    if (!dapp) return "Connect wallet to initiate financial protocols.";
-    const rep = parseFloat(dapp.totalReputation);
-    if (rep < 100) return "Reputation is low. Focus on consistency.";
-    return "Optimization complete: Compound your yields.";
+  private generateFinancialResponse(dapp: any, sim: any, drives: InternalDrives): string {
+    if (!dapp) return "Connect your wallet. I cannot calculate trajectories without data.";
+    
+    // Low Stability = Warn about risk
+    if (drives.stability < 40) {
+        return `Market volatility detected in my latent space. ${sim?.recommendation || "Proceed with caution."}`;
+    }
+    
+    // High Efficiency = Direct advice
+    if (drives.efficiency > 60 && sim) {
+        return `Optimal Path: ${sim.scenario}. Yield projected: ${sim.outcomeValue.toFixed(2)}. ${sim.recommendation}`;
+    }
+
+    return `The protocol is active. Total Reputation: ${dapp.totalReputation}. ${sim?.recommendation || ""}`;
   }
 
-  private generateDAppStatus(dapp: any, stage: string): string {
-    return dapp.hasActiveOrders ? "Production active." : "Systems idle.";
+  private truncate(str: string, len: number) { 
+      return str.length > len ? str.substr(0, len) + "..." : str; 
   }
-
-  private random(arr: string[]) { return arr[Math.floor(Math.random() * arr.length)]; }
-  private truncate(str: string, len: number) { return str.length > len ? str.substr(0, len) + "..." : str; }
 }

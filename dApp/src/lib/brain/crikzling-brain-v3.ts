@@ -1,15 +1,14 @@
 // src/lib/brain/crikzling-brain-v3.ts
 
 import { PublicClient } from 'viem';
-import { AtomicConcept, ConceptRelation } from '@/lib/crikzling-atomic-knowledge';
 import { InputProcessor, InputAnalysis } from './processors/InputProcessor';
 import { CognitiveProcessor } from './processors/CognitiveProcessor';
 import { ActionProcessor, ActionPlan } from './processors/ActionProcessor';
 import { ResultProcessor } from './processors/ResultProcessor';
 import { ResponseGenerator } from './processors/ResponseGenerator';
 import { SimulationEngine } from './processors/SimulationEngine';
-import { NarrativeModule } from './narrative-module'; // Import new module
-import { BrainState, DAppContext, ThoughtProcess, Vector } from './types';
+import { NarrativeModule } from './narrative-module';
+import { BrainState, DAppContext, ThoughtProcess } from './types';
 
 export class CrikzlingBrainV3 { 
   private cognitive: CognitiveProcessor;
@@ -18,10 +17,9 @@ export class CrikzlingBrainV3 {
   private resultProc: ResultProcessor;
   private generator: ResponseGenerator;
   private simulator: SimulationEngine;
-  private narrative: NarrativeModule; // Add Narrative Module
+  private narrative: NarrativeModule;
   
   private thoughtCallback?: (thought: ThoughtProcess | null) => void;
-  private isDreaming: boolean = false;
   private pendingInsight: string | null = null;
   private lastTick: number = Date.now();
 
@@ -36,84 +34,48 @@ export class CrikzlingBrainV3 {
     this.resultProc = new ResultProcessor();
     this.generator = new ResponseGenerator();
     this.simulator = new SimulationEngine();
-    this.narrative = new NarrativeModule(); // Initialize
+    this.narrative = new NarrativeModule();
   }
 
   public setThoughtUpdateCallback(callback: (thought: ThoughtProcess | null) => void) {
     this.thoughtCallback = callback;
   }
 
+  /**
+   * THE SUBCONSCIOUS HEARTBEAT
+   * Runs independently of user input.
+   */
   public async tick(dappContext?: DAppContext): Promise<void> {
     const now = Date.now();
-    if (now - this.lastTick < 3000 || this.isDreaming) return;
+    // Throttle to 2s to allow animations to breathe
+    if (now - this.lastTick < 2000) return;
     this.lastTick = now;
 
+    // 1. Process Neural Decay and Auto-Thoughts
+    const spontaneousThought = this.cognitive.processNeuralTick();
     const state = this.cognitive.getState();
-    const mood = state.mood;
-    const rng = Math.random() * 100;
 
-    // Increased chance to dream for more "self-talk"
-    if (mood.entropy > 50 && rng > 60) {
-        await this.runAssociativeDreaming();
-    }
-    else if (mood.logic > 60 && dappContext && rng < 30) {
-        this.runBackgroundSimulation(dappContext);
-    }
-    else if (mood.energy > 80) {
-        this.cognitive.performMemoryMaintenance(); 
-    }
-  }
-
-  private async runAssociativeDreaming() {
-    this.isDreaming = true;
-    this.updateThought('dreaming', 20, 'Navigating latent space...');
-
-    await this.think(1500);
-
-    const concepts = Object.values(this.cognitive.getConcepts());
-    if (concepts.length < 5) {
-        this.isDreaming = false;
-        return;
-    }
-
-    const c1 = concepts[Math.floor(Math.random() * concepts.length)];
-    const c2 = concepts[Math.floor(Math.random() * concepts.length)];
-
-    if (c1.id !== c2.id) {
-        this.updateThought('dreaming', 60, `Connecting ${c1.id} <-> ${c2.id}`);
+    // 2. React to Spontaneous Thought
+    if (spontaneousThought) {
+        this.updateThought('introspection', 50, spontaneousThought);
         
-        // Use Narrative Module to formulate the insight
-        const tone = this.cognitive.getState().mood.entropy > 50 ? 'POETIC' : 'LOGICAL';
-        const connectionPhrase = this.narrative.constructConceptChain([c1.id, c2.id], tone);
-
-        if (Math.random() > 0.8) {
-            this.pendingInsight = `Subconscious thought: ${connectionPhrase}`;
+        // Sometimes surface this thought to the UI as a pending insight
+        if (Math.random() > 0.7) {
+            this.pendingInsight = spontaneousThought;
         }
+        
+        // Log it as an internal memory
+        this.cognitive.archiveMemory('subconscious', spontaneousThought, [], 0.1, dappContext);
+    } 
+    // 3. Idle Simulation (If High Efficiency Drive)
+    else if (state.drives.efficiency > 70 && dappContext && Math.random() > 0.8) {
+        this.updateThought('simulation', 30, 'Optimizing yield strategies...');
+        // logic to check yield...
     }
-
-    await this.think(1000);
-    this.isDreaming = false;
-    this.updateThought(null as any, 0, '');
-  }
-
-  private runBackgroundSimulation(dappContext: DAppContext) {
-    if (!dappContext) return;
-    const financeVector: Vector = [1, 0, 0, 0, 0, 0.5]; 
-    const result = this.simulator.runSimulation('FINANCIAL_ADVICE', dappContext, financeVector);
-    
-    if (result && result.outcomeValue > 50) {
-        // More natural phrasing for background thoughts
-        this.pendingInsight = `I've been calculating... ${result.scenario} seems viable. ${result.recommendation}`;
-        this.updateThought('simulation', 100, 'Opportunity detected');
-        setTimeout(() => this.updateThought(null as any, 0, ''), 2000);
+    else {
+        // Clear thought bubble if idle
+        this.updateThought(null as any, 0, '');
     }
-  }
-
-  private calculateCognitiveLoad(complexity: number, entropy: number): number {
-      const baseLoad = 1500; 
-      const complexityAdd = complexity * 800; 
-      const entropyDrag = entropy * 20; 
-      return Math.min(8000, baseLoad + complexityAdd + entropyDrag);
   }
 
   public async process(
@@ -122,46 +84,32 @@ export class CrikzlingBrainV3 {
     dappContext?: DAppContext
   ): Promise<{ response: string; actionPlan: ActionPlan }> { 
     try {
-      this.isDreaming = false;
-      this.updateThought(null as any, 0, '');
-
-      this.updateThought('vectorization', 10, 'Calculating semantic vector');
+      // 1. INPUT PROCESSING
+      this.updateThought('perception', 10, 'Analyzing input vector');
       const brainState = this.cognitive.getState();
       const inputAnalysis = this.inputProc.process(text, brainState.concepts, dappContext);
       
-      const totalThinkTime = this.calculateCognitiveLoad(inputAnalysis.complexity, brainState.mood.entropy);
-      const stepTime = totalThinkTime / 4; 
-
-      await this.think(stepTime);
-
-      this.updateThought('perception', 35, 'Navigating knowledge graph');
-      const activeNodeIds = inputAnalysis.keywords.map(k => k.id);
-      const activatedNetwork = this.cognitive.activateNeuralNetwork(activeNodeIds);
-      const secondaryConcepts = Object.keys(activatedNetwork)
-        .filter(id => !activeNodeIds.includes(id))
-        .sort((a, b) => activatedNetwork[b] - activatedNetwork[a])
-        .slice(0, 3);
-
-      const allActiveIds = [...activeNodeIds, ...secondaryConcepts];
-      const relevantMemories = this.cognitive.retrieveRelevantMemories(allActiveIds, inputAnalysis.inputVector);
+      // 2. SPREADING ACTIVATION (The "Thinking" Step)
+      this.updateThought('spreading_activation', 40, 'Firing neural pathways');
+      const activeIds = inputAnalysis.keywords.map(k => k.id);
       
-      if (inputAnalysis.emotionalWeight > 0.8) {
-         this.updateThought('perception', 45, 'Syncing immutable ledger...');
-         await this.cognitive.syncBlockchainMemories();
-      }
+      // Energy flows through the graph based on input keywords
+      this.cognitive.stimulateNetwork(activeIds);
+      
+      await this.think(500); // Artificial delay for "weight"
 
-      await this.think(stepTime);
+      // 3. MEMORY RETRIEVAL (Contextual)
+      const relevantMemories = this.cognitive.retrieveRelevantMemories(activeIds, inputAnalysis.inputVector);
 
-      this.updateThought('simulation', 65, 'Running outcome prediction');
+      // 4. SIMULATION (If needed)
+      this.updateThought('simulation', 70, 'Predicting outcomes');
       let simResult = null;
-      if (dappContext) {
+      if (dappContext && (inputAnalysis.intent === 'FINANCIAL_ADVICE' || inputAnalysis.intent === 'DAPP_QUERY')) {
           simResult = this.simulator.runSimulation(inputAnalysis.intent, dappContext, inputAnalysis.inputVector);
       }
-      
-      if (simResult) await this.think(1000); 
-      else await this.think(stepTime);
 
-      this.updateThought('strategy', 85, 'Formulating strategic output');
+      // 5. ACTION & RESPONSE
+      this.updateThought('strategy', 90, 'Collapsing wave function');
       const actionPlan = this.actionProc.plan(inputAnalysis, brainState, isOwner);
       
       if (actionPlan.type === 'EXECUTE_COMMAND_RESET' && isOwner) this.cognitive.wipeLocalMemory();
@@ -175,31 +123,22 @@ export class CrikzlingBrainV3 {
         simResult 
       );
 
-      (integratedContext as any).brainStats = { 
-        ...integratedContext.brainStats,
-        mood: brainState.mood 
-      };
-
-      // GENERATE RESPONSE
+      // Inject Internal Drive State into response generation
       let response = this.generator.generate(integratedContext);
 
-      // Enhance response using Narrative Module for specific topics
-      response = this.narrative.enhanceResponse(response, integratedContext);
-
-      // Append pending insights from background thinking
-      if (this.pendingInsight && Math.random() > 0.6) {
-          response = `${response} \n\n[INSIGHT]: ${this.pendingInsight}`;
+      // If there was a pending subconscious thought, append it
+      if (this.pendingInsight) {
+          response += ` \n\n[Subconscious]: ${this.pendingInsight}`;
           this.pendingInsight = null;
       }
 
+      // 6. LEARNING (Neuroplasticity)
       this.cognitive.archiveMemory(
-        'user', inputAnalysis.cleanedInput, allActiveIds, inputAnalysis.emotionalWeight, dappContext, inputAnalysis.inputVector 
+        'user', inputAnalysis.cleanedInput, activeIds, inputAnalysis.emotionalWeight, dappContext, inputAnalysis.inputVector 
       );
       this.cognitive.archiveMemory(
-        'bot', response, allActiveIds, 0.5, dappContext, inputAnalysis.inputVector
+        'bot', response, activeIds, 0.5, dappContext, inputAnalysis.inputVector
       );
-
-      await this.think(500);
 
       this.updateThought(null as any, 100, 'Complete');
       
@@ -208,7 +147,7 @@ export class CrikzlingBrainV3 {
     } catch (error) {
       console.error("Brain Failure:", error);
       return { 
-          response: "Cognitive dissonance detected. My processors encountered a critical fault.",
+          response: "Neural pathway disrupted. Rebooting cognitive core...",
           actionPlan: { type: 'RESPOND_NATURAL', requiresBlockchain: false, priority: 0, reasoning: 'Error Fallback' }
       };
     }
@@ -227,7 +166,7 @@ export class CrikzlingBrainV3 {
   }
 
   public needsCrystallization(): boolean {
-    return this.cognitive.getState().unsavedDataCount >= 5;
+    return this.cognitive.getState().unsavedDataCount >= 10;
   }
 
   public clearUnsavedCount() {
@@ -244,7 +183,7 @@ export class CrikzlingBrainV3 {
         nodes: Object.keys(s.concepts).length,
         relations: s.relations.length,
         stage: s.evolutionStage,
-        mood: s.mood,
+        mood: s.drives, // Mapping drives to mood for UI compat
         unsaved: s.unsavedDataCount,
         memories: {
           short: s.shortTermMemory.length,
