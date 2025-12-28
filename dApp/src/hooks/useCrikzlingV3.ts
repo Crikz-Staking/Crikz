@@ -48,24 +48,26 @@ export function useCrikzlingV3() {
     functionName: 'owner',
   });
 
+  // We keep this hook for passive updates, but we also manually refetch in the sync function
   const { data: latestSnapshot, refetch: refetchSnapshot } = useReadContract({
     address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
     abi: CRIKZLING_MEMORY_ABI,
     functionName: 'getLatestMemory',
-    query: { refetchInterval: 5000 }
+    query: { 
+        retry: false, // Don't retry if it reverts (Genesis state)
+    } 
   });
 
-  const snapshotData = useMemo(() => {
-      if (!latestSnapshot) return null;
-      const snap = latestSnapshot as any;
-      const cid = snap.ipfsCid || snap[1];
-      return {
-          cid: cid,
-          count: snap.conceptsCount || snap[2],
-          stage: snap.evolutionStage || snap[3],
-          trigger: snap.triggerEvent || snap[4]
-      };
-  }, [latestSnapshot]);
+  // Helper to parse raw contract data
+  const parseSnapshot = (data: any) => {
+      if (!data) return null;
+      // Handle both array and object returns depending on wagmi version/abi
+      const cid = data.ipfsCid || data[1];
+      const count = data.conceptsCount || data[2];
+      const stage = data.evolutionStage || data[3];
+      const trigger = data.triggerEvent || data[4];
+      return { cid, count, stage, trigger };
+  };
 
   const isOwner = useMemo(() => {
     if (!address || !contractOwner) return false;
@@ -108,73 +110,92 @@ export function useCrikzlingV3() {
     
     setMessages([{ 
         role: 'system', 
-        content: 'SYSTEM ONLINE. Manual sync available.', 
+        content: 'SYSTEM ONLINE. Neural Link ready for synchronization.', 
         timestamp: Date.now() 
     }]);
     
   }, [sessionId, publicClient]);
 
-  // --- 2. MANUAL SYNC ---
+  // --- 2. MANUAL SYNC WITH SIGNATURE ---
   const syncWithBlockchain = useCallback(async () => {
-    if (!brain || !snapshotData) {
-        toast.error("No blockchain data available");
-        return;
-    }
+    if (!brain) return;
 
     try {
       setInitialLoading(true);
 
-      // 1. Signature Request
+      // 1. Request Signature FIRST (Interaction Layer)
       await signMessageAsync({ 
         message: `Authenticate Neural Uplink\nTimestamp: ${Date.now()}\nRequest: Sync State` 
       });
 
-      toast.loading("Identity Verified. Syncing...", { duration: 2000 });
+      toast.loading("Scanning Blockchain Layer...", { duration: 2000, id: 'sync-load' });
       
-      const { cid, count, trigger } = snapshotData;
+      // 2. Fetch Fresh Data (Network Layer)
+      const { data: freshData, error } = await refetchSnapshot();
       
-      // Parse Ops
-      let blockchainOps = 0;
-      if (trigger && trigger.includes('_')) {
-         blockchainOps = parseInt(trigger.split('_')[1]) || 0;
-      }
-
-      if (cid && cid.length > 5) {
-          const url = downloadFromIPFS(cid);
-          const response = await fetch(url);
-          if (!response.ok) throw new Error("IPFS Fetch Failed");
+      // 3. Logic Layer
+      if (freshData) {
+          const { cid, count, trigger } = parseSnapshot(freshData)!;
           
-          const remoteJson = await response.json();
+          let blockchainOps = 0;
+          if (trigger && trigger.includes('_')) {
+             blockchainOps = parseInt(trigger.split('_')[1]) || 0;
+          }
 
-          if (remoteJson) {
-              // Override ops count from blockchain trigger if available
-              if (blockchainOps > 0) {
-                  remoteJson.totalInteractions = blockchainOps;
-              }
-
-              brain.mergeState(remoteJson);
+          if (cid && cid.length > 5) {
+              const url = downloadFromIPFS(cid);
+              const response = await fetch(url);
+              if (!response.ok) throw new Error("IPFS Fetch Failed");
               
-              setMessages(prev => [
-                  ...prev, 
-                  { 
-                      role: 'system', 
-                      content: `[UPLINK ESTABLISHED]\n\nNodes: ${Object.keys(remoteJson.concepts || {}).length}\nOps: ${blockchainOps}\n\nLocal Graph Updated.`, 
-                      timestamp: Date.now() 
+              const remoteJson = await response.json();
+
+              if (remoteJson) {
+                  // Authority Check: Ensure blockchain Ops count overrides local
+                  if (blockchainOps > 0) {
+                      remoteJson.totalInteractions = blockchainOps;
                   }
-              ]);
-              setForceUpdate(p => p + 1);
-              toast.success("Synchronized!");
+
+                  brain.mergeState(remoteJson);
+                  
+                  // Clear local overrides after successful sync
+                  localStorage.removeItem(`crikz_brain_diff_${sessionId}`);
+                  
+                  toast.success("Neural Link Established", { id: 'sync-load' });
+                  setMessages(prev => [
+                      ...prev, 
+                      { 
+                          role: 'system', 
+                          content: `[UPLINK ESTABLISHED]\n\nBlockchain Nodes: ${count}\nBlockchain Ops: ${blockchainOps}\n\nGraph Synchronized.`, 
+                          timestamp: Date.now() 
+                      }
+                  ]);
+                  setForceUpdate(p => p + 1);
+              }
           }
       } else {
-          toast.error("No valid snapshot on chain.");
+          // Handle Empty/Genesis State gracefully
+          // Usually caused by a fresh contract deployment with no memories yet
+          toast.success("Genesis State Confirmed", { id: 'sync-load' });
+          setMessages(prev => [
+              ...prev, 
+              { 
+                  role: 'system', 
+                  content: `[GENESIS STATE]\nNo history found on blockchain.\nStarting fresh neural pathway.`, 
+                  timestamp: Date.now() 
+              }
+          ]);
       }
-    } catch (error) {
-      console.error("Sync Failed:", error);
-      toast.error("Sync Failed: Authentication Rejected or Network Error");
+    } catch (error: any) {
+      console.error("Sync Process:", error);
+      if (error.message?.includes("User rejected")) {
+          toast.error("Authentication Cancelled", { id: 'sync-load' });
+      } else {
+          toast.error("Network Error: Could not reach Neural Net", { id: 'sync-load' });
+      }
     } finally {
       setInitialLoading(false);
     }
-  }, [brain, snapshotData, signMessageAsync]);
+  }, [brain, signMessageAsync, refetchSnapshot, sessionId]);
 
   // --- SAVE DIFF ---
   useEffect(() => {
@@ -244,7 +265,7 @@ export function useCrikzlingV3() {
 
         await publicClient!.waitForTransactionReceipt({ hash, confirmations: 1 });
 
-        // Cleanup local diffs, but keep brain state valid in memory
+        // IMPORTANT: Clear local diffs because we just saved EVERYTHING to chain
         brain.clearUnsavedCount();
         if (sessionId) localStorage.removeItem(`crikz_brain_diff_${sessionId}`);
         
@@ -319,7 +340,7 @@ export function useCrikzlingV3() {
 
   return {
     messages, sendMessage, uploadFile, crystallize, resetBrain, updateDrives, trainConcept, simpleTrain, toggleNeuralLink,
-    syncWithBlockchain, initialLoading, // Exported for UI
+    syncWithBlockchain, initialLoading,
     needsSave: brain?.needsCrystallization() || false, isSyncing, 
     brainStats: {
       stage: stats?.stage || 'GENESIS',
