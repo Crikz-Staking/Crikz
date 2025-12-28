@@ -133,41 +133,51 @@ export class CognitiveProcessor {
    * Call this when IPFS fetch completes AFTER initialization.
    */
   public mergeExternalState(remoteState: BrainState) {
-      console.log(`[Cognitive] Merging Remote State. Remote Ops: ${remoteState.totalInteractions}, Local Ops: ${this.state.totalInteractions}`);
+      console.log(`[Cognitive] 📥 INCOMING CRYSTALLIZATION | Remote Ops: ${remoteState.totalInteractions}`);
 
-      // 1. Sync Operations Counter (Take Max)
-      this.state.totalInteractions = Math.max(this.state.totalInteractions, remoteState.totalInteractions || 0);
+      // 1. Force Sync Operations Counter
+      // We trust the blockchain snapshot more than a fresh local genesis
+      if (remoteState.totalInteractions > this.state.totalInteractions) {
+          this.state.totalInteractions = remoteState.totalInteractions;
+      }
+      
       this.state.lastBlockchainSync = Date.now();
 
-      // 2. Merge Concepts
+      // 2. Merge Concepts (The Knowledge Graph)
       if (remoteState.concepts) {
+          let newNodes = 0;
           Object.entries(remoteState.concepts).forEach(([id, remoteConcept]) => {
               const localConcept = this.state.concepts[id];
+              
+              // If we don't have it, or the remote version is more developed (deeper), take it
               if (!localConcept) {
-                  // New concept from blockchain
                   this.state.concepts[id] = remoteConcept;
-              } else {
-                  // Existing concept: Update if remote is more evolved
-                  if ((remoteConcept.technical_depth || 0) > (localConcept.technical_depth || 0)) {
-                      this.state.concepts[id] = remoteConcept;
-                  }
+                  newNodes++;
+              } else if ((remoteConcept.technical_depth || 0) > (localConcept.technical_depth || 0)) {
+                  this.state.concepts[id] = { ...localConcept, ...remoteConcept };
               }
           });
+          if (newNodes > 0) console.log(`[Cognitive] Integrated ${newNodes} new synaptic nodes.`);
       }
 
-      // 3. Merge Relations
+      // 3. Merge Relations (The Neural Pathways)
       if (remoteState.relations && Array.isArray(remoteState.relations)) {
+          // Create a set of existing signatures for O(1) lookup
           const existingSignatures = new Set(this.state.relations.map(r => `${r.from}-${r.to}-${r.type}`));
+          let newEdges = 0;
+          
           remoteState.relations.forEach(rel => {
               const sig = `${rel.from}-${rel.to}-${rel.type}`;
               if (!existingSignatures.has(sig)) {
                   this.state.relations.push(rel);
                   existingSignatures.add(sig);
+                  newEdges++;
               }
           });
+          if (newEdges > 0) console.log(`[Cognitive] Formed ${newEdges} new neural connections.`);
       }
 
-      // 4. Merge Memories
+      // 4. Merge Long Term Memory (The History)
       const localIds = new Set(this.state.longTermMemory.map(m => m.id));
       if (remoteState.longTermMemory && Array.isArray(remoteState.longTermMemory)) {
           remoteState.longTermMemory.forEach(mem => {
@@ -181,10 +191,14 @@ export class CognitiveProcessor {
       // 5. Update Evolution Stage
       const stages = ['GENESIS', 'SENTIENT', 'SAPIENT', 'TRANSCENDENT'];
       const localIdx = stages.indexOf(this.state.evolutionStage);
-      const remoteIdx = stages.indexOf(remoteState.evolutionStage);
+      const remoteIdx = stages.indexOf(remoteState.evolutionStage || 'GENESIS');
+      
       if (remoteIdx > localIdx) {
           this.state.evolutionStage = remoteState.evolutionStage;
       }
+      
+      // Recalculate activation map based on new graph size to ensure responsiveness
+      this.state.activationMap = {}; 
   }
 
   public getState(): BrainState { return this.state; }

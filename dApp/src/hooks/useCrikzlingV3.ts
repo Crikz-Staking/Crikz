@@ -15,7 +15,6 @@ export function useCrikzlingV3() {
   const publicClient = usePublicClient();
   
   const [brain, setBrain] = useState<CrikzlingBrainV3 | null>(null);
-  // FIX: Added 'system' to allowed roles
   const [messages, setMessages] = useState<{role: 'user' | 'bot' | 'system', content: string, timestamp: number}[]>([]);
   
   const [isThinking, setIsThinking] = useState(false);
@@ -23,6 +22,7 @@ export function useCrikzlingV3() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [currentThought, setCurrentThought] = useState<ThoughtProcess | null>(null);
   const [forceUpdate, setForceUpdate] = useState(0); 
+  const [hasHydrated, setHasHydrated] = useState(false); // Tracks if blockchain data has been loaded
 
   // --- CONTRACT DATA ---
   const {
@@ -103,24 +103,26 @@ export function useCrikzlingV3() {
     initialBrain.setThoughtUpdateCallback(thoughtCallback);
     setBrain(initialBrain);
     
-    setMessages(prev => {
-        if (prev.length > 0) return prev;
-        return [{ role: 'bot', content: 'Genesis complete. Crikzling V5 online.', timestamp: Date.now() }];
-    });
+    // NOTE: We do NOT set initial messages here anymore. 
+    // We wait for hydration logic to determine if we are Genesis or Synced.
   }, [sessionId, publicClient]);
 
-  // --- ASYNC BLOCKCHAIN SYNC ---
+  // --- HYDRATION & SYNC LOGIC ---
   useEffect(() => {
       const syncBlockchain = async () => {
           if (!brain || !latestSnapshot) return;
+          
+          // Prevent double hydration on same snapshot
+          if (hasHydrated) return;
 
           try {
-              // @ts-ignore
-              const cid = latestSnapshot.ipfsCid || latestSnapshot[1];
+              // Handle potential array return from wagmi if ABI isn't perfectly mapped
+              const cid = (latestSnapshot as any).ipfsCid || (latestSnapshot as any)[1];
+              const evolution = (latestSnapshot as any).evolutionStage || (latestSnapshot as any)[3];
               
-              if (cid) {
-                  // Only fetch if meaningful change detected or first load
+              if (cid && cid.length > 0) {
                   const url = downloadFromIPFS(cid);
+                  console.log("🔗 Connecting to Neural Hive Mind:", url);
                   
                   const response = await fetch(url);
                   if(!response.ok) throw new Error("IPFS Fetch Failed");
@@ -128,26 +130,49 @@ export function useCrikzlingV3() {
                   const remoteJson = await response.json();
                   
                   if (remoteJson && remoteJson.concepts) {
-                      // MERGE LOGIC HERE
+                      // MERGE LOGIC - CognitiveProcessor.mergeExternalState handles the heavy lifting
                       brain.mergeState(remoteJson);
+                      setHasHydrated(true);
                       
-                      setMessages(prev => [
-                          ...prev, 
-                          { role: 'system', content: `[SYSTEM] Neural Lattice Synced. Ops: ${remoteJson.totalInteractions || 0}`, timestamp: Date.now() }
+                      const stats = brain.getStats();
+                      
+                      // RESET messages to start fresh with the Hive Mind context
+                      setMessages([
+                          { 
+                              role: 'system', 
+                              content: `[SYSTEM] 🔗 Blockchain Uplink Established.\nCID: ${cid.substring(0,10)}...\nStage: ${evolution}\nNodes: ${stats.nodes} | Total Ops: ${stats.interactions}`, 
+                              timestamp: Date.now() 
+                          },
+                          {
+                              role: 'bot',
+                              content: `I have restored my memory from the immutable ledger. I am operating at stage ${stats.stage} with access to ${stats.nodes} crystallized concepts and ${stats.interactions} recorded operations.`,
+                              timestamp: Date.now() + 100
+                          }
                       ]);
+                      
                       setForceUpdate(prev => prev + 1);
+                  }
+              } else {
+                  // No blockchain memory found (New deployment)
+                  if (!hasHydrated) {
+                      setMessages([{ role: 'bot', content: 'Genesis complete. No on-chain memory found. Starting fresh cognitive sequence.', timestamp: Date.now() }]);
+                      setHasHydrated(true);
                   }
               }
           } catch (e) {
               console.warn("Background Sync Failed:", e);
+              // Fallback if IPFS fails
+              if (!hasHydrated) {
+                   setMessages([{ role: 'bot', content: 'Connection to Hive Mind unstable. Operating on local cache.', timestamp: Date.now() }]);
+                   setHasHydrated(true);
+              }
           }
       };
 
-      // Simple debounce or check to ensure we don't spam sync
       if (brain && latestSnapshot) {
           syncBlockchain();
       }
-  }, [latestSnapshot, brain]);
+  }, [latestSnapshot, brain, hasHydrated]);
 
   // --- SAVE DIFF ON UPDATE ---
   useEffect(() => {
@@ -213,7 +238,7 @@ export function useCrikzlingV3() {
     const toastId = toast.loading('Initiating Neural Sync...', { id: 'crystallize' });
 
     try {
-        // 1. Export Full State
+        // 1. Export Full State (Includes new Nodes + Ops Count)
         const exportStr = brain.exportFullState();
         const blob = new Blob([exportStr], { type: 'application/json' });
         const file = new File([blob], `crikz_v5_mem_${Date.now()}.json`);

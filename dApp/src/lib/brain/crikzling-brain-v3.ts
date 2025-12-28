@@ -68,7 +68,12 @@ export class CrikzlingBrainV3 {
    * Exports for storage
    */
   public exportFullState(): string {
-    return this.cognitive.exportFull();
+    // Force a sync of stats before export to ensure JSON is accurate
+    const state = this.cognitive.getState();
+    return JSON.stringify({
+        ...state,
+        exportedAt: Date.now() // Timestamp the export for version tracking
+    });
   }
 
   public exportDiffState(): string {
