@@ -1,13 +1,11 @@
-// src/lib/brain/processors/InputProcessor.ts
-
 import { AtomicConcept } from '@/lib/crikzling-atomic-knowledge';
-import { DAppContext, Vector } from '../types';
+import { DAppContext, Vector, IntentType } from '../types';
 
 export interface InputAnalysis {
   rawInput: string;
   cleanedInput: string;
   keywords: AtomicConcept[];
-  intent: string;
+  intent: IntentType;
   emotionalWeight: number;
   complexity: number;
   detectedEntities: string[];
@@ -21,12 +19,10 @@ export class InputProcessor {
     // Financial
     'profit': [1.0, 0, 0, 0, 0, 0.2], 'yield': [1.0, 0.2, 0, 0.3, 0, 0.1],
     'loss': [1.0, 0, 0, 0, 0, 0.9], 'stake': [0.9, 0.4, 0, 0.5, 0, 0.1],
-    'price': [1.0, 0, 0, 0, 0, 0.3], 'wallet': [0.9, 0.2, 0, 0, 0, 0.1],
     
     // Technical
     'code': [0, 1.0, 0, 0, 0.2, 0], 'blockchain': [0.2, 1.0, 0.2, 0, 0.5, 0],
-    'contract': [0.3, 1.0, 0.1, 0, 0.4, 0], 'function': [0, 1.0, 0, 0, 0.6, 0],
-
+    
     // Social / Identity
     'who': [0, 0, 1.0, 0, 0.5, 0], 'you': [0, 0, 1.0, 0, 0.5, 0],
     'hello': [0, 0, 1.0, 0, 0, 0], 'help': [0, 0, 0.8, 0, 0.2, 0],
@@ -45,9 +41,7 @@ export class InputProcessor {
     let count = 0;
 
     words.forEach(word => {
-      // Direct or Fuzzy Match
       let match: Vector | null = this.dimensionMap[word] || null;
-      
       if (match) {
         vector = vector.map((v, i) => v + match![i]) as Vector;
         count++;
@@ -55,7 +49,6 @@ export class InputProcessor {
     });
 
     if (count === 0) return [0,0,0,0,0,0];
-    // Normalize
     return vector.map(v => parseFloat((v / Math.max(1, count)).toFixed(2))) as Vector;
   }
 
@@ -66,7 +59,6 @@ export class InputProcessor {
     const keywords: AtomicConcept[] = [];
     const detectedEntities: string[] = [];
 
-    // Concept Extraction
     words.forEach((word) => {
       if (knownConcepts[word]) {
         keywords.push(knownConcepts[word]);
@@ -74,7 +66,6 @@ export class InputProcessor {
       }
     });
 
-    // Detect Contextual Entity
     if (cleanedInput.match(/0x[a-fA-F0-9]{40}/)) detectedEntities.push('wallet_address');
 
     const inputVector = this.calculateVector(words);
@@ -91,11 +82,10 @@ export class InputProcessor {
     };
   }
 
-  private classifyIntent(input: string, keywords: AtomicConcept[], vector: Vector): string {
+  private classifyIntent(input: string, keywords: AtomicConcept[], vector: Vector): IntentType {
     if (input.match(/^(reset|wipe|clear|save|crystallize)/)) return 'COMMAND';
     if (input.match(/^(hello|hi|hey)/i) && keywords.length === 0) return 'GREETING';
     
-    // Abstract thought detection
     if (vector[4] > 0.6) return 'PHILOSOPHY'; 
     if (vector[0] > 0.6) return 'FINANCIAL_ADVICE';
     

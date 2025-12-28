@@ -1,5 +1,3 @@
-// src/lib/brain/processors/CognitiveProcessor.ts
-
 import { PublicClient } from 'viem';
 import { AtomicConcept, ConceptRelation, ATOMIC_PRIMITIVES, ATOMIC_RELATIONS } from '@/lib/crikzling-atomic-knowledge';
 import { loadAllKnowledgeModules, parseExternalKnowledgeFile } from '@/lib/knowledge/knowledge-loader';
@@ -10,9 +8,8 @@ export class CognitiveProcessor {
   private publicClient?: PublicClient;
   private memoryContractAddress?: `0x${string}`;
 
-  // Constants for Neural Simulation
-  private readonly DECAY_RATE = 0.05; // Energy loss per tick
-  private readonly SPREAD_FACTOR = 0.6; // How much energy flows to neighbors
+  private readonly DECAY_RATE = 0.05; 
+  private readonly SPREAD_FACTOR = 0.6; 
 
   constructor(savedStateJson?: string, publicClient?: PublicClient, memoryContractAddress?: `0x${string}`) {
     this.state = this.initializeState(savedStateJson);
@@ -48,8 +45,8 @@ export class CognitiveProcessor {
           ...parsed,
           concepts: { ...defaults.concepts, ...(parsed.concepts || {}) },
           relations: [...defaults.relations, ...(parsed.relations || [])],
-          // Map old mood to new drives if upgrading from V3
-          drives: parsed.drives || { 
+          // Backwards compatibility for old "mood" saves
+          drives: parsed.drives || {
              curiosity: parsed.mood?.curiosity || 50,
              stability: 100 - (parsed.mood?.entropy || 50),
              efficiency: parsed.mood?.logic || 50,
@@ -69,11 +66,7 @@ export class CognitiveProcessor {
   public getState(): BrainState { return this.state; }
   public getConcepts(): Record<string, AtomicConcept> { return this.state.concepts; }
 
-  /**
-   * THE CORE THINKING LOOP
-   */
   public processNeuralTick(): string | null {
-    // 1. Decay Activations
     const activeNodes = Object.keys(this.state.activationMap);
     let highestEnergy = 0;
     let dominantThought = null;
@@ -92,11 +85,9 @@ export class CognitiveProcessor {
 
     this.state.attentionFocus = dominantThought;
 
-    // 2. Drive Updates
     this.state.drives.energy = Math.min(100, this.state.drives.energy + 0.5); 
     this.state.drives.curiosity = Math.min(100, this.state.drives.curiosity + 0.1);
     
-    // 3. Spontaneous Thought
     if (this.state.drives.energy > 80 && this.state.drives.curiosity > 90 && !dominantThought) {
         return this.dream();
     }
@@ -160,7 +151,7 @@ export class CognitiveProcessor {
     }
   }
 
-  // --- MEMORY & LEARNING IMPLEMENTATION ---
+  // --- MEMORY METHODS ---
 
   public learnAssociations(conceptIds: string[]) {
     if (conceptIds.length < 2) return;
@@ -251,6 +242,7 @@ export class CognitiveProcessor {
     const { concepts, count } = parseExternalKnowledgeFile(content, 'TECHNICAL');
     Object.assign(this.state.concepts, concepts);
     this.state.unsavedDataCount += count;
+    this.checkEvolution();
     return count;
   }
 
@@ -266,5 +258,5 @@ export class CognitiveProcessor {
 
   public markSaved() { this.state.unsavedDataCount = 0; }
   
-  public async syncBlockchainMemories(): Promise<void> { /* Sync Logic Stub */ }
+  public async syncBlockchainMemories(): Promise<void> { /* Sync Stub */ }
 }

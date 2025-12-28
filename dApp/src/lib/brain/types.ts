@@ -1,5 +1,3 @@
-// src/lib/brain/types.ts
-
 import { AtomicConcept, ConceptRelation } from '../crikzling-atomic-knowledge';
 
 // --- CORE TYPES ---
@@ -14,9 +12,9 @@ export interface BrainState {
   concepts: Record<string, AtomicConcept>;
   relations: ConceptRelation[];
   
-  // Neural State (New)
-  activationMap: Record<string, number>; // Current energy of every concept (0.0 to 1.0)
-  attentionFocus: string | null;        // What specific concept is he focused on?
+  // Neural State (V5 Exclusive)
+  activationMap: Record<string, number>; 
+  attentionFocus: string | null;        
   
   // Memory Stores
   shortTermMemory: Memory[];
@@ -26,7 +24,7 @@ export interface BrainState {
   
   // Cognitive State
   evolutionStage: EvolutionStage;
-  drives: InternalDrives; // Replaces simple Mood
+  drives: InternalDrives; // The V5 Personality Engine
   activeGoals: Goal[]; 
   
   // Metrics
@@ -37,16 +35,16 @@ export interface BrainState {
 }
 
 export interface InternalDrives {
-  curiosity: number;   // Decays over time, refills on new info. High = Asks questions.
-  stability: number;   // Decays on high entropy/risk. High = Calm. Low = Anxious.
-  efficiency: number;  // Desire to optimize yield/gas.
-  social: number;      // Desire to interact.
-  energy: number;      // Processing budget.
+  curiosity: number;   // 0-100
+  stability: number;   // 0-100
+  efficiency: number;  // 0-100
+  social: number;      // 0-100
+  energy: number;      // 0-100
 }
 
 export interface Memory {
   id: string;
-  role: 'user' | 'bot' | 'subconscious'; // Added 'subconscious' for internal thoughts
+  role: 'user' | 'bot' | 'subconscious'; 
   content: string;
   timestamp: number;
   concepts: string[]; 
@@ -106,20 +104,6 @@ export interface SimulationResult {
   outcomeValue: number;
   riskLevel: number;
   recommendation: string;
-}
-
-export interface IntegratedContext {
-  input: InputAnalysis;
-  actionPlan: any;
-  memories: Memory[];
-  dappState: any;
-  simulation?: SimulationResult | null;
-  brainStats: {
-    evolutionStage: string;
-    unsavedCount: number;
-    drives: InternalDrives;
-    currentFocus: string | null;
-  };
 }
 
 export type IntentType = 

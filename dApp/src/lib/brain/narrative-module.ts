@@ -1,6 +1,6 @@
 // src/lib/brain/narrative-module.ts
 
-import { Memory } from './types';
+import { IntegratedContext } from './processors/ResultProcessor';
 
 export class NarrativeModule {
   
@@ -29,14 +29,18 @@ export class NarrativeModule {
     }
   }
 
-  public enhanceResponse(baseResponse: string, context: any): string {
-      // Add "flavor" text based on active keywords
+  public enhanceResponse(baseResponse: string, context: IntegratedContext): string {
+      // Add "flavor" text based on active drives
+      const stability = context.brainStats.drives.stability;
+      
+      if (stability < 30 && !baseResponse.includes("volatility")) {
+          return `${baseResponse} The entropy levels are concerning.`;
+      }
+      
       if (baseResponse.includes("Fibonacci") || baseResponse.includes("Golden Ratio")) {
-          return `${baseResponse} It is the fingerprint of god.`;
+          return `${baseResponse} It is the fingerprint of the protocol.`;
       }
-      if (baseResponse.includes("Blockchain") || baseResponse.includes("Immutable")) {
-          return `${baseResponse} Truth that cannot be rewritten.`;
-      }
+      
       return baseResponse;
   }
 

@@ -1,5 +1,3 @@
-// src/lib/brain/processors/ResultProcessor.ts
-
 import { InputAnalysis } from './InputProcessor';
 import { ActionPlan } from './ActionProcessor';
 import { Memory, BrainState, DAppContext, BlockchainMemory, SimulationResult, InternalDrives } from '../types';
@@ -14,7 +12,7 @@ export interface IntegratedContext {
   brainStats: {
     evolutionStage: string;
     unsavedCount: number;
-    drives: InternalDrives;
+    drives: InternalDrives; // Using V5 Drives
     currentFocus: string | null;
   };
 }

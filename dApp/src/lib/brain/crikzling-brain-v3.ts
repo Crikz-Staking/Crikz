@@ -1,5 +1,3 @@
-// src/lib/brain/crikzling-brain-v3.ts
-
 import { PublicClient } from 'viem';
 import { InputProcessor, InputAnalysis } from './processors/InputProcessor';
 import { CognitiveProcessor } from './processors/CognitiveProcessor';
@@ -41,39 +39,25 @@ export class CrikzlingBrainV3 {
     this.thoughtCallback = callback;
   }
 
-  /**
-   * THE SUBCONSCIOUS HEARTBEAT
-   * Runs independently of user input.
-   */
   public async tick(dappContext?: DAppContext): Promise<void> {
     const now = Date.now();
-    // Throttle to 2s to allow animations to breathe
     if (now - this.lastTick < 2000) return;
     this.lastTick = now;
 
-    // 1. Process Neural Decay and Auto-Thoughts
     const spontaneousThought = this.cognitive.processNeuralTick();
     const state = this.cognitive.getState();
 
-    // 2. React to Spontaneous Thought
     if (spontaneousThought) {
         this.updateThought('introspection', 50, spontaneousThought);
-        
-        // Sometimes surface this thought to the UI as a pending insight
         if (Math.random() > 0.7) {
             this.pendingInsight = spontaneousThought;
         }
-        
-        // Log it as an internal memory
         this.cognitive.archiveMemory('subconscious', spontaneousThought, [], 0.1, dappContext);
     } 
-    // 3. Idle Simulation (If High Efficiency Drive)
     else if (state.drives.efficiency > 70 && dappContext && Math.random() > 0.8) {
         this.updateThought('simulation', 30, 'Optimizing yield strategies...');
-        // logic to check yield...
     }
     else {
-        // Clear thought bubble if idle
         this.updateThought(null as any, 0, '');
     }
   }
@@ -84,31 +68,24 @@ export class CrikzlingBrainV3 {
     dappContext?: DAppContext
   ): Promise<{ response: string; actionPlan: ActionPlan }> { 
     try {
-      // 1. INPUT PROCESSING
       this.updateThought('perception', 10, 'Analyzing input vector');
       const brainState = this.cognitive.getState();
       const inputAnalysis = this.inputProc.process(text, brainState.concepts, dappContext);
       
-      // 2. SPREADING ACTIVATION (The "Thinking" Step)
       this.updateThought('spreading_activation', 40, 'Firing neural pathways');
       const activeIds = inputAnalysis.keywords.map(k => k.id);
-      
-      // Energy flows through the graph based on input keywords
       this.cognitive.stimulateNetwork(activeIds);
       
-      await this.think(500); // Artificial delay for "weight"
+      await this.think(500);
 
-      // 3. MEMORY RETRIEVAL (Contextual)
       const relevantMemories = this.cognitive.retrieveRelevantMemories(activeIds, inputAnalysis.inputVector);
 
-      // 4. SIMULATION (If needed)
       this.updateThought('simulation', 70, 'Predicting outcomes');
       let simResult = null;
       if (dappContext && (inputAnalysis.intent === 'FINANCIAL_ADVICE' || inputAnalysis.intent === 'DAPP_QUERY')) {
           simResult = this.simulator.runSimulation(inputAnalysis.intent, dappContext, inputAnalysis.inputVector);
       }
 
-      // 5. ACTION & RESPONSE
       this.updateThought('strategy', 90, 'Collapsing wave function');
       const actionPlan = this.actionProc.plan(inputAnalysis, brainState, isOwner);
       
@@ -123,16 +100,14 @@ export class CrikzlingBrainV3 {
         simResult 
       );
 
-      // Inject Internal Drive State into response generation
       let response = this.generator.generate(integratedContext);
+      response = this.narrative.enhanceResponse(response, integratedContext);
 
-      // If there was a pending subconscious thought, append it
       if (this.pendingInsight) {
           response += ` \n\n[Subconscious]: ${this.pendingInsight}`;
           this.pendingInsight = null;
       }
 
-      // 6. LEARNING (Neuroplasticity)
       this.cognitive.archiveMemory(
         'user', inputAnalysis.cleanedInput, activeIds, inputAnalysis.emotionalWeight, dappContext, inputAnalysis.inputVector 
       );
@@ -152,8 +127,6 @@ export class CrikzlingBrainV3 {
       };
     }
   }
-
-  // --- Utilities ---
 
   public exportState(): string {
     return JSON.stringify(this.cognitive.getState(), (key, value) => 
@@ -183,7 +156,7 @@ export class CrikzlingBrainV3 {
         nodes: Object.keys(s.concepts).length,
         relations: s.relations.length,
         stage: s.evolutionStage,
-        mood: s.drives, // Mapping drives to mood for UI compat
+        drives: s.drives, 
         unsaved: s.unsavedDataCount,
         memories: {
           short: s.shortTermMemory.length,

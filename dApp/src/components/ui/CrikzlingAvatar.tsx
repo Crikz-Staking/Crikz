@@ -1,5 +1,3 @@
-// src/components/ui/CrikzlingAvatar.tsx
-
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -62,14 +60,13 @@ export default function CrikzlingAvatar() {
 
   const currentStageColor = stageColors[brainStats.stage as keyof typeof stageColors] || 'text-gray-400';
 
-  // Safely access drives, falling back if they aren't initialized yet
-  const curiosity = brainStats.mood?.curiosity || 50;
-  const stability = brainStats.mood?.stability || 50;
-  const energy = brainStats.mood?.energy || 50;
+  // FIX: Access new V5 Drive properties
+  const curiosity = brainStats.drives.curiosity || 50;
+  const stability = brainStats.drives.stability || 50;
+  const energy = brainStats.drives.energy || 50;
 
   return (
     <>
-      {/* 1. COLLAPSED ORB MODE */}
       <AnimatePresence>
         {!isOpen && (
           <motion.button
@@ -90,7 +87,6 @@ export default function CrikzlingAvatar() {
         )}
       </AnimatePresence>
 
-      {/* 2. EXPANDED INTERFACE */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -100,7 +96,6 @@ export default function CrikzlingAvatar() {
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
             className="fixed bottom-6 right-6 z-50 w-[400px] h-[650px] flex flex-col rounded-3xl overflow-hidden glass-card border border-white/10 shadow-2xl bg-[#0a0a0f]/95 backdrop-blur-xl"
           >
-            {/* Header */}
             <div className="relative h-20 bg-gradient-to-b from-white/5 to-transparent border-b border-white/5 flex items-center px-6 justify-between shrink-0">
                 <div className="flex items-center gap-4">
                     <div className="w-10 h-10">
@@ -133,7 +128,6 @@ export default function CrikzlingAvatar() {
                 </div>
             </div>
 
-            {/* Neural Monitor */}
             <AnimatePresence>
                 {showMonitor && (
                     <motion.div 
@@ -176,7 +170,6 @@ export default function CrikzlingAvatar() {
                 )}
             </AnimatePresence>
 
-            {/* Cognitive Pipeline */}
             {currentThought && (
                 <div className="bg-black/40 border-b border-amber-500/20 px-4 py-2 shrink-0">
                     <div className="flex justify-between text-[10px] text-amber-500 font-mono mb-1">
@@ -198,7 +191,6 @@ export default function CrikzlingAvatar() {
                 </div>
             )}
 
-            {/* Chat Area */}
             <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide relative">
                 {messages.length === 0 && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-center opacity-30 pointer-events-none p-8">
@@ -235,7 +227,6 @@ export default function CrikzlingAvatar() {
                 )}
             </div>
 
-            {/* Footer Actions */}
             <div className="bg-[#0f0f13] border-t border-white/5 px-4 py-2 flex items-center justify-between text-[10px] text-gray-500 font-mono shrink-0">
                 <div className="flex items-center gap-1">
                     {needsSave ? (
@@ -270,7 +261,6 @@ export default function CrikzlingAvatar() {
                 </div>
             </div>
 
-            {/* Input */}
             <div className="p-4 bg-[#0a0a0f] border-t border-white/10 shrink-0">
                 <div className="flex items-center gap-2 bg-white/5 rounded-xl border border-white/10 px-2 py-1 focus-within:border-primary-500/50 transition-colors">
                     <input 

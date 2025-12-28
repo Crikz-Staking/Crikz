@@ -1,5 +1,3 @@
-// src/lib/brain/processors/ActionProcessor.ts
-
 import { InputAnalysis } from './InputProcessor';
 import { BrainState } from '../types';
 
@@ -45,7 +43,7 @@ export class ActionProcessor {
     }
 
     // --- LEVEL 2: SELF-PRESERVATION ---
-    // Low Stability (High Entropy) + High Load = Request Save
+    // Low Stability (was High Entropy)
     if (isOwner && unsavedDataCount > 15 && drives.stability < 30) {
         return {
             type: 'SUGGEST_ACTION',

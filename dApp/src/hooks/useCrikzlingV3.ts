@@ -1,5 +1,3 @@
-// src/hooks/useCrikzlingV3.ts
-
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from 'wagmi';
 import { bscTestnet } from 'wagmi/chains';
@@ -17,18 +15,15 @@ export function useCrikzlingV3() {
   const { address } = useAccount();
   const publicClient = usePublicClient();
   
-  // -- STATE --
   const [brain, setBrain] = useState<CrikzlingBrainV3 | null>(null);
   const [messages, setMessages] = useState<{role: 'user' | 'bot', content: string, timestamp: number}[]>([]);
   
-  // Visual States
   const [isThinking, setIsThinking] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [currentThought, setCurrentThought] = useState<ThoughtProcess | null>(null);
   const [forceUpdate, setForceUpdate] = useState(0); 
 
-  // -- BLOCKCHAIN DATA --
   const {
     balance,
     activeOrders,
@@ -50,7 +45,6 @@ export function useCrikzlingV3() {
     };
   }, [balance, activeOrders, totalReputation, pendingYield, globalFund]);
 
-  // -- INIT --
   const sessionId = useMemo(() => {
     if (address) return address;
     let stored = localStorage.getItem('crikz_guest_id');
@@ -64,11 +58,7 @@ export function useCrikzlingV3() {
   const isOwner = address?.toLowerCase() === ARCHITECT_ADDRESS.toLowerCase();
 
   const { writeContractAsync, data: hash } = useWriteContract();
-  
-  const { isLoading: isConfirming, isSuccess: txSuccess } = useWaitForTransactionReceipt({ 
-    hash,
-    confirmations: 1 
-  });
+  const { isLoading: isConfirming, isSuccess: txSuccess } = useWaitForTransactionReceipt({ hash, confirmations: 1 });
 
   const thoughtCallback = useCallback((thought: ThoughtProcess | null) => {
     setCurrentThought(thought);
@@ -99,10 +89,8 @@ export function useCrikzlingV3() {
     });
   }, [sessionId, publicClient]);
 
-  // -- THE SUBCONSCIOUS LOOP --
   useEffect(() => {
     if (!brain) return;
-
     const heartbeat = setInterval(() => {
       if (!isThinking && !isTyping) {
         brain.tick(dappContextRef.current).then(() => {
@@ -110,17 +98,14 @@ export function useCrikzlingV3() {
         });
       }
     }, 4000); 
-
     return () => clearInterval(heartbeat);
   }, [brain, isThinking, isTyping]);
 
   useEffect(() => {
     if (txSuccess && brain && address && isSyncing) {
       toast.success('Memory crystallized on-chain!', { id: 'crystallize' });
-      
       brain.clearUnsavedCount();
       localStorage.setItem(`crikz_brain_v3_${address}`, brain.exportState());
-      
       setIsSyncing(false);
       typeStreamResponse('Crystallization confirmed. My cognitive state is now permanently recorded on the Binance Smart Chain.');
     }
@@ -140,20 +125,15 @@ export function useCrikzlingV3() {
                 resolve();
                 return;
             }
-            
             currentText += chars[index];
             setMessages(prev => {
                 const newMsgs = [...prev];
-                if (newMsgs.length > 0) {
-                    newMsgs[newMsgs.length - 1].content = currentText;
-                }
+                if (newMsgs.length > 0) newMsgs[newMsgs.length - 1].content = currentText;
                 return newMsgs;
             });
-            
             let delay = 15 + Math.random() * 25;
             if (chars[index] === ' ') delay *= 0.3;
             if (['.', '!', '?', ','].includes(chars[index])) delay *= 2;
-            
             setTimeout(() => typeChar(index + 1), delay);
         };
         typeChar(0);
@@ -162,7 +142,7 @@ export function useCrikzlingV3() {
 
   const crystallize = async () => {
     if (!brain || !address) {
-      toast.error("You must connect a wallet to crystallize memory.");
+      toast.error("Connect wallet to save memory.");
       return;
     }
     if (isSyncing || isConfirming) return;
@@ -182,7 +162,7 @@ export function useCrikzlingV3() {
       
       const conceptCount = BigInt(Object.keys(state.concepts).length);
       const stage = state.evolutionStage;
-      const trigger = `V5_MANUAL_SAVE_INTERACTIONS_${state.totalInteractions}`;
+      const trigger = `V5_MANUAL_SAVE_${state.totalInteractions}`;
 
       toast.loading('Waiting for wallet approval...', { id: toastId });
       
@@ -194,15 +174,10 @@ export function useCrikzlingV3() {
         account: address,
         chain: bscTestnet
       });
-
       toast.loading('Confirming on Blockchain...', { id: toastId });
-
     } catch (e: any) {
       console.error(e);
-      const msg = e.message?.includes('User rejected') 
-        ? 'Transaction rejected by user' 
-        : 'Crystallization failed';
-      
+      const msg = e.message?.includes('User rejected') ? 'Transaction rejected' : 'Crystallization failed';
       toast.error(msg, { id: toastId });
       setIsSyncing(false); 
     }
@@ -210,33 +185,24 @@ export function useCrikzlingV3() {
 
   const sendMessage = async (text: string) => {
     if (!brain || isThinking || isTyping) return;
-    
     setIsThinking(true);
     setMessages(prev => [...prev, { role: 'user', content: text, timestamp: Date.now() }]);
 
     try {
       const { response, actionPlan } = await brain.process(text, isOwner, dappContextRef.current);
+      if (sessionId) localStorage.setItem(`crikz_brain_v3_${sessionId}`, brain.exportState());
       
-      if (sessionId) {
-        localStorage.setItem(`crikz_brain_v3_${sessionId}`, brain.exportState());
-      }
-      
-      if (actionPlan && actionPlan.type === 'EXECUTE_COMMAND_SAVE') {
-          setTimeout(() => crystallize(), 1000); 
-      }
-      
-      if (actionPlan && actionPlan.type === 'EXECUTE_COMMAND_RESET') {
-          resetBrain(); 
-      }
+      if (actionPlan?.type === 'EXECUTE_COMMAND_SAVE') setTimeout(() => crystallize(), 1000); 
+      if (actionPlan?.type === 'EXECUTE_COMMAND_RESET') resetBrain(); 
 
       setIsThinking(false);
       setCurrentThought(null);
       await typeStreamResponse(response);
     } catch (e) {
-      console.error("Brain Processing Error:", e);
+      console.error("Brain Error:", e);
       setIsThinking(false);
       setCurrentThought(null);
-      typeStreamResponse("I experienced a cognitive anomaly while processing that. Could you rephrase?");
+      typeStreamResponse("Cognitive anomaly detected.");
     }
   };
 
@@ -244,34 +210,19 @@ export function useCrikzlingV3() {
     if (!brain || !sessionId) return;
     brain.wipe();
     localStorage.removeItem(`crikz_brain_v3_${sessionId}`);
-    
-    const newBrain = new CrikzlingBrainV3(
-      undefined,
-      publicClient,
-      CRIKZLING_MEMORY_ADDRESS as `0x${string}`
-    );
-    
+    const newBrain = new CrikzlingBrainV3(undefined, publicClient, CRIKZLING_MEMORY_ADDRESS as `0x${string}`);
     newBrain.setThoughtUpdateCallback(thoughtCallback);
     setBrain(newBrain);
-    
-    setMessages([{ 
-      role: 'bot', 
-      content: 'Neural matrices purged. Genesis state restored. All local memories cleared.', 
-      timestamp: Date.now() 
-    }]);
+    setMessages([{ role: 'bot', content: 'Neural matrices purged. Genesis state restored.', timestamp: Date.now() }]);
   };
 
   const uploadFile = async (content: string) => {
     if (!brain) return;
     setIsThinking(true);
     const count = brain.assimilateFile(content);
-    if (sessionId) {
-      localStorage.setItem(`crikz_brain_v3_${sessionId}`, brain.exportState());
-    }
+    if (sessionId) localStorage.setItem(`crikz_brain_v3_${sessionId}`, brain.exportState());
     setIsThinking(false);
-    typeStreamResponse(
-      `Knowledge assimilation complete. I've integrated ${count} new concepts into my neural architecture.`
-    );
+    typeStreamResponse(`Knowledge assimilation complete. Integrated ${count} concepts.`);
   };
 
   const stats = brain ? brain.getStats() : undefined;
@@ -289,7 +240,8 @@ export function useCrikzlingV3() {
       nodes: stats?.nodes || 0,
       relations: stats?.relations || 0,
       unsaved: stats?.unsaved || 0,
-      mood: stats?.mood || { curiosity: 0, stability: 0, efficiency: 0, social: 0, energy: 0 },
+      // Pass the new drives object to the UI
+      drives: stats?.drives || { curiosity: 0, stability: 0, efficiency: 0, social: 0, energy: 0 },
       memories: stats?.memories || { short: 0, mid: 0, long: 0, blockchain: 0 },
       interactions: stats?.interactions || 0,
       lastBlockchainSync: stats?.lastBlockchainSync || 0,
