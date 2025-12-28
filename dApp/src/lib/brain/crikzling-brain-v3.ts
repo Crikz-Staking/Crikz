@@ -65,8 +65,6 @@ export class CrikzlingBrainV3 {
 
   public simpleTrain(input: string): string {
       const state = this.cognitive.getState();
-      
-      // Syntax Detection: "Term := Definition"
       if (input.includes(':=')) {
           const [term, def] = input.split(':=').map(s => s.trim());
           if (term && def) {
@@ -85,23 +83,12 @@ export class CrikzlingBrainV3 {
               return `Defined concept: ${term}`;
           }
       }
-
-      // Basic Association Training
       const analysis = this.inputProc.process(input, state.concepts);
       const concepts = analysis.keywords.map(k => k.id);
-
       if (concepts.length < 2) return "Not enough identifiable concepts to form a link.";
-
       this.cognitive.learnAssociations(concepts);
       state.unsavedDataCount++;
-      
-      this.logEvent({
-          type: 'SYSTEM',
-          input: `Training: ${input}`,
-          output: `Linked: ${concepts.join(' <-> ')}`,
-          intent: 'TEACHING'
-      });
-
+      this.logEvent({ type: 'SYSTEM', input: `Training: ${input}`, output: `Linked: ${concepts.join(' <-> ')}`, intent: 'TEACHING' });
       return `Successfully linked ${concepts.length} concepts.`;
   }
 
@@ -118,43 +105,48 @@ export class CrikzlingBrainV3 {
       this.cognitive.getState().unsavedDataCount++;
   }
 
-  // --- CORE LOOP (INFINITE MODE) ---
+  // --- INFINITE UPGRADE LOOP ---
   public async tick(dappContext?: DAppContext): Promise<void> {
     const now = Date.now();
     const state = this.cognitive.getState();
     const { isConnected } = state.connectivity;
 
-    // Faster Tick Rate when connected (1.5s) to show faster results
-    const tickRate = isConnected ? 1500 : 8000; 
+    // Fast clock cycle for rapid upgrades
+    const tickRate = isConnected ? 1200 : 8000; 
     if (now - this.lastTick < tickRate) return;
     this.lastTick = now;
 
-    // --- NEURAL LINK LOGIC (Connected State) ---
     if (isConnected) {
-        // UNLIMITED POWER LOGIC
-        // 1. Maintain Max Fuel
-        state.connectivity.stamina = 100; // Always full
+        state.connectivity.stamina = 100; // Infinite Power
         state.connectivity.bandwidthUsage = Math.floor(Math.random() * 60) + 40;
         
-        // 2. Intelligent Operations (Probabilities tuned for visibility)
+        // Probability Distribution for Tasks
+        // We want a mix of Growth (Synthesis/Densify) and Self-Correction (Evolve/Harmonize)
         const roll = Math.random();
         let actionLog = "";
 
-        if (roll > 0.7) {
-            // 30% Chance: SYNTHESIS (New Node) - Increases Node Count
+        if (roll > 0.85) {
+            // 15% Chance: EVOLVE PERSONALITY
+            // This is the key "Self-Adjustment" phase
+            actionLog = this.cognitive.evolveCognitiveState();
+        } 
+        else if (roll > 0.70) {
+            // 15% Chance: HARMONIZE LOGIC
+            // Aligns conflicting concepts
+            const res = this.cognitive.harmonizeVectors();
+            if (res) actionLog = res;
+        }
+        else if (roll > 0.40) {
+            // 30% Chance: SYNTHESIZE NEW IDEAS
             const newId = this.cognitive.synthesizeConcept();
             if (newId) actionLog = `Synthesized Concept: ${newId}`;
-        } else if (roll > 0.3) {
-            // 40% Chance: DENSIFICATION (New Relation) - Increases Relation Count
+        } 
+        else {
+            // 40% Chance: REINFORCE CONNECTIONS
             const link = this.cognitive.densifyNetwork();
             if (link) actionLog = `Reinforced Logic: ${link}`;
-        } else {
-            // 30% Chance: DEEPENING (Refinement) - Updates existing nodes
-            const depth = this.cognitive.deepenKnowledge();
-            if (depth) actionLog = `Deepened Research: ${depth}`;
         }
 
-        // Only log if something actually happened
         if (actionLog) {
             this.updateThought('web_crawling', 50, actionLog);
             this.logEvent({
@@ -164,16 +156,12 @@ export class CrikzlingBrainV3 {
                 intent: 'SYSTEM', 
                 activeNodes: [], 
             });
-        } else {
-            this.updateThought('web_crawling', 30, 'Scanning...');
         }
     } else {
-        // Idle State
         state.connectivity.stamina = 100; 
         state.connectivity.bandwidthUsage = 0;
     }
 
-    // Dreaming (Offline Mode)
     if (!isConnected && state.drives.energy > 80 && Math.random() < 0.05) {
         const dream = this.cognitive.dream();
         if (dream) {
@@ -184,6 +172,7 @@ export class CrikzlingBrainV3 {
     this.clearThought();
   }
 
+  // ... (Standard Process Methods) ...
   public async process(text: string, isOwner: boolean, dappContext?: DAppContext): Promise<{ response: string; actionPlan: ActionPlan }> { 
     const startTime = Date.now();
     try {
