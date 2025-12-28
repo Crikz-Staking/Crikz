@@ -1,6 +1,6 @@
 import { InputAnalysis } from './InputProcessor';
 import { ActionPlan } from './ActionProcessor';
-import { Memory, BrainState, DAppContext, BlockchainMemory, SimulationResult } from '../types';
+import { Memory, BrainState, DAppContext, BlockchainMemory, SimulationResult, MoodState } from '../types';
 
 export interface IntegratedContext {
   input: InputAnalysis;
@@ -8,10 +8,11 @@ export interface IntegratedContext {
   memories: Memory[];
   blockchainHistory: BlockchainMemory[];
   dappState: DAppIntegratedState | null;
-  simulation?: SimulationResult | null; // NEW: Simulation Data
+  simulation?: SimulationResult | null;
   brainStats: {
     evolutionStage: string;
     unsavedCount: number;
+    mood?: MoodState; // Added in V4
   };
 }
 
@@ -31,7 +32,7 @@ export class ResultProcessor {
     memories: Memory[],
     brainState: BrainState,
     dappContext?: DAppContext,
-    simulationResult?: SimulationResult | null // NEW
+    simulationResult?: SimulationResult | null
   ): IntegratedContext {
     
     let integratedDApp: DAppIntegratedState | null = null;
@@ -52,10 +53,11 @@ export class ResultProcessor {
       memories,
       blockchainHistory: brainState.blockchainMemories,
       dappState: integratedDApp,
-      simulation: simulationResult, // Passed to Response Generator
+      simulation: simulationResult,
       brainStats: {
         evolutionStage: brainState.evolutionStage,
-        unsavedCount: brainState.unsavedDataCount
+        unsavedCount: brainState.unsavedDataCount,
+        mood: brainState.mood // V4: Pass mood to generator for emotional context
       }
     };
   }
