@@ -24,7 +24,7 @@ export function useCrikzlingV3() {
   const [isTyping, setIsTyping] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [currentThought, setCurrentThought] = useState<ThoughtProcess | null>(null);
-  const [forceUpdate, setForceUpdate] = useState(0); // Trigger re-render for background brain updates
+  const [forceUpdate, setForceUpdate] = useState(0); 
 
   // -- BLOCKCHAIN DATA --
   const {
@@ -35,8 +35,6 @@ export function useCrikzlingV3() {
     globalFund,
   } = useContractData();
 
-  // Use a Ref to hold the latest context for the interval loop
-  // This prevents the interval from resetting every time the block updates
   const dappContextRef = useRef<DAppContext | undefined>(undefined);
 
   useEffect(() => {
@@ -68,11 +66,9 @@ export function useCrikzlingV3() {
 
   const thoughtCallback = useCallback((thought: ThoughtProcess | null) => {
     setCurrentThought(thought);
-    // If thought is null (process ended) or changed, trigger UI update
     setForceUpdate(prev => prev + 1); 
   }, []);
 
-  // Initialize Brain
   useEffect(() => {
     if (!sessionId) return;
     if (brain) return;
@@ -92,24 +88,22 @@ export function useCrikzlingV3() {
       if (prev.length > 0) return prev;
       const welcomeMsg = savedLocal 
         ? 'Neural lattice restored. Subconscious systems active. I am monitoring the protocol state.'
-        : 'Genesis complete. Crikzling V4 online. Subconscious processing initialized. I may occasionally analyze data in the background.';
+        : 'Genesis complete. Crikzling V4 online. Subconscious processing initialized.';
       return [{ role: 'bot', content: welcomeMsg, timestamp: Date.now() }];
     });
   }, [sessionId, publicClient]);
 
-  // -- THE SUBCONSCIOUS LOOP (V4 UPGRADE) --
+  // -- THE SUBCONSCIOUS LOOP --
   useEffect(() => {
     if (!brain) return;
 
     const heartbeat = setInterval(() => {
-      // Only tick if not actively talking
       if (!isThinking && !isTyping) {
         brain.tick(dappContextRef.current).then(() => {
-            // Trigger a re-render to update 'brainStats' (mood, dreaming status)
             setForceUpdate(prev => prev + 1);
         });
       }
-    }, 4000); // Pulse every 4 seconds
+    }, 4000); 
 
     return () => clearInterval(heartbeat);
   }, [brain, isThinking, isTyping]);
@@ -140,7 +134,6 @@ export function useCrikzlingV3() {
     const chars = fullText.split('');
     let currentText = '';
     
-    // Typing animation logic
     return new Promise<void>((resolve) => {
         const typeChar = (index: number) => {
             if (index >= chars.length) {
@@ -168,30 +161,7 @@ export function useCrikzlingV3() {
     });
   };
 
-  const sendMessage = async (text: string) => {
-    if (!brain || isThinking || isTyping) return;
-    
-    setIsThinking(true);
-    setMessages(prev => [...prev, { role: 'user', content: text, timestamp: Date.now() }]);
-
-    try {
-      const { response } = await brain.process(text, isOwner, dappContextRef.current);
-      
-      if (sessionId) {
-        localStorage.setItem(`crikz_brain_v3_${sessionId}`, brain.exportState());
-      }
-      
-      setIsThinking(false);
-      setCurrentThought(null);
-      await typeStreamResponse(response);
-    } catch (e) {
-      console.error("Brain Processing Error:", e);
-      setIsThinking(false);
-      setCurrentThought(null);
-      typeStreamResponse("I experienced a cognitive anomaly while processing that. Could you rephrase?");
-    }
-  };
-
+  // --- MAIN CRYSTALLIZE LOGIC ---
   const crystallize = async () => {
     if (!brain || !address) {
       toast.error("You must connect a wallet to crystallize memory.");
@@ -231,12 +201,47 @@ export function useCrikzlingV3() {
     }
   };
 
+  const sendMessage = async (text: string) => {
+    if (!brain || isThinking || isTyping) return;
+    
+    setIsThinking(true);
+    setMessages(prev => [...prev, { role: 'user', content: text, timestamp: Date.now() }]);
+
+    try {
+      // 1. Process Input
+      const { response, actionPlan } = await brain.process(text, isOwner, dappContextRef.current);
+      
+      if (sessionId) {
+        localStorage.setItem(`crikz_brain_v3_${sessionId}`, brain.exportState());
+      }
+      
+      // 2. Handle Auto-Execution of Commands (The Fix)
+      if (actionPlan && actionPlan.type === 'EXECUTE_COMMAND_SAVE') {
+          // Trigger Crystallization automatically after responding
+          setTimeout(() => crystallize(), 1000); 
+      }
+      
+      if (actionPlan && actionPlan.type === 'EXECUTE_COMMAND_RESET') {
+          // Reset handled inside brain, just update local storage/UI
+          resetBrain(); 
+      }
+
+      setIsThinking(false);
+      setCurrentThought(null);
+      await typeStreamResponse(response);
+    } catch (e) {
+      console.error("Brain Processing Error:", e);
+      setIsThinking(false);
+      setCurrentThought(null);
+      typeStreamResponse("I experienced a cognitive anomaly while processing that. Could you rephrase?");
+    }
+  };
+
   const resetBrain = () => {
     if (!brain || !sessionId) return;
     brain.wipe();
     localStorage.removeItem(`crikz_brain_v3_${sessionId}`);
     
-    // Re-instantiate
     const newBrain = new CrikzlingBrainV3(
       undefined,
       publicClient,
@@ -269,7 +274,6 @@ export function useCrikzlingV3() {
     );
   };
 
-  // Get Stats (Safe Access)
   const stats = brain ? brain.getStats() : undefined;
 
   return {
@@ -285,7 +289,6 @@ export function useCrikzlingV3() {
       nodes: stats?.nodes || 0,
       relations: stats?.relations || 0,
       unsaved: stats?.unsaved || 0,
-      // FIX: Default mood object now includes energy and confidence
       mood: stats?.mood || { logic: 0, empathy: 0, curiosity: 0, entropy: 0, energy: 0, confidence: 0 },
       memories: {
         short: stats?.memories?.short || 0,

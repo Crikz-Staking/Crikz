@@ -9,11 +9,11 @@ import { SimulationEngine } from './processors/SimulationEngine';
 import { BrainState, DAppContext, ThoughtProcess, Vector } from './types';
 
 /**
- * CrikzlingBrain V4.1 (Deep Thought Edition)
+ * CrikzlingBrain V4.2 (Action-Aware)
  * 
- * Upgrades:
- * 1. Dynamic Latency: Response time scales with complexity and entropy.
- * 2. Visible Cognition: Distinct pauses between mental phases to show "effort".
+ * Change Log:
+ * - process() now returns the ActionPlan to the frontend.
+ * - Allows text commands ("save", "reset") to trigger actual React functions.
  */
 export class CrikzlingBrainV3 { 
   private cognitive: CognitiveProcessor;
@@ -23,7 +23,6 @@ export class CrikzlingBrainV3 {
   private generator: ResponseGenerator;
   private simulator: SimulationEngine;
   
-  // V4 Specifics
   private thoughtCallback?: (thought: ThoughtProcess | null) => void;
   private isDreaming: boolean = false;
   private pendingInsight: string | null = null;
@@ -70,7 +69,7 @@ export class CrikzlingBrainV3 {
     this.isDreaming = true;
     this.updateThought('dreaming', 20, 'Navigating latent space...');
 
-    await this.think(1500); // Slower dreaming
+    await this.think(1500);
 
     const concepts = Object.values(this.cognitive.getConcepts());
     if (concepts.length < 5) {
@@ -113,16 +112,10 @@ export class CrikzlingBrainV3 {
     }
   }
 
-  /**
-   * Calculates dynamic delay based on complexity and mood.
-   * Returns milliseconds.
-   */
   private calculateCognitiveLoad(complexity: number, entropy: number): number {
-      const baseLoad = 1500; // Minimum 1.5 seconds
-      const complexityAdd = complexity * 800; // More complex words = much longer wait
-      const entropyDrag = entropy * 20; // High entropy = slower, "dreamier" response
-      
-      // Cap at 8 seconds to prevent user frustration
+      const baseLoad = 1500; 
+      const complexityAdd = complexity * 800; 
+      const entropyDrag = entropy * 20; 
       return Math.min(8000, baseLoad + complexityAdd + entropyDrag);
   }
 
@@ -130,25 +123,20 @@ export class CrikzlingBrainV3 {
     text: string, 
     isOwner: boolean,
     dappContext?: DAppContext
-  ): Promise<{ response: string }> {
+  ): Promise<{ response: string; actionPlan: ActionPlan }> { // <--- UPDATED RETURN TYPE
     try {
       this.isDreaming = false;
       this.updateThought(null as any, 0, '');
 
-      // --- PHASE 1: PERCEPTION ---
-      // Fast. Just parsing text.
       this.updateThought('vectorization', 10, 'Calculating semantic vector');
       const brainState = this.cognitive.getState();
       const inputAnalysis = this.inputProc.process(text, brainState.concepts, dappContext);
       
-      // Determine total thinking time for this interaction
       const totalThinkTime = this.calculateCognitiveLoad(inputAnalysis.complexity, brainState.mood.entropy);
-      const stepTime = totalThinkTime / 4; // Divide across 4 major steps
+      const stepTime = totalThinkTime / 4; 
 
       await this.think(stepTime);
 
-      // --- PHASE 2: MEMORY RETRIEVAL ---
-      // Slower. Navigating the graph.
       this.updateThought('perception', 35, 'Navigating knowledge graph');
       const activeNodeIds = inputAnalysis.keywords.map(k => k.id);
       const activatedNetwork = this.cognitive.activateNeuralNetwork(activeNodeIds);
@@ -167,20 +155,15 @@ export class CrikzlingBrainV3 {
 
       await this.think(stepTime);
 
-      // --- PHASE 3: SIMULATION ---
-      // Variable speed. Deep calculation.
       this.updateThought('simulation', 65, 'Running outcome prediction');
       let simResult = null;
       if (dappContext) {
           simResult = this.simulator.runSimulation(inputAnalysis.intent, dappContext, inputAnalysis.inputVector);
       }
       
-      // If a simulation actually ran, add extra time to "ponder" the result
       if (simResult) await this.think(1000); 
       else await this.think(stepTime);
 
-      // --- PHASE 4: STRATEGY & LEARNING ---
-      // The "Ah-ha" moment before typing.
       this.updateThought('strategy', 85, 'Formulating strategic output');
       const actionPlan = this.actionProc.plan(inputAnalysis, brainState, isOwner);
       
@@ -207,7 +190,6 @@ export class CrikzlingBrainV3 {
           this.pendingInsight = null;
       }
 
-      // Memory Archive (The Learning Step)
       this.cognitive.archiveMemory(
         'user', inputAnalysis.cleanedInput, allActiveIds, inputAnalysis.emotionalWeight, dappContext, inputAnalysis.inputVector 
       );
@@ -215,15 +197,19 @@ export class CrikzlingBrainV3 {
         'bot', response, allActiveIds, 0.5, dappContext, inputAnalysis.inputVector
       );
 
-      // Final short pause to simulate typing preparation
       await this.think(500);
 
       this.updateThought(null as any, 100, 'Complete');
-      return { response };
+      
+      // <--- RETURN ACTION PLAN
+      return { response, actionPlan }; 
 
     } catch (error) {
       console.error("Brain Failure:", error);
-      return { response: "Cognitive dissonance detected. My processors encountered a critical fault." };
+      return { 
+          response: "Cognitive dissonance detected. My processors encountered a critical fault.",
+          actionPlan: { type: 'RESPOND_NATURAL', requiresBlockchain: false, priority: 0, reasoning: 'Error Fallback' }
+      };
     }
   }
 
