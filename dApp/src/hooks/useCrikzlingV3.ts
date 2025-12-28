@@ -15,7 +15,8 @@ export function useCrikzlingV3() {
   const publicClient = usePublicClient();
   
   const [brain, setBrain] = useState<CrikzlingBrainV3 | null>(null);
-  const [messages, setMessages] = useState<{role: 'user' | 'bot', content: string, timestamp: number}[]>([]);
+  // FIX: Added 'system' to allowed roles
+  const [messages, setMessages] = useState<{role: 'user' | 'bot' | 'system', content: string, timestamp: number}[]>([]);
   
   const [isThinking, setIsThinking] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
@@ -53,13 +54,12 @@ export function useCrikzlingV3() {
     functionName: 'owner',
   });
 
-  // Watch for changes in the latest snapshot to trigger syncs
   const { data: latestSnapshot, refetch: refetchSnapshot } = useReadContract({
     address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
     abi: CRIKZLING_MEMORY_ABI,
     functionName: 'getLatestMemory',
     query: {
-        refetchInterval: 10000 // Poll every 10s for new memory updates from other devices
+        refetchInterval: 10000 
     }
   });
 
@@ -85,16 +85,16 @@ export function useCrikzlingV3() {
     setForceUpdate(prev => prev + 1); 
   }, []);
 
-  // --- 1. INITIALIZE BRAIN (LOCAL FIRST) ---
+  // --- BRAIN INITIALIZATION ---
   useEffect(() => {
     if (!sessionId || !publicClient) return;
     if (brain) return;
 
-    // Load purely local state first for instant UI response
+    // Load purely local diff state first
     const diffStateJson = localStorage.getItem(`crikz_brain_diff_${sessionId}`) || undefined;
     
     const initialBrain = new CrikzlingBrainV3(
-        undefined, // baseState (Loaded in step 2)
+        undefined, // baseState load deferred
         diffStateJson, 
         publicClient,
         CRIKZLING_MEMORY_ADDRESS as `0x${string}`
@@ -109,7 +109,7 @@ export function useCrikzlingV3() {
     });
   }, [sessionId, publicClient]);
 
-  // --- 2. SYNC WITH BLOCKCHAIN (REMOTE MERGE) ---
+  // --- ASYNC BLOCKCHAIN SYNC ---
   useEffect(() => {
       const syncBlockchain = async () => {
           if (!brain || !latestSnapshot) return;
@@ -117,33 +117,18 @@ export function useCrikzlingV3() {
           try {
               // @ts-ignore
               const cid = latestSnapshot.ipfsCid || latestSnapshot[1];
-              // @ts-ignore
-              const trigger = latestSnapshot.triggerEvent || latestSnapshot[4] || "";
               
-              // A. Parse Metadata from Contract (Fast Sync)
-              if (trigger) {
-                  const parts = trigger.split('_');
-                  const savedOps = parseInt(parts[parts.length - 1]);
-                  if (!isNaN(savedOps)) {
-                      // Note: We don't have a syncBaseline exposed in V3 wrapper,
-                      // but mergeState below handles it via CognitiveProcessor
-                  }
-              }
-
-              // B. Fetch Full State from IPFS (Deep Sync)
               if (cid) {
-                  // Only fetch if we haven't already synced this CID
-                  const currentStats = brain.getStats();
-                  // A simplified check to avoid re-fetching the same state repeatedly
-                  // In prod, check stored CID against new CID
-                  
+                  // Only fetch if meaningful change detected or first load
                   const url = downloadFromIPFS(cid);
-                  console.log("[Crikzling] Fetching remote memory:", url);
                   
                   const response = await fetch(url);
+                  if(!response.ok) throw new Error("IPFS Fetch Failed");
+                  
                   const remoteJson = await response.json();
                   
                   if (remoteJson && remoteJson.concepts) {
+                      // MERGE LOGIC HERE
                       brain.mergeState(remoteJson);
                       
                       setMessages(prev => [
@@ -158,6 +143,7 @@ export function useCrikzlingV3() {
           }
       };
 
+      // Simple debounce or check to ensure we don't spam sync
       if (brain && latestSnapshot) {
           syncBlockchain();
       }
@@ -227,7 +213,7 @@ export function useCrikzlingV3() {
     const toastId = toast.loading('Initiating Neural Sync...', { id: 'crystallize' });
 
     try {
-        // 1. Export Full State (Combines Base + Diff into one Truth)
+        // 1. Export Full State
         const exportStr = brain.exportFullState();
         const blob = new Blob([exportStr], { type: 'application/json' });
         const file = new File([blob], `crikz_v5_mem_${Date.now()}.json`);
@@ -303,7 +289,7 @@ export function useCrikzlingV3() {
     brain.wipe();
     localStorage.removeItem(`crikz_brain_diff_${sessionId}`);
     
-    // Force re-create brain (will likely reload from chain if available)
+    // Force re-create brain
     const newBrain = new CrikzlingBrainV3(undefined, undefined, publicClient, CRIKZLING_MEMORY_ADDRESS as `0x${string}`);
     newBrain.setThoughtUpdateCallback(thoughtCallback);
     setBrain(newBrain);
