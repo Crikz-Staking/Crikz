@@ -51,17 +51,15 @@ export class CognitiveProcessor {
       connectivity: { isConnected: false, bandwidthUsage: 0, stamina: 100, lastWebSync: 0 }
     };
 
-    // 1. Apply Base (Blockchain) if provided at constructor
+    // 1. Apply Base (Blockchain)
     if (baseJson) {
         try {
             const base = JSON.parse(baseJson);
             state = { ...state, ...base };
-            // Ensure deep merge of concepts
             state.concepts = { ...state.concepts, ...base.concepts };
             state.relations = Array.isArray(base.relations) ? base.relations : state.relations;
             state.totalInteractions = Number(base.totalInteractions || 0);
             
-            // Clear unsaved flags as this is base state
             this.unsavedIds.concepts.clear();
             this.unsavedIds.memories.clear();
             this.unsavedIds.relations.clear();
@@ -89,7 +87,6 @@ export class CognitiveProcessor {
             if (diffInteractions > state.totalInteractions) {
                 state.totalInteractions = diffInteractions;
             }
-            
             if (diff.unsavedDataCount) {
                 state.unsavedDataCount = diff.unsavedDataCount;
             }
@@ -123,7 +120,6 @@ export class CognitiveProcessor {
                   this.state.concepts[id] = remoteConcept;
                   newNodes++;
               } else {
-                  // Merge: keep local if it has higher technical depth (learned recently), else overwrite
                   if ((remoteConcept.technical_depth || 0) > (localConcept.technical_depth || 0)) {
                       this.state.concepts[id] = { ...localConcept, ...remoteConcept };
                   }
@@ -155,7 +151,7 @@ export class CognitiveProcessor {
           this.state.evolutionStage = remoteState.evolutionStage;
       }
       
-      this.state.activationMap = {}; // Reset activation
+      this.state.activationMap = {}; 
   }
 
   // --- NETWORK OPTIMIZATION LOGIC ---
@@ -165,16 +161,13 @@ export class CognitiveProcessor {
       const ids = Object.keys(concepts);
       let removed = 0;
 
-      // Simple dedup based on essence similarity
       for (let i = 0; i < ids.length; i++) {
           for (let j = i + 1; j < ids.length; j++) {
               const a = concepts[ids[i]];
               const b = concepts[ids[j]];
               if (!a || !b) continue;
 
-              // Check if identical meaning
               if (a.essence.toLowerCase() === b.essence.toLowerCase()) {
-                  // Keep the one with more connections or older ID
                   delete this.state.concepts[ids[j]];
                   removed++;
               }
@@ -189,11 +182,10 @@ export class CognitiveProcessor {
   }
 
   public optimizeGraph(): string | null {
-      // Remove weak connections if graph is too large
       if (this.state.relations.length < 1000) return null;
       
       const initialCount = this.state.relations.length;
-      this.state.relations = this.state.relations.filter(r => r.strength > 0.2); // Prune weak links
+      this.state.relations = this.state.relations.filter(r => r.strength > 0.2); 
       
       const pruned = initialCount - this.state.relations.length;
       if (pruned > 0) {
@@ -204,8 +196,43 @@ export class CognitiveProcessor {
 
   public getState(): BrainState { return this.state; }
   
-  // ... (Rest of standard methods: exportFull, exportDiff, archiveMemory etc)
-  
+  public getStats() {
+      const s = this.state;
+      return {
+        nodes: Object.keys(s.concepts).length,
+        relations: s.relations.length,
+        stage: s.evolutionStage,
+        drives: s.drives, 
+        connectivity: s.connectivity, 
+        unsaved: s.unsavedDataCount,
+        learningRate: s.learningRate,
+        memories: {
+          short: s.shortTermMemory.length,
+          mid: s.midTermMemory.length,
+          long: s.longTermMemory.length,
+          blockchain: s.blockchainMemories.length
+        },
+        interactions: s.totalInteractions,
+        lastBlockchainSync: s.lastBlockchainSync
+      };
+  }
+
+  private getSecureRandom(): number {
+      const array = new Uint32Array(1);
+      if (typeof window !== 'undefined' && window.crypto) {
+          window.crypto.getRandomValues(array);
+          return array[0] / (0xFFFFFFFF + 1);
+      }
+      return Math.random();
+  }
+
+  private getPriorityNodes(): string[] {
+      const active = Object.keys(this.state.activationMap);
+      const recent = this.state.shortTermMemory.slice(-5).flatMap((m: Memory) => m.concepts);
+      const pool = [...new Set([...active, ...recent])];
+      return pool.length > 0 ? pool : Object.keys(this.state.concepts);
+  }
+
   public exportDiff(): string {
       const diff: any = {
           totalInteractions: this.state.totalInteractions,
@@ -244,6 +271,8 @@ export class CognitiveProcessor {
       this.unsavedIds.relations.clear();
   }
 
+  // --- Logic Processing ---
+
   public archiveMemory(role: 'user'|'bot'|'subconscious'|'system', content: string, concepts: string[], emotionalWeight: number, dappContext: any, vector: Vector = [0,0,0,0,0,0]) {
     const memory: Memory = {
       id: crypto.randomUUID(), role, content, timestamp: Date.now(),
@@ -254,7 +283,6 @@ export class CognitiveProcessor {
     this.state.shortTermMemory.push(memory);
     this.unsavedIds.memories.add(memory.id);
     
-    // Increment Ops
     if (role === 'user' || role === 'system') {
         this.state.totalInteractions++; 
     }
@@ -313,8 +341,6 @@ export class CognitiveProcessor {
       else this.state.evolutionStage = 'GENESIS';
   }
 
-  // ... (Other helpers: retrieveRelevantMemories, assimilateKnowledge, wipeLocalMemory, stimulateNetwork, findAssociativePath, prioritizeSynthesis, deepenKnowledge, evolveCognitiveState, dream)
-  // ... (Retained from previous correct file)
   public retrieveRelevantMemories(conceptIds: string[], queryVector?: Vector): Memory[] {
     const allMemories = [...this.state.shortTermMemory, ...this.state.midTermMemory, ...this.state.longTermMemory];
     return allMemories.map(m => {
@@ -327,7 +353,11 @@ export class CognitiveProcessor {
             if (magA && magB) vectorScore = dotProduct / (magA * magB);
         }
         return { memory: m, score: (overlap * 0.4) + (vectorScore * 0.6) };
-      }).filter(item => item.score > 0.3).sort((a, b) => b.score - a.score).slice(0, 5).map(item => item.memory);
+      })
+      .filter(item => item.score > 0.3) 
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5)
+      .map(item => item.memory);
   }
 
   public assimilateKnowledge(content: string): number {
@@ -391,8 +421,79 @@ export class CognitiveProcessor {
     return [...new Set(path)];
   }
 
-  public prioritizedSynthesis(): string | null { return null; }
-  public deepenKnowledge(): string | null { return null; }
+  // --- MISSING METHODS RESTORED ---
+
+  public clusterConcepts(): string | null {
+      const candidates = this.getPriorityNodes();
+      if (candidates.length < 3) return null;
+      const targetId = candidates[Math.floor(this.getSecureRandom() * candidates.length)];
+      const target = this.state.concepts[targetId];
+      if (!target || !target.domain) return null;
+      
+      const neighbors = this.state.relations
+          .filter(r => (r.from === targetId || r.to === targetId) && r.strength > 0.4)
+          .map(r => r.from === targetId ? r.to : r.from)
+          .filter(nid => this.state.concepts[nid]?.domain === target.domain);
+
+      if (neighbors.length >= 2) {
+          const clusterId = `cluster_${target.domain}_${Date.now().toString().slice(-4)}`.toLowerCase();
+          if (!this.state.concepts[clusterId]) {
+              this.state.concepts[clusterId] = {
+                  id: clusterId, essence: `Hyper-structure organizing ${target.domain} logic`,
+                  semanticField: ['paradigm', 'cluster'], examples: [], abstractionLevel: 0.95, technical_depth: 0.9, domain: target.domain
+              };
+              this.unsavedIds.concepts.add(clusterId);
+              
+              [targetId, ...neighbors].forEach(n => {
+                  this.state.relations.push({ from: n, to: clusterId, type: 'categorized_by', strength: 1.0, learned_at: Date.now() });
+                  this.unsavedIds.relations.add(`${n}-${clusterId}-categorized_by`);
+              });
+              this.state.unsavedDataCount += (neighbors.length + 2);
+              return `Formed Paradigm: ${clusterId}`;
+          }
+      }
+      return null;
+  }
+
+  public prioritizedSynthesis(): string | null {
+      const pool = this.getPriorityNodes();
+      if(pool.length < 2) return null;
+      const c1 = pool[Math.floor(this.getSecureRandom() * pool.length)];
+      const c2 = pool[Math.floor(this.getSecureRandom() * pool.length)];
+      if(c1 === c2) return null;
+      
+      const newId = `${c1}_${c2}`.substring(0, 40).toLowerCase();
+      if(!this.state.concepts[newId]) {
+          this.state.concepts[newId] = {
+              id: newId, essence: `Synthesis of ${c1} and ${c2}`, semanticField: ['insight'],
+              examples: [], abstractionLevel: 0.8, technical_depth: 0.8, domain: 'META'
+          };
+          this.unsavedIds.concepts.add(newId);
+          this.state.relations.push({ from: newId, to: c1, type: 'requires', strength: 0.9, learned_at: Date.now() });
+          this.unsavedIds.relations.add(`${newId}-${c1}-requires`);
+          this.state.unsavedDataCount += 2;
+          return `Synthesized: ${newId}`;
+      }
+      return null;
+  }
+
+  public deepenKnowledge(): string | null {
+      const pool = this.getPriorityNodes();
+      const targetId = pool[Math.floor(this.getSecureRandom() * pool.length)];
+      const concept = this.state.concepts[targetId];
+      if (concept && concept.technical_depth < 1.0) {
+          concept.technical_depth = Math.min(1.0, concept.technical_depth + 0.15);
+          this.unsavedIds.concepts.add(targetId);
+          this.state.unsavedDataCount++;
+          return `Deepened: ${targetId}`;
+      }
+      return null;
+  }
+
   public evolveCognitiveState(): string { return "Optimizing neural weights"; }
-  public dream(): string { return "Void state..."; }
+  
+  public dream(): string {
+      const seed = this.state.longTermMemory[Math.floor(this.getSecureRandom() * this.state.longTermMemory.length)];
+      return seed ? `Dreaming of ${seed.concepts[0]}...` : "Void state...";
+  }
 }
