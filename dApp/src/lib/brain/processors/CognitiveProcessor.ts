@@ -3,6 +3,10 @@ import { AtomicConcept, ConceptRelation, ATOMIC_PRIMITIVES, ATOMIC_RELATIONS } f
 import { loadAllKnowledgeModules, parseExternalKnowledgeFile } from '@/lib/knowledge/knowledge-loader';
 import { BrainState, Memory, Vector, InternalDrives } from '../types';
 
+// Helper to safely serialize BigInts
+const bigIntReplacer = (_key: string, value: any) => 
+  typeof value === 'bigint' ? value.toString() : value;
+
 export class CognitiveProcessor {
   private state: BrainState;
   private publicClient?: PublicClient;
@@ -206,6 +210,7 @@ export class CognitiveProcessor {
   /**
    * EXPORT DIFF:
    * Returns a lightweight JSON containing ONLY what hasn't been saved to blockchain.
+   * FIX: Added bigIntReplacer to handle BigInt serialization errors.
    */
   public exportDiff(): string {
       const diff: any = {
@@ -230,11 +235,17 @@ export class CognitiveProcessor {
       diff.midTermMemory = this.state.midTermMemory.filter(m => this.unsavedIds.memories.has(m.id));
       diff.longTermMemory = this.state.longTermMemory.filter(m => this.unsavedIds.memories.has(m.id));
 
-      return JSON.stringify(diff);
+      // Uses bigIntReplacer to convert BigInts to strings
+      return JSON.stringify(diff, bigIntReplacer);
   }
 
+  /**
+   * EXPORT FULL:
+   * Returns complete state for IPFS Crystallization.
+   * FIX: Added bigIntReplacer.
+   */
   public exportFull(): string {
-      return JSON.stringify(this.state);
+      return JSON.stringify(this.state, bigIntReplacer);
   }
 
   public markSaved() { 
