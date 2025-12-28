@@ -84,7 +84,7 @@ export class CrikzlingBrainV3 {
           }
       }
       const analysis = this.inputProc.process(input, state.concepts);
-      const concepts = analysis.keywords.map(k => k.id);
+      const concepts = analysis.keywords.map((k: AtomicConcept) => k.id); // Explicit type
       if (concepts.length < 2) return "Not enough identifiable concepts to form a link.";
       this.cognitive.learnAssociations(concepts);
       state.unsavedDataCount++;
@@ -182,7 +182,7 @@ export class CrikzlingBrainV3 {
       const inputAnalysis = this.inputProc.process(text, brainState.concepts, dappContext);
       
       this.updateThought('spreading_activation', 20, 'Activating neural lattice...');
-      const activeIds = inputAnalysis.keywords.map(k => k.id);
+      const activeIds = inputAnalysis.keywords.map((k: AtomicConcept) => k.id); // Explicit type
       this.cognitive.stimulateNetwork(activeIds, brainState.drives.energy);
       
       let deepContext: DeepThoughtCycle[] = [];

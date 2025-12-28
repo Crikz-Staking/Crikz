@@ -108,6 +108,18 @@ export interface ActionPlan {
   context?: any;
 }
 
+// Added Missing Interface
+export interface InputAnalysis {
+  rawInput: string;
+  cleanedInput: string;
+  keywords: AtomicConcept[];
+  intent: IntentType;
+  emotionalWeight: number;
+  complexity: number;
+  detectedEntities: string[];
+  inputVector: Vector;
+}
+
 export interface CognitiveLogEntry {
   id: string;
   timestamp: number;

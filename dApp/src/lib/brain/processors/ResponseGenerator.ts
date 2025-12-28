@@ -13,7 +13,7 @@ export class ResponseGenerator {
     // 1. REFLECT (Analyze Input)
     let reflection = "";
     if (detectedEntities.length > 0) {
-        const concepts = detectedEntities.map(e => e.replace(/_/g, ' ')).join(', ');
+        const concepts = detectedEntities.map((e: string) => e.replace(/_/g, ' ')).join(', '); // Explicit type
         reflection = `Analyzing concept matrix: [${concepts}]...`;
     } else {
         reflection = `Received input: "${cleanedInput.substring(0, 30)}${cleanedInput.length > 30 ? '...' : ''}"...`;
@@ -22,11 +22,8 @@ export class ResponseGenerator {
     // 2. CONTEXTUALIZE (Memory & Associations)
     let contextStream = "";
     
-    // Aggregate unique associations from thought cycles
     const uniqueAssocs = [...new Set(deepContext.flatMap(c => c.newAssociations))];
-    // Find best memory match across all cycles
     const allMemories = deepContext.flatMap(c => c.retrievedMemories);
-    // Sort by match score (pre-calculated in cognitive processor, but we can re-verify here)
     const topMemory = allMemories.length > 0 ? allMemories[0] : null;
 
     if (uniqueAssocs.length > 0) {
@@ -50,7 +47,6 @@ export class ResponseGenerator {
         synthesis = `Systems online. Evolution stage: ${brainStats.evolutionStage}. Ready.`;
     }
     else {
-        // Fallback or Generic Logic
         if (input.keywords.length > 0) {
             const primary = input.keywords[0];
             synthesis = `The definition of ${primary.id} is: ${primary.essence}. This aligns with protocol logic.`;
