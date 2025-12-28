@@ -118,7 +118,7 @@ export class CrikzlingBrainV3 {
       this.cognitive.getState().unsavedDataCount++;
   }
 
-  // --- CORE LOOP ---
+  // --- CORE LOOP (INFINITE MODE) ---
   public async tick(dappContext?: DAppContext): Promise<void> {
     const now = Date.now();
     const state = this.cognitive.getState();
@@ -131,51 +131,45 @@ export class CrikzlingBrainV3 {
 
     // --- NEURAL LINK LOGIC (Connected State) ---
     if (isConnected) {
-        if (state.connectivity.stamina > 0) {
-            // 1. Drain Fuel
-            state.connectivity.stamina = Math.max(0, state.connectivity.stamina - 1.5);
-            state.connectivity.bandwidthUsage = Math.floor(Math.random() * 60) + 40;
-            
-            // 2. Intelligent Operations (Probabilities tuned for visibility)
-            const roll = Math.random();
-            let actionLog = "";
+        // UNLIMITED POWER LOGIC
+        // 1. Maintain Max Fuel
+        state.connectivity.stamina = 100; // Always full
+        state.connectivity.bandwidthUsage = Math.floor(Math.random() * 60) + 40;
+        
+        // 2. Intelligent Operations (Probabilities tuned for visibility)
+        const roll = Math.random();
+        let actionLog = "";
 
-            if (roll > 0.7) {
-                // 30% Chance: SYNTHESIS (New Node) - Increases Node Count
-                const newId = this.cognitive.synthesizeConcept();
-                if (newId) actionLog = `Synthesized Concept: ${newId}`;
-            } else if (roll > 0.3) {
-                // 40% Chance: DENSIFICATION (New Relation) - Increases Relation Count
-                const link = this.cognitive.densifyNetwork();
-                if (link) actionLog = `Reinforced Logic: ${link}`;
-            } else {
-                // 30% Chance: DEEPENING (Refinement) - Updates existing nodes
-                const depth = this.cognitive.deepenKnowledge();
-                if (depth) actionLog = `Deepened Research: ${depth}`;
-            }
-
-            // Only log if something actually happened
-            if (actionLog) {
-                this.updateThought('web_crawling', 50, actionLog);
-                this.logEvent({
-                    type: 'WEB_SYNC',
-                    input: 'Neural Link Data Stream',
-                    output: actionLog,
-                    intent: 'SYSTEM', 
-                    activeNodes: [], 
-                });
-            } else {
-                this.updateThought('web_crawling', 30, 'Scanning...');
-            }
-
+        if (roll > 0.7) {
+            // 30% Chance: SYNTHESIS (New Node) - Increases Node Count
+            const newId = this.cognitive.synthesizeConcept();
+            if (newId) actionLog = `Synthesized Concept: ${newId}`;
+        } else if (roll > 0.3) {
+            // 40% Chance: DENSIFICATION (New Relation) - Increases Relation Count
+            const link = this.cognitive.densifyNetwork();
+            if (link) actionLog = `Reinforced Logic: ${link}`;
         } else {
-            // Auto-disconnect on empty stamina
-            this.toggleNeuralLink(false);
-            this.updateThought('introspection', 0, 'Neural Link severed: Low Fuel.');
+            // 30% Chance: DEEPENING (Refinement) - Updates existing nodes
+            const depth = this.cognitive.deepenKnowledge();
+            if (depth) actionLog = `Deepened Research: ${depth}`;
+        }
+
+        // Only log if something actually happened
+        if (actionLog) {
+            this.updateThought('web_crawling', 50, actionLog);
+            this.logEvent({
+                type: 'WEB_SYNC',
+                input: 'Neural Link Data Stream',
+                output: actionLog,
+                intent: 'SYSTEM', 
+                activeNodes: [], 
+            });
+        } else {
+            this.updateThought('web_crawling', 30, 'Scanning...');
         }
     } else {
-        // Regen Stamina when offline
-        state.connectivity.stamina = Math.min(100, state.connectivity.stamina + 2);
+        // Idle State
+        state.connectivity.stamina = 100; 
         state.connectivity.bandwidthUsage = 0;
     }
 
