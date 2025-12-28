@@ -108,7 +108,6 @@ export interface ActionPlan {
   context?: any;
 }
 
-// Added Missing Interface
 export interface InputAnalysis {
   rawInput: string;
   cleanedInput: string;
@@ -118,6 +117,31 @@ export interface InputAnalysis {
   complexity: number;
   detectedEntities: string[];
   inputVector: Vector;
+}
+
+// --- NEWLY ADDED TYPES ---
+
+export interface DAppIntegratedState {
+  hasActiveOrders: boolean;
+  totalReputation: string;
+  availableYield: string;
+  fundBalance: string;
+  orders: any[];
+}
+
+export interface IntegratedContext {
+  input: InputAnalysis;
+  actionPlan: ActionPlan;
+  memories: Memory[];
+  blockchainHistory: BlockchainMemory[];
+  dappState: DAppIntegratedState | null;
+  deepContext: DeepThoughtCycle[];
+  brainStats: {
+    evolutionStage: string;
+    unsavedCount: number;
+    drives: any; // InternalDrives
+    currentFocus: string | null;
+  };
 }
 
 export interface CognitiveLogEntry {

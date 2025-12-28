@@ -1,5 +1,4 @@
-import { IntegratedContext } from './ResultProcessor';
-import { InternalDrives, SimulationResult } from '../types';
+import { IntegratedContext, InternalDrives, SimulationResult } from '../types';
 
 export class ResponseGenerator {
   
@@ -13,7 +12,7 @@ export class ResponseGenerator {
     // 1. REFLECT (Analyze Input)
     let reflection = "";
     if (detectedEntities.length > 0) {
-        const concepts = detectedEntities.map((e: string) => e.replace(/_/g, ' ')).join(', '); // Explicit type
+        const concepts = detectedEntities.map(e => e.replace(/_/g, ' ')).join(', ');
         reflection = `Analyzing concept matrix: [${concepts}]...`;
     } else {
         reflection = `Received input: "${cleanedInput.substring(0, 30)}${cleanedInput.length > 30 ? '...' : ''}"...`;
