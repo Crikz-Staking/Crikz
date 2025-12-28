@@ -58,12 +58,13 @@ export class CognitiveProcessor {
         try {
             const base = JSON.parse(baseJson);
             state = { ...state, ...base };
-            // Ensure relations and memories are arrays
+            // Ensure arrays are initialized if missing in base
             state.relations = base.relations || [];
             state.shortTermMemory = base.shortTermMemory || [];
             state.midTermMemory = base.midTermMemory || [];
             state.longTermMemory = base.longTermMemory || [];
-            // Re-hydrate Sets if they exist in base (unlikely for IPFS, but good practice)
+            
+            // Re-hydrate Sets
             this.unsavedIds.concepts.clear();
             this.unsavedIds.memories.clear();
             this.unsavedIds.relations.clear();
@@ -91,14 +92,18 @@ export class CognitiveProcessor {
                 });
             }
 
-            // Merge Memories
-            ['shortTermMemory', 'midTermMemory', 'longTermMemory'].forEach(key => {
-                if (diff[key]) {
+            // Merge Memories safely with explicit typing
+            const memoryKeys = ['shortTermMemory', 'midTermMemory', 'longTermMemory'] as const;
+            
+            memoryKeys.forEach(key => {
+                if (diff[key] && Array.isArray(diff[key])) {
+                    // Explicitly cast the target array in state to Memory[]
+                    const targetArray = state[key] as Memory[];
+                    
                     diff[key].forEach((m: Memory) => {
-                        // Avoid duplicates
-                        if (!state[key as keyof BrainState].find((ex: any) => ex.id === m.id)) {
-                            // @ts-ignore
-                            state[key].push(m);
+                        // Check for duplicates
+                        if (!targetArray.find((ex) => ex.id === m.id)) {
+                            targetArray.push(m);
                             this.unsavedIds.memories.add(m.id);
                         }
                     });
@@ -106,10 +111,12 @@ export class CognitiveProcessor {
             });
 
             // Restore Counters
-            if (diff.totalInteractions > state.totalInteractions) {
+            if (diff.totalInteractions && diff.totalInteractions > state.totalInteractions) {
                 state.totalInteractions = diff.totalInteractions;
             }
-            state.unsavedDataCount = diff.unsavedDataCount || 0;
+            if (diff.unsavedDataCount) {
+                state.unsavedDataCount = diff.unsavedDataCount;
+            }
 
         } catch (e) { console.error("Diff Merge Error", e); }
     }
@@ -117,8 +124,85 @@ export class CognitiveProcessor {
     return state;
   }
 
+  /**
+   * SMART MERGE: Combines Remote Blockchain State with Local RAM State.
+   */
+  public mergeExternalState(remoteState: BrainState) {
+      // 1. Sync Operations Counter
+      this.state.totalInteractions = Math.max(this.state.totalInteractions, remoteState.totalInteractions || 0);
+      
+      // 2. Merge Concepts
+      if (remoteState.concepts) {
+          Object.entries(remoteState.concepts).forEach(([id, remoteConcept]) => {
+              const localConcept = this.state.concepts[id];
+              if (!localConcept) {
+                  this.state.concepts[id] = remoteConcept;
+              } else {
+                  if ((remoteConcept.technical_depth || 0) > (localConcept.technical_depth || 0)) {
+                      this.state.concepts[id] = remoteConcept;
+                  }
+              }
+          });
+      }
+
+      // 3. Merge Relations
+      if (remoteState.relations) {
+          const existingSignatures = new Set(this.state.relations.map(r => `${r.from}-${r.to}-${r.type}`));
+          remoteState.relations.forEach(rel => {
+              const sig = `${rel.from}-${rel.to}-${rel.type}`;
+              if (!existingSignatures.has(sig)) {
+                  this.state.relations.push(rel);
+                  existingSignatures.add(sig);
+              }
+          });
+      }
+
+      // 4. Merge Memories
+      const localIds = new Set(this.state.longTermMemory.map(m => m.id));
+      if (remoteState.longTermMemory) {
+          remoteState.longTermMemory.forEach(mem => {
+              if (!localIds.has(mem.id)) {
+                  this.state.longTermMemory.push(mem);
+                  localIds.add(mem.id);
+              }
+          });
+      }
+
+      // 5. Update Evolution Stage
+      const stages = ['GENESIS', 'SENTIENT', 'SAPIENT', 'TRANSCENDENT'];
+      const localIdx = stages.indexOf(this.state.evolutionStage);
+      const remoteIdx = stages.indexOf(remoteState.evolutionStage);
+      if (remoteIdx > localIdx) {
+          this.state.evolutionStage = remoteState.evolutionStage;
+      }
+  }
+
   public getState(): BrainState { return this.state; }
   
+  /**
+   * Helper for Cryptographically Secure Randomness
+   */
+  private getSecureRandom(): number {
+      const array = new Uint32Array(1);
+      // Check for window context (Client-side only)
+      if (typeof window !== 'undefined' && window.crypto) {
+          window.crypto.getRandomValues(array);
+          return array[0] / (0xFFFFFFFF + 1);
+      }
+      return Math.random(); // Fallback for non-browser envs
+  }
+
+  // --- HELPER: Context Awareness ---
+  private getPriorityNodes(): string[] {
+      const active = Object.keys(this.state.activationMap);
+      const recent = this.state.shortTermMemory.slice(-5).flatMap((m: Memory) => m.concepts);
+      
+      const pool = [...new Set([...active, ...recent])];
+      
+      if (pool.length < 2) return Object.keys(this.state.concepts);
+      return pool;
+  }
+
   /**
    * EXPORT DIFF:
    * Returns a lightweight JSON containing ONLY what hasn't been saved to blockchain.
@@ -134,17 +218,14 @@ export class CognitiveProcessor {
           longTermMemory: []
       };
 
-      // Extract Concepts
       this.unsavedIds.concepts.forEach(id => {
           if (this.state.concepts[id]) diff.concepts[id] = this.state.concepts[id];
       });
 
-      // Extract Relations
       diff.relations = this.state.relations.filter(r => 
           this.unsavedIds.relations.has(`${r.from}-${r.to}-${r.type}`)
       );
 
-      // Extract Memories
       diff.shortTermMemory = this.state.shortTermMemory.filter(m => this.unsavedIds.memories.has(m.id));
       diff.midTermMemory = this.state.midTermMemory.filter(m => this.unsavedIds.memories.has(m.id));
       diff.longTermMemory = this.state.longTermMemory.filter(m => this.unsavedIds.memories.has(m.id));
@@ -152,10 +233,6 @@ export class CognitiveProcessor {
       return JSON.stringify(diff);
   }
 
-  /**
-   * EXPORT FULL:
-   * Returns complete state for IPFS Crystallization
-   */
   public exportFull(): string {
       return JSON.stringify(this.state);
   }
@@ -163,13 +240,12 @@ export class CognitiveProcessor {
   public markSaved() { 
       this.state.unsavedDataCount = 0;
       this.state.lastBlockchainSync = Date.now();
-      // Clear tracking sets
       this.unsavedIds.concepts.clear();
       this.unsavedIds.memories.clear();
       this.unsavedIds.relations.clear();
   }
 
-  // --- PROCESSING LOGIC UPDATES ---
+  // --- PROCESSING LOGIC ---
 
   public archiveMemory(role: 'user'|'bot'|'subconscious'|'system', content: string, concepts: string[], emotionalWeight: number, dappContext: any, vector: Vector = [0,0,0,0,0,0]) {
     const memory: Memory = {
@@ -179,22 +255,20 @@ export class CognitiveProcessor {
     };
     
     this.state.shortTermMemory.push(memory);
-    this.unsavedIds.memories.add(memory.id); // Track as unsaved
+    this.unsavedIds.memories.add(memory.id);
     
-    if (role === 'user' || role === 'system') { // System events (neural link) count as interactions
+    if (role === 'user' || role === 'system') {
         this.state.totalInteractions++; 
     }
 
     if (role === 'user') {
       this.learnAssociations(concepts);
-      // Drive updates...
       const stabilityImpact = (emotionalWeight - 0.5) * 20; 
       this.state.drives.stability = Math.max(0, Math.min(100, this.state.drives.stability - Math.abs(stabilityImpact)));
       this.state.drives.energy = Math.max(0, this.state.drives.energy - (concepts.length * 2));
       this.state.drives.curiosity = Math.min(100, this.state.drives.curiosity + 5); 
     }
     
-    // Memory Rotation Logic
     if (this.state.shortTermMemory.length > 10) {
       const moved = this.state.shortTermMemory.shift();
       if (moved) this.state.midTermMemory.push(moved);
@@ -225,15 +299,13 @@ export class CognitiveProcessor {
             learned_at: Date.now(), last_activated: Date.now()
           });
           this.state.unsavedDataCount++;
-          this.unsavedIds.relations.add(`${a}-${b}-associates`); // Track
+          this.unsavedIds.relations.add(`${a}-${b}-associates`);
         }
       }
     }
     this.updateEvolutionStage();
   }
 
-  // --- Other Methods (No changes needed, but included for completeness of class) ---
-  
   private updateEvolutionStage() {
       const nodeCount = Object.keys(this.state.concepts).length;
       const interactions = this.state.totalInteractions;
@@ -265,7 +337,7 @@ export class CognitiveProcessor {
   public assimilateKnowledge(content: string): number {
     const { concepts, count } = parseExternalKnowledgeFile(content, 'TECHNICAL');
     Object.assign(this.state.concepts, concepts);
-    Object.keys(concepts).forEach(id => this.unsavedIds.concepts.add(id)); // Track
+    Object.keys(concepts).forEach(id => this.unsavedIds.concepts.add(id));
     this.state.unsavedDataCount += count;
     this.updateEvolutionStage();
     return count;
@@ -273,7 +345,6 @@ export class CognitiveProcessor {
 
   public wipeLocalMemory() { this.state = this.initializeState(); }
   
-  // Standard Brain Ops (Tick Logic Helpers)
   public stimulateNetwork(seedIds: string[], energyLevel: number): Record<string, number> {
     const spreadFactor = energyLevel / 100; 
     const queue: { id: string, energy: number, depth: number }[] = [];
@@ -324,7 +395,8 @@ export class CognitiveProcessor {
     return [...new Set(path)];
   }
 
-  // Autonomous Refinements (Adding ID tracking)
+  // --- AUTONOMOUS REFINEMENTS ---
+
   public clusterConcepts(): string | null {
       const candidates = this.getPriorityNodes();
       if (candidates.length < 3) return null;
@@ -343,11 +415,11 @@ export class CognitiveProcessor {
                   id: clusterId, essence: `Hyper-structure organizing ${target.domain} logic`,
                   semanticField: ['paradigm', 'cluster'], examples: [], abstractionLevel: 0.95, technical_depth: 0.9, domain: target.domain
               };
-              this.unsavedIds.concepts.add(clusterId); // Track
+              this.unsavedIds.concepts.add(clusterId);
               
               [targetId, ...neighbors].forEach(n => {
                   this.state.relations.push({ from: n, to: clusterId, type: 'categorized_by', strength: 1.0, learned_at: Date.now() });
-                  this.unsavedIds.relations.add(`${n}-${clusterId}-categorized_by`); // Track
+                  this.unsavedIds.relations.add(`${n}-${clusterId}-categorized_by`);
               });
               this.state.unsavedDataCount += (neighbors.length + 2);
               return `Formed Paradigm: ${clusterId}`;
@@ -363,7 +435,6 @@ export class CognitiveProcessor {
           const isNew = (Date.now() - r.learned_at) < oneHour;
           return isNew || r.strength > 0.15;
       });
-      // No need to track deletions in unsavedIds, exportDiff will simply not include them
       return initialCount > this.state.relations.length ? `Pruned ${initialCount - this.state.relations.length} connections` : null;
   }
 
@@ -389,29 +460,23 @@ export class CognitiveProcessor {
       return null;
   }
 
-  public deepKnowledge(): string | null { return null; } // Placeholder
   public deepenKnowledge(): string | null {
       const pool = this.getPriorityNodes();
       const targetId = pool[Math.floor(this.getSecureRandom() * pool.length)];
       const concept = this.state.concepts[targetId];
       if (concept && concept.technical_depth < 1.0) {
           concept.technical_depth = Math.min(1.0, concept.technical_depth + 0.15);
-          this.unsavedIds.concepts.add(targetId); // Mark modified concept as unsaved
+          this.unsavedIds.concepts.add(targetId);
           this.state.unsavedDataCount++;
           return `Deepened: ${targetId}`;
       }
       return null;
   }
 
-  public evolveCognitiveState(): string { return "Optimizing neural weights"; } // Simple stub for evolution
+  public evolveCognitiveState(): string { return "Optimizing neural weights"; }
   
   public dream(): string {
       const seed = this.state.longTermMemory[Math.floor(this.getSecureRandom() * this.state.longTermMemory.length)];
       return seed ? `Dreaming of ${seed.concepts[0]}...` : "Void state...";
-  }
-
-  private getPriorityNodes(): string[] {
-      const active = Object.keys(this.state.activationMap);
-      return active.length > 0 ? active : Object.keys(this.state.concepts);
   }
 }
