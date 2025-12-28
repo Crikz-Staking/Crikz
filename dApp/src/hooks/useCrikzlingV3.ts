@@ -270,7 +270,7 @@ export function useCrikzlingV3() {
   const simpleTrain = (text: string) => {
       if (brain) {
           const result = brain.simpleTrain(text);
-          toast.success(result);
+          toast.success("Input Processed");
           setForceUpdate(prev => prev + 1);
       }
   };

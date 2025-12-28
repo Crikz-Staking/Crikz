@@ -67,6 +67,28 @@ export class CrikzlingBrainV3 {
 
   public simpleTrain(input: string): string {
       const state = this.cognitive.getState();
+      
+      // Syntax Detection: "Term := Definition" or "Term -> Related"
+      if (input.includes(':=')) {
+          const [term, def] = input.split(':=').map(s => s.trim());
+          if (term && def) {
+              const id = term.toLowerCase().replace(/\s+/g, '_');
+              state.concepts[id] = {
+                  id,
+                  essence: def,
+                  semanticField: [term],
+                  examples: [],
+                  abstractionLevel: 0.5,
+                  technical_depth: 0.5,
+                  domain: 'TECHNICAL'
+              };
+              state.unsavedDataCount++;
+              this.logEvent({ type: 'SYSTEM', input: `Definition Injection: ${term}`, output: 'Concept Assimilated' });
+              return `Defined concept: ${term}`;
+          }
+      }
+
+      // Basic Association Training
       const analysis = this.inputProc.process(input, state.concepts);
       const concepts = analysis.keywords.map(k => k.id);
 
@@ -139,7 +161,7 @@ export class CrikzlingBrainV3 {
         } else {
             // Auto-disconnect on empty stamina
             this.toggleNeuralLink(false);
-            this.updateThought('introspection', 0, 'Neural Link severed: Low Stamina.');
+            this.updateThought('introspection', 0, 'Neural Link severed: Low Fuel.');
         }
     } else {
         // Regen Stamina when offline

@@ -1,14 +1,40 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
     Brain, Activity, Wifi, Database, GitBranch, Cpu, 
     X, Search, ChevronRight, Terminal, Lock, Sliders, 
     PlusCircle, Save, Globe, Zap, Battery, Download, FileText,
-    Wallet, Award, TrendingUp, Layers, ArrowRight, ShieldCheck, AlertTriangle
+    Wallet, Award, TrendingUp, Layers, ArrowRight, ShieldCheck, AlertTriangle,
+    HardDrive
 } from 'lucide-react';
 import { CognitiveLogEntry, InternalDrives } from '@/lib/brain/types';
 import { AtomicConcept } from '@/lib/crikzling-atomic-knowledge';
 import { formatEther } from 'viem';
+
+// --- ROBUST DOWNLOAD UTILITY ---
+const downloadData = (filename: string, data: any) => {
+    try {
+        const jsonStr = JSON.stringify(data, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.style.display = 'none';
+        
+        document.body.appendChild(a); // Required for Firefox/some browsers
+        a.click();
+        
+        setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }, 100);
+    } catch (e) {
+        console.error("Export failed:", e);
+        alert("Failed to export data. Check console permissions.");
+    }
+};
 
 interface NeuralDashboardProps {
     isOpen: boolean;
@@ -33,6 +59,15 @@ export default function NeuralDashboard({
 
     if (!isOpen) return null;
 
+    const handleFullExport = () => {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        downloadData(`crikz_full_state_${timestamp}.json`, {
+            stats: brainStats,
+            logs: logs,
+            timestamp: Date.now()
+        });
+    };
+
     return (
         <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex flex-col md:flex-row overflow-hidden font-sans">
             
@@ -47,7 +82,12 @@ export default function NeuralDashboard({
                 <NavButton active={view === 'cortex'} onClick={() => setView('cortex')} icon={Database} label="Cortex" />
                 <NavButton active={view === 'matrix'} onClick={() => setView('matrix')} icon={Sliders} label="Matrix" locked={!isOwner} />
 
-                <div className="md:mt-auto">
+                <div className="md:mt-auto flex flex-col gap-4 items-center">
+                    {isOwner && (
+                        <button onClick={handleFullExport} className="p-3 text-emerald-500 hover:text-emerald-400 transition-colors bg-emerald-900/20 rounded-xl" title="Export Full System State">
+                            <HardDrive size={20} />
+                        </button>
+                    )}
                     <button onClick={onClose} className="p-3 text-gray-500 hover:text-white transition-colors bg-white/5 rounded-xl">
                         <X size={20} />
                     </button>
@@ -59,7 +99,7 @@ export default function NeuralDashboard({
                 {/* Global Status Bar */}
                 <div className="h-16 border-b border-white/10 flex items-center justify-between px-8 bg-[#050508]">
                     <h2 className="text-xl font-black text-white tracking-widest uppercase flex items-center gap-3">
-                        {view} Station <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded text-gray-400 font-mono">v5.3</span>
+                        {view} Station <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded text-gray-400 font-mono">v5.3.2</span>
                     </h2>
                     
                     {/* Connectivity Module */}
@@ -68,7 +108,7 @@ export default function NeuralDashboard({
                             {/* Stamina Bar */}
                             <div className="flex flex-col items-end w-32">
                                 <div className="flex items-center gap-1 text-[9px] font-bold text-gray-400 uppercase">
-                                    <Battery size={10} /> Stamina {Math.round(stamina)}%
+                                    <Battery size={10} /> Fuel {Math.round(stamina)}%
                                 </div>
                                 <div className="w-full h-1 bg-white/10 rounded-full mt-1 overflow-hidden">
                                     <motion.div 
@@ -123,6 +163,35 @@ export default function NeuralDashboard({
 
 // --- VIEW COMPONENTS ---
 
+// Live Terminal for Monitor View
+const NetworkTerminal = () => {
+    const [lines, setLines] = useState<string[]>([]);
+    const bottomRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            const actions = ['PACKET_IN', 'HANDSHAKE', 'SYN_ACK', 'GET_BLOCK', 'PARSING'];
+            const randomAction = actions[Math.floor(Math.random() * actions.length)];
+            const hash = Math.random().toString(36).substring(7);
+            const newLine = `[${new Date().toLocaleTimeString()}] ${randomAction} :: ${hash}`;
+            
+            setLines(prev => [...prev.slice(-15), newLine]);
+        }, 800);
+        return () => clearInterval(interval);
+    }, []);
+
+    useEffect(() => {
+        bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [lines]);
+
+    return (
+        <div className="absolute top-4 right-4 w-64 h-32 bg-black/80 border border-emerald-500/30 rounded-lg p-2 overflow-hidden pointer-events-none font-mono text-[9px] text-emerald-500">
+            {lines.map((l, i) => <div key={i}>{l}</div>)}
+            <div ref={bottomRef} />
+        </div>
+    );
+};
+
 function MonitorView({ stats }: { stats: any }) {
     const { isConnected, bandwidthUsage } = stats.connectivity;
 
@@ -130,6 +199,9 @@ function MonitorView({ stats }: { stats: any }) {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 glass-card p-8 rounded-3xl border border-white/10 bg-black/40 relative overflow-hidden h-[400px] flex items-center justify-center">
                 <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:40px_40px]" />
+                
+                {isConnected && <NetworkTerminal />}
+
                 <div className="relative z-10">
                     <motion.div 
                         animate={{ 
@@ -144,9 +216,9 @@ function MonitorView({ stats }: { stats: any }) {
                 </div>
                 {isConnected && (
                     <div className="absolute bottom-4 left-4 font-mono text-[10px] text-primary-500">
-                        <div>BANDWIDTH: {bandwidthUsage} MB/s</div>
+                        <div className="flex items-center gap-2"><Activity size={10} className="animate-pulse"/> BANDWIDTH: {bandwidthUsage} MB/s</div>
                         <div>PACKETS: {Math.floor(Date.now() / 1000)}</div>
-                        <div className="text-emerald-400">SYNCING KNOWLEDGE GRAPH...</div>
+                        <div className="text-emerald-400 mt-1">SYNCING KNOWLEDGE GRAPH...</div>
                     </div>
                 )}
             </div>
@@ -168,16 +240,21 @@ function SynapseView({ onTrain, lastLog }: { onTrain: (txt: string) => void, las
         <div className="max-w-2xl mx-auto space-y-8">
             <div className="text-center">
                 <h3 className="text-2xl font-black text-white mb-2">Knowledge Injection</h3>
-                <p className="text-gray-400 text-sm">Teach Crikzling new concepts using natural language.</p>
+                <p className="text-gray-400 text-sm">Teach Crikzling new concepts using formal syntax.</p>
+                <div className="flex gap-2 justify-center mt-2 text-[10px] text-gray-500 font-mono">
+                    <span className="bg-white/5 px-2 py-1 rounded">Format: Concept := Definition</span>
+                    <span className="bg-white/5 px-2 py-1 rounded">Format: A implies B</span>
+                </div>
             </div>
             <div className="glass-card p-1 rounded-2xl bg-gradient-to-br from-white/10 to-white/5 border border-white/10">
                 <textarea 
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
-                    placeholder="E.g., 'Arbitrage is the practice of taking advantage of price differences between two markets.'"
-                    className="w-full bg-[#050508] rounded-xl p-6 text-white min-h-[150px] outline-none text-lg resize-none"
+                    placeholder="e.g. 'arbitrage := The practice of taking advantage of price differences'"
+                    className="w-full bg-[#050508] rounded-xl p-6 text-white min-h-[150px] outline-none text-lg resize-none font-mono"
                 />
-                <div className="p-2 flex justify-end">
+                <div className="p-2 flex justify-between items-center">
+                    <span className="text-[10px] text-gray-500 ml-2">Characters: {input.length}</span>
                     <button 
                         onClick={handleTrain}
                         disabled={!input.trim()}
@@ -188,8 +265,9 @@ function SynapseView({ onTrain, lastLog }: { onTrain: (txt: string) => void, las
                 </div>
             </div>
             {lastLog && lastLog.type === 'SYSTEM' && (
-                <div className="bg-emerald-900/20 border border-emerald-500/30 p-4 rounded-xl">
-                    <div className="text-[10px] font-bold text-emerald-500 uppercase mb-1">Latest Integration</div>
+                <div className="bg-emerald-900/20 border border-emerald-500/30 p-4 rounded-xl relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500" />
+                    <div className="text-[10px] font-bold text-emerald-500 uppercase mb-1 flex items-center gap-2"><Check size={10} /> Latest Integration</div>
                     <p className="text-sm text-emerald-200 font-mono">{lastLog.output}</p>
                 </div>
             )}
@@ -197,7 +275,7 @@ function SynapseView({ onTrain, lastLog }: { onTrain: (txt: string) => void, las
     );
 }
 
-// --- UPDATED CORTEX VIEW ---
+// --- CORTEX VIEW ---
 function CortexView({ logs }: { logs: CognitiveLogEntry[] }) {
     const [selected, setSelected] = useState<CognitiveLogEntry | null>(logs[0] || null);
 
@@ -234,7 +312,7 @@ function CortexView({ logs }: { logs: CognitiveLogEntry[] }) {
                                 <p className="text-[10px] text-gray-500 font-mono mt-1">ID: {selected.id}</p>
                             </div>
                             <button 
-                                onClick={() => downloadLog(selected)}
+                                onClick={() => downloadData(`log_${selected.id}.json`, selected)}
                                 className="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-xs font-bold text-gray-300 hover:text-white transition-all border border-white/5"
                             >
                                 <Download size={14} /> Export Record
@@ -360,18 +438,7 @@ function ContextMetric({ label, value, icon: Icon, color }: any) {
     );
 }
 
-const downloadLog = (log: CognitiveLogEntry) => {
-    const data = JSON.stringify(log, null, 2);
-    const blob = new Blob([data], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `crikz_neural_record_${log.timestamp}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-};
+function Check({ size }: { size: number }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>; }
 
 function NavButton({ active, onClick, icon: Icon, label, locked }: any) {
     return (
