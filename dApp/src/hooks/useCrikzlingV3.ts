@@ -6,7 +6,7 @@ import { toast } from 'react-hot-toast';
 import { CrikzlingBrainV3 } from '@/lib/brain/crikzling-brain-v3';
 import { ThoughtProcess, DAppContext, InternalDrives } from '@/lib/brain/types';
 import { AtomicConcept } from '@/lib/crikzling-atomic-knowledge';
-import { uploadToIPFS } from '@/lib/ipfs-service';
+import { uploadToIPFS, downloadFromIPFS } from '@/lib/ipfs-service';
 import { CRIKZLING_MEMORY_ADDRESS, CRIKZLING_MEMORY_ABI } from '@/config/index';
 import { useContractData } from '@/hooks/web3/useContractData';
 
@@ -46,11 +46,17 @@ export function useCrikzlingV3() {
     };
   }, [balance, activeOrders, totalReputation, pendingYield, globalFund]);
 
-  // --- AUTHENTICATION LOGIC ---
+  // --- AUTHENTICATION & MEMORY SNAPSHOT ---
   const { data: contractOwner } = useReadContract({
     address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
     abi: [{ name: 'owner', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] }] as const,
     functionName: 'owner',
+  });
+
+  const { data: latestSnapshot } = useReadContract({
+    address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
+    abi: CRIKZLING_MEMORY_ABI,
+    functionName: 'getLatestMemory',
   });
 
   const isOwner = useMemo(() => {
@@ -75,41 +81,86 @@ export function useCrikzlingV3() {
     setForceUpdate(prev => prev + 1); 
   }, []);
 
+  // --- BRAIN INITIALIZATION & HYDRATION ---
   useEffect(() => {
-    if (!sessionId) return;
+    if (!sessionId || !publicClient) return;
     if (brain) return;
 
-    const savedLocal = localStorage.getItem(`crikz_brain_v3_${sessionId}`);
-    
-    const initialBrain = new CrikzlingBrainV3(
-      savedLocal || undefined,
-      publicClient,
-      CRIKZLING_MEMORY_ADDRESS as `0x${string}`
-    );
-    
-    initialBrain.setThoughtUpdateCallback(thoughtCallback);
-    setBrain(initialBrain);
-    
-    setMessages(prev => {
-      if (prev.length > 0) return prev;
-      const welcomeMsg = savedLocal 
-        ? 'Neural lattice restored. Subconscious systems active.'
-        : 'Genesis complete. Crikzling V5 online. Awaiting input.';
-      return [{ role: 'bot', content: welcomeMsg, timestamp: Date.now() }];
-    });
-  }, [sessionId, publicClient]);
+    const initializeBrain = async () => {
+        let initialState: string | undefined = localStorage.getItem(`crikz_brain_v3_${sessionId}`) || undefined;
+        let recoveryMode = false;
+
+        // If no local state, try to fetch from IPFS/Blockchain
+        if (!initialState && latestSnapshot) {
+            try {
+                // @ts-ignore - Tuple access
+                const cid = latestSnapshot.ipfsCid || latestSnapshot[1];
+                if (cid) {
+                    const url = downloadFromIPFS(cid);
+                    const toastId = toast.loading("Restoring Neural Matrix from Blockchain...");
+                    
+                    const response = await fetch(url);
+                    const json = await response.json();
+                    
+                    if (json && json.concepts) {
+                        initialState = JSON.stringify(json);
+                        recoveryMode = true;
+                        toast.success("Memory Restored Successfully!", { id: toastId });
+                    } else {
+                        toast.dismiss(toastId);
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to hydrate from IPFS:", e);
+                toast.error("Failed to restore remote memory. Initializing Genesis.", { id: 'hydrate-err' });
+            }
+        }
+
+        const initialBrain = new CrikzlingBrainV3(
+            initialState,
+            publicClient,
+            CRIKZLING_MEMORY_ADDRESS as `0x${string}`
+        );
+        
+        initialBrain.setThoughtUpdateCallback(thoughtCallback);
+
+        // Sync Ops Counter with Blockchain Metadata
+        if (latestSnapshot) {
+            // @ts-ignore
+            const trigger = latestSnapshot.triggerEvent || latestSnapshot[4] || "";
+            // Format: V5_MANUAL_SAVE_1234
+            const parts = trigger.split('_');
+            const savedOps = parseInt(parts[parts.length - 1]);
+            
+            if (!isNaN(savedOps)) {
+                initialBrain.syncBaseline(savedOps);
+            }
+        }
+
+        setBrain(initialBrain);
+        
+        setMessages(prev => {
+            if (prev.length > 0) return prev;
+            const welcomeMsg = recoveryMode 
+                ? 'Systems online. Remote consciousness restored from the Block.' 
+                : initialState
+                    ? 'Neural lattice restored locally. Subconscious systems active.'
+                    : 'Genesis complete. Crikzling V5 online. Awaiting input.';
+            return [{ role: 'bot', content: welcomeMsg, timestamp: Date.now() }];
+        });
+    };
+
+    initializeBrain();
+  }, [sessionId, publicClient, latestSnapshot]);
 
   // --- HIGH-SPEED HEARTBEAT ---
   useEffect(() => {
     if (!brain) return;
     
     const stats = brain.getStats();
-    
-    // Hyper-Threading: 100ms when connected, 8s when idle
     const tickRate = stats.connectivity?.isConnected ? 100 : 8000; 
 
     const heartbeat = setInterval(() => {
-      // Don't tick if we are syncing (prevents race conditions during save)
       if (!isThinking && !isTyping && !isSyncing) {
         brain.tick(dappContextRef.current).then(() => {
             setForceUpdate(prev => prev + 1);
@@ -117,7 +168,7 @@ export function useCrikzlingV3() {
       }
     }, tickRate); 
     return () => clearInterval(heartbeat);
-  }, [brain, isThinking, isTyping, isSyncing, forceUpdate]); // Re-run effect when connectivity changes via forceUpdate
+  }, [brain, isThinking, isTyping, isSyncing, forceUpdate]);
 
   const typeStreamResponse = async (fullText: string) => {
     setIsTyping(true);
@@ -155,7 +206,7 @@ export function useCrikzlingV3() {
     }
     if (isSyncing) return;
 
-    setIsSyncing(true); // LOCK STATE
+    setIsSyncing(true); 
     const toastId = toast.loading('Encoding neural state...', { id: 'crystallize' });
 
     try {
@@ -235,6 +286,7 @@ export function useCrikzlingV3() {
     brain.wipe();
     localStorage.removeItem(`crikz_brain_v3_${sessionId}`);
     
+    // Create fresh instance
     const newBrain = new CrikzlingBrainV3(undefined, publicClient, CRIKZLING_MEMORY_ADDRESS as `0x${string}`);
     newBrain.setThoughtUpdateCallback(thoughtCallback);
     setBrain(newBrain);

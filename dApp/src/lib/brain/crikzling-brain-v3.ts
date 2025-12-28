@@ -55,12 +55,22 @@ export class CrikzlingBrainV3 {
 
   /**
    * Helper for Cryptographically Secure Randomness
-   * Returns a number between 0 and 1
    */
   private getSecureRandom(): number {
     const array = new Uint32Array(1);
     window.crypto.getRandomValues(array);
     return array[0] / (0xFFFFFFFF + 1);
+  }
+
+  /**
+   * NEW: Syncs internal counters with Blockchain Baseline
+   * Ensures 'Ops' count never regresses below what is stored on-chain.
+   */
+  public syncBaseline(blockchainOps: number) {
+      const state = this.cognitive.getState();
+      if (state.totalInteractions < blockchainOps) {
+          state.totalInteractions = blockchainOps;
+      }
   }
 
   public setThoughtUpdateCallback(callback: (thought: ThoughtProcess | null) => void) {
@@ -115,27 +125,22 @@ export class CrikzlingBrainV3 {
       this.cognitive.getState().unsavedDataCount++;
   }
 
-  // --- UNLEASHED TICK LOGIC ---
   public async tick(dappContext?: DAppContext): Promise<void> {
     const now = Date.now();
     const state = this.cognitive.getState();
     const { isConnected } = state.connectivity;
 
-    // HYPER-THREADING: 
-    // If connected, run every 50ms. If idle, run every 8000ms.
     const tickRate = isConnected ? 50 : 8000; 
     
     if (now - this.lastTick < tickRate) return;
     this.lastTick = now;
 
     if (isConnected) {
-        state.connectivity.stamina = 100; // Infinite Power
+        state.connectivity.stamina = 100; 
         
-        // Maximize Bandwidth Simulation (80-100 MB/s)
         const bandwidth = Math.floor(this.getSecureRandom() * 20) + 80;
         state.connectivity.bandwidthUsage = bandwidth;
         
-        // Massive Parallelism: 10-20 operations per tick
         const operations = Math.floor(bandwidth / 5); 
 
         const tasks: Promise<string | null>[] = [];
@@ -155,16 +160,12 @@ export class CrikzlingBrainV3 {
             }));
         }
 
-        // Execute all cognitive tasks in parallel
         const results = await Promise.all(tasks);
 
-        // Batch update state to prevent UI thrashing
         let validOps = 0;
         results.forEach(actionLog => {
             if (actionLog) {
                 validOps++;
-                // Log only significant events to avoid flooding history completely
-                // (logging 1 out of 5 to keep history usable)
                 if (validOps % 5 === 0) {
                     this.logEvent({
                         type: 'WEB_SYNC',
@@ -175,7 +176,7 @@ export class CrikzlingBrainV3 {
                         emotionalShift: 0,
                         vectors: { input: [0,0,0,0,0,0], response: [0,0,0,0,0,0] },
                         thoughtCycles: [],
-                        executionTimeMs: 1 // Nominal
+                        executionTimeMs: 1
                     });
                 }
             }
@@ -190,7 +191,6 @@ export class CrikzlingBrainV3 {
         state.connectivity.bandwidthUsage = 0;
     }
 
-    // Subconscious Dreaming (Offline Mode)
     if (!isConnected && state.drives.energy > 80 && this.getSecureRandom() < 0.05) {
         const dream = this.cognitive.dream();
         if (dream) {
@@ -251,7 +251,9 @@ export class CrikzlingBrainV3 {
 
       const integratedContext = this.resultProc.processMultiCycle(inputAnalysis, actionPlan, deepContext, brainState, dappContext);
       let response = this.generator.generateDeep(integratedContext);
-      response = this.narrative.enhanceResponse(response, integratedContext);
+      
+      this.updateThought('strategy', 95, 'Refining semantics...');
+      // Note: ResponseGenerator now handles rethinkAndRefine internally in generateDeep
 
       if (this.pendingInsight) {
           response += `\n\n[Cached Insight]: ${this.pendingInsight}`;
