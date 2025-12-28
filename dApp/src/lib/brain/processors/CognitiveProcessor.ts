@@ -56,7 +56,7 @@ export class CognitiveProcessor {
 
     if (savedJson) {
       try {
-        const parsed = JSON.parse(savedStateJson || '{}');
+        const parsed = JSON.parse(savedJson || '{}');
         const loadedDrives = parsed.drives || defaultDrives;
 
         // Ensure we merge defaults for any new properties added to the schema
@@ -302,7 +302,7 @@ export class CognitiveProcessor {
   }
 
   public archiveMemory(
-    role: 'user'|'bot'|'subconscious'|'system', // Added 'system' for type compatibility
+    role: 'user'|'bot'|'subconscious'|'system', // Added 'system'
     content: string, 
     concepts: string[], 
     emotionalWeight: number, 
@@ -379,7 +379,6 @@ export class CognitiveProcessor {
   }
 
   public wipeLocalMemory() {
-      // Re-initialize with defaults
       const fresh = this.initializeState();
       this.state = fresh;
   }
