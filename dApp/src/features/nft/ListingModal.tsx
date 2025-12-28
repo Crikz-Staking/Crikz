@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { X, Tag, CheckCircle, Loader2, AlertTriangle } from 'lucide-react';
+import { X, Tag, Loader2, AlertTriangle } from 'lucide-react';
 import { useWriteContract, useWaitForTransactionReceipt, useReadContract, useAccount } from 'wagmi';
 import { parseEther } from 'viem';
 import { NFT_MARKETPLACE_ADDRESS, NFT_MARKETPLACE_ABI, CRIKZ_NFT_ADDRESS, CRIKZ_NFT_ABI } from '@/config/index';
@@ -17,7 +17,6 @@ export default function ListingModal({ tokenId, onClose, onSuccess }: ListingMod
   const [price, setPrice] = useState('');
   const [step, setStep] = useState<'approve' | 'list'>('approve');
 
-  // FIX: Provide fallback address to avoid undefined error
   const safeAddress = address || '0x0000000000000000000000000000000000000000';
 
   // 1. Check Approval
@@ -30,12 +29,11 @@ export default function ListingModal({ tokenId, onClose, onSuccess }: ListingMod
 
   const { data: isApprovedForAll, refetch: refetchAll } = useReadContract({
     address: CRIKZ_NFT_ADDRESS,
-    // FIX: Using CRIKZ_NFT_ABI now that it includes isApprovedForAll
     abi: CRIKZ_NFT_ABI,
     functionName: 'isApprovedForAll',
     args: [safeAddress, NFT_MARKETPLACE_ADDRESS],
     query: {
-        enabled: !!address // Only run if address exists
+        enabled: !!address 
     }
   });
 

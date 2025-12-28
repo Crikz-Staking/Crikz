@@ -150,14 +150,12 @@ export default function UserCollection({ dynamicColor }: { dynamicColor: string 
 
         {/* --- MODALS --- */}
         
-        {/* Import Modal */}
         <SimpleModal isOpen={showImportModal} onClose={() => setShowImportModal(false)} title="Import External NFT">
-            <ImportForm onImport={(c, i) => { 
-                importNFT(c, i).then(() => { toast.success("Imported!"); setShowImportModal(false); refetch(); }).catch(e => toast.error(e.message)); 
+            <ImportForm onImport={(c: string, i: string) => { 
+                importNFT(c, i).then(() => { toast.success("Imported!"); setShowImportModal(false); refetch(); }).catch((e: any) => toast.error(e.message)); 
             }} />
         </SimpleModal>
 
-        {/* Move Modal */}
         <SimpleModal isOpen={!!showMoveModal} onClose={() => setShowMoveModal(null)} title="Move to Collection">
             <div className="space-y-2">
                 {collections.map(c => (
@@ -168,7 +166,6 @@ export default function UserCollection({ dynamicColor }: { dynamicColor: string 
             </div>
         </SimpleModal>
 
-        {/* Create/Edit Modals omitted for brevity, use same pattern as before */}
         <SimpleModal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} title="New Collection">
             <Form onSubmit={(n, d) => { createCollection(n, d); setShowCreateModal(false); toast.success("Created"); }} btn="Create"/>
         </SimpleModal>
@@ -181,7 +178,6 @@ export default function UserCollection({ dynamicColor }: { dynamicColor: string 
             />
         </SimpleModal>
 
-        {/* List Modal */}
         {showListModal && <ListingModal tokenId={showListModal.id} onClose={() => setShowListModal(null)} onSuccess={refetch} />}
     </div>
   );
@@ -214,7 +210,14 @@ function ImportForm({ onImport }: { onImport: (c: string, id: string) => void })
     );
 }
 
-function Form({ onSubmit, initName='', initDesc='', btn }: any) {
+interface FormProps {
+    onSubmit: (name: string, desc: string) => void;
+    initName?: string;
+    initDesc?: string;
+    btn: string;
+}
+
+function Form({ onSubmit, initName='', initDesc='', btn }: FormProps) {
     const [name, setName] = useState(initName);
     const [desc, setDesc] = useState(initDesc);
     return (
