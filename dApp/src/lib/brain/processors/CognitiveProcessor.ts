@@ -61,14 +61,18 @@ export class CognitiveProcessor {
     if (baseJson) {
         try {
             const base = JSON.parse(baseJson);
-            state = { ...state, ...base };
-            // Ensure arrays are initialized if missing in base
-            state.relations = base.relations || [];
-            state.shortTermMemory = base.shortTermMemory || [];
-            state.midTermMemory = base.midTermMemory || [];
-            state.longTermMemory = base.longTermMemory || [];
             
-            // Re-hydrate Sets
+            // Merge logic for Base
+            state = { ...state, ...base };
+            
+            // Explicitly restore Maps/Arrays to ensure type safety
+            state.concepts = { ...state.concepts, ...base.concepts };
+            state.relations = Array.isArray(base.relations) ? base.relations : state.relations;
+            
+            // IMPORTANT: Restore Ops Count
+            state.totalInteractions = typeof base.totalInteractions === 'number' ? base.totalInteractions : state.totalInteractions;
+
+            // Clean unsaved tracking as Base is considered "Saved"
             this.unsavedIds.concepts.clear();
             this.unsavedIds.memories.clear();
             this.unsavedIds.relations.clear();
@@ -89,23 +93,19 @@ export class CognitiveProcessor {
             }
 
             // Merge Relations
-            if (diff.relations) {
+            if (diff.relations && Array.isArray(diff.relations)) {
                 diff.relations.forEach((r: ConceptRelation) => {
                     state.relations.push(r);
                     this.unsavedIds.relations.add(`${r.from}-${r.to}-${r.type}`);
                 });
             }
 
-            // Merge Memories safely with explicit typing
+            // Merge Memories
             const memoryKeys = ['shortTermMemory', 'midTermMemory', 'longTermMemory'] as const;
-            
             memoryKeys.forEach(key => {
                 if (diff[key] && Array.isArray(diff[key])) {
-                    // Explicitly cast the target array in state to Memory[]
                     const targetArray = state[key] as Memory[];
-                    
                     diff[key].forEach((m: Memory) => {
-                        // Check for duplicates
                         if (!targetArray.find((ex) => ex.id === m.id)) {
                             targetArray.push(m);
                             this.unsavedIds.memories.add(m.id);
@@ -114,8 +114,8 @@ export class CognitiveProcessor {
                 }
             });
 
-            // Restore Counters
-            if (diff.totalInteractions && diff.totalInteractions > state.totalInteractions) {
+            // Restore Counters (Max of existing vs diff)
+            if (diff.totalInteractions > state.totalInteractions) {
                 state.totalInteractions = diff.totalInteractions;
             }
             if (diff.unsavedDataCount) {
@@ -129,19 +129,25 @@ export class CognitiveProcessor {
   }
 
   /**
-   * SMART MERGE: Combines Remote Blockchain State with Local RAM State.
+   * SMART MERGE: Combines Remote Blockchain State into Current State.
+   * Call this when IPFS fetch completes AFTER initialization.
    */
   public mergeExternalState(remoteState: BrainState) {
-      // 1. Sync Operations Counter
+      console.log(`[Cognitive] Merging Remote State. Remote Ops: ${remoteState.totalInteractions}, Local Ops: ${this.state.totalInteractions}`);
+
+      // 1. Sync Operations Counter (Take Max)
       this.state.totalInteractions = Math.max(this.state.totalInteractions, remoteState.totalInteractions || 0);
-      
+      this.state.lastBlockchainSync = Date.now();
+
       // 2. Merge Concepts
       if (remoteState.concepts) {
           Object.entries(remoteState.concepts).forEach(([id, remoteConcept]) => {
               const localConcept = this.state.concepts[id];
               if (!localConcept) {
+                  // New concept from blockchain
                   this.state.concepts[id] = remoteConcept;
               } else {
+                  // Existing concept: Update if remote is more evolved
                   if ((remoteConcept.technical_depth || 0) > (localConcept.technical_depth || 0)) {
                       this.state.concepts[id] = remoteConcept;
                   }
@@ -150,7 +156,7 @@ export class CognitiveProcessor {
       }
 
       // 3. Merge Relations
-      if (remoteState.relations) {
+      if (remoteState.relations && Array.isArray(remoteState.relations)) {
           const existingSignatures = new Set(this.state.relations.map(r => `${r.from}-${r.to}-${r.type}`));
           remoteState.relations.forEach(rel => {
               const sig = `${rel.from}-${rel.to}-${rel.type}`;
@@ -163,7 +169,7 @@ export class CognitiveProcessor {
 
       // 4. Merge Memories
       const localIds = new Set(this.state.longTermMemory.map(m => m.id));
-      if (remoteState.longTermMemory) {
+      if (remoteState.longTermMemory && Array.isArray(remoteState.longTermMemory)) {
           remoteState.longTermMemory.forEach(mem => {
               if (!localIds.has(mem.id)) {
                   this.state.longTermMemory.push(mem);
@@ -183,35 +189,23 @@ export class CognitiveProcessor {
 
   public getState(): BrainState { return this.state; }
   
-  /**
-   * Helper for Cryptographically Secure Randomness
-   */
   private getSecureRandom(): number {
       const array = new Uint32Array(1);
-      // Check for window context (Client-side only)
       if (typeof window !== 'undefined' && window.crypto) {
           window.crypto.getRandomValues(array);
           return array[0] / (0xFFFFFFFF + 1);
       }
-      return Math.random(); // Fallback for non-browser envs
+      return Math.random();
   }
 
   // --- HELPER: Context Awareness ---
   private getPriorityNodes(): string[] {
       const active = Object.keys(this.state.activationMap);
       const recent = this.state.shortTermMemory.slice(-5).flatMap((m: Memory) => m.concepts);
-      
       const pool = [...new Set([...active, ...recent])];
-      
-      if (pool.length < 2) return Object.keys(this.state.concepts);
-      return pool;
+      return pool.length > 0 ? pool : Object.keys(this.state.concepts);
   }
 
-  /**
-   * EXPORT DIFF:
-   * Returns a lightweight JSON containing ONLY what hasn't been saved to blockchain.
-   * FIX: Added bigIntReplacer to handle BigInt serialization errors.
-   */
   public exportDiff(): string {
       const diff: any = {
           totalInteractions: this.state.totalInteractions,
@@ -235,15 +229,9 @@ export class CognitiveProcessor {
       diff.midTermMemory = this.state.midTermMemory.filter(m => this.unsavedIds.memories.has(m.id));
       diff.longTermMemory = this.state.longTermMemory.filter(m => this.unsavedIds.memories.has(m.id));
 
-      // Uses bigIntReplacer to convert BigInts to strings
       return JSON.stringify(diff, bigIntReplacer);
   }
 
-  /**
-   * EXPORT FULL:
-   * Returns complete state for IPFS Crystallization.
-   * FIX: Added bigIntReplacer.
-   */
   public exportFull(): string {
       return JSON.stringify(this.state, bigIntReplacer);
   }
@@ -268,6 +256,7 @@ export class CognitiveProcessor {
     this.state.shortTermMemory.push(memory);
     this.unsavedIds.memories.add(memory.id);
     
+    // Increment Ops for interactions
     if (role === 'user' || role === 'system') {
         this.state.totalInteractions++; 
     }
