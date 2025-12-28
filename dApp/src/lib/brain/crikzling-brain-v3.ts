@@ -54,17 +54,15 @@ export class CrikzlingBrainV3 {
     this.thoughtCallback = callback;
   }
 
-  // --- NEW FEATURES: NEURAL LINK & SIMPLE TRAINING ---
+  // --- NEW FEATURES ---
 
   public toggleNeuralLink(active: boolean) {
       const state = this.cognitive.getState();
       state.connectivity.isConnected = active;
-      // Reset bandwidth visual if turning off
       if (!active) state.connectivity.bandwidthUsage = 0;
   }
 
   public simpleTrain(input: string): string {
-      // Parses natural language to extract concepts and link them
       const state = this.cognitive.getState();
       const analysis = this.inputProc.process(input, state.concepts);
       const concepts = analysis.keywords.map(k => k.id);
@@ -97,74 +95,75 @@ export class CrikzlingBrainV3 {
       this.cognitive.getState().unsavedDataCount++;
   }
 
-  // --- CORE LOOP ---
+  // --- CORE LOOP (UPDATED) ---
 
   public async tick(dappContext?: DAppContext): Promise<void> {
     const now = Date.now();
     const state = this.cognitive.getState();
     const { isConnected } = state.connectivity;
 
-    // 1. Determine Tick Rate (Turbo mode if connected)
+    // Tick Rate: 2s if connected, 8s if idle
     const tickRate = isConnected ? 2000 : 8000; 
     if (now - this.lastTick < tickRate) return;
     this.lastTick = now;
 
-    // 2. Handle Neural Link (Stamina / Web Sim)
+    // --- NEURAL LINK LOGIC (Fuel) ---
     if (isConnected) {
-        // Drain Stamina
+        // Drain Stamina logic
         if (state.connectivity.stamina > 0) {
+            // Drain cost (Use fuel)
             state.connectivity.stamina = Math.max(0, state.connectivity.stamina - 2);
-            state.connectivity.bandwidthUsage = Math.floor(Math.random() * 40) + 60; // High usage visual
+            // Visual bandwidth
+            state.connectivity.bandwidthUsage = Math.floor(Math.random() * 40) + 60;
             
-            // "Super Learning" - Randomly reinforce weak connections
-            if (Math.random() > 0.7) {
-                this.updateThought('web_crawling', 50, 'Indexing external data nodes...');
-                this.cognitive.dream(); // Force associative processing
+            // AUTOMATIC IMPROVEMENT: Densify Network
+            // 40% chance per tick to create a new neural pathway "from the web"
+            // This is the key "fuel to structure" logic.
+            if (Math.random() > 0.6) {
+                this.updateThought('web_crawling', 50, 'Ingesting data stream...');
+                
+                // This function creates a link between two existing concepts 
+                // that were previously unconnected.
+                const newLink = this.cognitive.densifyNetwork();
+                
+                if (newLink) {
+                    this.logEvent({
+                        type: 'WEB_SYNC',
+                        input: 'Neural Link Data Stream',
+                        output: `Auto-associated: ${newLink}`,
+                        intent: 'SYSTEM',
+                        activeNodes: [], 
+                    });
+                }
             }
         } else {
-            // Stamina depleted, auto-disconnect
+            // Auto-disconnect on empty stamina
             this.toggleNeuralLink(false);
-            this.updateThought('introspection', 0, 'Neural Link severed: Stamina Depleted.');
+            this.updateThought('introspection', 0, 'Neural Link severed: Low Stamina.');
         }
     } else {
-        // Regen Stamina slowly when idle
+        // Regen Stamina when offline
         state.connectivity.stamina = Math.min(100, state.connectivity.stamina + 1);
         state.connectivity.bandwidthUsage = 0;
     }
 
-    // 3. Normal Cognitive Tick
-    const spontaneousThought = this.cognitive.processNeuralTick();
-
-    if (spontaneousThought) {
-        this.updateThought('dreaming', 50, spontaneousThought);
-        this.logEvent({
-            type: 'DREAM',
-            input: 'Spontaneous Activation',
-            output: spontaneousThought,
-            intent: 'DISCOURSE',
-            activeNodes: state.attentionFocus ? [state.attentionFocus] : [],
-        });
-
-        if (state.drives.stability > 40) {
-            this.pendingInsight = spontaneousThought;
+    // Normal Dreaming logic (Offline Mode)
+    if (!isConnected && state.drives.energy > 80 && Math.random() < 0.05) {
+        const dream = this.cognitive.dream();
+        if (dream) {
+            this.logEvent({
+                type: 'DREAM',
+                input: 'Subconscious',
+                output: dream,
+                intent: 'DISCOURSE'
+            });
         }
-        
-        this.cognitive.archiveMemory('subconscious', spontaneousThought, [], 0.1, dappContext);
-        await this.think(isConnected ? 1000 : 2500); // Faster processing if connected
-        this.clearThought();
-    } 
-    else {
-        this.clearThought();
     }
+
+    this.clearThought();
   }
 
-  // ... [Keep process(), logEvent(), getHistory(), etc. unchanged] ...
-  
-  public async process(
-    text: string, 
-    isOwner: boolean,
-    dappContext?: DAppContext
-  ): Promise<{ response: string; actionPlan: ActionPlan }> { 
+  public async process(text: string, isOwner: boolean, dappContext?: DAppContext): Promise<{ response: string; actionPlan: ActionPlan }> { 
     const startTime = Date.now();
     try {
       this.updateThought('perception', 10, 'Parsing semantics...');
@@ -185,15 +184,13 @@ export class CrikzlingBrainV3 {
       for (let cycle = 1; cycle <= this.MAX_THOUGHT_CYCLES; cycle++) {
           const progress = 20 + (cycle * (60 / this.MAX_THOUGHT_CYCLES));
           this.updateThought('introspection', progress, `Cycle ${cycle}: Associative walk...`);
-          
-          await this.think(800 + (brainState.drives.efficiency * 5)); 
+          await this.think(500); 
 
           const memories = this.cognitive.retrieveRelevantMemories(currentFocus, inputAnalysis.inputVector);
           const newAssociations = this.cognitive.findAssociativePath(currentFocus, 2);
           
           let simResult = null;
           if (dappContext && (inputAnalysis.intent === 'FINANCIAL_ADVICE' || inputAnalysis.intent === 'DAPP_QUERY')) {
-              this.updateThought('simulation', progress + 5, 'Calculating probabilities...');
               simResult = this.simulator.runSimulation(inputAnalysis.intent, dappContext, inputAnalysis.inputVector);
           }
 
@@ -205,9 +202,7 @@ export class CrikzlingBrainV3 {
               simResult: simResult
           });
 
-          if (newAssociations.length > 0) {
-              currentFocus = newAssociations.slice(0, 3); 
-          }
+          if (newAssociations.length > 0) currentFocus = newAssociations.slice(0, 3); 
       }
 
       this.updateThought('strategy', 90, 'Formulating output...');
@@ -215,14 +210,7 @@ export class CrikzlingBrainV3 {
       
       if (actionPlan.type === 'EXECUTE_COMMAND_RESET' && isOwner) this.cognitive.wipeLocalMemory();
 
-      const integratedContext = this.resultProc.processMultiCycle(
-        inputAnalysis,
-        actionPlan,
-        deepContext,
-        brainState,
-        dappContext
-      );
-
+      const integratedContext = this.resultProc.processMultiCycle(inputAnalysis, actionPlan, deepContext, brainState, dappContext);
       let response = this.generator.generateDeep(integratedContext);
       response = this.narrative.enhanceResponse(response, integratedContext);
 
@@ -231,12 +219,8 @@ export class CrikzlingBrainV3 {
           this.pendingInsight = null;
       }
 
-      this.cognitive.archiveMemory(
-        'user', inputAnalysis.cleanedInput, activeIds, inputAnalysis.emotionalWeight, dappContext, inputAnalysis.inputVector 
-      );
-      this.cognitive.archiveMemory(
-        'bot', response, currentFocus, 0.5, dappContext, inputAnalysis.inputVector
-      );
+      this.cognitive.archiveMemory('user', inputAnalysis.cleanedInput, activeIds, inputAnalysis.emotionalWeight, dappContext, inputAnalysis.inputVector);
+      this.cognitive.archiveMemory('bot', response, currentFocus, 0.5, dappContext, inputAnalysis.inputVector);
 
       const outputVector = [...inputAnalysis.inputVector] as [number, number, number, number, number, number];
       if (inputAnalysis.intent === 'FINANCIAL_ADVICE') outputVector[0] += 0.2; 
@@ -248,16 +232,15 @@ export class CrikzlingBrainV3 {
           intent: inputAnalysis.intent,
           emotionalShift: inputAnalysis.emotionalWeight,
           activeNodes: [...new Set([...activeIds, ...currentFocus])],
-          vectors: {
-              input: inputAnalysis.inputVector,
-              response: outputVector
-          },
+          vectors: { input: inputAnalysis.inputVector, response: outputVector },
           thoughtCycles: deepContext,
-          executionTimeMs: Date.now() - startTime
+          executionTimeMs: Date.now() - startTime,
+          dappContext: dappContext,
+          actionPlan: actionPlan
       });
 
       this.updateThought('generation', 100, 'Done');
-      await this.think(400); 
+      await this.think(200); 
       this.clearThought();
       
       return { response, actionPlan }; 
@@ -266,7 +249,7 @@ export class CrikzlingBrainV3 {
       console.error("Brain Failure:", error);
       this.clearThought();
       return { 
-          response: "Critical error in cognitive pipeline. Recalibrating...",
+          response: "Critical error in cognitive pipeline.",
           actionPlan: { type: 'RESPOND_NATURAL', requiresBlockchain: false, priority: 0, reasoning: 'Error Fallback' }
       };
     }
@@ -326,7 +309,7 @@ export class CrikzlingBrainV3 {
         relations: s.relations.length,
         stage: s.evolutionStage,
         drives: s.drives, 
-        connectivity: s.connectivity, // Expose connectivity
+        connectivity: s.connectivity, 
         unsaved: s.unsavedDataCount,
         learningRate: s.learningRate,
         memories: {

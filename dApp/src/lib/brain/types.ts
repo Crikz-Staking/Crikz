@@ -24,26 +24,26 @@ export interface BrainState {
   lastBlockchainSync: number;
   learningRate: number;
   
-  // NEW: Connectivity & Stamina
+  // Connectivity & Stamina
   connectivity: {
-    isConnected: boolean;      // Is "Neural Link" active?
-    bandwidthUsage: number;    // 0-100% representation
-    stamina: number;           // 0-100 resource consumed by high-speed processing
+    isConnected: boolean;      
+    bandwidthUsage: number;    
+    stamina: number;           
     lastWebSync: number;
   };
 }
 
 export interface InternalDrives {
-  curiosity: number;   // 0-100
-  stability: number;   // 0-100
-  efficiency: number;  // 0-100
-  social: number;      // 0-100
-  energy: number;      // 0-100
+  curiosity: number;   
+  stability: number;   
+  efficiency: number;  
+  social: number;      
+  energy: number;      
 }
 
 export interface Memory {
   id: string;
-  role: 'user' | 'bot' | 'subconscious' | 'system'; // Added 'system' for web search results
+  role: 'user' | 'bot' | 'subconscious' | 'system'; 
   content: string;
   timestamp: number;
   concepts: string[]; 
@@ -73,7 +73,7 @@ export interface BlockchainMemory {
 export interface CognitiveLogEntry {
   id: string;
   timestamp: number;
-  type: 'INTERACTION' | 'DREAM' | 'SYSTEM' | 'WEB_SYNC'; // Added WEB_SYNC
+  type: 'INTERACTION' | 'DREAM' | 'SYSTEM' | 'WEB_SYNC'; 
   input: string; 
   output: string; 
   intent: IntentType;
@@ -85,6 +85,10 @@ export interface CognitiveLogEntry {
   };
   thoughtCycles: DeepThoughtCycle[]; 
   executionTimeMs: number;
+  
+  // NEW FIELDS FOR DEEP ANALYSIS
+  dappContext?: DAppContext; // Snapshot of wallet/protocol state
+  actionPlan?: ActionPlan;   // The decision logic output
 }
 
 // --- PROCESSOR TYPES ---
@@ -146,3 +150,19 @@ export type IntentType =
   | 'DAPP_QUERY' 
   | 'DISCOURSE'
   | 'NARRATIVE_ANALYSIS';
+
+// Moved from ActionProcessor to avoid circular deps
+export type ActionType = 
+  | 'RESPOND_NATURAL' 
+  | 'RESPOND_DAPP' 
+  | 'EXECUTE_COMMAND_RESET' 
+  | 'EXECUTE_COMMAND_SAVE'
+  | 'SUGGEST_ACTION';
+
+export interface ActionPlan {
+  type: ActionType;
+  requiresBlockchain: boolean;
+  priority: number;
+  reasoning: string;
+  context?: any;
+}

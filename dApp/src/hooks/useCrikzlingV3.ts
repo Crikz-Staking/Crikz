@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from 'wagmi';
+import { useAccount, useWriteContract, usePublicClient } from 'wagmi';
 import { bscTestnet } from 'wagmi/chains';
 import { toast } from 'react-hot-toast';
 
@@ -59,8 +59,7 @@ export function useCrikzlingV3() {
 
   const isOwner = address?.toLowerCase() === ARCHITECT_ADDRESS.toLowerCase();
 
-  const { writeContractAsync, data: hash } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess: txSuccess } = useWaitForTransactionReceipt({ hash, confirmations: 1 });
+  const { writeContractAsync } = useWriteContract();
 
   const thoughtCallback = useCallback((thought: ThoughtProcess | null) => {
     setCurrentThought(thought);
@@ -85,8 +84,8 @@ export function useCrikzlingV3() {
     setMessages(prev => {
       if (prev.length > 0) return prev;
       const welcomeMsg = savedLocal 
-        ? 'Neural lattice restored. Subconscious systems active. I am monitoring the protocol state.'
-        : 'Genesis complete. Crikzling V5 online. Subconscious processing initialized.';
+        ? 'Neural lattice restored. Subconscious systems active.'
+        : 'Genesis complete. Crikzling V5 online. Awaiting input.';
       return [{ role: 'bot', content: welcomeMsg, timestamp: Date.now() }];
     });
   }, [sessionId, publicClient]);
@@ -96,86 +95,19 @@ export function useCrikzlingV3() {
     if (!brain) return;
     
     const stats = brain.getStats();
-    const tickRate = stats.connectivity?.isConnected ? 2000 : 8000; // Fast when connected
+    // Fast tick when connected (2s), slow when idle (8s)
+    const tickRate = stats.connectivity?.isConnected ? 2000 : 8000; 
 
     const heartbeat = setInterval(() => {
-      if (!isThinking && !isTyping) {
+      // Don't tick if we are syncing (prevents race conditions during save)
+      if (!isThinking && !isTyping && !isSyncing) {
         brain.tick(dappContextRef.current).then(() => {
             setForceUpdate(prev => prev + 1);
         });
       }
     }, tickRate); 
     return () => clearInterval(heartbeat);
-  }, [brain, isThinking, isTyping, forceUpdate]);
-
-  // ... [Keep crystallize, sendMessage, resetBrain, uploadFile logic unchanged] ...
-
-  // Standard functions needed for Avatar
-  const crystallize = async () => {
-    if (!brain || !address) {
-      toast.error("Connect wallet to save memory.");
-      return;
-    }
-    if (isSyncing || isConfirming) return;
-
-    setIsSyncing(true);
-    const toastId = 'crystallize';
-    toast.loading('Encoding neural state...', { id: toastId });
-
-    try {
-      const state = brain.getState();
-      const exportStr = brain.exportState();
-      const blob = new Blob([exportStr], { type: 'application/json' });
-      const file = new File([blob], `crikz_v5_mem_${Date.now()}.json`);
-      
-      toast.loading('Uploading to decentralized storage...', { id: toastId });
-      const cid = await uploadToIPFS(file);
-      
-      const conceptCount = BigInt(Object.keys(state.concepts).length);
-      const stage = state.evolutionStage;
-      const trigger = `V5_MANUAL_SAVE_${state.totalInteractions}`;
-
-      toast.loading('Waiting for wallet approval...', { id: toastId });
-      
-      await writeContractAsync({
-        address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
-        abi: CRIKZLING_MEMORY_ABI,
-        functionName: 'crystallizeMemory',
-        args: [cid, conceptCount, stage, trigger],
-        account: address,
-        chain: bscTestnet
-      });
-      toast.loading('Confirming on Blockchain...', { id: toastId });
-    } catch (e: any) {
-      console.error(e);
-      const msg = e.message?.includes('User rejected') ? 'Transaction rejected' : 'Crystallization failed';
-      toast.error(msg, { id: toastId });
-      setIsSyncing(false); 
-    }
-  };
-
-  const sendMessage = async (text: string) => {
-    if (!brain || isThinking || isTyping) return;
-    setIsThinking(true);
-    setMessages(prev => [...prev, { role: 'user', content: text, timestamp: Date.now() }]);
-
-    try {
-      const { response, actionPlan } = await brain.process(text, isOwner, dappContextRef.current);
-      if (sessionId) localStorage.setItem(`crikz_brain_v3_${sessionId}`, brain.exportState());
-      
-      if (actionPlan?.type === 'EXECUTE_COMMAND_SAVE') setTimeout(() => crystallize(), 1000); 
-      if (actionPlan?.type === 'EXECUTE_COMMAND_RESET') resetBrain(); 
-
-      setIsThinking(false);
-      setCurrentThought(null);
-      await typeStreamResponse(response);
-    } catch (e) {
-      console.error("Brain Error:", e);
-      setIsThinking(false);
-      setCurrentThought(null);
-      typeStreamResponse("Cognitive anomaly detected.");
-    }
-  };
+  }, [brain, isThinking, isTyping, isSyncing, forceUpdate]);
 
   const typeStreamResponse = async (fullText: string) => {
     setIsTyping(true);
@@ -206,14 +138,108 @@ export function useCrikzlingV3() {
     });
   };
 
+  // --- FIXED CRYSTALLIZATION LOGIC ---
+  const crystallize = async () => {
+    if (!brain || !address || !publicClient) {
+      toast.error("Wallet or Provider missing.");
+      return;
+    }
+    if (isSyncing) return;
+
+    setIsSyncing(true); // LOCK STATE
+    const toastId = toast.loading('Encoding neural state...', { id: 'crystallize' });
+
+    try {
+      // 1. IPFS Upload
+      const state = brain.getState();
+      const exportStr = brain.exportState();
+      const blob = new Blob([exportStr], { type: 'application/json' });
+      const file = new File([blob], `crikz_v5_mem_${Date.now()}.json`);
+      
+      toast.loading('Uploading to IPFS...', { id: toastId });
+      const cid = await uploadToIPFS(file);
+      
+      const conceptCount = BigInt(Object.keys(state.concepts).length);
+      const stage = state.evolutionStage;
+      const trigger = `V5_MANUAL_SAVE_${state.totalInteractions}`;
+
+      // 2. Blockchain Write
+      toast.loading('Waiting for signature...', { id: toastId });
+      const hash = await writeContractAsync({
+        address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
+        abi: CRIKZLING_MEMORY_ABI,
+        functionName: 'crystallizeMemory',
+        args: [cid, conceptCount, stage, trigger],
+        account: address,
+        chain: bscTestnet
+      });
+
+      // 3. Wait for Receipt Explicitly
+      toast.loading('Confirming on Blockchain...', { id: toastId });
+      await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
+
+      // 4. Success State Update
+      brain.clearUnsavedCount();
+      // Update local storage immediately to match chain state
+      if (sessionId) localStorage.setItem(`crikz_brain_v3_${sessionId}`, brain.exportState());
+      
+      toast.success('Crystallization Complete!', { id: toastId });
+      typeStreamResponse('Memory block confirmed. State crystallized on-chain.');
+
+    } catch (e: any) {
+      console.error(e);
+      // Handle user rejection vs actual error
+      const msg = e.message?.toLowerCase().includes('reject') 
+        ? 'Transaction rejected' 
+        : 'Crystallization failed';
+      toast.error(msg, { id: toastId });
+    } finally {
+      // CRITICAL: ALWAYS RESET STATE HERE
+      setIsSyncing(false); 
+    }
+  };
+
+  const sendMessage = async (text: string) => {
+    if (!brain || isThinking || isTyping) return;
+    setIsThinking(true);
+    setMessages(prev => [...prev, { role: 'user', content: text, timestamp: Date.now() }]);
+
+    try {
+      const { response, actionPlan } = await brain.process(text, isOwner, dappContextRef.current);
+      if (sessionId) localStorage.setItem(`crikz_brain_v3_${sessionId}`, brain.exportState());
+      
+      setIsThinking(false);
+      setCurrentThought(null);
+      await typeStreamResponse(response);
+
+      // Handle actions AFTER response is done type-streaming
+      if (actionPlan?.type === 'EXECUTE_COMMAND_SAVE') {
+          setTimeout(() => crystallize(), 500); 
+      }
+      if (actionPlan?.type === 'EXECUTE_COMMAND_RESET') {
+          resetBrain(); 
+      }
+
+    } catch (e) {
+      console.error("Brain Error:", e);
+      setIsThinking(false);
+      setCurrentThought(null);
+      typeStreamResponse("Cognitive anomaly detected.");
+    }
+  };
+
   const resetBrain = () => {
     if (!brain || !sessionId) return;
     brain.wipe();
     localStorage.removeItem(`crikz_brain_v3_${sessionId}`);
+    
+    // Create fresh instance
     const newBrain = new CrikzlingBrainV3(undefined, publicClient, CRIKZLING_MEMORY_ADDRESS as `0x${string}`);
     newBrain.setThoughtUpdateCallback(thoughtCallback);
     setBrain(newBrain);
+    
     setMessages([{ role: 'bot', content: 'Neural matrices purged. Genesis state restored.', timestamp: Date.now() }]);
+    setForceUpdate(prev => prev + 1);
   };
 
   const uploadFile = async (content: string) => {
@@ -225,7 +251,7 @@ export function useCrikzlingV3() {
     typeStreamResponse(`Knowledge assimilation complete. Integrated ${count} concepts.`);
   };
 
-  // --- NEW ACTIONS ---
+  // --- NEW CONTROLS ---
   const updateDrives = (drives: InternalDrives) => {
       if (brain) {
           brain.updateDrives(drives);
@@ -269,17 +295,18 @@ export function useCrikzlingV3() {
     resetBrain,
     updateDrives,
     trainConcept,
-    simpleTrain,        // Exposed
-    toggleNeuralLink,   // Exposed
+    simpleTrain,
+    toggleNeuralLink,
     needsSave: brain?.needsCrystallization() || false,
-    isSyncing: isSyncing || isConfirming,
+    isSyncing,
     brainStats: {
       stage: stats?.stage || 'GENESIS',
       nodes: stats?.nodes || 0,
       relations: stats?.relations || 0,
       unsaved: stats?.unsaved || 0,
       drives: stats?.drives || { curiosity: 0, stability: 0, efficiency: 0, social: 0, energy: 0 },
-      connectivity: stats?.connectivity || { isConnected: false, bandwidthUsage: 0, stamina: 100 }, // Exposed
+      // FIX: Added lastWebSync: 0 to prevent type error
+      connectivity: stats?.connectivity || { isConnected: false, bandwidthUsage: 0, stamina: 100, lastWebSync: 0 }, 
       memories: stats?.memories || { short: 0, mid: 0, long: 0, blockchain: 0 },
       interactions: stats?.interactions || 0,
       learningRate: stats?.learningRate || 0.15,

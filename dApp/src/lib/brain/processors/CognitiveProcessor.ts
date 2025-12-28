@@ -45,7 +45,7 @@ export class CognitiveProcessor {
       activeGoals: [],
       lastBlockchainSync: 0,
       learningRate: 0.15,
-      // --- FIX: Initialize new connectivity state ---
+      // Initialize new connectivity state
       connectivity: {
         isConnected: false,
         bandwidthUsage: 0,
@@ -59,7 +59,6 @@ export class CognitiveProcessor {
         const parsed = JSON.parse(savedJson || '{}');
         const loadedDrives = parsed.drives || defaultDrives;
 
-        // Ensure we merge defaults for any new properties added to the schema
         return {
           ...defaults,
           ...parsed,
@@ -67,7 +66,6 @@ export class CognitiveProcessor {
           relations: [...defaults.relations, ...(parsed.relations || [])],
           drives: loadedDrives,
           activationMap: parsed.activationMap || {},
-          // Ensure connectivity exists even if loading old save state
           connectivity: parsed.connectivity || defaults.connectivity 
         };
       } catch (e) {
@@ -81,19 +79,12 @@ export class CognitiveProcessor {
   public getState(): BrainState { return this.state; }
   public getConcepts(): Record<string, AtomicConcept> { return this.state.concepts; }
 
-  /**
-   * Helper for Cryptographically Secure Random Numbers
-   * Returns float between 0 and 1
-   */
   private getSecureRandom(): number {
       const array = new Uint32Array(1);
       window.crypto.getRandomValues(array);
       return array[0] / (0xFFFFFFFF + 1);
   }
 
-  /**
-   * Calculates real Shannon Entropy (H) of the activation network.
-   */
   public calculateEntropy(): number {
       const activations = Object.values(this.state.activationMap);
       if (activations.length === 0) return 0;
@@ -120,7 +111,6 @@ export class CognitiveProcessor {
     let highestEnergy = 0;
     let dominantThought = null;
 
-    // 1. Sigmoid Decay of Activation Energy
     activeNodes.forEach(id => {
         const current = this.state.activationMap[id];
         const decayAmount = 0.05 + (current * 0.1); 
@@ -137,13 +127,10 @@ export class CognitiveProcessor {
     });
 
     this.state.attentionFocus = dominantThought;
-
-    // 2. Drive Homeostasis
     this.state.drives.energy = Math.min(100, this.state.drives.energy + 0.2); 
     
-    // 3. Spontaneous Activity (Dreaming) - Secure Random
-    if (this.state.drives.energy > 80 && this.state.drives.curiosity > 70 && !dominantThought) {
-        // 5% chance per tick to dream if idle
+    // Spontaneous Activity (Dreaming) if offline
+    if (!this.state.connectivity.isConnected && this.state.drives.energy > 80 && this.state.drives.curiosity > 70 && !dominantThought) {
         if (this.getSecureRandom() < 0.05) {
             return this.dream();
         }
@@ -218,7 +205,42 @@ export class CognitiveProcessor {
     return [...new Set(path)];
   }
 
-  // Weighted Graph Walk for Dreaming - Secure Random
+  // --- NEW: Densify Network (Auto-Connection when Online) ---
+  public densifyNetwork(): string | null {
+      const keys = Object.keys(this.state.concepts);
+      if (keys.length < 2) return null;
+
+      // Pick 2 random concepts
+      const c1 = keys[Math.floor(this.getSecureRandom() * keys.length)];
+      const c2 = keys[Math.floor(this.getSecureRandom() * keys.length)];
+
+      if (c1 === c2) return null;
+
+      // Check if already connected
+      const existing = this.state.relations.find(r => 
+          (r.from === c1 && r.to === c2) || (r.from === c2 && r.to === c1)
+      );
+
+      if (!existing) {
+          // Create weak association "from web"
+          this.state.relations.push({
+              from: c1,
+              to: c2,
+              type: 'associates', // Generic association
+              strength: 0.15, // Weak start
+              learned_at: Date.now(),
+              last_activated: Date.now()
+          });
+          this.state.unsavedDataCount++;
+          return `${c1} <-> ${c2}`;
+      } else {
+          // Strengthen existing
+          existing.strength = Math.min(1.0, existing.strength + 0.05);
+          existing.last_activated = Date.now();
+          return null; // Silent upgrade
+      }
+  }
+
   public dream(): string {
     const seedMemory = this.state.longTermMemory
         .sort((a, b) => b.emotional_weight - a.emotional_weight)
@@ -231,8 +253,6 @@ export class CognitiveProcessor {
     }
 
     const startConcept = seedMemory.concepts[0];
-
-    // Probabilistic Walk
     let currentId = startConcept;
     const walkPath: string[] = [currentId];
     
@@ -255,10 +275,8 @@ export class CognitiveProcessor {
     
     if (walkPath.length > 1) {
         const endConcept = walkPath[walkPath.length - 1];
-        
         this.state.activationMap[startConcept] = 0.3;
         this.state.activationMap[endConcept] = 0.3;
-
         return `Hypothesizing link between [${startConcept.replace(/_/g,' ')}] and [${endConcept.replace(/_/g,' ')}]...`;
     }
 
@@ -302,7 +320,7 @@ export class CognitiveProcessor {
   }
 
   public archiveMemory(
-    role: 'user'|'bot'|'subconscious'|'system', // Added 'system'
+    role: 'user'|'bot'|'subconscious'|'system', 
     content: string, 
     concepts: string[], 
     emotionalWeight: number, 

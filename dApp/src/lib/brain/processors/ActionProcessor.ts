@@ -1,20 +1,5 @@
 import { InputAnalysis } from './InputProcessor';
-import { BrainState, DeepThoughtCycle } from '../types';
-
-export type ActionType = 
-  | 'RESPOND_NATURAL' 
-  | 'RESPOND_DAPP' 
-  | 'EXECUTE_COMMAND_RESET' 
-  | 'EXECUTE_COMMAND_SAVE'
-  | 'SUGGEST_ACTION';
-
-export interface ActionPlan {
-  type: ActionType;
-  requiresBlockchain: boolean;
-  priority: number;
-  reasoning: string;
-  context?: any;
-}
+import { BrainState, DeepThoughtCycle, ActionPlan } from '../types'; 
 
 export class ActionProcessor {
   
@@ -22,7 +7,7 @@ export class ActionProcessor {
     analysis: InputAnalysis, 
     brainState: BrainState, 
     isOwner: boolean, 
-    deepContext: DeepThoughtCycle[] // Context now available for planning
+    deepContext: DeepThoughtCycle[] 
   ): ActionPlan {
     
     const { intent, inputVector } = analysis;
@@ -49,9 +34,8 @@ export class ActionProcessor {
     }
 
     // --- LEVEL 2: SYSTEM HEALTH (Entropy Check) ---
-    // Instead of hard numbers, use ratios or drive states
-    const entropyRisk = drives.stability < 30; // Low stability
-    const dataRisk = unsavedDataCount > 15; // Unsaved accumulation
+    const entropyRisk = drives.stability < 30; 
+    const dataRisk = unsavedDataCount > 15; 
 
     if (isOwner && (entropyRisk || dataRisk)) {
          return {
@@ -64,7 +48,6 @@ export class ActionProcessor {
     }
 
     // --- LEVEL 3: CONTEXTUAL INTELLIGENCE ---
-    // Check deep context for financial simulations
     const hasFinancialSim = deepContext.some(c => c.simResult !== null);
     
     if (intent === 'FINANCIAL_ADVICE' || hasFinancialSim) {
@@ -77,11 +60,10 @@ export class ActionProcessor {
     }
 
     // --- LEVEL 4: GOAL ALIGNMENT ---
-    // If input vector matches active goal vector
     const repGoal = activeGoals.find(g => g.type === 'BUILD_REPUTATION');
     const financialGoal = activeGoals.find(g => g.type === 'MAXIMIZE_YIELD');
 
-    if (repGoal && inputVector[2] > 0.5) { // Social/Rep vector
+    if (repGoal && inputVector[2] > 0.5) { 
         return {
             type: 'RESPOND_NATURAL',
             requiresBlockchain: false,
@@ -89,7 +71,7 @@ export class ActionProcessor {
             reasoning: 'Aligns with Reputation Goal.'
         };
     }
-    if (financialGoal && inputVector[0] > 0.5) { // Financial vector
+    if (financialGoal && inputVector[0] > 0.5) { 
         return {
             type: 'RESPOND_DAPP',
             requiresBlockchain: false,

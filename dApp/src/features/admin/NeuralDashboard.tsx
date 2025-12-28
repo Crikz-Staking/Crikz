@@ -3,10 +3,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
     Brain, Activity, Wifi, Database, GitBranch, Cpu, 
     X, Search, ChevronRight, Terminal, Lock, Sliders, 
-    PlusCircle, Save, Globe, Zap, Battery, Download, FileText
+    PlusCircle, Save, Globe, Zap, Battery, Download, FileText,
+    Wallet, Award, TrendingUp, Layers, ArrowRight, ShieldCheck, AlertTriangle
 } from 'lucide-react';
 import { CognitiveLogEntry, InternalDrives } from '@/lib/brain/types';
 import { AtomicConcept } from '@/lib/crikzling-atomic-knowledge';
+import { formatEther } from 'viem';
 
 interface NeuralDashboardProps {
     isOpen: boolean;
@@ -121,17 +123,13 @@ export default function NeuralDashboard({
 
 // --- VIEW COMPONENTS ---
 
-// 1. MONITOR VIEW
 function MonitorView({ stats }: { stats: any }) {
     const { isConnected, bandwidthUsage } = stats.connectivity;
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Live Visualizer */}
             <div className="lg:col-span-2 glass-card p-8 rounded-3xl border border-white/10 bg-black/40 relative overflow-hidden h-[400px] flex items-center justify-center">
                 <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:40px_40px]" />
-                
-                {/* Core */}
                 <div className="relative z-10">
                     <motion.div 
                         animate={{ 
@@ -143,18 +141,7 @@ function MonitorView({ stats }: { stats: any }) {
                     >
                         <Brain size={64} className={isConnected ? 'text-primary-500' : 'text-gray-600'} />
                     </motion.div>
-                    {isConnected && (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                            <motion.div 
-                                className="w-60 h-60 rounded-full border border-primary-500/30"
-                                animate={{ scale: [0.8, 1.2], opacity: [1, 0] }}
-                                transition={{ duration: 1.5, repeat: Infinity }}
-                            />
-                        </div>
-                    )}
                 </div>
-
-                {/* Data Stream Simulation */}
                 {isConnected && (
                     <div className="absolute bottom-4 left-4 font-mono text-[10px] text-primary-500">
                         <div>BANDWIDTH: {bandwidthUsage} MB/s</div>
@@ -163,8 +150,6 @@ function MonitorView({ stats }: { stats: any }) {
                     </div>
                 )}
             </div>
-
-            {/* Metrics */}
             <div className="space-y-4">
                 <MetricCard label="Evolution Stage" value={stats.stage} color="text-purple-400" icon={GitBranch} />
                 <MetricCard label="Graph Nodes" value={stats.nodes} color="text-blue-400" icon={Database} />
@@ -175,23 +160,16 @@ function MonitorView({ stats }: { stats: any }) {
     );
 }
 
-// 2. SYNAPSE VIEW (Training)
 function SynapseView({ onTrain, lastLog }: { onTrain: (txt: string) => void, lastLog?: CognitiveLogEntry }) {
     const [input, setInput] = useState('');
-
-    const handleTrain = () => {
-        if (!input.trim()) return;
-        onTrain(input);
-        setInput('');
-    };
+    const handleTrain = () => { if (!input.trim()) return; onTrain(input); setInput(''); };
 
     return (
         <div className="max-w-2xl mx-auto space-y-8">
             <div className="text-center">
                 <h3 className="text-2xl font-black text-white mb-2">Knowledge Injection</h3>
-                <p className="text-gray-400 text-sm">Teach Crikzling new concepts using natural language. The Neural Link handles the parsing.</p>
+                <p className="text-gray-400 text-sm">Teach Crikzling new concepts using natural language.</p>
             </div>
-
             <div className="glass-card p-1 rounded-2xl bg-gradient-to-br from-white/10 to-white/5 border border-white/10">
                 <textarea 
                     value={input}
@@ -209,49 +187,34 @@ function SynapseView({ onTrain, lastLog }: { onTrain: (txt: string) => void, las
                     </button>
                 </div>
             </div>
-
-            {/* Last System Log Output */}
             {lastLog && lastLog.type === 'SYSTEM' && (
                 <div className="bg-emerald-900/20 border border-emerald-500/30 p-4 rounded-xl">
                     <div className="text-[10px] font-bold text-emerald-500 uppercase mb-1">Latest Integration</div>
                     <p className="text-sm text-emerald-200 font-mono">{lastLog.output}</p>
                 </div>
             )}
-
-            <div className="grid grid-cols-2 gap-4">
-                <div className="bg-white/5 p-4 rounded-xl border border-white/5">
-                    <Globe className="text-blue-400 mb-2" size={20} />
-                    <h4 className="font-bold text-white text-sm">Web Crawler</h4>
-                    <p className="text-xs text-gray-500 mt-1">Activate Neural Link to enable auto-discovery via search engines.</p>
-                </div>
-                <div className="bg-white/5 p-4 rounded-xl border border-white/5">
-                    <Database className="text-purple-400 mb-2" size={20} />
-                    <h4 className="font-bold text-white text-sm">Graph Builder</h4>
-                    <p className="text-xs text-gray-500 mt-1">Associations form automatically based on semantic proximity.</p>
-                </div>
-            </div>
         </div>
     );
 }
 
-// 3. CORTEX VIEW (Logs & Analysis)
+// --- UPDATED CORTEX VIEW ---
 function CortexView({ logs }: { logs: CognitiveLogEntry[] }) {
     const [selected, setSelected] = useState<CognitiveLogEntry | null>(logs[0] || null);
 
+    const formatVal = (val: bigint | undefined) => val ? (Number(formatEther(val))).toFixed(2) : '0.00';
+
     return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[600px]">
-            {/* Log List */}
-            <div className="md:col-span-1 bg-black/20 rounded-2xl border border-white/10 overflow-y-auto custom-scrollbar">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 h-[700px]">
+            {/* Sidebar List */}
+            <div className="md:col-span-3 bg-black/20 rounded-2xl border border-white/10 overflow-y-auto custom-scrollbar">
                 {logs.map(log => (
                     <button 
                         key={log.id} 
                         onClick={() => setSelected(log)}
-                        className={`w-full text-left p-4 border-b border-white/5 transition-colors ${selected?.id === log.id ? 'bg-primary-500/10' : 'hover:bg-white/5'}`}
+                        className={`w-full text-left p-4 border-b border-white/5 transition-colors ${selected?.id === log.id ? 'bg-primary-500/10 border-l-2 border-l-primary-500' : 'hover:bg-white/5 border-l-2 border-l-transparent'}`}
                     >
                         <div className="flex justify-between items-center mb-1">
-                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${log.type === 'INTERACTION' ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400'}`}>
-                                {log.type}
-                            </span>
+                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${log.type === 'INTERACTION' ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400'}`}>{log.type}</span>
                             <span className="text-[10px] text-gray-500">{new Date(log.timestamp).toLocaleTimeString()}</span>
                         </div>
                         <div className="text-xs font-bold text-white truncate">{log.input || "System Event"}</div>
@@ -259,45 +222,100 @@ function CortexView({ logs }: { logs: CognitiveLogEntry[] }) {
                 ))}
             </div>
 
-            {/* Inspector */}
-            <div className="md:col-span-2 glass-card p-6 rounded-2xl border border-white/10 overflow-y-auto bg-black/40 flex flex-col">
+            {/* Analysis Station */}
+            <div className="md:col-span-9 glass-card p-6 rounded-2xl border border-white/10 overflow-y-auto bg-black/40 flex flex-col">
                 {selected ? (
                     <>
-                        <AnalysisHeader log={selected} />
-                        
-                        <div className="space-y-6 flex-1">
-                            <div className="grid grid-cols-3 gap-4">
-                                <StatCard label="Intent" value={selected.intent} color="text-purple-400" />
-                                <StatCard label="Latency" value={`${selected.executionTimeMs}ms`} color="text-emerald-400" />
-                                <StatCard label="Shift" value={selected.emotionalShift.toFixed(2)} color="text-blue-400" />
+                        <div className="flex justify-between items-center mb-6 border-b border-white/5 pb-4">
+                            <div>
+                                <h3 className="font-bold text-white flex items-center gap-2">
+                                    <FileText size={18} className="text-primary-500" /> Interaction Analysis
+                                </h3>
+                                <p className="text-[10px] text-gray-500 font-mono mt-1">ID: {selected.id}</p>
+                            </div>
+                            <button 
+                                onClick={() => downloadLog(selected)}
+                                className="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-xs font-bold text-gray-300 hover:text-white transition-all border border-white/5"
+                            >
+                                <Download size={14} /> Export Record
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            
+                            {/* LEFT: FLOW & LOGIC */}
+                            <div className="space-y-6">
+                                {/* DAPP CONTEXT */}
+                                <div className="bg-white/5 rounded-xl p-4 border border-white/5">
+                                    <h4 className="text-[10px] font-bold text-gray-500 uppercase mb-3 flex items-center gap-2"><Globe size={12}/> dApp State Context</h4>
+                                    <div className="grid grid-cols-3 gap-3">
+                                        <ContextMetric label="Balance" value={formatVal(selected.dappContext?.user_balance)} icon={Wallet} color="text-emerald-400" />
+                                        <ContextMetric label="Reputation" value={formatVal(selected.dappContext?.total_reputation)} icon={Award} color="text-cyan-400" />
+                                        <ContextMetric label="Orders" value={selected.dappContext?.active_orders_count || 0} icon={Layers} color="text-purple-400" />
+                                    </div>
+                                </div>
+
+                                {/* THOUGHT PROCESS */}
+                                <div>
+                                    <h4 className="text-[10px] font-bold text-gray-500 uppercase mb-2">Cognitive Pipeline</h4>
+                                    <div className="space-y-2">
+                                        {selected.thoughtCycles.map((cycle, i) => (
+                                            <div key={i} className="flex gap-3 items-start text-xs bg-white/5 p-3 rounded-lg border border-white/5">
+                                                <div className="w-5 h-5 rounded-full bg-primary-500/20 text-primary-500 flex items-center justify-center font-bold shrink-0">{i+1}</div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex flex-wrap gap-1 mb-1">
+                                                        {cycle.focusConcepts.map(c => <span key={c} className="bg-black/40 px-1.5 rounded text-[9px] text-gray-400">{c}</span>)}
+                                                    </div>
+                                                    {cycle.simResult && (
+                                                        <div className="text-[10px] text-blue-300 bg-blue-900/20 px-2 py-1 rounded mt-1 border-l-2 border-blue-500">
+                                                            Sim: {cycle.simResult.scenario}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
 
-                            <div>
-                                <label className="text-[10px] font-bold text-gray-500 uppercase">Input Data</label>
-                                <div className="text-sm text-white font-mono bg-white/5 p-3 rounded-xl mt-1 border border-white/5">
-                                    {selected.input || "N/A"}
-                                </div>
-                            </div>
-                            <div>
-                                <label className="text-[10px] font-bold text-gray-500 uppercase">Generated Output</label>
-                                <div className="text-sm text-gray-300 font-mono bg-white/5 p-3 rounded-xl mt-1 border border-white/5 whitespace-pre-wrap">
-                                    {selected.output}
-                                </div>
-                            </div>
-                            
-                            {/* Reasoning Tree Visual */}
-                            <div>
-                                <label className="text-[10px] font-bold text-gray-500 uppercase mb-2 block">Cognitive Cycles</label>
-                                <div className="space-y-2">
-                                    {selected.thoughtCycles.map((cycle, i) => (
-                                        <div key={i} className="flex gap-3 items-center text-xs bg-white/5 p-2 rounded-lg">
-                                            <div className="w-5 h-5 rounded-full bg-primary-500/20 text-primary-500 flex items-center justify-center font-bold">{i+1}</div>
-                                            <div className="flex-1">
-                                                <span className="text-gray-400">Focus: </span> 
-                                                <span className="text-white">{cycle.focusConcepts.join(', ')}</span>
-                                            </div>
+                            {/* RIGHT: ACTION & OUTPUT */}
+                            <div className="space-y-6">
+                                {/* ACTION PLAN */}
+                                {selected.actionPlan && (
+                                    <div className={`p-4 rounded-xl border ${selected.actionPlan.requiresBlockchain ? 'bg-amber-900/10 border-amber-500/30' : 'bg-white/5 border-white/10'}`}>
+                                        <h4 className="text-[10px] font-bold text-gray-500 uppercase mb-2 flex items-center gap-2">
+                                            {selected.actionPlan.requiresBlockchain ? <AlertTriangle size={12} className="text-amber-500"/> : <ShieldCheck size={12} className="text-gray-500"/>}
+                                            Decision Logic
+                                        </h4>
+                                        <div className="flex justify-between items-center mb-2">
+                                            <span className="text-sm font-bold text-white">{selected.actionPlan.type}</span>
+                                            <span className="text-[10px] bg-black/40 px-2 py-0.5 rounded text-gray-400">Pri: {selected.actionPlan.priority}</span>
                                         </div>
-                                    ))}
+                                        <p className="text-xs text-gray-400 italic">"{selected.actionPlan.reasoning}"</p>
+                                    </div>
+                                )}
+
+                                {/* OUTPUT */}
+                                <div>
+                                    <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Final Output</label>
+                                    <div className="text-sm text-gray-300 font-mono bg-white/5 p-4 rounded-xl border border-white/5 whitespace-pre-wrap leading-relaxed">
+                                        {selected.output}
+                                    </div>
+                                </div>
+
+                                {/* VECTOR SHIFT */}
+                                <div>
+                                    <label className="text-[10px] font-bold text-gray-500 uppercase mb-2 block">Cognitive Shift</label>
+                                    <div className="flex gap-1 h-16 items-end">
+                                        {selected.vectors.response.map((v, i) => (
+                                            <div key={i} className="flex-1 bg-primary-500/10 rounded-t-sm relative group h-full flex items-end">
+                                                <div className="w-full bg-primary-500 transition-all rounded-t-sm" style={{ height: `${v * 100}%` }} />
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="flex justify-between text-[9px] text-gray-600 mt-1 uppercase font-bold px-1">
+                                        <span>Fin</span><span>Tec</span><span>Soc</span><span>Tim</span><span>Abs</span><span>Rsk</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -310,43 +328,9 @@ function CortexView({ logs }: { logs: CognitiveLogEntry[] }) {
     );
 }
 
-// --- SUB-COMPONENT: DOWNLOAD HANDLER ---
-const AnalysisHeader = ({ log }: { log: CognitiveLogEntry }) => {
-    const handleDownload = () => {
-        const data = JSON.stringify(log, null, 2);
-        const blob = new Blob([data], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `crikz_neural_record_${log.timestamp}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    };
-
-    return (
-        <div className="flex justify-between items-center mb-6 border-b border-white/5 pb-4">
-            <h3 className="font-bold text-white flex items-center gap-2">
-                <FileText size={18} className="text-primary-500" /> Interaction Analysis
-            </h3>
-            <button 
-                onClick={handleDownload}
-                className="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-xs font-bold text-gray-300 hover:text-white transition-all border border-white/5 hover:border-white/10"
-            >
-                <Download size={14} /> Export Record
-            </button>
-        </div>
-    );
-};
-
-// 4. MATRIX VIEW (Settings)
 function MatrixView({ stats, onUpdate }: { stats: any, onUpdate: (d: InternalDrives) => void }) {
     const [drives, setDrives] = useState<InternalDrives>(stats.drives);
-
-    const handleChange = (k: keyof InternalDrives, v: number) => {
-        setDrives(prev => ({ ...prev, [k]: v }));
-    };
+    const handleChange = (k: keyof InternalDrives, v: number) => setDrives(prev => ({ ...prev, [k]: v }));
 
     return (
         <div className="max-w-xl mx-auto glass-card p-8 rounded-3xl border border-white/10 bg-background-elevated">
@@ -365,6 +349,29 @@ function MatrixView({ stats, onUpdate }: { stats: any, onUpdate: (d: InternalDri
 }
 
 // --- UTILS ---
+
+function ContextMetric({ label, value, icon: Icon, color }: any) {
+    return (
+        <div className="bg-black/30 p-2 rounded-lg text-center">
+            <div className={`flex justify-center mb-1 ${color}`}><Icon size={14}/></div>
+            <div className="text-[10px] text-gray-500 uppercase font-bold">{label}</div>
+            <div className="text-xs font-bold text-white">{value}</div>
+        </div>
+    );
+}
+
+const downloadLog = (log: CognitiveLogEntry) => {
+    const data = JSON.stringify(log, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `crikz_neural_record_${log.timestamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+};
 
 function NavButton({ active, onClick, icon: Icon, label, locked }: any) {
     return (
@@ -392,15 +399,6 @@ function MetricCard({ label, value, color, icon: Icon, warning }: any) {
             <div className={`p-2 rounded-lg bg-white/5 ${color.replace('text', 'text-opacity-50')}`}>
                 <Icon size={20} />
             </div>
-        </div>
-    );
-}
-
-function StatCard({ label, value, color }: any) {
-    return (
-        <div className="bg-white/5 rounded-xl p-3 border border-white/5">
-            <div className="text-[10px] text-gray-500 uppercase font-bold mb-1">{label}</div>
-            <div className={`text-lg font-black ${color}`}>{value}</div>
         </div>
     );
 }
