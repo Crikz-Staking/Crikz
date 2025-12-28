@@ -53,6 +53,16 @@ export class CrikzlingBrainV3 {
     }
   }
 
+  /**
+   * Helper for Cryptographically Secure Randomness
+   * Returns a number between 0 and 1
+   */
+  private getSecureRandom(): number {
+    const array = new Uint32Array(1);
+    window.crypto.getRandomValues(array);
+    return array[0] / (0xFFFFFFFF + 1);
+  }
+
   public setThoughtUpdateCallback(callback: (thought: ThoughtProcess | null) => void) {
     this.thoughtCallback = callback;
   }
@@ -84,7 +94,7 @@ export class CrikzlingBrainV3 {
           }
       }
       const analysis = this.inputProc.process(input, state.concepts);
-      const concepts = analysis.keywords.map((k: AtomicConcept) => k.id); // Explicit type
+      const concepts = analysis.keywords.map((k: AtomicConcept) => k.id); 
       if (concepts.length < 2) return "Not enough identifiable concepts to form a link.";
       this.cognitive.learnAssociations(concepts);
       state.unsavedDataCount++;
@@ -115,15 +125,20 @@ export class CrikzlingBrainV3 {
     this.lastTick = now;
 
     if (isConnected) {
-        state.connectivity.stamina = 100; // Infinite Power
-        const bandwidth = Math.floor(Math.random() * 60) + 40;
+        state.connectivity.stamina = 100; // Infinite Power via Link
+        
+        // Secure Bandwidth Fluctuation
+        const randomFactor = this.getSecureRandom();
+        const bandwidth = Math.floor(randomFactor * 60) + 40;
         state.connectivity.bandwidthUsage = bandwidth;
+        
         const operations = bandwidth > 80 ? 3 : bandwidth > 50 ? 2 : 1;
 
         for(let i=0; i<operations; i++) {
-            const roll = Math.random();
+            const roll = this.getSecureRandom();
             let actionLog = "";
 
+            // Prioritize Evolution based on secure roll
             if (roll > 0.85) {
                 actionLog = this.cognitive.evolveCognitiveState();
             } 
@@ -164,7 +179,8 @@ export class CrikzlingBrainV3 {
         state.connectivity.bandwidthUsage = 0;
     }
 
-    if (!isConnected && state.drives.energy > 80 && Math.random() < 0.05) {
+    // Subconscious Dreaming (Only if energy high & offline)
+    if (!isConnected && state.drives.energy > 80 && this.getSecureRandom() < 0.05) {
         const dream = this.cognitive.dream();
         if (dream) {
             this.logEvent({ type: 'DREAM', input: 'Subconscious', output: dream, intent: 'DISCOURSE', emotionalShift: 0, activeNodes: [], vectors: {input:[0,0,0,0,0,0], response:[0,0,0,0,0,0]}, thoughtCycles: [], executionTimeMs: 0 });
@@ -182,7 +198,7 @@ export class CrikzlingBrainV3 {
       const inputAnalysis = this.inputProc.process(text, brainState.concepts, dappContext);
       
       this.updateThought('spreading_activation', 20, 'Activating neural lattice...');
-      const activeIds = inputAnalysis.keywords.map((k: AtomicConcept) => k.id); // Explicit type
+      const activeIds = inputAnalysis.keywords.map((k: AtomicConcept) => k.id); 
       this.cognitive.stimulateNetwork(activeIds, brainState.drives.energy);
       
       let deepContext: DeepThoughtCycle[] = [];
