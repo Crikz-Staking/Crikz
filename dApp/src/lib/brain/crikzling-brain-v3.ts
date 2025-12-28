@@ -6,7 +6,8 @@ import { ResultProcessor } from './processors/ResultProcessor';
 import { ResponseGenerator } from './processors/ResponseGenerator';
 import { SimulationEngine } from './processors/SimulationEngine';
 import { NarrativeModule } from './narrative-module';
-import { BrainState, DAppContext, ThoughtProcess, DeepThoughtCycle, CognitiveLogEntry } from './types';
+import { BrainState, DAppContext, ThoughtProcess, DeepThoughtCycle, CognitiveLogEntry, InternalDrives } from './types';
+import { AtomicConcept } from '@/lib/crikzling-atomic-knowledge';
 
 export class CrikzlingBrainV3 { 
   private cognitive: CognitiveProcessor;
@@ -21,9 +22,7 @@ export class CrikzlingBrainV3 {
   private pendingInsight: string | null = null;
   private lastTick: number = Date.now();
 
-  // History Log for Admin Tools
   private history: CognitiveLogEntry[] = [];
-
   private readonly MAX_THOUGHT_CYCLES = 5;
 
   constructor(
@@ -39,7 +38,6 @@ export class CrikzlingBrainV3 {
     this.simulator = new SimulationEngine();
     this.narrative = new NarrativeModule();
 
-    // RESTORE HISTORY IF AVAILABLE
     if (savedState) {
         try {
             const parsed = JSON.parse(savedState);
@@ -56,20 +54,51 @@ export class CrikzlingBrainV3 {
     this.thoughtCallback = callback;
   }
 
+  // --- NEW TRAINING METHODS ---
+
+  public updateDrives(newDrives: InternalDrives) {
+      this.cognitive.getState().drives = newDrives;
+  }
+
+  public setLearningRate(rate: number) {
+      this.cognitive.getState().learningRate = Math.max(0.01, Math.min(1.0, rate));
+  }
+
+  public injectConcept(concept: AtomicConcept) {
+      this.cognitive.getState().concepts[concept.id] = concept;
+      this.cognitive.getState().unsavedDataCount++;
+  }
+
+  public forceConnection(from: string, to: string, strength: number) {
+      const state = this.cognitive.getState();
+      const existing = state.relations.find(r => 
+          (r.from === from && r.to === to) || (r.from === to && r.from === from)
+      );
+      
+      if (existing) {
+          existing.strength = strength;
+          existing.last_activated = Date.now();
+      } else {
+          state.relations.push({
+              from, to, type: 'associates', strength, 
+              learned_at: Date.now(), last_activated: Date.now()
+          });
+      }
+      state.unsavedDataCount++;
+  }
+
+  // --- END NEW METHODS ---
+
   public async tick(dappContext?: DAppContext): Promise<void> {
     const now = Date.now();
     if (now - this.lastTick < 5000) return;
     this.lastTick = now;
 
-    // Neural tick handles decay and spontaneous activation based on Energy levels
     const spontaneousThought = this.cognitive.processNeuralTick();
     const state = this.cognitive.getState();
 
-    // 1. Spontaneous Thought (Dreaming)
     if (spontaneousThought) {
         this.updateThought('dreaming', 50, spontaneousThought);
-        
-        // Log Dream
         this.logEvent({
             type: 'DREAM',
             input: 'Spontaneous Activation',
@@ -81,26 +110,20 @@ export class CrikzlingBrainV3 {
             thoughtCycles: []
         });
 
-        // Accumulate insight if stability allows
         if (state.drives.stability > 40) {
             this.pendingInsight = spontaneousThought;
         }
         
         this.cognitive.archiveMemory('subconscious', spontaneousThought, [], 0.1, dappContext);
-        
-        await this.think(2500); // Allow dream to persist
+        await this.think(2500); 
         this.clearThought();
     } 
-    // 2. Efficiency Drive: Background Optimization (Only if highly efficient and idle)
     else if (state.drives.efficiency > 80 && dappContext) {
         this.updateThought('simulation', 30, 'Background yield optimization...');
-        
-        // Simulate default strategy
         const simResult = this.simulator.runSimulation('FINANCIAL_ADVICE', dappContext, [1,0,0,0,0,0]);
         if(simResult && simResult.riskLevel < 0.2) {
              this.pendingInsight = `Note: ${simResult.recommendation}`;
         }
-
         await this.think(1500);
         this.clearThought();
     }
@@ -116,17 +139,14 @@ export class CrikzlingBrainV3 {
   ): Promise<{ response: string; actionPlan: ActionPlan }> { 
     const startTime = Date.now();
     try {
-      // 1. PERCEPTION
       this.updateThought('perception', 10, 'Parsing semantics...');
       const brainState = this.cognitive.getState();
       const inputAnalysis = this.inputProc.process(text, brainState.concepts, dappContext);
       
-      // 2. SPREADING ACTIVATION
       this.updateThought('spreading_activation', 20, 'Activating neural lattice...');
       const activeIds = inputAnalysis.keywords.map(k => k.id);
       this.cognitive.stimulateNetwork(activeIds, brainState.drives.energy);
       
-      // 3. RECURSIVE REASONING LOOP
       let deepContext: DeepThoughtCycle[] = [];
       let currentFocus = [...activeIds];
 
@@ -138,15 +158,11 @@ export class CrikzlingBrainV3 {
           const progress = 20 + (cycle * (60 / this.MAX_THOUGHT_CYCLES));
           this.updateThought('introspection', progress, `Cycle ${cycle}: Associative walk...`);
           
-          await this.think(800 + (brainState.drives.efficiency * 5)); // Latency varies by efficiency
+          await this.think(800 + (brainState.drives.efficiency * 5)); 
 
-          // A. Retrieval
           const memories = this.cognitive.retrieveRelevantMemories(currentFocus, inputAnalysis.inputVector);
-          
-          // B. Association
           const newAssociations = this.cognitive.findAssociativePath(currentFocus, 2);
           
-          // C. Simulation
           let simResult = null;
           if (dappContext && (inputAnalysis.intent === 'FINANCIAL_ADVICE' || inputAnalysis.intent === 'DAPP_QUERY')) {
               this.updateThought('simulation', progress + 5, 'Calculating probabilities...');
@@ -166,13 +182,11 @@ export class CrikzlingBrainV3 {
           }
       }
 
-      // 4. STRATEGY
       this.updateThought('strategy', 90, 'Formulating output...');
       const actionPlan = this.actionProc.plan(inputAnalysis, brainState, isOwner, deepContext);
       
       if (actionPlan.type === 'EXECUTE_COMMAND_RESET' && isOwner) this.cognitive.wipeLocalMemory();
 
-      // 5. GENERATION
       const integratedContext = this.resultProc.processMultiCycle(
         inputAnalysis,
         actionPlan,
@@ -189,7 +203,6 @@ export class CrikzlingBrainV3 {
           this.pendingInsight = null;
       }
 
-      // 6. CONSOLIDATION
       this.cognitive.archiveMemory(
         'user', inputAnalysis.cleanedInput, activeIds, inputAnalysis.emotionalWeight, dappContext, inputAnalysis.inputVector 
       );
@@ -197,7 +210,11 @@ export class CrikzlingBrainV3 {
         'bot', response, currentFocus, 0.5, dappContext, inputAnalysis.inputVector
       );
 
-      // 7. LOGGING FOR ADMIN
+      // Determine Result Vector based on last cycle focus or simple shift
+      const outputVector = [...inputAnalysis.inputVector] as [number, number, number, number, number, number];
+      // Simple shift logic for demo purposes (real logic would re-vectorize the response)
+      if (inputAnalysis.intent === 'FINANCIAL_ADVICE') outputVector[0] += 0.2; 
+
       this.logEvent({
           type: 'INTERACTION',
           input: text,
@@ -207,7 +224,7 @@ export class CrikzlingBrainV3 {
           activeNodes: [...new Set([...activeIds, ...currentFocus])],
           vectors: {
               input: inputAnalysis.inputVector,
-              response: inputAnalysis.inputVector
+              response: outputVector
           },
           thoughtCycles: deepContext,
           executionTimeMs: Date.now() - startTime
@@ -229,7 +246,6 @@ export class CrikzlingBrainV3 {
     }
   }
 
-  // Helper to push to history and manage size
   private logEvent(entry: Partial<CognitiveLogEntry>) {
       const fullEntry: CognitiveLogEntry = {
           id: crypto.randomUUID(),
@@ -245,14 +261,12 @@ export class CrikzlingBrainV3 {
           executionTimeMs: 0,
           ...entry
       };
-      
       this.history.unshift(fullEntry);
       if (this.history.length > 100) this.history.pop();
   }
 
   public getHistory(isOwner: boolean): CognitiveLogEntry[] {
       if (isOwner) return this.history;
-      // Sanitize for public: remove raw vectors and thought cycles
       return this.history.map(h => ({
           ...h,
           input: '***',
@@ -263,11 +277,7 @@ export class CrikzlingBrainV3 {
 
   public exportState(): string {
     const state = this.cognitive.getState();
-    // Inject history into the export payload
-    const exportData = {
-        ...state,
-        history: this.history
-    };
+    const exportData = { ...state, history: this.history };
     return JSON.stringify(exportData, (_, v) => typeof v === 'bigint' ? v.toString() : v);
   }
 
@@ -275,7 +285,6 @@ export class CrikzlingBrainV3 {
     return this.cognitive.assimilateKnowledge(content);
   }
 
-  // FIX: Removed Entropy check for Save Prompt
   public needsCrystallization(): boolean {
     const s = this.cognitive.getState();
     return s.unsavedDataCount > 0;
@@ -292,6 +301,7 @@ export class CrikzlingBrainV3 {
         stage: s.evolutionStage,
         drives: s.drives, 
         unsaved: s.unsavedDataCount,
+        learningRate: s.learningRate,
         memories: {
           short: s.shortTermMemory.length,
           mid: s.midTermMemory.length,
@@ -305,7 +315,7 @@ export class CrikzlingBrainV3 {
 
   public wipe() { 
       this.cognitive.wipeLocalMemory(); 
-      this.history = []; // Clear history on wipe
+      this.history = []; 
   }
 
   private clearThought() { if (this.thoughtCallback) this.thoughtCallback(null); }
