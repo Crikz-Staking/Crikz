@@ -1,5 +1,4 @@
-import { InputAnalysis } from './InputProcessor';
-import { BrainState, DeepThoughtCycle, ActionPlan } from '../types'; 
+import { BrainState, DeepThoughtCycle, ActionPlan, InputAnalysis } from '../types'; 
 
 export class ActionProcessor {
   

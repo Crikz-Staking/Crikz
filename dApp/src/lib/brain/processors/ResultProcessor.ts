@@ -1,5 +1,8 @@
-import { InputAnalysis } from './InputProcessor';
-import { Memory, BrainState, DAppContext, BlockchainMemory, DeepThoughtCycle, ActionPlan } from '../types';
+import { Memory, BrainState, DAppContext, BlockchainMemory, DeepThoughtCycle, ActionPlan, InputAnalysis, IntegratedContext as IntegratedContextType, DAppIntegratedState as DAppIntegratedStateType } from '../types';
+
+// We export these locally defined interfaces if they are not in types.ts yet, 
+// or if we want to ensure other files importing from here don't break.
+// However, to fix the build error, we primarily need the import above to be correct.
 
 export interface IntegratedContext {
   input: InputAnalysis;
