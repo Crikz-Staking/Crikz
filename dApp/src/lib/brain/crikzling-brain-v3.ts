@@ -12,7 +12,6 @@ import {
 } from './types'; 
 import { AtomicConcept } from '@/lib/crikzling-atomic-knowledge';
 
-// --- CRITICAL FIX: Handle BigInt serialization for JSON.stringify ---
 const bigIntReplacer = (_key: string, value: any) => 
   typeof value === 'bigint' ? value.toString() : value;
 
@@ -47,8 +46,6 @@ export class CrikzlingBrainV3 {
     this.narrative = new NarrativeModule();
   }
 
-  // --- CORE METHODS ---
-
   private getSecureRandom(): number {
     const array = new Uint32Array(1);
     if (typeof window !== 'undefined' && window.crypto) {
@@ -58,100 +55,43 @@ export class CrikzlingBrainV3 {
     return Math.random();
   }
 
-  /**
-   * Merges remote blockchain state into local brain
-   */
   public mergeState(remoteState: BrainState) {
       this.cognitive.mergeExternalState(remoteState);
   }
 
-  /**
-   * Exports for storage - NOW SAFE FOR BIGINT
-   */
   public exportFullState(): string {
     const state = this.cognitive.getState();
-    // We wrap this in a try-catch just in case, but the replacer handles the BigInt error
-    try {
-        return JSON.stringify({
-            ...state,
-            exportedAt: Date.now()
-        }, bigIntReplacer); 
-    } catch (e) {
-        console.error("Export Serialization Failed:", e);
-        // Fallback: minimal export
-        return JSON.stringify({
-            totalInteractions: state.totalInteractions,
-            evolutionStage: state.evolutionStage,
-            concepts: state.concepts,
-            exportedAt: Date.now()
-        });
-    }
+    return JSON.stringify({ ...state, exportedAt: Date.now() }, bigIntReplacer);
   }
 
   public exportDiffState(): string {
     return this.cognitive.exportDiff();
   }
 
-  // --- UNLEASHED TICK LOGIC ---
   public async tick(dappContext?: DAppContext): Promise<void> {
     const now = Date.now();
     const state = this.cognitive.getState();
     const { isConnected } = state.connectivity;
-
     const tickRate = isConnected ? 50 : 8000; 
     
     if (now - this.lastTick < tickRate) return;
     this.lastTick = now;
 
     if (isConnected) {
-        state.connectivity.stamina = 100; // Infinite Power
+        state.connectivity.stamina = 100; 
+        state.connectivity.bandwidthUsage = Math.floor(this.getSecureRandom() * 20) + 80;
+        const operations = Math.floor(state.connectivity.bandwidthUsage / 5); 
         
-        const bandwidth = Math.floor(this.getSecureRandom() * 20) + 80;
-        state.connectivity.bandwidthUsage = bandwidth;
-        
-        const operations = Math.floor(bandwidth / 5); 
-        const tasks: Promise<string | null>[] = [];
-
         for(let i=0; i<operations; i++) {
-            tasks.push(new Promise((resolve) => {
-                const roll = this.getSecureRandom();
-                let res: string | null = null;
-
-                if (roll > 0.85) res = this.cognitive.evolveCognitiveState();
-                else if (roll > 0.70) res = this.cognitive.clusterConcepts();
-                else if (roll > 0.55) res = this.cognitive.optimizeGraph();
-                else if (roll > 0.30) res = this.cognitive.prioritizedSynthesis();
-                else res = this.cognitive.deepenKnowledge();
-                
-                resolve(res);
-            }));
+            const roll = this.getSecureRandom();
+            if (roll > 0.85) this.cognitive.evolveCognitiveState();
+            else if (roll > 0.70) this.cognitive.clusterConcepts();
+            else if (roll > 0.55) this.cognitive.optimizeGraph();
+            else if (roll > 0.30) this.cognitive.prioritizedSynthesis();
+            else this.cognitive.deepenKnowledge();
         }
-
-        const results = await Promise.all(tasks);
-
-        let validOps = 0;
-        results.forEach(actionLog => {
-            if (actionLog) {
-                validOps++;
-                if (validOps % 5 === 0) {
-                    this.logEvent({
-                        type: 'WEB_SYNC',
-                        input: 'Neural Link Hyperstream',
-                        output: actionLog,
-                        intent: 'SYSTEM', 
-                        activeNodes: [],
-                        emotionalShift: 0,
-                        vectors: { input: [0,0,0,0,0,0], response: [0,0,0,0,0,0] },
-                        thoughtCycles: [],
-                        executionTimeMs: 1 
-                    });
-                }
-            }
-        });
-
-        state.totalInteractions += validOps;
-        this.updateThought('web_crawling', 100, `Hyper-processing ${validOps} nodes...`);
-
+        state.totalInteractions += operations;
+        this.updateThought('web_crawling', 100, `Hyper-processing ${operations} nodes...`);
     } else {
         state.connectivity.stamina = 100; 
         state.connectivity.bandwidthUsage = 0;
@@ -164,7 +104,6 @@ export class CrikzlingBrainV3 {
             this.logEvent({ type: 'DREAM', input: 'Subconscious', output: dream, intent: 'DISCOURSE', emotionalShift: 0, activeNodes: [], vectors: {input:[0,0,0,0,0,0], response:[0,0,0,0,0,0]}, thoughtCycles: [], executionTimeMs: 0 });
         }
     }
-
     this.clearThought();
   }
 
@@ -172,13 +111,7 @@ export class CrikzlingBrainV3 {
     const startTime = Date.now();
     try {
       this.updateThought('perception', 10, 'Parsing semantics...');
-      
-      // CRITICAL: Ensure we are using the LATEST state including merged blockchain data
       const brainState = this.cognitive.getState();
-      
-      // Debug log to prove data usage
-      console.log(`[Brain] Processing with ${Object.keys(brainState.concepts).length} nodes and ${brainState.totalInteractions} ops.`);
-
       const inputAnalysis = this.inputProc.process(text, brainState.concepts, dappContext);
       
       this.updateThought('spreading_activation', 20, 'Activating neural lattice...');
@@ -265,7 +198,7 @@ export class CrikzlingBrainV3 {
     }
   }
 
-  // --- UTILS ---
+  // --- STATE ACCESSORS & UTILS ---
 
   public setThoughtUpdateCallback(callback: (thought: ThoughtProcess | null) => void) {
     this.thoughtCallback = callback;
