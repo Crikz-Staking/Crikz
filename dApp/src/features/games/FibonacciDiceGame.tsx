@@ -17,12 +17,20 @@ export default function FibonacciDiceGame({ onClose, balance, onUpdateBalance, d
   const [result, setResult] = useState<number | null>(null);
   const [win, setWin] = useState(false);
 
-  // Mode 1: Fibonacci
+  // Mode 1: Fibonacci Sequence Numbers <= 100
   const FIB_NUMBERS = [1, 2, 3, 5, 8, 13, 21, 34, 55, 89];
   
   // Calculate Odds for Slider
   const winChance = sliderValue; // Simple 1-100 logic
   const multiplier = parseFloat((99 / winChance).toFixed(2)); // House edge built in
+
+  // Cryptographically secure random number generator (1-100)
+  const getSecureRandomRoll = (): number => {
+      const array = new Uint32Array(1);
+      window.crypto.getRandomValues(array);
+      // Modulo 100 + 1 for range 1-100
+      return (array[0] % 100) + 1;
+  };
 
   const roll = async () => {
     if (balance < bet || rolling) return;
@@ -30,8 +38,7 @@ export default function FibonacciDiceGame({ onClose, balance, onUpdateBalance, d
     setResult(null);
     onUpdateBalance(-bet);
 
-    // Animation phase
-    let tempRoll = 0;
+    // Animation phase (Visual only)
     const interval = setInterval(() => {
         setResult(Math.floor(Math.random() * 100) + 1);
     }, 50);
@@ -39,7 +46,8 @@ export default function FibonacciDiceGame({ onClose, balance, onUpdateBalance, d
     await new Promise(r => setTimeout(r, 1000));
     clearInterval(interval);
 
-    const finalRoll = Math.floor(Math.random() * 100) + 1;
+    // Determines the actual result using secure RNG
+    const finalRoll = getSecureRandomRoll();
     setResult(finalRoll);
 
     let isWin = false;

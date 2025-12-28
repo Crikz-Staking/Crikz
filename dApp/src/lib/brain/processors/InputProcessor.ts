@@ -1,4 +1,4 @@
-import { AtomicConcept } from '@/lib/crikzling-atomic-knowledge';
+import { AtomicConcept, ATOMIC_PRIMITIVES } from '@/lib/crikzling-atomic-knowledge';
 import { DAppContext, Vector, IntentType } from '../types';
 
 export interface InputAnalysis {
@@ -15,103 +15,122 @@ export interface InputAnalysis {
 export class InputProcessor {
   private stopWords: Set<string>;
 
-  // Improved mapping with partial matching logic
-  private dimensionMap: Record<string, Vector> = {
-    // Financial
-    'profit': [1.0, 0, 0, 0, 0, 0.2], 'yield': [1.0, 0.2, 0, 0.3, 0, 0.1],
-    'earn': [0.9, 0, 0, 0, 0, 0], 'money': [0.8, 0, 0, 0, 0, 0],
-    'loss': [1.0, 0, 0, 0, 0, 0.9], 'stake': [0.9, 0.4, 0, 0.5, 0, 0.1],
-    
-    // Technical
-    'code': [0, 1.0, 0, 0, 0.2, 0], 'chain': [0.2, 1.0, 0.2, 0, 0.5, 0],
-    'contract': [0.2, 1.0, 0, 0, 0.3, 0], 'gas': [0.5, 0.8, 0, 0, 0, 0],
-    
-    // Social / Identity
-    'who': [0, 0, 1.0, 0, 0.5, 0], 'you': [0, 0, 1.0, 0, 0.5, 0],
-    'hello': [0, 0, 1.0, 0, 0, 0], 'help': [0, 0, 0.8, 0, 0.2, 0],
-
-    // Abstract / Logic
-    'why': [0, 0.2, 0, 0, 1.0, 0], 'how': [0, 0.5, 0, 0, 0.8, 0],
-    'think': [0, 0.2, 0, 0, 1.0, 0], 'dream': [0, 0, 0, 0.2, 1.0, 0]
-  };
-
   constructor() {
-    this.stopWords = new Set(['the', 'a', 'an', 'and', 'or', 'is', 'in', 'to', 'for', 'of', 'it', 'that', 'was']);
+    this.stopWords = new Set(['the', 'a', 'an', 'and', 'or', 'is', 'in', 'to', 'for', 'of', 'it', 'that', 'was', 'i', 'am', 'are']);
   }
 
-  private calculateVector(words: string[]): Vector {
-    let vector: Vector = [0, 0, 0, 0, 0, 0];
-    let count = 0;
+  /**
+   * Generates a 6-dimensional vector based on the semantic domain of detected keywords.
+   * Vector Indexes: [Financial, Technical, Social, Temporal, Abstract, Risk]
+   */
+  private calculateVectorFromConcepts(concepts: AtomicConcept[]): Vector {
+    const vector: Vector = [0, 0, 0, 0, 0, 0];
+    
+    // Weights for mapping domains to vector indices
+    const domainMap: Record<string, number> = {
+        'FINANCIAL': 0, 'DEFI': 0,
+        'TECHNICAL': 1, 'BLOCKCHAIN': 1, 'COMPUTER': 1,
+        'SOCIAL': 2, 'LINGUISTIC': 2,
+        'TEMPORAL': 3,
+        'META': 4, 'PHILOSOPHICAL': 4, 'NUMERICAL': 4,
+        'CAUSAL': 5, 'SECURITY': 5
+    };
 
-    const keys = Object.keys(this.dimensionMap);
+    if (concepts.length === 0) return vector;
 
-    words.forEach(word => {
-      // Improved: Check for partial matches (e.g. "profits" matches "profit")
-      const matchedKey = keys.find(k => word.includes(k) || k.includes(word));
-      
-      if (matchedKey) {
-        const vec = this.dimensionMap[matchedKey];
-        vector = vector.map((v, i) => v + vec[i]) as Vector;
-        count++;
-      }
+    concepts.forEach(c => {
+        const domain = c.domain || 'META';
+        const index = domainMap[domain];
+        if (index !== undefined) {
+            // Add weight based on abstraction level (higher abstraction = stronger signal)
+            vector[index] += c.abstractionLevel || 0.5;
+        }
     });
 
-    if (count === 0) return [0,0,0,0,0,0];
-    // Normalize
-    return vector.map(v => parseFloat((v / Math.max(1, count)).toFixed(2))) as Vector;
+    // Normalize vector (Unit Vector)
+    const magnitude = Math.sqrt(vector.reduce((sum, val) => sum + val * val, 0));
+    return magnitude === 0 ? vector : vector.map(v => parseFloat((v / magnitude).toFixed(4))) as Vector;
   }
 
   public process(input: string, knownConcepts: Record<string, AtomicConcept>, dappContext?: DAppContext): InputAnalysis {
     const cleanedInput = input.trim().toLowerCase();
-    const words = cleanedInput.replace(/[^\w\s]/gi, '').split(/\s+/).filter(w => w.length > 0 && !this.stopWords.has(w));
+    // Remove punctuation
+    const tokens = cleanedInput.replace(/[^\w\s]/gi, '').split(/\s+/).filter(w => w.length > 0 && !this.stopWords.has(w));
     
     const keywords: AtomicConcept[] = [];
     const detectedEntities: string[] = [];
 
-    words.forEach((word) => {
-      // Improved: Fuzzy match for concepts
-      const conceptKey = Object.keys(knownConcepts).find(k => k.includes(word) || word.includes(k));
-      if (conceptKey) {
-        keywords.push(knownConcepts[conceptKey]);
-        detectedEntities.push(word);
+    // 1. Concept Extraction
+    tokens.forEach((token) => {
+      // Check against dynamic knowledge base
+      const directMatch = knownConcepts[token];
+      if (directMatch) {
+          keywords.push(directMatch);
+          detectedEntities.push(token);
+      } else {
+          // Check against static primitives if not found in dynamic graph
+          const primitiveMatch = ATOMIC_PRIMITIVES[token];
+          if (primitiveMatch) {
+              keywords.push(primitiveMatch);
+              detectedEntities.push(token);
+          }
       }
     });
 
+    // 2. Pattern Matching for Specific Entities
     if (cleanedInput.match(/0x[a-fA-F0-9]{40}/)) detectedEntities.push('wallet_address');
 
-    const inputVector = this.calculateVector(words);
+    // 3. Vector Calculation
+    const inputVector = this.calculateVectorFromConcepts(keywords);
 
     return {
       rawInput: input,
       cleanedInput,
       keywords: [...new Set(keywords)],
       intent: this.classifyIntent(cleanedInput, keywords, inputVector),
-      emotionalWeight: this.calculateEmotionalWeight(cleanedInput),
-      complexity: (words.length * 0.1) + (keywords.length * 0.2),
+      emotionalWeight: this.calculateEmotionalWeight(cleanedInput, keywords),
+      complexity: (tokens.length * 0.1) + (keywords.length * 0.2),
       detectedEntities,
       inputVector
     };
   }
 
   private classifyIntent(input: string, keywords: AtomicConcept[], vector: Vector): IntentType {
-    if (input.match(/^(reset|wipe|clear|save|crystallize)/)) return 'COMMAND';
-    // Improved Greeting Detection
+    // Explicit Command Overrides
+    if (input.match(/^(reset|wipe|clear|save|crystallize|upload)/)) return 'COMMAND';
     if (input.match(/^(hello|hi|hey|greetings)/i)) return 'GREETING';
     
-    // Vector-based classification (Mock logic replaced with Vector thresholds)
-    if (vector[4] > 0.6) return 'PHILOSOPHY'; // High Abstract
-    if (vector[0] > 0.6 || input.includes('price') || input.includes('apr')) return 'FINANCIAL_ADVICE'; // High Financial
+    // Vector-based classification
+    // [Financial, Technical, Social, Temporal, Abstract, Risk]
     
-    if (input.includes('?')) return 'QUERY';
+    if (vector[0] > 0.5) return 'FINANCIAL_ADVICE'; // High Financial signal
+    if (vector[1] > 0.6) return 'EXPLANATION';      // High Technical signal
+    if (vector[4] > 0.6) return 'PHILOSOPHY';       // High Abstract signal
+    
+    // Keyword fallback
+    if (input.includes('?') || input.match(/^(what|how|why|when|who)/)) return 'QUERY';
+    
+    // DApp specific checks
+    if (input.includes('price') || input.includes('apr') || input.includes('yield')) return 'DAPP_QUERY';
+
     return 'DISCOURSE';
   }
 
-  private calculateEmotionalWeight(input: string): number {
+  private calculateEmotionalWeight(input: string, keywords: AtomicConcept[]): number {
     let weight = 0.5;
-    // Expanded sentiment list
-    if (input.match(/(happy|great|love|thanks|good|amazing|cool)/)) weight += 0.2;
-    if (input.match(/(sad|bad|hate|wrong|error|fail|broken|stupid)/)) weight -= 0.2;
+    
+    // 1. Lexical Analysis
+    if (input.match(/(happy|great|love|thanks|good|amazing|cool|profit|gain)/)) weight += 0.2;
+    if (input.match(/(sad|bad|hate|wrong|error|fail|broken|stupid|loss|crash)/)) weight -= 0.2;
+    
+    // 2. Concept Valence (if defined in primitives)
+    keywords.forEach(k => {
+        if (k.emotional_valence) weight += (k.emotional_valence * 0.1);
+    });
+
+    // 3. Punctuation Intensity
     if (input.includes('!')) weight += 0.1;
+    
     return Math.max(0, Math.min(1, weight));
   }
 }

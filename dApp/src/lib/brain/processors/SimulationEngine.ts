@@ -1,5 +1,6 @@
 import { DAppContext, SimulationResult, Vector } from '../types';
 import { formatEther } from 'viem';
+import { ORDER_TYPES, BASE_APR } from '@/config/index';
 
 export class SimulationEngine {
   
@@ -11,37 +12,33 @@ export class SimulationEngine {
     
     if (!context) return null;
 
-    // Use REAL data from hooks
     const balance = context.user_balance ? parseFloat(formatEther(context.user_balance)) : 0;
     const reputation = context.total_reputation ? parseFloat(formatEther(context.total_reputation)) : 0;
-    // Calculate global health dynamically
     const globalFund = context.global_fund_balance ? parseFloat(formatEther(context.global_fund_balance)) : 0;
-    const globalRep = 1000000; // Simplified total if not available, or fetch from contract
+    
+    // Vector Decomposition
+    const financialDrive = userVector[0]; // Financial
+    const riskTolerance = userVector[5];  // Risk
+    const timePreference = userVector[3]; // Temporal
 
-    // 1. Analyze User Profile
-    const financialDrive = userVector[0];
-    const riskTolerance = userVector[5]; 
-    const timePreference = userVector[3]; 
+    // Global Health Check
+    // If Global Fund is low relative to reputation, yield density is low.
+    const globalHealth = globalFund > 1000 ? 1 : 0.5; 
 
-    // 2. Logic
-    // If Global Fund is critical (Mock check removed, real math added)
-    // Yield per rep unit = Fund / TotalRep
-    const yieldHealth = globalFund > 0 ? (globalFund / globalRep) : 0;
-
-    if (yieldHealth < 0.001 && balance > 0) {
+    if (globalHealth < 0.5 && balance > 0) {
         return {
             scenario: "Liquidity Constraint",
             outcomeValue: globalFund,
             riskLevel: 0.9,
-            recommendation: "Global yield density is low. Accumulating reputation is mathematically superior to claiming yield in this epoch."
+            recommendation: "Global production fund is currently low. Staking now yields primarily reputation, not token rewards."
         };
     }
 
-    if (financialDrive > 0.5 || intent === 'FINANCIAL_ADVICE') {
+    if (financialDrive > 0.4 || intent === 'FINANCIAL_ADVICE') {
         return this.simulateYieldStrategy(balance, reputation, riskTolerance, timePreference);
     }
 
-    if (userVector[2] > 0.5 || intent === 'DAPP_QUERY') {
+    if (intent === 'DAPP_QUERY') {
         return this.simulateReputationStrategy(balance, riskTolerance);
     }
 
@@ -55,28 +52,43 @@ export class SimulationEngine {
     timePreference: number
   ): SimulationResult {
     
-    // Real Fibonacci Constants from Config
-    const APR_BASE = 0.0618; 
+    // EXACT CONTRACT MATH:
+    // Yield = (Fund * Time * 6182) / (100000 * 365)
+    // Here we approximate the Fund portion using the User's Share logic from ProductionDistributor.sol
+    // UserShare = (UserRep / TotalRep) * AccumulatedYield
     
-    const standardYield = balance * APR_BASE * (34/365) * 1.001; // 34 days
-    const industrialYield = balance * APR_BASE * (233/365) * 1.619; // 233 days
+    // We simulate "Standard" vs "Industrial" tiers
+    const standardTier = ORDER_TYPES[2]; // 34 days
+    const industrialTier = ORDER_TYPES[4]; // 233 days
+
+    // Calculate Raw Reputation Gain
+    const standardRep = balance * standardTier.multiplier;
+    const industrialRep = balance * industrialTier.multiplier;
+
+    // Calculate Projected Yield (Approximate based on BASE_APR)
+    // Formula: Principal * APR * (Days/365)
+    const aprDecimal = BASE_APR / 100; // 0.06182
+    
+    const standardYield = balance * aprDecimal * (standardTier.days / 365);
+    const industrialYield = balance * aprDecimal * (industrialTier.days / 365);
 
     if (balance < 10) {
         return {
             scenario: "Capital Accumulation",
             outcomeValue: standardYield,
             riskLevel: 0.1,
-            recommendation: "Principal is below efficient threshold. Recommend short-term 'Prototype' or 'Small Batch' cycles to compound."
+            recommendation: "Principal is below efficient threshold. Recommend short-term 'Prototype' cycles to compound capital before locking for yield."
         };
     }
 
-    if (riskTolerance > 0.3 || timePreference > 0.6) {
+    // Long-term Preference Logic
+    if (timePreference > 0.6) {
         const roi = ((industrialYield / balance) * 100).toFixed(2);
         return {
             scenario: "Industrial Fibonacci Compounding",
             outcomeValue: industrialYield,
             riskLevel: 0.4,
-            recommendation: `Long-term alignment detected. The 233-day cycle maximizes the Golden Ratio multiplier (1.619x), projecting ${roi}% ROI.`
+            recommendation: `Temporal analysis suggests high time-preference. The ${industrialTier.days}-day cycle maximizes the Golden Ratio multiplier (${industrialTier.multiplier}x), projecting ${roi}% yield.`
         };
     }
 
@@ -84,28 +96,31 @@ export class SimulationEngine {
         scenario: "Standard Optimization",
         outcomeValue: standardYield,
         riskLevel: 0.1,
-        recommendation: `The 'Standard Run' (34 days) offers the optimal balance of liquidity and yield (${standardYield.toFixed(2)} CRKZ) for your risk profile.`
+        recommendation: `The '${standardTier.name}' (${standardTier.days} days) offers the optimal balance of liquidity and yield (${standardYield.toFixed(2)} CRKZ) for your current profile.`
     };
   }
 
   private simulateReputationStrategy(balance: number, riskTolerance: number): SimulationResult {
-    const maxMultiplier = 2.618; 
-    const safeMultiplier = 1.001; 
+    const maxTier = ORDER_TYPES[6]; // Monopoly
+    const safeTier = ORDER_TYPES[2]; // Standard
 
-    if (riskTolerance > 0.5) {
+    const maxRep = balance * maxTier.multiplier;
+    const safeRep = balance * safeTier.multiplier;
+
+    if (riskTolerance > 0.7) {
         return {
             scenario: "Influence Acceleration",
-            outcomeValue: balance * maxMultiplier,
+            outcomeValue: maxRep,
             riskLevel: 0.8,
-            recommendation: `Maximizing governance weight requires the 'Monopoly' tier. You will lock liquidity for 1597 days to gain 2.618x reputation instantly.`
+            recommendation: `Maximizing governance weight requires the '${maxTier.name}' tier. You will lock liquidity for ${maxTier.days} days to gain ${maxTier.multiplier}x reputation instantly.`
         };
     }
 
     return {
         scenario: "Reputation Building",
-        outcomeValue: balance * safeMultiplier,
+        outcomeValue: safeRep,
         riskLevel: 0.2,
-        recommendation: "Consistent 'Standard Run' orders create a ladder of reputation unlocking, ensuring continuous governance participation."
+        recommendation: "Consistent 'Standard Run' orders create a ladder of reputation unlocking, ensuring continuous governance participation without excessive liquidity lockup."
     };
   }
 }

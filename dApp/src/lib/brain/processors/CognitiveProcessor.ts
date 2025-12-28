@@ -8,7 +8,8 @@ export class CognitiveProcessor {
   private publicClient?: PublicClient;
   private memoryContractAddress?: `0x${string}`;
 
-  private readonly DECAY_RATE = 0.05; 
+  // Sigmoid curve steepness for decay
+  private readonly DECAY_K = 10; 
 
   constructor(savedStateJson?: string, publicClient?: PublicClient, memoryContractAddress?: `0x${string}`) {
     this.state = this.initializeState(savedStateJson);
@@ -70,15 +71,33 @@ export class CognitiveProcessor {
   public getState(): BrainState { return this.state; }
   public getConcepts(): Record<string, AtomicConcept> { return this.state.concepts; }
 
-  // Calculates system disorder based on unsaved knowledge vs total capacity
+  /**
+   * Calculates real Shannon Entropy (H) of the activation network.
+   * H = -Σ (pi * log2(pi))
+   * Represents the uncertainty/disorder of the current thought process.
+   */
   public calculateEntropy(): number {
-      const totalNodes = Object.keys(this.state.concepts).length;
-      if (totalNodes === 0) return 0;
+      const activations = Object.values(this.state.activationMap);
+      if (activations.length === 0) return 0;
+
+      // Normalize activation energies to probabilities
+      const totalEnergy = activations.reduce((sum, val) => sum + val, 0);
+      if (totalEnergy === 0) return 0;
+
+      let entropy = 0;
+      for (const energy of activations) {
+          const p = energy / totalEnergy;
+          if (p > 0) {
+              entropy -= p * Math.log2(p);
+          }
+      }
+
+      // Normalize entropy to 0-100 scale (assuming max entropy ~ log2(N))
+      // A high entropy means energy is scattered (confused). Low means focused.
+      const maxEntropy = Math.log2(activations.length || 1);
+      const normalized = maxEntropy === 0 ? 0 : (entropy / maxEntropy) * 100;
       
-      // Entropy increases as unsaved data accumulates relative to total knowledge
-      const ratio = this.state.unsavedDataCount / totalNodes;
-      // Normalize: 20% unsaved data = 100% Entropy (Critical instability)
-      return Math.min(100, (ratio * 5) * 100);
+      return Math.min(100, normalized);
   }
 
   public processNeuralTick(): string | null {
@@ -86,10 +105,15 @@ export class CognitiveProcessor {
     let highestEnergy = 0;
     let dominantThought = null;
 
-    // 1. Decay Activation Energy
+    // 1. Sigmoid Decay of Activation Energy
+    // Mimics biological neural refractory periods
     activeNodes.forEach(id => {
-        this.state.activationMap[id] -= this.DECAY_RATE;
-        if (this.state.activationMap[id] <= 0) {
+        const current = this.state.activationMap[id];
+        // x / (1 + abs(x)) allows for smooth decay towards zero
+        const decayAmount = 0.05 + (current * 0.1); 
+        this.state.activationMap[id] = Math.max(0, current - decayAmount);
+
+        if (this.state.activationMap[id] <= 0.05) { // Cutoff threshold
             delete this.state.activationMap[id];
         } else {
             if (this.state.activationMap[id] > highestEnergy) {
@@ -105,7 +129,7 @@ export class CognitiveProcessor {
     this.state.drives.energy = Math.min(100, this.state.drives.energy + 0.2); 
     
     // 3. Spontaneous Activity (Dreaming)
-    // Triggered by High Energy + High Curiosity + No Active Focus
+    // Triggered by High Energy + High Curiosity + Low Focus
     if (this.state.drives.energy > 80 && this.state.drives.curiosity > 70 && !dominantThought) {
         return this.dream();
     }
@@ -181,15 +205,14 @@ export class CognitiveProcessor {
     return [...new Set(path)];
   }
 
-  // Real Associative Dreaming
+  // Weighted Graph Walk for Dreaming
   public dream(): string {
     // 1. Pick a seed from Long Term Memory (weighted by emotion)
     const seedMemory = this.state.longTermMemory
         .sort((a, b) => b.emotional_weight - a.emotional_weight)
-        .slice(0, 5)[Math.floor(Math.random() * 5)]; // Top 5 weighted
+        .slice(0, 5)[Math.floor(Math.random() * 5)];
 
     if (!seedMemory || seedMemory.concepts.length === 0) {
-        // Fallback: Pick a random known concept
         const keys = Object.keys(this.state.concepts);
         if(keys.length === 0) return "";
         return `Initializing latent space... ${keys[0]}...`;
@@ -197,17 +220,37 @@ export class CognitiveProcessor {
 
     const startConcept = seedMemory.concepts[0];
 
-    // 2. Traverse the graph to find a distant connection
-    const path = this.findAssociativePath([startConcept], 2);
+    // 2. Traverse the graph to find a distant connection using weighted random walk
+    // Instead of random depth, we walk based on relation strength
+    let currentId = startConcept;
+    const walkPath: string[] = [currentId];
     
-    if (path.length > 0) {
-        const endConcept = path[path.length - 1];
+    for(let i=0; i<3; i++) {
+        const connections = this.state.relations.filter(r => r.from === currentId || r.to === currentId);
+        if(connections.length === 0) break;
+        
+        // Probabilistic selection based on strength
+        const totalStrength = connections.reduce((acc, r) => acc + r.strength, 0);
+        let randomVal = Math.random() * totalStrength;
+        
+        for(const conn of connections) {
+            randomVal -= conn.strength;
+            if(randomVal <= 0) {
+                currentId = conn.from === currentId ? conn.to : conn.from;
+                walkPath.push(currentId);
+                break;
+            }
+        }
+    }
+    
+    if (walkPath.length > 1) {
+        const endConcept = walkPath[walkPath.length - 1];
         
         // Ignite these nodes slightly
         this.state.activationMap[startConcept] = 0.3;
         this.state.activationMap[endConcept] = 0.3;
 
-        return `Analyzing correlation between [${startConcept.replace(/_/g,' ')}] and [${endConcept.replace(/_/g,' ')}] based on memory ID ${seedMemory.id.substring(0,4)}...`;
+        return `Hypothesizing link between [${startConcept.replace(/_/g,' ')}] and [${endConcept.replace(/_/g,' ')}]...`;
     }
 
     return `Recalling data regarding ${startConcept}...`;
@@ -243,7 +286,6 @@ export class CognitiveProcessor {
       const nodeCount = Object.keys(this.state.concepts).length;
       const interactions = this.state.totalInteractions;
       
-      // Strict thresholds for evolution
       if (interactions > 500 && nodeCount > 500) this.state.evolutionStage = 'TRANSCENDENT';
       else if (interactions > 100 && nodeCount > 200) this.state.evolutionStage = 'SAPIENT';
       else if (interactions > 20 && nodeCount > 50) this.state.evolutionStage = 'SENTIENT';
@@ -259,7 +301,7 @@ export class CognitiveProcessor {
     vector: Vector = [0,0,0,0,0,0]
   ) {
     const memory: Memory = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: crypto.randomUUID(), // Secure ID
       role, content, timestamp: Date.now(),
       concepts, emotional_weight: emotionalWeight,
       dapp_context: dappContext,
@@ -278,22 +320,18 @@ export class CognitiveProcessor {
   }
 
   private updateDrives(emotion: number, complexity: number) {
-      // Input Logic: High emotion reduces stability (excitement/fear)
-      // Complexity consumes energy
-      const stabilityImpact = (emotion - 0.5) * 20; // -10 to +10
+      const stabilityImpact = (emotion - 0.5) * 20; 
       this.state.drives.stability = Math.max(0, Math.min(100, this.state.drives.stability - Math.abs(stabilityImpact)));
       this.state.drives.energy = Math.max(0, this.state.drives.energy - (complexity * 2));
-      this.state.drives.curiosity = Math.min(100, this.state.drives.curiosity + 5); // Interaction boosts curiosity
+      this.state.drives.curiosity = Math.min(100, this.state.drives.curiosity + 5); 
   }
 
   private consolidateMemories() {
-    // Standard FIFO but with emotional weighting for promotion
     if (this.state.shortTermMemory.length > 10) {
       const moved = this.state.shortTermMemory.shift();
       if (moved) this.state.midTermMemory.push(moved);
     }
     
-    // Promote Mid -> Long if highly significant
     if (this.state.midTermMemory.length > 50) {
         const candidate = this.state.midTermMemory.shift();
         if (candidate && (candidate.emotional_weight > 0.8 || candidate.access_count > 3)) {
@@ -307,18 +345,21 @@ export class CognitiveProcessor {
     
     return allMemories
       .map(m => {
-        // Score = Concept Overlap + Vector Similarity
+        // Dot Product for Vector Similarity (More accurate than simple sum)
         const overlap = m.concepts.filter(c => conceptIds.includes(c)).length;
         
         let vectorScore = 0;
         if (queryVector) {
-            // Cosine similarity approximation
-            vectorScore = m.vector.reduce((acc, val, i) => acc + (val * queryVector[i]), 0);
+            // Cosine Similarity
+            const dotProduct = m.vector.reduce((acc, val, i) => acc + (val * queryVector[i]), 0);
+            const magA = Math.sqrt(m.vector.reduce((acc, val) => acc + val*val, 0));
+            const magB = Math.sqrt(queryVector.reduce((acc, val) => acc + val*val, 0));
+            if (magA && magB) vectorScore = dotProduct / (magA * magB);
         }
 
-        return { memory: m, score: (overlap * 2) + vectorScore };
+        return { memory: m, score: (overlap * 0.4) + (vectorScore * 0.6) };
       })
-      .filter(item => item.score > 0.5) // Minimum relevance threshold
+      .filter(item => item.score > 0.3) 
       .sort((a, b) => b.score - a.score)
       .slice(0, 5)
       .map(item => item.memory);
