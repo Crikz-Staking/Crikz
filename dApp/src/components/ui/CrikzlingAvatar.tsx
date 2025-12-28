@@ -11,14 +11,15 @@ import NeuralDashboard from '@/features/admin/NeuralDashboard';
 export default function CrikzlingAvatar() {
   const [isOpen, setIsOpen] = useState(false); 
   const [showMonitor, setShowMonitor] = useState(false);
-  const [showDashboard, setShowDashboard] = useState(false); // <--- NEW STATE
+  const [showDashboard, setShowDashboard] = useState(false);
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
   
+  // SINGLE SOURCE OF TRUTH:
   const { 
     messages, sendMessage, crystallize, needsSave, isSyncing, 
     brainStats, isThinking, isTyping, currentThought, 
-    uploadFile, resetBrain, isOwner
+    uploadFile, resetBrain, isOwner, logs // <--- Extract Logs
   } = useCrikzlingV3();
 
   useEffect(() => {
@@ -72,8 +73,17 @@ export default function CrikzlingAvatar() {
 
   return (
     <>
-      {/* Dashboard Overlay */}
-      <NeuralDashboard isOpen={showDashboard} onClose={() => setShowDashboard(false)} />
+      {/* 
+          CRITICAL FIX: Pass the logs from THIS instance of the brain
+          directly to the dashboard. Do not let Dashboard create its own brain.
+      */}
+      <NeuralDashboard 
+        isOpen={showDashboard} 
+        onClose={() => setShowDashboard(false)} 
+        logs={logs}
+        brainStats={brainStats}
+        isOwner={isOwner}
+      />
 
       <AnimatePresence>
         {!isOpen && (
