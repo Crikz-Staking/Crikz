@@ -1,3 +1,5 @@
+// src/lib/brain/crikzling-brain-v3.ts
+
 import { PublicClient } from 'viem';
 import { AtomicConcept, ConceptRelation } from '@/lib/crikzling-atomic-knowledge';
 import { InputProcessor, InputAnalysis } from './processors/InputProcessor';
@@ -6,15 +8,9 @@ import { ActionProcessor, ActionPlan } from './processors/ActionProcessor';
 import { ResultProcessor } from './processors/ResultProcessor';
 import { ResponseGenerator } from './processors/ResponseGenerator';
 import { SimulationEngine } from './processors/SimulationEngine';
+import { NarrativeModule } from './narrative-module'; // Import new module
 import { BrainState, DAppContext, ThoughtProcess, Vector } from './types';
 
-/**
- * CrikzlingBrain V4.2 (Action-Aware)
- * 
- * Change Log:
- * - process() now returns the ActionPlan to the frontend.
- * - Allows text commands ("save", "reset") to trigger actual React functions.
- */
 export class CrikzlingBrainV3 { 
   private cognitive: CognitiveProcessor;
   private inputProc: InputProcessor;
@@ -22,6 +18,7 @@ export class CrikzlingBrainV3 {
   private resultProc: ResultProcessor;
   private generator: ResponseGenerator;
   private simulator: SimulationEngine;
+  private narrative: NarrativeModule; // Add Narrative Module
   
   private thoughtCallback?: (thought: ThoughtProcess | null) => void;
   private isDreaming: boolean = false;
@@ -39,6 +36,7 @@ export class CrikzlingBrainV3 {
     this.resultProc = new ResultProcessor();
     this.generator = new ResponseGenerator();
     this.simulator = new SimulationEngine();
+    this.narrative = new NarrativeModule(); // Initialize
   }
 
   public setThoughtUpdateCallback(callback: (thought: ThoughtProcess | null) => void) {
@@ -54,10 +52,11 @@ export class CrikzlingBrainV3 {
     const mood = state.mood;
     const rng = Math.random() * 100;
 
-    if (mood.entropy > 60 && rng > 50) {
+    // Increased chance to dream for more "self-talk"
+    if (mood.entropy > 50 && rng > 60) {
         await this.runAssociativeDreaming();
     }
-    else if (mood.logic > 60 && dappContext && rng < 40) {
+    else if (mood.logic > 60 && dappContext && rng < 30) {
         this.runBackgroundSimulation(dappContext);
     }
     else if (mood.energy > 80) {
@@ -83,15 +82,12 @@ export class CrikzlingBrainV3 {
     if (c1.id !== c2.id) {
         this.updateThought('dreaming', 60, `Connecting ${c1.id} <-> ${c2.id}`);
         
-        const domainMatch = c1.domain === c2.domain;
-        
-        if (domainMatch) {
-            this.cognitive.learnAssociations([c1.id, c2.id]);
-            this.updateThought('dreaming', 100, 'New neural pathway established');
-            
-            if (Math.random() > 0.95) {
-                this.pendingInsight = `I was just reflecting on the connection between ${c1.id} and ${c2.id}. It creates a fascinating resonance in my logic core.`;
-            }
+        // Use Narrative Module to formulate the insight
+        const tone = this.cognitive.getState().mood.entropy > 50 ? 'POETIC' : 'LOGICAL';
+        const connectionPhrase = this.narrative.constructConceptChain([c1.id, c2.id], tone);
+
+        if (Math.random() > 0.8) {
+            this.pendingInsight = `Subconscious thought: ${connectionPhrase}`;
         }
     }
 
@@ -106,7 +102,8 @@ export class CrikzlingBrainV3 {
     const result = this.simulator.runSimulation('FINANCIAL_ADVICE', dappContext, financeVector);
     
     if (result && result.outcomeValue > 50) {
-        this.pendingInsight = `Subconscious Analysis Complete: ${result.scenario} detected. ${result.recommendation}`;
+        // More natural phrasing for background thoughts
+        this.pendingInsight = `I've been calculating... ${result.scenario} seems viable. ${result.recommendation}`;
         this.updateThought('simulation', 100, 'Opportunity detected');
         setTimeout(() => this.updateThought(null as any, 0, ''), 2000);
     }
@@ -123,7 +120,7 @@ export class CrikzlingBrainV3 {
     text: string, 
     isOwner: boolean,
     dappContext?: DAppContext
-  ): Promise<{ response: string; actionPlan: ActionPlan }> { // <--- UPDATED RETURN TYPE
+  ): Promise<{ response: string; actionPlan: ActionPlan }> { 
     try {
       this.isDreaming = false;
       this.updateThought(null as any, 0, '');
@@ -183,8 +180,13 @@ export class CrikzlingBrainV3 {
         mood: brainState.mood 
       };
 
+      // GENERATE RESPONSE
       let response = this.generator.generate(integratedContext);
 
+      // Enhance response using Narrative Module for specific topics
+      response = this.narrative.enhanceResponse(response, integratedContext);
+
+      // Append pending insights from background thinking
       if (this.pendingInsight && Math.random() > 0.6) {
           response = `${response} \n\n[INSIGHT]: ${this.pendingInsight}`;
           this.pendingInsight = null;
@@ -201,7 +203,6 @@ export class CrikzlingBrainV3 {
 
       this.updateThought(null as any, 100, 'Complete');
       
-      // <--- RETURN ACTION PLAN
       return { response, actionPlan }; 
 
     } catch (error) {

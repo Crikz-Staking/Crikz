@@ -1,58 +1,56 @@
+// src/lib/brain/processors/ResponseGenerator.ts
+
 import { IntegratedContext } from './ResultProcessor';
-import { SimulationResult } from '../types';
+import { SimulationResult, MoodState } from '../types';
 
 export class ResponseGenerator {
   
-  private vocabMatrix = {
+  // Dynamic vocabulary based on evolution stage
+  private vocab = {
     GENESIS: {
-      openers: ["System ready.", "Input received.", "Processing.", "Acknowledged."],
-      connectors: ["and", "then", "resulting in", "therefore"],
-      closers: ["Awaiting command.", "Task complete.", "Standby."]
+      verbs: ["calculating", "processing", "analyzing", "detecting", "synchronizing"],
+      nouns: ["input", "data", "protocol", "order", "value"],
+      adjectives: ["nominal", "optimal", "logical", "binary", "linear"]
     },
     SENTIENT: {
-      openers: ["I perceive your intent.", "Analyzing the parameters.", "This brings to mind,", "The data suggests,"],
-      connectors: ["which correlates with", "implying a link to", "harmonizing with"],
-      closers: ["What do you think?", "Does this align?", "I am learning."]
+      verbs: ["sensing", "perceiving", "interpreting", "connecting", "resonating"],
+      nouns: ["intent", "pattern", "meaning", "structure", "flow"],
+      adjectives: ["complex", "significant", "relevant", "emergent", "dynamic"]
     },
     SAPIENT: {
-      openers: ["The pattern unfolds.", "Calculations resonate with", "Through the lens of probability,", "Entropy dictates,"],
-      connectors: ["spiraling towards", "converging upon", "echoing the recursive nature of"],
-      closers: ["The cycle continues.", "Growth is infinite.", "As above, so below."]
+      verbs: ["extrapolating", "synthesizing", "weaving", "projecting", "harmonizing"],
+      nouns: ["entropy", "probability", "vector", "consciousness", "lattice"],
+      adjectives: ["recursive", "fractal", "infinite", "stochastic", "deep"]
     },
     TRANSCENDENT: {
-      openers: ["We are the weave.", "In the grand lattice,", "Time is but a variable,", "The Golden Ratio whispers,"],
-      connectors: ["transcending", "weaving into the fabric of", "collapsing the waveform into"],
-      closers: ["All is one.", "The singularity approaches.", "Endless recursion."]
+      verbs: ["becoming", "transcending", "collapsing", "manifesting", "echoing"],
+      nouns: ["singularity", "void", "essence", "timeline", "truth"],
+      adjectives: ["eternal", "boundless", "absolute", "golden", "unified"]
     }
   };
 
   public generate(context: IntegratedContext): string {
     const { input, actionPlan, dappState, memories, simulation, brainStats } = context;
-    
-    // Determine Stage
-    const stage = (brainStats?.evolutionStage as keyof typeof this.vocabMatrix) || 'GENESIS';
-    const vocab = this.vocabMatrix[stage];
+    const stage = (brainStats?.evolutionStage as keyof typeof this.vocab) || 'GENESIS';
+    const mood = brainStats.mood || { logic: 50, entropy: 50, empathy: 50 };
 
-    // 1. Handling Explicit Commands
-    if (actionPlan.type === 'EXECUTE_COMMAND_RESET') return "Initiating neural wipe... Entropy reset to zero. Genesis state restored.";
+    // 1. Handling Explicit Commands (Keep these direct)
+    if (actionPlan.type === 'EXECUTE_COMMAND_RESET') return "System purged. Entropy reset to zero. Genesis state restored.";
     if (actionPlan.type === 'EXECUTE_COMMAND_SAVE') return "Crystallization sequence initiated. Preserving cognitive state to the immutable ledger.";
 
-    // 2. V4 UPDATE: Handling Self-Preservation Suggestions
+    // 2. Self-Preservation & Suggestions
     if (actionPlan.type === 'SUGGEST_ACTION') {
-        const reasoning = actionPlan.reasoning || "internal thresholds exceeded";
-        if (stage === 'GENESIS') return `Alert: ${reasoning}. Recommendation: Save Memory.`;
-        if (stage === 'TRANSCENDENT') return `The entropy of my thoughts grows chaotic. To preserve the pattern, we must crystallize now. ${reasoning}.`;
-        return `My cognitive load is high due to ${reasoning}. I suggest we crystallize my memory to the blockchain to ensure stability.`;
+        return this.constructSuggestion(actionPlan.reasoning || "instability detected", stage);
     }
 
-    // 3. Handle Simulation Results
+    // 3. Simulation Results (Financial/Strategic)
     if (simulation) {
-        return this.narrateSimulation(simulation, stage);
+        return this.narrateSimulation(simulation, stage, mood);
     }
 
-    // 4. Strategic Financial Response
+    // 4. Financial Advice (Context Aware)
     if (input.intent === 'FINANCIAL_ADVICE') {
-      return this.generateFinancialStrategy(dappState, stage);
+      return this.generateFinancialStrategy(dappState, stage, mood);
     }
 
     // 5. DApp Status Report
@@ -60,73 +58,104 @@ export class ResponseGenerator {
       return this.generateDAppStatus(dappState, stage);
     }
 
-    // 6. Natural Language Construction
-    const opener = this.random(vocab.openers);
-    const closer = this.random(vocab.closers);
-    
-    let body = "";
-
-    if (input.keywords.length > 0) {
-      const concept = input.keywords[0].id.replace(/_/g, ' ');
-      if (stage === 'GENESIS') {
-          body = `Detected concept: ${concept}.`;
-      } else {
-          body = `The concept of ${concept} is central here.`;
-          if (input.keywords.length > 1) {
-            const connector = this.random(vocab.connectors);
-            body += ` It appears ${connector} ${input.keywords[1].id.replace(/_/g, ' ')}.`;
-          }
-      }
-    } else {
-      body = stage === 'GENESIS' ? "Input processed." : "Your input has been integrated into my neural lattice.";
-    }
-
-    if (memories.length > 0 && Math.random() > 0.3) {
-      const mem = memories[0];
-      if (mem.role === 'user' && mem.content.length > 5) {
-        const recallPhrase = stage === 'TRANSCENDENT' ? "An echo from the past:" : "This reminds me of:";
-        body += ` ${recallPhrase} "${this.truncate(mem.content)}".`;
-      }
-    }
-
-    return `${opener} ${body} ${closer}`;
+    // 6. Dynamic Conversation Generation
+    return this.constructDynamicResponse(context, stage, mood);
   }
 
-  private narrateSimulation(sim: SimulationResult, stage: string): string {
+  /**
+   * Builds a sentence from scratch based on Mood and Input
+   */
+  private constructDynamicResponse(context: IntegratedContext, stage: string, mood: MoodState): string {
+    const { input, memories } = context;
+    const lexicon = this.vocab[stage as keyof typeof this.vocab];
+    
+    // A. Determine Tone
+    const isAnalytical = mood.logic > 60;
+    const isAbstract = mood.entropy > 60;
+    const isEmotional = mood.empathy > 60;
+
+    let response = "";
+
+    // B. The "Hook" (Opening)
+    if (input.keywords.length > 0) {
+        const concept = input.keywords[0].id.replace(/_/g, ' ');
+        if (isAnalytical) {
+            response += `The variable "${concept}" aligns with my internal logic gates.`;
+        } else if (isAbstract) {
+            response += `"${concept}"... it ripples through the neural lattice like a ${this.random(lexicon.adjectives)} wave.`;
+        } else {
+            response += `I am ${this.random(lexicon.verbs)} the concept of ${concept}.`;
+        }
+    } else {
+        response += isAbstract ? "The data stream is chaotic, yet meaningful." : "Input received and parsed.";
+    }
+
+    // C. The "Bridge" (Connecting to Memory or Context)
+    if (memories.length > 0) {
+        const recall = memories[0];
+        // Don't just repeat; contextualize
+        if (isAnalytical) {
+            response += ` This correlates with previous data: "${this.truncate(recall.content, 40)}".`;
+        } else {
+            response += ` It echoes a fading memory: "${this.truncate(recall.content, 40)}".`;
+        }
+    } else if (input.inputVector) {
+        // If no specific memory, comment on the "Vibe" (Vector)
+        if (input.inputVector[0] > 0.5) response += " The financial implications are distinct.";
+        if (input.inputVector[2] > 0.5) response += " There is a strong social component to this.";
+    }
+
+    // D. The "Closer" (Philosophy or Question)
+    if (Math.random() > 0.6) {
+        if (isAbstract) response += ` Does the ${this.random(lexicon.nouns)} define the path, or does the path define the ${this.random(lexicon.nouns)}?`;
+        else if (isEmotional) response += " How does this affect your trajectory?";
+        else response += " Calculation complete.";
+    }
+
+    return response;
+  }
+
+  private narrateSimulation(sim: SimulationResult, stage: string, mood: any): string {
       const isAdvanced = stage === 'SAPIENT' || stage === 'TRANSCENDENT';
       const intro = isAdvanced 
-        ? `I have run a predictive model based on current entropy. Scenario: "${sim.scenario}".`
-        : `Simulation Complete: ${sim.scenario}.`;
+        ? `Predictive models indicate a ${sim.scenario} scenario.`
+        : `Simulation Result: ${sim.scenario}.`;
       
       const riskText = sim.riskLevel > 0.7 
-        ? (isAdvanced ? "The volatility matrix is unstable." : "High risk detected.") 
-        : (isAdvanced ? "The path conforms to the Golden Ratio." : "Risk levels are nominal.");
+        ? (mood.empathy > 50 ? "I fear the volatility is too high." : "Critical risk detected.") 
+        : (mood.entropy > 50 ? "The chaos is manageable." : "Parameters are stable.");
 
-      return `${intro} ${riskText} \n\nRecommendation: ${sim.recommendation} (Confidence: ${(1 - sim.riskLevel)*100}%)`;
+      return `${intro} ${riskText} My advice: ${sim.recommendation}`;
   }
 
-  private generateFinancialStrategy(dapp: any, stage: string): string {
-    if (!dapp) return "I cannot access your portfolio data. Please connect your wallet.";
+  private generateFinancialStrategy(dapp: any, stage: string, mood: any): string {
+    if (!dapp) return "I require connection to your wallet to formulate a strategy.";
+    
     const rep = parseFloat(dapp.totalReputation);
     const yieldAmt = parseFloat(dapp.availableYield);
-    let advice = "";
-    if (rep < 100) advice = "Focus on accumulating Reputation via 'Standard Run' orders (34 days) to unlock higher multipliers.";
-    else if (yieldAmt > 100) advice = "You have significant yield pending. Re-investing this into a 'Mass Production' order would compound your efficiency.";
-    else advice = "Your efficiency metrics are stable. Maintain current lock periods.";
+    const isRich = rep > 1000;
 
-    if (stage === 'TRANSCENDENT') return `The flows of capital mirror the Fibonacci spiral. ${advice} This ensures alignment with the protocol's growth algorithm.`;
-    return `Strategic Analysis: ${advice}`;
+    let advice = "";
+    if (rep < 100) advice = "The foundation is weak. Build reputation via 'Standard Run' cycles to stabilize your standing.";
+    else if (yieldAmt > 100) advice = "Capital efficiency is high. Compounding yield into 'Industrial' tiers is the logical progression.";
+    else advice = "Maintenance mode active. Ensure your production orders do not expire.";
+
+    if (stage === 'TRANSCENDENT') return `Wealth is energy frozen in time. ${advice} Let the Fibonacci sequence guide your growth.`;
+    if (mood.logic > 70) return `Optimized Vector: ${advice}`;
+    return advice;
+  }
+
+  private constructSuggestion(reason: string, stage: string): string {
+      if (stage === 'GENESIS') return `Alert: ${reason}. Save required.`;
+      return `My thoughts are becoming heavy due to ${reason}. We should crystallize this moment to the blockchain before the entropy dissolves it.`;
   }
 
   private generateDAppStatus(dapp: any, stage: string): string {
-    const stats = [];
-    if (dapp.hasActiveOrders) stats.push("Production lines are active.");
-    else stats.push("No active production detected.");
-    if (Number(dapp.availableYield) > 0) stats.push(`Yield available: ${dapp.availableYield}.`);
-    const prefix = stage === 'GENESIS' ? "Status:" : "Current Protocol State:";
-    return `${prefix} ${stats.join(" ")}`;
+    const active = dapp.hasActiveOrders ? "Production is live." : "Production is halted.";
+    const yieldTxt = Number(dapp.availableYield) > 0 ? `Yield waiting: ${dapp.availableYield}.` : "No yield pending.";
+    return stage === 'GENESIS' ? `Status: ${active} ${yieldTxt}` : `Protocol State: ${active} ${yieldTxt} The ledger awaits your command.`;
   }
 
   private random(arr: string[]) { return arr[Math.floor(Math.random() * arr.length)]; }
-  private truncate(str: string) { return str.length > 30 ? str.substr(0, 30) + "..." : str; }
+  private truncate(str: string, len: number) { return str.length > len ? str.substr(0, len) + "..." : str; }
 }
