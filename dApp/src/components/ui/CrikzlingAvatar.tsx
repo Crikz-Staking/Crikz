@@ -20,7 +20,7 @@ export default function CrikzlingAvatar() {
     brainStats, isThinking, isTyping, currentThought, 
     uploadFile, resetBrain, isOwner, logs, 
     updateDrives, trainConcept, simpleTrain, toggleNeuralLink,
-    syncWithBlockchain, initialLoading 
+    syncWithBlockchain, initialLoading, isSynced // <--- NEW PROP
   } = useCrikzlingV3();
 
   useEffect(() => {
@@ -143,7 +143,6 @@ export default function CrikzlingAvatar() {
                     </div>
                 </div>
                 <div className="flex gap-1">
-                    {/* Manual Sync Button */}
                     <button 
                         onClick={syncWithBlockchain}
                         disabled={initialLoading}
@@ -264,7 +263,22 @@ export default function CrikzlingAvatar() {
                                     <div className="w-1.5 h-1.5 rounded-full bg-primary-500" />
                                 </div>
                             )}
-                            {msg.content}
+                            {/* Render Sync Button Inside Message if Marker Found */}
+                            {msg.content.includes('[SYNC_REQUIRED]') ? (
+                                <div className="flex flex-col gap-3">
+                                    <span>{msg.content.replace('[SYNC_REQUIRED]', '')}</span>
+                                    <button 
+                                        onClick={syncWithBlockchain}
+                                        disabled={initialLoading}
+                                        className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-all shadow-lg"
+                                    >
+                                        {initialLoading ? <Loader2 className="animate-spin" size={16}/> : <CloudDownload size={16}/>}
+                                        {initialLoading ? 'Connecting...' : 'SYNC WITH BLOCKCHAIN'}
+                                    </button>
+                                </div>
+                            ) : (
+                                msg.content
+                            )}
                         </div>
                     </motion.div>
                 ))}
@@ -314,19 +328,19 @@ export default function CrikzlingAvatar() {
             </div>
 
             <div className="p-4 bg-[#0a0a0f] border-t border-white/10 shrink-0">
-                <div className="flex items-center gap-2 bg-white/5 rounded-xl border border-white/10 px-2 py-1 focus-within:border-primary-500/50 transition-colors">
+                <div className={`flex items-center gap-2 bg-white/5 rounded-xl border border-white/10 px-2 py-1 transition-colors ${!isSynced ? 'opacity-50' : 'focus-within:border-primary-500/50'}`}>
                     <input 
                         type="text" 
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={handleKeyPress}
-                        placeholder="Type a command or query..."
-                        disabled={isThinking || isSyncing}
-                        className="flex-1 bg-transparent border-none text-white text-sm px-2 py-3 focus:outline-none placeholder-gray-600 disabled:opacity-50"
+                        placeholder={!isSynced ? "Synchronization Required to Chat..." : "Type a command or query..."}
+                        disabled={isThinking || isSyncing || !isSynced}
+                        className="flex-1 bg-transparent border-none text-white text-sm px-2 py-3 focus:outline-none placeholder-gray-600 disabled:cursor-not-allowed"
                     />
                     <button 
                         onClick={handleSend}
-                        disabled={!input.trim() || isThinking}
+                        disabled={!input.trim() || isThinking || !isSynced}
                         className="p-2 bg-primary-500 text-black rounded-lg hover:bg-primary-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                     >
                         <Send size={16} />

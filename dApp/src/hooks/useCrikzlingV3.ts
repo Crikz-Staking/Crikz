@@ -25,6 +25,7 @@ export function useCrikzlingV3() {
   const [forceUpdate, setForceUpdate] = useState(0); 
   
   const [initialLoading, setInitialLoading] = useState(false);
+  const [hasHydrated, setHasHydrated] = useState(false); // Used to track sync status
 
   // --- CONTRACT DATA ---
   const { balance, activeOrders, totalReputation, pendingYield, globalFund } = useContractData();
@@ -55,18 +56,13 @@ export function useCrikzlingV3() {
     query: { retry: false } 
   });
 
-  // Updated Parser for Correct Tuple Return
   const parseSnapshot = (data: any) => {
       if (!data) return null;
       console.log("[HOOK] Raw Blockchain Data:", data);
-      
-      // If ABI returns a struct/tuple, data might be an object or array
-      // Accessing by name (if object) or index (if array)
       const cid = data.ipfsCid || data[1];
       const count = data.conceptsCount || data[2];
       const stage = data.evolutionStage || data[3];
       const trigger = data.triggerEvent || data[4];
-      
       return { cid, count, stage, trigger };
   };
 
@@ -111,15 +107,16 @@ export function useCrikzlingV3() {
     initialBrain.setThoughtUpdateCallback(thoughtCallback);
     setBrain(initialBrain);
     
+    // UPDATED INITIAL MESSAGE
     setMessages([{ 
         role: 'system', 
-        content: 'SYSTEM ONLINE. Neural Link ready.', 
+        content: 'Hello, I am Crikzling, an artificial intelligence built on blockchain. Please click SYNC button below to synchronize my data with the latest blockchain data saved. [SYNC_REQUIRED]', 
         timestamp: Date.now() 
     }]);
     
   }, [sessionId, publicClient]);
 
-  // --- 2. MANUAL SYNC ---
+  // --- 2. MANUAL SYNC WITH SIGNATURE ---
   const syncWithBlockchain = useCallback(async () => {
     if (!brain) return;
 
@@ -133,13 +130,13 @@ export function useCrikzlingV3() {
 
       toast.loading("Identity Verified. Syncing...", { duration: 2000, id: 'sync' });
       
-      // 2. Fetch Fresh Data
       const { data: freshData, error } = await refetchSnapshot();
       
       if (error || !freshData) {
           console.warn("[HOOK] Contract Read Error (Likely Empty):", error);
           toast.error("Genesis State (No History)", { id: 'sync' });
-          setMessages(prev => [...prev, { role: 'system', content: `[GENESIS STATE] Blockchain memory is empty.`, timestamp: Date.now() }]);
+          setHasHydrated(true); // Unlock chat even if empty
+          setMessages(prev => [...prev, { role: 'system', content: `[GENESIS STATE] Blockchain memory is empty. Starting fresh pathway.`, timestamp: Date.now() }]);
           return;
       }
 
@@ -164,6 +161,7 @@ export function useCrikzlingV3() {
 
               brain.mergeState(remoteJson);
               localStorage.removeItem(`crikz_brain_diff_${sessionId}`);
+              setHasHydrated(true); // Unlock chat
               
               toast.success(`Synced: ${blockchainOps} Ops`, { id: 'sync' });
               setMessages(prev => [
@@ -178,6 +176,7 @@ export function useCrikzlingV3() {
           }
       } else {
           toast.error("Invalid CID on chain", { id: 'sync' });
+          setHasHydrated(true); // Unlock to allow saving first block
       }
     } catch (error: any) {
       console.error("Sync Failed:", error);
@@ -339,6 +338,7 @@ export function useCrikzlingV3() {
     messages, sendMessage, uploadFile, crystallize, resetBrain, updateDrives, trainConcept, simpleTrain, toggleNeuralLink,
     syncWithBlockchain, initialLoading,
     needsSave: brain?.needsCrystallization() || false, isSyncing, 
+    isSynced: hasHydrated, // <--- EXPORTED AS 'isSynced' FOR UI
     brainStats: {
       stage: stats?.stage || 'GENESIS',
       nodes: stats?.nodes || 0,
