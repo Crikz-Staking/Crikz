@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
     Brain, Activity, Wifi, Database, GitBranch, Cpu, 
     X, Search, ChevronRight, Terminal, Lock, Sliders, 
-    PlusCircle, Save, Globe, Zap, Battery
+    PlusCircle, Save, Globe, Zap, Battery, Download, FileText
 } from 'lucide-react';
 import { CognitiveLogEntry, InternalDrives } from '@/lib/brain/types';
 import { AtomicConcept } from '@/lib/crikzling-atomic-knowledge';
@@ -57,7 +57,7 @@ export default function NeuralDashboard({
                 {/* Global Status Bar */}
                 <div className="h-16 border-b border-white/10 flex items-center justify-between px-8 bg-[#050508]">
                     <h2 className="text-xl font-black text-white tracking-widest uppercase flex items-center gap-3">
-                        {view} Station <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded text-gray-400 font-mono">v5.2</span>
+                        {view} Station <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded text-gray-400 font-mono">v5.3</span>
                     </h2>
                     
                     {/* Connectivity Module */}
@@ -106,9 +106,9 @@ export default function NeuralDashboard({
                             ) : (
                                 <>
                                     {view === 'monitor' && <MonitorView stats={brainStats} />}
-                                    {view === 'synapse' && <SynapseView onTrain={simpleTrain!} lastLog={logs[0]} />}
+                                    {view === 'synapse' && simpleTrain && <SynapseView onTrain={simpleTrain} lastLog={logs[0]} />}
                                     {view === 'cortex' && <CortexView logs={logs} />}
-                                    {view === 'matrix' && <MatrixView stats={brainStats} onUpdate={updateDrives!} />}
+                                    {view === 'matrix' && updateDrives && <MatrixView stats={brainStats} onUpdate={updateDrives} />}
                                 </>
                             )}
                         </motion.div>
@@ -121,8 +121,9 @@ export default function NeuralDashboard({
 
 // --- VIEW COMPONENTS ---
 
+// 1. MONITOR VIEW
 function MonitorView({ stats }: { stats: any }) {
-    const { isConnected, bandwidthUsage, stamina } = stats.connectivity;
+    const { isConnected, bandwidthUsage } = stats.connectivity;
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -174,6 +175,7 @@ function MonitorView({ stats }: { stats: any }) {
     );
 }
 
+// 2. SYNAPSE VIEW (Training)
 function SynapseView({ onTrain, lastLog }: { onTrain: (txt: string) => void, lastLog?: CognitiveLogEntry }) {
     const [input, setInput] = useState('');
 
@@ -232,6 +234,7 @@ function SynapseView({ onTrain, lastLog }: { onTrain: (txt: string) => void, las
     );
 }
 
+// 3. CORTEX VIEW (Logs & Analysis)
 function CortexView({ logs }: { logs: CognitiveLogEntry[] }) {
     const [selected, setSelected] = useState<CognitiveLogEntry | null>(logs[0] || null);
 
@@ -257,38 +260,48 @@ function CortexView({ logs }: { logs: CognitiveLogEntry[] }) {
             </div>
 
             {/* Inspector */}
-            <div className="md:col-span-2 glass-card p-6 rounded-2xl border border-white/10 overflow-y-auto bg-black/40">
+            <div className="md:col-span-2 glass-card p-6 rounded-2xl border border-white/10 overflow-y-auto bg-black/40 flex flex-col">
                 {selected ? (
-                    <div className="space-y-6">
-                        <div>
-                            <label className="text-[10px] font-bold text-gray-500 uppercase">Input</label>
-                            <div className="text-sm text-white font-mono bg-white/5 p-3 rounded-xl mt-1 border border-white/5">
-                                {selected.input || "N/A"}
-                            </div>
-                        </div>
-                        <div>
-                            <label className="text-[10px] font-bold text-gray-500 uppercase">Response</label>
-                            <div className="text-sm text-gray-300 font-mono bg-white/5 p-3 rounded-xl mt-1 border border-white/5 whitespace-pre-wrap">
-                                {selected.output}
-                            </div>
-                        </div>
+                    <>
+                        <AnalysisHeader log={selected} />
                         
-                        {/* Vectors Visual */}
-                        <div>
-                            <label className="text-[10px] font-bold text-gray-500 uppercase">Cognitive Vector</label>
-                            <div className="flex gap-1 h-24 items-end mt-2">
-                                {selected.vectors.response.map((v, i) => (
-                                    <div key={i} className="flex-1 bg-primary-500/20 rounded-t-sm relative group">
-                                        <div className="absolute bottom-0 w-full bg-primary-500 transition-all" style={{ height: `${v * 100}%` }} />
-                                        <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[9px] bg-black text-white px-1 opacity-0 group-hover:opacity-100">{v.toFixed(2)}</div>
-                                    </div>
-                                ))}
+                        <div className="space-y-6 flex-1">
+                            <div className="grid grid-cols-3 gap-4">
+                                <StatCard label="Intent" value={selected.intent} color="text-purple-400" />
+                                <StatCard label="Latency" value={`${selected.executionTimeMs}ms`} color="text-emerald-400" />
+                                <StatCard label="Shift" value={selected.emotionalShift.toFixed(2)} color="text-blue-400" />
                             </div>
-                            <div className="flex justify-between text-[9px] text-gray-500 mt-1 uppercase font-bold px-1">
-                                <span>Fin</span><span>Tec</span><span>Soc</span><span>Tim</span><span>Abs</span><span>Rsk</span>
+
+                            <div>
+                                <label className="text-[10px] font-bold text-gray-500 uppercase">Input Data</label>
+                                <div className="text-sm text-white font-mono bg-white/5 p-3 rounded-xl mt-1 border border-white/5">
+                                    {selected.input || "N/A"}
+                                </div>
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold text-gray-500 uppercase">Generated Output</label>
+                                <div className="text-sm text-gray-300 font-mono bg-white/5 p-3 rounded-xl mt-1 border border-white/5 whitespace-pre-wrap">
+                                    {selected.output}
+                                </div>
+                            </div>
+                            
+                            {/* Reasoning Tree Visual */}
+                            <div>
+                                <label className="text-[10px] font-bold text-gray-500 uppercase mb-2 block">Cognitive Cycles</label>
+                                <div className="space-y-2">
+                                    {selected.thoughtCycles.map((cycle, i) => (
+                                        <div key={i} className="flex gap-3 items-center text-xs bg-white/5 p-2 rounded-lg">
+                                            <div className="w-5 h-5 rounded-full bg-primary-500/20 text-primary-500 flex items-center justify-center font-bold">{i+1}</div>
+                                            <div className="flex-1">
+                                                <span className="text-gray-400">Focus: </span> 
+                                                <span className="text-white">{cycle.focusConcepts.join(', ')}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    </>
                 ) : (
                     <div className="h-full flex items-center justify-center text-gray-600">Select a log entry</div>
                 )}
@@ -297,6 +310,37 @@ function CortexView({ logs }: { logs: CognitiveLogEntry[] }) {
     );
 }
 
+// --- SUB-COMPONENT: DOWNLOAD HANDLER ---
+const AnalysisHeader = ({ log }: { log: CognitiveLogEntry }) => {
+    const handleDownload = () => {
+        const data = JSON.stringify(log, null, 2);
+        const blob = new Blob([data], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `crikz_neural_record_${log.timestamp}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
+    return (
+        <div className="flex justify-between items-center mb-6 border-b border-white/5 pb-4">
+            <h3 className="font-bold text-white flex items-center gap-2">
+                <FileText size={18} className="text-primary-500" /> Interaction Analysis
+            </h3>
+            <button 
+                onClick={handleDownload}
+                className="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-xs font-bold text-gray-300 hover:text-white transition-all border border-white/5 hover:border-white/10"
+            >
+                <Download size={14} /> Export Record
+            </button>
+        </div>
+    );
+};
+
+// 4. MATRIX VIEW (Settings)
 function MatrixView({ stats, onUpdate }: { stats: any, onUpdate: (d: InternalDrives) => void }) {
     const [drives, setDrives] = useState<InternalDrives>(stats.drives);
 
@@ -348,6 +392,15 @@ function MetricCard({ label, value, color, icon: Icon, warning }: any) {
             <div className={`p-2 rounded-lg bg-white/5 ${color.replace('text', 'text-opacity-50')}`}>
                 <Icon size={20} />
             </div>
+        </div>
+    );
+}
+
+function StatCard({ label, value, color }: any) {
+    return (
+        <div className="bg-white/5 rounded-xl p-3 border border-white/5">
+            <div className="text-[10px] text-gray-500 uppercase font-bold mb-1">{label}</div>
+            <div className={`text-lg font-black ${color}`}>{value}</div>
         </div>
     );
 }
