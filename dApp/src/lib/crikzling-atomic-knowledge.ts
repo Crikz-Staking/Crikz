@@ -80,7 +80,7 @@ export const ATOMIC_RELATIONS: ConceptRelation[] = [
   { from: 'architect', to: 'crikzling', type: 'catalyzes', strength: 0.8, learned_at: 0 },
 
   // Financial Logic
-  { from: 'stake', to: 'yield', type: 'causes', strength: 1.0, learned_at: 0 },
+  { from: 'stake', to: 'yield', type: 'cause', strength: 1.0, learned_at: 0 }, // FIXED: 'causes' -> 'cause'
   { from: 'liquidity', to: 'yield', type: 'enables', strength: 0.9, learned_at: 0 },
   { from: 'reputation', to: 'yield', type: 'compounds', strength: 0.95, learned_at: 0 },
   { from: 'risk', to: 'yield', type: 'relates_to', strength: 0.8, learned_at: 0 },

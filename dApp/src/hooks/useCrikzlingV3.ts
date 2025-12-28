@@ -285,7 +285,8 @@ export function useCrikzlingV3() {
       nodes: stats?.nodes || 0,
       relations: stats?.relations || 0,
       unsaved: stats?.unsaved || 0,
-      mood: stats?.mood || { logic: 0, empathy: 0, curiosity: 0, entropy: 0 },
+      // FIX: Default mood object now includes energy and confidence
+      mood: stats?.mood || { logic: 0, empathy: 0, curiosity: 0, entropy: 0, energy: 0, confidence: 0 },
       memories: {
         short: stats?.memories?.short || 0,
         mid: stats?.memories?.mid || 0,
