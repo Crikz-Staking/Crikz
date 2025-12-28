@@ -15,9 +15,7 @@ export interface InputAnalysis {
 export class InputProcessor {
   private stopWords: Set<string>;
 
-  // V4 UPGRADE: Expanded Semantic Atlas
   // Dimensions: [Financial, Technical, Social, Temporal, Abstract, Risk]
-  // Values range roughly -1.0 to 1.0
   private dimensionMap: Record<string, Vector> = {
     // Financial
     'profit': [1.0, 0, 0, 0, 0, 0.2],
@@ -27,6 +25,8 @@ export class InputProcessor {
     'moon': [0.9, 0, 0.5, 0.2, 0, 0.8],
     'stake': [0.8, 0.4, 0, 0.5, 0, 0.1],
     'price': [1.0, 0, 0, 0, 0, 0.3],
+    'apr': [1.0, 0.3, 0, 0.2, 0, 0],
+    'wallet': [0.9, 0.2, 0, 0, 0, 0.1],
     
     // Technical
     'code': [0, 1.0, 0, 0, 0.2, 0],
@@ -35,6 +35,8 @@ export class InputProcessor {
     'gas': [0.5, 0.8, 0, 0, 0, 0],
     'bug': [0, 1.0, 0, 0, 0, 0.8],
     'deploy': [0, 0.9, 0, 0.2, 0, 0.3],
+    'hash': [0, 1.0, 0, 0, 0.3, 0],
+    'node': [0, 0.8, 0.2, 0, 0, 0],
 
     // Social / Governance
     'community': [0, 0.1, 1.0, 0, 0.2, 0],
@@ -42,6 +44,7 @@ export class InputProcessor {
     'vote': [0, 0, 1.0, 0, 0.1, 0],
     'dao': [0.1, 0.7, 1.0, 0, 0.4, 0.2],
     'architect': [0, 0.5, 0.8, 0, 0.6, 0],
+    'human': [0, 0, 0.9, 0, 0.2, 0],
 
     // Temporal
     'wait': [0, 0, 0, 1.0, 0, 0],
@@ -50,6 +53,7 @@ export class InputProcessor {
     'fast': [0, 0.2, 0, -0.5, 0, 0.4],
     'future': [0, 0.2, 0, 1.0, 0.5, 0.5],
     'history': [0, 0, 0.3, -0.8, 0.2, 0],
+    'cycle': [0, 0, 0, 0.9, 0.4, 0],
 
     // Abstract / Philosophy
     'fibonacci': [0, 0.5, 0, 0.2, 1.0, 0],
@@ -57,12 +61,14 @@ export class InputProcessor {
     'life': [0, 0, 0.5, 0.5, 1.0, 0.2],
     'consciousness': [0, 0.2, 0.2, 0, 1.0, 0],
     'pattern': [0, 0.3, 0, 0, 0.9, 0],
+    'golden': [0.2, 0, 0, 0, 0.8, 0],
 
     // Risk
     'risk': [0.8, 0, 0, 0, 0, 1.0],
     'safe': [0.3, 0.2, 0, 0, 0, -0.8],
     'scam': [0.5, 0, 0.2, 0, 0, 1.0],
-    'secure': [0.1, 0.8, 0, 0, 0, -0.7]
+    'secure': [0.1, 0.8, 0, 0, 0, -0.7],
+    'hack': [0.5, 0.9, 0, 0, 0, 1.0]
   };
 
   private modifiers: Record<string, number> = {
@@ -204,7 +210,7 @@ export class InputProcessor {
     // Priority 2: Greetings
     if (input.match(/^(hello|hi|hey|good morning|greetings)/i) && keywords.length === 0) return 'GREETING';
     
-    // Priority 3: Vector-Based Intent (V4 Feature)
+    // Priority 3: Vector-Based Intent
     // If Financial dimension is dominant
     if (vector[0] > 0.6) return 'FINANCIAL_ADVICE';
     // If Technical dimension is dominant

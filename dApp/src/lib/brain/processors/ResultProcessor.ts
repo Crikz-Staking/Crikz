@@ -12,7 +12,7 @@ export interface IntegratedContext {
   brainStats: {
     evolutionStage: string;
     unsavedCount: number;
-    mood?: MoodState; // Added in V4
+    mood: MoodState; // Fixed: Now strictly typed
   };
 }
 
@@ -57,7 +57,7 @@ export class ResultProcessor {
       brainStats: {
         evolutionStage: brainState.evolutionStage,
         unsavedCount: brainState.unsavedDataCount,
-        mood: brainState.mood // V4: Pass mood to generator for emotional context
+        mood: brainState.mood
       }
     };
   }

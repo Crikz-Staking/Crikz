@@ -26,7 +26,14 @@ export class CognitiveProcessor {
       totalInteractions: 0,
       unsavedDataCount: 0,
       evolutionStage: 'GENESIS',
-      mood: { logic: 60, empathy: 50, curiosity: 60, entropy: 15, energy: 100, confidence: 50 },
+      mood: { 
+          logic: 60, 
+          empathy: 50, 
+          curiosity: 60, 
+          entropy: 15, 
+          energy: 100, 
+          confidence: 50 
+      },
       activeGoals: [],
       lastBlockchainSync: 0,
       attentionSpan: 60,
@@ -42,6 +49,8 @@ export class CognitiveProcessor {
           // Merge learned concepts with defaults to ensure upgrades don't break state
           concepts: { ...defaults.concepts, ...(parsed.concepts || {}) },
           relations: [...defaults.relations, ...(parsed.relations || [])],
+          // Ensure mood has all fields even if loading from old save
+          mood: { ...defaults.mood, ...(parsed.mood || {}) }
         };
       } catch (e) {
         console.error("Cognitive Load Error", e);
@@ -78,8 +87,8 @@ export class CognitiveProcessor {
       }
     });
 
-    const MAX_DEPTH = 3; // Increased depth for V4
-    const DECAY = 0.6;   // Energy retention
+    const MAX_DEPTH = 3; 
+    const DECAY = 0.6;   
 
     while (queue.length > 0) {
       const current = queue.shift()!;
