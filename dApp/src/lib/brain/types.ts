@@ -149,7 +149,8 @@ export type IntentType =
   | 'EXPLANATION' 
   | 'DAPP_QUERY' 
   | 'DISCOURSE'
-  | 'NARRATIVE_ANALYSIS';
+  | 'NARRATIVE_ANALYSIS'
+  | 'SYSTEM'; // <--- Added SYSTEM to valid types
 
 // Moved from ActionProcessor to avoid circular deps
 export type ActionType = 
