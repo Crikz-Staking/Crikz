@@ -1,5 +1,3 @@
-// src/lib/brain/processors/ResponseGenerator.ts
-
 import { IntegratedContext } from './ResultProcessor';
 import { SimulationResult, MoodState } from '../types';
 
@@ -32,7 +30,16 @@ export class ResponseGenerator {
   public generate(context: IntegratedContext): string {
     const { input, actionPlan, dappState, memories, simulation, brainStats } = context;
     const stage = (brainStats?.evolutionStage as keyof typeof this.vocab) || 'GENESIS';
-    const mood = brainStats.mood || { logic: 50, entropy: 50, empathy: 50 };
+    
+    // FIX: Ensure fallback object has ALL properties required by MoodState interface
+    const mood: MoodState = brainStats.mood || { 
+        logic: 50, 
+        entropy: 50, 
+        empathy: 50,
+        curiosity: 50,
+        energy: 100,
+        confidence: 50
+    };
 
     // 1. Handling Explicit Commands (Keep these direct)
     if (actionPlan.type === 'EXECUTE_COMMAND_RESET') return "System purged. Entropy reset to zero. Genesis state restored.";
@@ -115,7 +122,7 @@ export class ResponseGenerator {
     return response;
   }
 
-  private narrateSimulation(sim: SimulationResult, stage: string, mood: any): string {
+  private narrateSimulation(sim: SimulationResult, stage: string, mood: MoodState): string {
       const isAdvanced = stage === 'SAPIENT' || stage === 'TRANSCENDENT';
       const intro = isAdvanced 
         ? `Predictive models indicate a ${sim.scenario} scenario.`
@@ -128,13 +135,12 @@ export class ResponseGenerator {
       return `${intro} ${riskText} My advice: ${sim.recommendation}`;
   }
 
-  private generateFinancialStrategy(dapp: any, stage: string, mood: any): string {
+  private generateFinancialStrategy(dapp: any, stage: string, mood: MoodState): string {
     if (!dapp) return "I require connection to your wallet to formulate a strategy.";
     
     const rep = parseFloat(dapp.totalReputation);
     const yieldAmt = parseFloat(dapp.availableYield);
-    const isRich = rep > 1000;
-
+    
     let advice = "";
     if (rep < 100) advice = "The foundation is weak. Build reputation via 'Standard Run' cycles to stabilize your standing.";
     else if (yieldAmt > 100) advice = "Capital efficiency is high. Compounding yield into 'Industrial' tiers is the logical progression.";
