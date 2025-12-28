@@ -41,24 +41,43 @@ export class CrikzlingBrainV3 {
 
   public async tick(dappContext?: DAppContext): Promise<void> {
     const now = Date.now();
-    if (now - this.lastTick < 2000) return;
+    // Increase debounce to 5 seconds to reduce background noise
+    if (now - this.lastTick < 5000) return;
     this.lastTick = now;
 
     const spontaneousThought = this.cognitive.processNeuralTick();
     const state = this.cognitive.getState();
 
+    // LOGIC FIX: Handle background thoughts with a lifecycle (Start -> Wait -> Clear)
     if (spontaneousThought) {
         this.updateThought('introspection', 50, spontaneousThought);
         if (Math.random() > 0.7) {
             this.pendingInsight = spontaneousThought;
         }
+        // Save to subconscious memory
         this.cognitive.archiveMemory('subconscious', spontaneousThought, [], 0.1, dappContext);
+        
+        // Clear thought after 2 seconds so UI doesn't hang
+        await this.think(2000);
+        this.clearThought();
     } 
-    else if (state.drives.efficiency > 70 && dappContext && Math.random() > 0.8) {
+    else if (state.drives.efficiency > 70 && dappContext && Math.random() > 0.85) {
+        // Reduced frequency (0.8 -> 0.85)
         this.updateThought('simulation', 30, 'Optimizing yield strategies...');
+        
+        // Actually run a background simulation to make it "real"
+        const simResult = this.simulator.runSimulation('FINANCIAL_ADVICE', dappContext, [1,0,0,0,0,0]);
+        if(simResult) {
+             this.pendingInsight = `Background Analysis: ${simResult.recommendation}`;
+        }
+
+        // Clear thought after 2 seconds
+        await this.think(2000);
+        this.clearThought();
     }
     else {
-        this.updateThought(null as any, 0, '');
+        // Ensure we are clear if nothing happened
+        this.clearThought();
     }
   }
 
@@ -115,18 +134,23 @@ export class CrikzlingBrainV3 {
         'bot', response, activeIds, 0.5, dappContext, inputAnalysis.inputVector
       );
 
-      this.updateThought(null as any, 100, 'Complete');
+      this.updateThought('generation', 100, 'Complete');
+      await this.think(500); // Show 100% briefly
+      this.clearThought();
       
       return { response, actionPlan }; 
 
     } catch (error) {
       console.error("Brain Failure:", error);
+      this.clearThought();
       return { 
           response: "Neural pathway disrupted. Rebooting cognitive core...",
           actionPlan: { type: 'RESPOND_NATURAL', requiresBlockchain: false, priority: 0, reasoning: 'Error Fallback' }
       };
     }
   }
+
+  // ... [Keep exportState, assimilateFile, needsCrystallization, etc. exactly as is] ...
 
   public exportState(): string {
     return JSON.stringify(this.cognitive.getState(), (key, value) => 
@@ -171,6 +195,13 @@ export class CrikzlingBrainV3 {
 
   public wipe() {
     this.cognitive.wipeLocalMemory();
+  }
+
+  // HELPER: Explicitly clear thought to null
+  private clearThought() {
+      if (this.thoughtCallback) {
+          this.thoughtCallback(null);
+      }
   }
 
   private updateThought(phase: ThoughtProcess['phase'], progress: number, subProcess: string) {

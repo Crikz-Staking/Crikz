@@ -48,8 +48,15 @@ export default function CrikzlingAvatar() {
     }
   };
 
-  const isBusy = isThinking || !!currentThought;
-  const coreState = isSyncing ? 'crystallizing' : isBusy ? 'thinking' : 'idle';
+  // LOGIC UPDATE: Separate user-blocking thought from background learning
+  // isThinking = Responding to user (Block Input)
+  // isLearning = Background loop (Allow Input)
+  const isLearning = !isThinking && !!currentThought;
+  
+  const coreState = isSyncing ? 'crystallizing' 
+                  : isThinking ? 'thinking' 
+                  : isLearning ? 'thinking' // Visuals spin, but UI is unlocked
+                  : 'idle';
   
   const stageColors = {
       GENESIS: 'text-gray-400',
@@ -60,10 +67,10 @@ export default function CrikzlingAvatar() {
 
   const currentStageColor = stageColors[brainStats.stage as keyof typeof stageColors] || 'text-gray-400';
 
-  // FIX: Access new V5 Drive properties
-  const curiosity = brainStats.drives.curiosity || 50;
-  const stability = brainStats.drives.stability || 50;
-  const energy = brainStats.drives.energy || 50;
+  // Safe defaults for visualization
+  const curiosity = Math.max(5, brainStats.drives.curiosity || 0);
+  const stability = Math.max(5, brainStats.drives.stability || 0);
+  const energy = Math.max(5, brainStats.drives.energy || 0);
 
   return (
     <>
@@ -106,8 +113,9 @@ export default function CrikzlingAvatar() {
                             CRIKZLING <span className={`text-[9px] px-1.5 py-0.5 rounded border border-white/10 ${currentStageColor} bg-white/5`}>{brainStats.stage}</span>
                         </h3>
                         <div className="flex items-center gap-2 text-[10px] font-mono text-gray-400 mt-0.5">
-                            <span className={isBusy ? 'text-amber-500 animate-pulse' : 'text-emerald-500'}>
-                                {isSyncing ? 'CRYSTALLIZING' : isBusy ? 'PROCESSING' : 'ONLINE'}
+                            {/* Status Indicator Logic */}
+                            <span className={isThinking ? 'text-amber-500 animate-pulse' : isLearning ? 'text-blue-400' : 'text-emerald-500'}>
+                                {isSyncing ? 'CRYSTALLIZING' : isThinking ? 'PROCESSING' : isLearning ? 'LEARNING' : 'ONLINE'}
                             </span>
                             <span className="text-white/20">|</span>
                             <span>v5.0.0</span>
@@ -171,8 +179,8 @@ export default function CrikzlingAvatar() {
             </AnimatePresence>
 
             {currentThought && (
-                <div className="bg-black/40 border-b border-amber-500/20 px-4 py-2 shrink-0">
-                    <div className="flex justify-between text-[10px] text-amber-500 font-mono mb-1">
+                <div className={`border-b px-4 py-2 shrink-0 transition-colors ${isLearning ? 'bg-blue-900/10 border-blue-500/20' : 'bg-black/40 border-amber-500/20'}`}>
+                    <div className={`flex justify-between text-[10px] font-mono mb-1 ${isLearning ? 'text-blue-400' : 'text-amber-500'}`}>
                         <span className="uppercase flex items-center gap-1">
                             <Zap size={10} className="fill-current" /> {currentThought.phase}
                         </span>
@@ -180,7 +188,7 @@ export default function CrikzlingAvatar() {
                     </div>
                     <div className="h-0.5 bg-white/5 rounded-full overflow-hidden">
                         <motion.div 
-                            className="h-full bg-amber-500"
+                            className={`h-full ${isLearning ? 'bg-blue-500' : 'bg-amber-500'}`}
                             initial={{ width: 0 }}
                             animate={{ width: `${currentThought.progress}%` }}
                         />
@@ -269,8 +277,9 @@ export default function CrikzlingAvatar() {
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={handleKeyPress}
                         placeholder="Type a command or query..."
+                        // Fix: Allow input unless it's strictly user-response processing or sync
                         disabled={isThinking || isSyncing}
-                        className="flex-1 bg-transparent border-none text-white text-sm px-2 py-3 focus:outline-none placeholder-gray-600"
+                        className="flex-1 bg-transparent border-none text-white text-sm px-2 py-3 focus:outline-none placeholder-gray-600 disabled:opacity-50"
                     />
                     <button 
                         onClick={handleSend}

@@ -19,6 +19,16 @@ export class CognitiveProcessor {
 
   private initializeState(savedJson?: string): BrainState {
     const knowledgeModules = loadAllKnowledgeModules();
+    
+    // Strong defaults for Drives to prevent 0% stats
+    const defaultDrives: InternalDrives = { 
+        curiosity: 80, 
+        stability: 50, 
+        efficiency: 50, 
+        social: 50, 
+        energy: 100 
+    };
+
     const defaults: BrainState = {
       concepts: { ...ATOMIC_PRIMITIVES, ...knowledgeModules.concepts },
       relations: [...ATOMIC_RELATIONS, ...knowledgeModules.relations],
@@ -31,7 +41,7 @@ export class CognitiveProcessor {
       totalInteractions: 0,
       unsavedDataCount: 0,
       evolutionStage: 'GENESIS',
-      drives: { curiosity: 80, stability: 50, efficiency: 50, social: 50, energy: 100 },
+      drives: defaultDrives,
       activeGoals: [],
       lastBlockchainSync: 0,
       learningRate: 0.15
@@ -40,23 +50,34 @@ export class CognitiveProcessor {
     if (savedJson) {
       try {
         const parsed = JSON.parse(savedJson);
+        
+        // Robust Drive Hydration Logic
+        let loadedDrives = defaultDrives;
+        
+        if (parsed.drives) {
+            // New V3 format
+            loadedDrives = { ...defaultDrives, ...parsed.drives };
+        } else if (parsed.mood) {
+            // Migration from legacy V1/V2 mood structure
+            loadedDrives = {
+                curiosity: parsed.mood.curiosity || 50,
+                stability: 100 - (parsed.mood.entropy || 50),
+                efficiency: parsed.mood.logic || 50,
+                social: parsed.mood.empathy || 50,
+                energy: parsed.mood.energy || 100
+            };
+        }
+
         return {
           ...defaults,
           ...parsed,
           concepts: { ...defaults.concepts, ...(parsed.concepts || {}) },
           relations: [...defaults.relations, ...(parsed.relations || [])],
-          // Backwards compatibility for old "mood" saves
-          drives: parsed.drives || {
-             curiosity: parsed.mood?.curiosity || 50,
-             stability: 100 - (parsed.mood?.entropy || 50),
-             efficiency: parsed.mood?.logic || 50,
-             social: parsed.mood?.empathy || 50,
-             energy: parsed.mood?.energy || 100
-          },
+          drives: loadedDrives,
           activationMap: parsed.activationMap || {}
         };
       } catch (e) {
-        console.error("Cognitive Load Error", e);
+        console.error("Cognitive Load Error - Reverting to Genesis defaults", e);
         return defaults;
       }
     }
@@ -85,9 +106,11 @@ export class CognitiveProcessor {
 
     this.state.attentionFocus = dominantThought;
 
+    // Natural regeneration of drives
     this.state.drives.energy = Math.min(100, this.state.drives.energy + 0.5); 
     this.state.drives.curiosity = Math.min(100, this.state.drives.curiosity + 0.1);
     
+    // Spontaneous Dreaming (Background Processing)
     if (this.state.drives.energy > 80 && this.state.drives.curiosity > 90 && !dominantThought) {
         return this.dream();
     }
