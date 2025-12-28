@@ -4,7 +4,8 @@ import { FolderPlus, Settings, Trash2, Move, Tag, MoreVertical, Flame, Image as 
 import { useUserNFTs } from '@/hooks/web3/useUserNFTs';
 import { useCollectionManager, Collection } from '@/hooks/web3/useCollectionManager';
 import { useWriteContract, useWaitForTransactionReceipt, useAccount } from 'wagmi';
-import { CRIKZ_NFT_ADDRESS } from '@/config/index';
+import { CRIKZ_NFT_ADDRESS, CRIKZ_NFT_ABI } from '@/config/index';
+// FIX: Ensure this path is correct based on where you put the file in step 2
 import ListingModal from './components/ListingModal';
 import { toast } from 'react-hot-toast';
 
@@ -48,7 +49,7 @@ export default function UserCollection({ dynamicColor }: { dynamicColor: string 
       if(!confirm("Are you sure? This action is irreversible.")) return;
       burn({
           address: CRIKZ_NFT_ADDRESS,
-          abi: [{ name: 'transferFrom', type: 'function', inputs: [{name:'from',type:'address'},{name:'to',type:'address'},{name:'tokenId',type:'uint256'}], stateMutability: 'nonpayable', outputs: [] }],
+          abi: CRIKZ_NFT_ABI, // FIX: Use updated ABI from config
           functionName: 'transferFrom',
           args: [address, '0x000000000000000000000000000000000000dEaD', id]
       } as any);
@@ -235,7 +236,7 @@ export default function UserCollection({ dynamicColor }: { dynamicColor: string 
         {/* 1. Create Collection Modal */}
         <SimpleModal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} title="New Collection">
             <Form 
-                onSubmit={(name, desc) => { createCollection(name, desc); setShowCreateModal(false); toast.success("Created!"); }} 
+                onSubmit={(name: string, desc: string) => { createCollection(name, desc); setShowCreateModal(false); toast.success("Created!"); }} 
                 buttonText="Create Collection"
             />
         </SimpleModal>
@@ -245,7 +246,7 @@ export default function UserCollection({ dynamicColor }: { dynamicColor: string 
             <Form 
                 initialName={showEditModal?.name} 
                 initialDesc={showEditModal?.description}
-                onSubmit={(name, desc) => { if(showEditModal) editCollection(showEditModal.id, name, desc); setShowEditModal(null); toast.success("Updated!"); }} 
+                onSubmit={(name: string, desc: string) => { if(showEditModal) editCollection(showEditModal.id, name, desc); setShowEditModal(null); toast.success("Updated!"); }} 
                 buttonText="Save Changes"
             />
         </SimpleModal>
@@ -300,7 +301,15 @@ function SimpleModal({ isOpen, onClose, title, children }: any) {
     );
 }
 
-function Form({ onSubmit, initialName = '', initialDesc = '', buttonText }: any) {
+// FIX: Added type definitions for Form props
+interface FormProps {
+    onSubmit: (name: string, desc: string) => void;
+    initialName?: string;
+    initialDesc?: string;
+    buttonText: string;
+}
+
+function Form({ onSubmit, initialName = '', initialDesc = '', buttonText }: FormProps) {
     const [name, setName] = useState(initialName);
     const [desc, setDesc] = useState(initialDesc);
     return (

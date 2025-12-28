@@ -41,7 +41,12 @@ export const CRIKZ_NFT_ABI = [
   { "inputs": [{"name": "owner", "type": "address"}], "name": "balanceOf", "outputs": [{"name": "", "type": "uint256"}], "stateMutability": "view", "type": "function" },
   { "inputs": [{"name": "owner", "type": "address"}, {"name": "index", "type": "uint256"}], "name": "tokenOfOwnerByIndex", "outputs": [{"name": "", "type": "uint256"}], "stateMutability": "view", "type": "function" },
   { "inputs": [{"name": "tokenId", "type": "uint256"}], "name": "tokenURI", "outputs": [{"name": "", "type": "string"}], "stateMutability": "view", "type": "function" },
-  { "inputs": [{"name": "_tokenURI", "type": "string"}], "name": "mint", "outputs": [], "stateMutability": "payable", "type": "function" }
+  { "inputs": [{"name": "_tokenURI", "type": "string"}], "name": "mint", "outputs": [], "stateMutability": "payable", "type": "function" },
+  // FIX: Added missing functions for ListingModal
+  { "inputs": [{"name": "tokenId", "type": "uint256"}], "name": "getApproved", "outputs": [{"name": "", "type": "address"}], "stateMutability": "view", "type": "function" },
+  { "inputs": [{"name": "owner", "type": "address"}, {"name": "operator", "type": "address"}], "name": "isApprovedForAll", "outputs": [{"name": "", "type": "bool"}], "stateMutability": "view", "type": "function" },
+  { "inputs": [{"name": "to", "type": "address"}, {"name": "tokenId", "type": "uint256"}], "name": "approve", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+  { "inputs": [{"name": "from", "type": "address"}, {"name": "to", "type": "address"}, {"name": "tokenId", "type": "uint256"}], "name": "transferFrom", "outputs": [], "stateMutability": "nonpayable", "type": "function" }
 ] as const;
 
 export const NFT_MARKETPLACE_ABI = [
@@ -52,7 +57,6 @@ export const NFT_MARKETPLACE_ABI = [
   { "inputs": [{"name": "nftContract", "type": "address"}, {"name": "tokenId", "type": "uint256"}], "name": "buyItem", "outputs": [], "stateMutability": "nonpayable", "type": "function" }
 ] as const;
 
-// Add this placeholder (You must deploy the contract to get the real address)
 export const CRIKZ_MEDIA_ADDRESS = "0xc9BCd9bC3abF27739B67CAa50C7dD7258dc409de"; 
 
 export const CRIKZ_MEDIA_ABI = [

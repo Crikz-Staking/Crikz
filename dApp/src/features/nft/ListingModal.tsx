@@ -17,6 +17,9 @@ export default function ListingModal({ tokenId, onClose, onSuccess }: ListingMod
   const [price, setPrice] = useState('');
   const [step, setStep] = useState<'approve' | 'list'>('approve');
 
+  // FIX: Provide fallback address to avoid undefined error
+  const safeAddress = address || '0x0000000000000000000000000000000000000000';
+
   // 1. Check Approval
   const { data: approvedAddress, refetch: refetchApproval } = useReadContract({
     address: CRIKZ_NFT_ADDRESS,
@@ -27,9 +30,13 @@ export default function ListingModal({ tokenId, onClose, onSuccess }: ListingMod
 
   const { data: isApprovedForAll, refetch: refetchAll } = useReadContract({
     address: CRIKZ_NFT_ADDRESS,
-    abi: [{ name: 'isApprovedForAll', type: 'function', stateMutability: 'view', inputs: [{name: 'owner', type: 'address'}, {name: 'operator', type: 'address'}], outputs: [{name: '', type: 'bool'}] }],
+    // FIX: Using CRIKZ_NFT_ABI now that it includes isApprovedForAll
+    abi: CRIKZ_NFT_ABI,
     functionName: 'isApprovedForAll',
-    args: [address, NFT_MARKETPLACE_ADDRESS],
+    args: [safeAddress, NFT_MARKETPLACE_ADDRESS],
+    query: {
+        enabled: !!address // Only run if address exists
+    }
   });
 
   useEffect(() => {
