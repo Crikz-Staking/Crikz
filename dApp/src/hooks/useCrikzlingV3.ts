@@ -112,14 +112,16 @@ export function useCrikzlingV3() {
 
   useEffect(() => {
     if (writeError) {
-      toast.error('Transaction failed: ' + writeError.message);
+      // FIX: Added ID to update the loading toast instead of creating a new one
+      toast.error('Transaction failed: ' + writeError.message, { id: 'crystallize' });
       setIsSyncing(false);
     }
   }, [writeError]);
 
   useEffect(() => {
     if (txSuccess && isSyncing && brain && address) {
-      toast.success('Memory crystallized on-chain!');
+      // FIX: Added ID to update the loading toast
+      toast.success('Memory crystallized on-chain!', { id: 'crystallize' });
       brain.clearUnsavedCount();
       localStorage.setItem(`crikz_brain_v3_${address}`, brain.exportState());
       setIsSyncing(false);
@@ -196,7 +198,8 @@ export function useCrikzlingV3() {
       });
     } catch (e: any) {
       console.error(e);
-      toast.error('Crystallization failed');
+      // FIX: Added ID to update the loading toast
+      toast.error('Crystallization failed', { id: 'crystallize' });
       setIsSyncing(false);
     }
   };
@@ -215,7 +218,7 @@ export function useCrikzlingV3() {
         localStorage.setItem(`crikz_brain_v3_${sessionId}`, brain.exportState());
       }
       
-      // 2. Handle Auto-Execution of Commands (The Fix)
+      // 2. Handle Auto-Execution of Commands
       if (actionPlan && actionPlan.type === 'EXECUTE_COMMAND_SAVE') {
           // Trigger Crystallization automatically after responding
           setTimeout(() => crystallize(), 1000); 
