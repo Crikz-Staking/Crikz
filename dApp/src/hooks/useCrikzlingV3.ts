@@ -61,8 +61,14 @@ export function useCrikzlingV3() {
 
   const isOwner = address?.toLowerCase() === ARCHITECT_ADDRESS.toLowerCase();
 
-  const { writeContract, data: hash, isPending: isTxPending, error: writeError } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess: txSuccess } = useWaitForTransactionReceipt({ hash });
+  // Use writeContractAsync for better async control flow
+  const { writeContractAsync, data: hash } = useWriteContract();
+  
+  // Watch for the receipt (Mining)
+  const { isLoading: isConfirming, isSuccess: txSuccess } = useWaitForTransactionReceipt({ 
+    hash,
+    confirmations: 1 
+  });
 
   const thoughtCallback = useCallback((thought: ThoughtProcess | null) => {
     setCurrentThought(thought);
@@ -110,24 +116,18 @@ export function useCrikzlingV3() {
 
   // -- HANDLERS --
 
+  // 1. Handle Transaction Success (Mining Complete)
   useEffect(() => {
-    if (writeError) {
-      // FIX: Added ID to update the loading toast instead of creating a new one
-      toast.error('Transaction failed: ' + writeError.message, { id: 'crystallize' });
-      setIsSyncing(false);
-    }
-  }, [writeError]);
-
-  useEffect(() => {
-    if (txSuccess && isSyncing && brain && address) {
-      // FIX: Added ID to update the loading toast
+    if (txSuccess && brain && address && isSyncing) {
       toast.success('Memory crystallized on-chain!', { id: 'crystallize' });
+      
       brain.clearUnsavedCount();
       localStorage.setItem(`crikz_brain_v3_${address}`, brain.exportState());
+      
       setIsSyncing(false);
       typeStreamResponse('Crystallization confirmed. My cognitive state is now permanently recorded on the Binance Smart Chain.');
     }
-  }, [txSuccess, isSyncing, brain, address]);
+  }, [txSuccess, brain, address]); // Removed isSyncing dependency to avoid race, handled inside
 
   const typeStreamResponse = async (fullText: string) => {
     setIsTyping(true);
@@ -163,32 +163,38 @@ export function useCrikzlingV3() {
     });
   };
 
-  // --- MAIN CRYSTALLIZE LOGIC ---
+  // --- MAIN CRYSTALLIZE LOGIC (FIXED) ---
   const crystallize = async () => {
     if (!brain || !address) {
       toast.error("You must connect a wallet to crystallize memory.");
       return;
     }
-    if (isSyncing || isTxPending) return;
+    // Prevent double triggers, but allow retry if hash exists but failed previously
+    if (isSyncing || isConfirming) return;
 
     setIsSyncing(true);
-    toast.loading('Crystallizing enhanced memory to IPFS...', { id: 'crystallize' });
+    const toastId = 'crystallize';
+    toast.loading('Encoding neural state...', { id: toastId });
 
     try {
+      // 1. Prepare Data
       const state = brain.getState();
       const exportStr = brain.exportState();
       const blob = new Blob([exportStr], { type: 'application/json' });
       const file = new File([blob], `crikz_v4_mem_${Date.now()}.json`);
       
+      // 2. Upload to IPFS
+      toast.loading('Uploading to decentralized storage...', { id: toastId });
       const cid = await uploadToIPFS(file);
+      
       const conceptCount = BigInt(Object.keys(state.concepts).length);
       const stage = state.evolutionStage;
-      
       const trigger = `V4_MANUAL_SAVE_INTERACTIONS_${state.totalInteractions}`;
 
-      toast.loading('Confirming on Blockchain...', { id: 'crystallize' });
+      // 3. Trigger Wallet Signature
+      toast.loading('Waiting for wallet approval...', { id: toastId });
       
-      writeContract({
+      await writeContractAsync({
         address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
         abi: CRIKZLING_MEMORY_ABI,
         functionName: 'crystallizeMemory',
@@ -196,11 +202,20 @@ export function useCrikzlingV3() {
         account: address,
         chain: bscTestnet
       });
+
+      // 4. Wallet Signed -> Waiting for Mining
+      toast.loading('Confirming on Blockchain...', { id: toastId });
+      // Logic continues in the useEffect watching [txSuccess]
+
     } catch (e: any) {
       console.error(e);
-      // FIX: Added ID to update the loading toast
-      toast.error('Crystallization failed', { id: 'crystallize' });
-      setIsSyncing(false);
+      // Determine error type for better user feedback
+      const msg = e.message?.includes('User rejected') 
+        ? 'Transaction rejected by user' 
+        : 'Crystallization failed';
+      
+      toast.error(msg, { id: toastId });
+      setIsSyncing(false); // Reset state immediately on error
     }
   };
 
@@ -211,21 +226,17 @@ export function useCrikzlingV3() {
     setMessages(prev => [...prev, { role: 'user', content: text, timestamp: Date.now() }]);
 
     try {
-      // 1. Process Input
       const { response, actionPlan } = await brain.process(text, isOwner, dappContextRef.current);
       
       if (sessionId) {
         localStorage.setItem(`crikz_brain_v3_${sessionId}`, brain.exportState());
       }
       
-      // 2. Handle Auto-Execution of Commands
       if (actionPlan && actionPlan.type === 'EXECUTE_COMMAND_SAVE') {
-          // Trigger Crystallization automatically after responding
           setTimeout(() => crystallize(), 1000); 
       }
       
       if (actionPlan && actionPlan.type === 'EXECUTE_COMMAND_RESET') {
-          // Reset handled inside brain, just update local storage/UI
           resetBrain(); 
       }
 
@@ -286,7 +297,7 @@ export function useCrikzlingV3() {
     crystallize,
     resetBrain,
     needsSave: brain?.needsCrystallization() || false,
-    isSyncing: isSyncing || isTxPending || isConfirming,
+    isSyncing: isSyncing || isConfirming, // Combine states for UI locking
     brainStats: {
       stage: stats?.stage || 'GENESIS',
       nodes: stats?.nodes || 0,
