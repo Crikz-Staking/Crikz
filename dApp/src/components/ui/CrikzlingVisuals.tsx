@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 
 interface VisualProps {
-  state: 'idle' | 'thinking' | 'crystallizing' | 'error';
+  state: 'idle' | 'thinking' | 'crystallizing' | 'error' | 'connected'; // <--- Added 'connected'
 }
 
 /**
@@ -20,6 +20,13 @@ export const GeometricCore = ({ state }: VisualProps) => {
           secondary: '#F59E0B', // Gold (Data)
           glow: 'rgba(167, 139, 250, 0.5)',
           core: '#FFF'
+        };
+      case 'connected': // <--- New Palette for Internet/High Stamina
+        return {
+          primary: '#22D3EE', // Cyan (Electric/Data)
+          secondary: '#3B82F6', // Blue
+          glow: 'rgba(34, 211, 238, 0.6)',
+          core: '#E0F2FE'
         };
       case 'crystallizing':
         return {
@@ -57,6 +64,12 @@ export const GeometricCore = ({ state }: VisualProps) => {
       scale: [1, 0.9, 1],
       transition: { rotate: { duration: 2, ease: "linear", repeat: Infinity }, scale: { duration: 0.5, repeat: Infinity } } 
     },
+    connected: { // <--- Fast spin for high bandwidth
+      rotate: 360,
+      scale: [1, 1.1, 1],
+      opacity: [0.5, 1, 0.5],
+      transition: { rotate: { duration: 1, ease: "linear", repeat: Infinity }, scale: { duration: 0.5, repeat: Infinity } }
+    },
     crystallizing: { 
       rotate: [0, 720], 
       scale: [1, 1.5, 0], // Implosion effect
@@ -72,6 +85,7 @@ export const GeometricCore = ({ state }: VisualProps) => {
   const coreVariants = {
     idle: { scale: [1, 1.2, 1], opacity: 0.8, transition: { duration: 3, repeat: Infinity, ease: "easeInOut" } },
     thinking: { scale: [0.8, 1.5, 0.8], opacity: 1, transition: { duration: 0.8, repeat: Infinity, ease: "easeInOut" } },
+    connected: { scale: [1, 1.3, 1], opacity: 1, transition: { duration: 0.4, repeat: Infinity, ease: "easeInOut" } }, // <--- Rapid Pulse
     crystallizing: { scale: 0, opacity: 0, transition: { duration: 0.5 } },
     error: { scale: [1, 0.8, 1], transition: { duration: 0.1, repeat: Infinity } }
   };
@@ -83,10 +97,10 @@ export const GeometricCore = ({ state }: VisualProps) => {
       <motion.div
         className="absolute inset-[-20%] rounded-full blur-xl"
         animate={{
-          opacity: state === 'thinking' ? [0.2, 0.5, 0.2] : [0.1, 0.2, 0.1],
+          opacity: state === 'thinking' || state === 'connected' ? [0.2, 0.6, 0.2] : [0.1, 0.2, 0.1],
           scale: state === 'thinking' ? [1, 1.2, 1] : 1
         }}
-        transition={{ duration: 2, repeat: Infinity }}
+        transition={{ duration: state === 'connected' ? 0.5 : 2, repeat: Infinity }}
         style={{ background: `radial-gradient(circle, ${colors.glow} 0%, transparent 70%)` }}
       />
 
@@ -102,10 +116,10 @@ export const GeometricCore = ({ state }: VisualProps) => {
       <motion.div
         className="absolute inset-[15%] border-[1px] rounded-full"
         animate={{ 
-          rotate: state === 'thinking' ? 360 : -360,
+          rotate: state === 'thinking' || state === 'connected' ? 360 : -360,
           borderColor: [colors.secondary, colors.primary, colors.secondary]
         }}
-        transition={{ duration: state === 'thinking' ? 3 : 10, repeat: Infinity, ease: "linear" }}
+        transition={{ duration: state === 'thinking' ? 3 : state === 'connected' ? 1 : 10, repeat: Infinity, ease: "linear" }}
         style={{ opacity: 0.6 }}
       />
 
@@ -158,11 +172,11 @@ export const GeometricCore = ({ state }: VisualProps) => {
           transition={{ duration: state === 'thinking' ? 0.5 : 4, repeat: Infinity }}
         />
 
-        {/* 3. Thinking Scanner Lines (Only visible when active) */}
-        {state === 'thinking' && (
+        {/* 3. Thinking Scanner Lines (Only visible when active or connected) */}
+        {(state === 'thinking' || state === 'connected') && (
           <motion.g
             animate={{ rotate: 360 }}
-            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+            transition={{ duration: state === 'connected' ? 0.5 : 1, repeat: Infinity, ease: "linear" }}
             style={{ originX: "50px", originY: "50px" }}
           >
             <circle cx="50" cy="50" r="40" stroke={colors.primary} strokeWidth="1" strokeDasharray="10 20" opacity="0.5" />

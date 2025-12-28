@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Send, Minimize2, Save, RefreshCw, Upload, 
-  Terminal, Database, Cpu, Activity, Zap, Lock, Brain 
+  Terminal, Database, Cpu, Activity, Zap, Lock, Brain, Wifi 
 } from 'lucide-react';
 import { useCrikzlingV3 } from '@/hooks/useCrikzlingV3';
 import { GeometricCore } from './CrikzlingVisuals';
@@ -15,11 +15,12 @@ export default function CrikzlingAvatar() {
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
   
-  // SINGLE SOURCE OF TRUTH:
+  // 1. EXTRACT NEW FUNCTIONS HERE
   const { 
     messages, sendMessage, crystallize, needsSave, isSyncing, 
     brainStats, isThinking, isTyping, currentThought, 
-    uploadFile, resetBrain, isOwner, logs // <--- Extract Logs
+    uploadFile, resetBrain, isOwner, logs, 
+    updateDrives, trainConcept, simpleTrain, toggleNeuralLink // <--- New
   } = useCrikzlingV3();
 
   useEffect(() => {
@@ -52,8 +53,11 @@ export default function CrikzlingAvatar() {
   };
 
   const isLearning = !isThinking && !!currentThought;
+  const isConnected = brainStats.connectivity?.isConnected;
   
+  // 2. UPDATE VISUAL STATE LOGIC
   const coreState = isSyncing ? 'crystallizing' 
+                  : isConnected ? 'connected' // <--- New Visual State
                   : isThinking ? 'thinking' 
                   : isLearning ? 'thinking'
                   : 'idle';
@@ -73,16 +77,17 @@ export default function CrikzlingAvatar() {
 
   return (
     <>
-      {/* 
-          CRITICAL FIX: Pass the logs from THIS instance of the brain
-          directly to the dashboard. Do not let Dashboard create its own brain.
-      */}
+      {/* 3. PASS PROPS TO DASHBOARD */}
       <NeuralDashboard 
         isOpen={showDashboard} 
         onClose={() => setShowDashboard(false)} 
         logs={logs}
         brainStats={brainStats}
         isOwner={isOwner}
+        updateDrives={updateDrives}
+        trainConcept={trainConcept}
+        simpleTrain={simpleTrain}
+        toggleNeuralLink={toggleNeuralLink}
       />
 
       <AnimatePresence>
@@ -97,9 +102,10 @@ export default function CrikzlingAvatar() {
             <div className="w-10 h-10">
               <GeometricCore state={coreState} />
             </div>
+            {/* Status Indicators */}
             <div className="absolute top-0 right-0 flex h-3 w-3">
               {needsSave && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>}
-              <span className={`relative inline-flex rounded-full h-3 w-3 ${needsSave ? 'bg-red-500' : 'bg-emerald-500'}`}></span>
+              <span className={`relative inline-flex rounded-full h-3 w-3 ${needsSave ? 'bg-red-500' : isConnected ? 'bg-cyan-400' : 'bg-emerald-500'}`}></span>
             </div>
           </motion.button>
         )}
@@ -124,18 +130,18 @@ export default function CrikzlingAvatar() {
                             CRIKZLING <span className={`text-[9px] px-1.5 py-0.5 rounded border border-white/10 ${currentStageColor} bg-white/5`}>{brainStats.stage}</span>
                         </h3>
                         <div className="flex items-center gap-2 text-[10px] font-mono text-gray-400 mt-0.5">
-                            <span className={isThinking ? 'text-amber-500 animate-pulse' : isLearning ? 'text-blue-400' : 'text-emerald-500'}>
-                                {isSyncing ? 'CRYSTALLIZING' : isThinking ? 'PROCESSING' : isLearning ? 'LEARNING' : 'ONLINE'}
+                            <span className={isConnected ? 'text-cyan-400 animate-pulse' : isThinking ? 'text-amber-500 animate-pulse' : isLearning ? 'text-blue-400' : 'text-emerald-500'}>
+                                {isSyncing ? 'CRYSTALLIZING' : isConnected ? 'NEURAL LINK' : isThinking ? 'PROCESSING' : isLearning ? 'LEARNING' : 'ONLINE'}
                             </span>
                             <span className="text-white/20">|</span>
-                            <span>v5.0.0</span>
+                            <span>v5.2.0</span>
                         </div>
                     </div>
                 </div>
                 <div className="flex gap-1">
                     <button 
                         onClick={() => setShowDashboard(true)}
-                        className="p-2 rounded-lg text-gray-500 hover:text-primary-500 hover:bg-white/10 transition-colors"
+                        className={`p-2 rounded-lg transition-colors ${isConnected ? 'text-cyan-400 bg-cyan-900/20' : 'text-gray-500 hover:text-primary-500 hover:bg-white/10'}`}
                         title="Neural Dashboard"
                     >
                         <Brain size={16} />
@@ -153,6 +159,7 @@ export default function CrikzlingAvatar() {
                 </div>
             </div>
 
+            {/* Quick Stats Drawer */}
             <AnimatePresence>
                 {showMonitor && (
                     <motion.div 
@@ -187,17 +194,23 @@ export default function CrikzlingAvatar() {
                                 </div>
                             </div>
                         </div>
-                        <div className="px-4 pb-3 flex justify-between text-[10px] text-gray-500 font-mono">
-                            <span className="flex items-center gap-1"><Brain size={10}/> Nodes: {brainStats.nodes}</span>
+                        
+                        {/* Connection Status */}
+                        <div className="px-4 pb-3 flex justify-between text-[10px] text-gray-500 font-mono border-t border-white/5 pt-2">
+                            <span className="flex items-center gap-1">
+                                {isConnected ? <Wifi size={10} className="text-cyan-400"/> : <Wifi size={10}/>} 
+                                {isConnected ? 'LINK: ACTIVE' : 'LINK: OFFLINE'}
+                            </span>
                             <span className="flex items-center gap-1"><Cpu size={10}/> Ops: {brainStats.interactions}</span>
                         </div>
                     </motion.div>
                 )}
             </AnimatePresence>
 
+            {/* Existing Thought Progress Bar */}
             {currentThought && (
-                <div className={`border-b px-4 py-2 shrink-0 transition-colors ${isLearning ? 'bg-blue-900/10 border-blue-500/20' : 'bg-black/40 border-amber-500/20'}`}>
-                    <div className={`flex justify-between text-[10px] font-mono mb-1 ${isLearning ? 'text-blue-400' : 'text-amber-500'}`}>
+                <div className={`border-b px-4 py-2 shrink-0 transition-colors ${isConnected ? 'bg-cyan-900/10 border-cyan-500/20' : isLearning ? 'bg-blue-900/10 border-blue-500/20' : 'bg-black/40 border-amber-500/20'}`}>
+                    <div className={`flex justify-between text-[10px] font-mono mb-1 ${isConnected ? 'text-cyan-400' : isLearning ? 'text-blue-400' : 'text-amber-500'}`}>
                         <span className="uppercase flex items-center gap-1">
                             <Zap size={10} className="fill-current" /> {currentThought.phase}
                         </span>
@@ -205,7 +218,7 @@ export default function CrikzlingAvatar() {
                     </div>
                     <div className="h-0.5 bg-white/5 rounded-full overflow-hidden">
                         <motion.div 
-                            className={`h-full ${isLearning ? 'bg-blue-500' : 'bg-amber-500'}`}
+                            className={`h-full ${isConnected ? 'bg-cyan-400' : isLearning ? 'bg-blue-500' : 'bg-amber-500'}`}
                             initial={{ width: 0 }}
                             animate={{ width: `${currentThought.progress}%` }}
                         />
