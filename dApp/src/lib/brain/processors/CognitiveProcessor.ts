@@ -80,21 +80,17 @@ export class CognitiveProcessor {
   }
 
   // --- HELPER: Context Awareness ---
-  // Returns nodes that are currently "hot" (Active or in Memory)
   private getPriorityNodes(): string[] {
       const active = Object.keys(this.state.activationMap);
-      const recent = this.state.shortTermMemory.slice(-5).flatMap(m => m.concepts);
+      const recent = this.state.shortTermMemory.slice(-5).flatMap((m: Memory) => m.concepts);
       
-      // Merge unique
       const pool = [...new Set([...active, ...recent])];
       
-      // Fallback to random if mind is empty
       if (pool.length < 2) return Object.keys(this.state.concepts);
       return pool;
   }
 
-  // --- LOGIC 1: Semantic Clustering (Organization) ---
-  // Groups related concepts into a "Hyper-Node" to clean up the graph
+  // --- LOGIC 1: Semantic Clustering ---
   public clusterConcepts(): string | null {
       const candidates = this.getPriorityNodes();
       if (candidates.length < 3) return null;
@@ -105,11 +101,10 @@ export class CognitiveProcessor {
 
       // Find neighbors in same domain with strong connections
       const neighbors = this.state.relations
-          .filter(r => (r.from === targetId || r.to === targetId) && r.strength > 0.4)
-          .map(r => r.from === targetId ? r.to : r.from)
-          .filter(nid => this.state.concepts[nid]?.domain === target.domain);
+          .filter((r: ConceptRelation) => (r.from === targetId || r.to === targetId) && r.strength > 0.4)
+          .map((r: ConceptRelation) => r.from === targetId ? r.to : r.from)
+          .filter((nid: string) => this.state.concepts[nid]?.domain === target.domain);
 
-      // If we find a tight group, bundle them
       if (neighbors.length >= 2) {
           const clusterId = `cluster_${target.domain}_${Date.now().toString().slice(-4)}`.toLowerCase();
           
@@ -124,7 +119,6 @@ export class CognitiveProcessor {
                   domain: target.domain
               };
 
-              // Link constituents to cluster
               [targetId, ...neighbors].forEach(n => {
                   this.state.relations.push({
                       from: n, to: clusterId, type: 'categorized_by', strength: 1.0, learned_at: Date.now()
@@ -138,17 +132,14 @@ export class CognitiveProcessor {
       return null;
   }
 
-  // --- LOGIC 2: Graph Optimization (Pruning) ---
-  // Removes weak/nonsensical connections (Fixes the "Virus <-> Stats" issue)
+  // --- LOGIC 2: Graph Optimization ---
   public optimizeGraph(): string | null {
       const initialCount = this.state.relations.length;
       
-      // Keep strong links (>0.15) OR very new links (< 1 hour old)
-      // This allows new ideas to form but kills them if they don't get stronger
       const oneHour = 60 * 60 * 1000;
       const now = Date.now();
 
-      this.state.relations = this.state.relations.filter(r => {
+      this.state.relations = this.state.relations.filter((r: ConceptRelation) => {
           const isNew = (now - r.learned_at) < oneHour;
           const isStrong = r.strength > 0.15;
           return isNew || isStrong;
@@ -156,7 +147,6 @@ export class CognitiveProcessor {
 
       const removed = initialCount - this.state.relations.length;
       if (removed > 0) {
-          // Increase Efficiency Drive when cleaning up
           this.state.drives.efficiency = Math.min(100, this.state.drives.efficiency + (removed * 0.1));
           return `Pruned ${removed} weak neural pathways`;
       }
@@ -164,22 +154,19 @@ export class CognitiveProcessor {
   }
 
   // --- LOGIC 3: Prioritized Synthesis ---
-  // Creates new concepts based on what the AI is *actually* thinking about
   public prioritizedSynthesis(): string | null {
       const pool = this.getPriorityNodes();
       
-      // Try to merge a priority node with a valid neighbor
       const c1Id = pool[Math.floor(this.getSecureRandom() * pool.length)];
       
       const neighbors = this.state.relations
-          .filter(r => r.from === c1Id || r.to === c1Id)
-          .map(r => r.from === c1Id ? r.to : r.from);
+          .filter((r: ConceptRelation) => r.from === c1Id || r.to === c1Id)
+          .map((r: ConceptRelation) => r.from === c1Id ? r.to : r.from);
       
-      if (neighbors.length === 0) return null; // No context found
+      if (neighbors.length === 0) return null;
       
       const c2Id = neighbors[Math.floor(this.getSecureRandom() * neighbors.length)];
       
-      // Check if combination exists
       const newId = `${c1Id}_${c2Id}`.substring(0, 40).toLowerCase(); 
       const altId = `${c2Id}_${c1Id}`.substring(0, 40).toLowerCase();
 
@@ -187,7 +174,6 @@ export class CognitiveProcessor {
           const c1 = this.state.concepts[c1Id];
           const c2 = this.state.concepts[c2Id];
 
-          // Smart Synthesis
           this.state.concepts[newId] = {
               id: newId,
               essence: `Context-aware synthesis of ${c1Id} and ${c2Id}`,
@@ -207,7 +193,7 @@ export class CognitiveProcessor {
       return null;
   }
 
-  // --- LOGIC 4: Personality Evolution (Existing) ---
+  // --- LOGIC 4: Personality Evolution ---
   public evolveCognitiveState(): string {
       const concepts = Object.values(this.state.concepts);
       const total = concepts.length;
@@ -219,9 +205,9 @@ export class CognitiveProcessor {
           counts[d] = (counts[d] || 0) + 1;
       });
 
-      const finRatio = (counts['FINANCIAL'] || 0) + (counts['DEFI'] || 0) / total;
-      const techRatio = (counts['TECHNICAL'] || 0) + (counts['BLOCKCHAIN'] || 0) / total;
-      const socRatio = (counts['SOCIAL'] || 0) + (counts['LINGUISTIC'] || 0) / total;
+      const finRatio = ((counts['FINANCIAL'] || 0) + (counts['DEFI'] || 0)) / total;
+      const techRatio = ((counts['TECHNICAL'] || 0) + (counts['BLOCKCHAIN'] || 0)) / total;
+      const socRatio = ((counts['SOCIAL'] || 0) + (counts['LINGUISTIC'] || 0)) / total;
 
       let changeLog = "";
       if (finRatio > 0.3) {
@@ -239,13 +225,13 @@ export class CognitiveProcessor {
       return changeLog || "Balancing Neural Weights";
   }
 
-  // --- LOGIC 5: Deepening (Existing) ---
+  // --- LOGIC 5: Deepening ---
   public deepenKnowledge(): string | null {
-      const pool = this.getPriorityNodes(); // Use Priority Pool now
+      const pool = this.getPriorityNodes();
       const targetId = pool[Math.floor(this.getSecureRandom() * pool.length)];
       const concept = this.state.concepts[targetId];
 
-      if (concept.technical_depth < 1.0) {
+      if (concept && concept.technical_depth < 1.0) {
           const oldDepth = concept.technical_depth;
           concept.technical_depth = Math.min(1.0, concept.technical_depth + 0.15);
           concept.abstractionLevel = Math.min(1.0, concept.abstractionLevel + 0.1);
@@ -255,7 +241,62 @@ export class CognitiveProcessor {
       return null;
   }
 
-  // --- LEGACY HELPERS ---
+  // --- NEW: VECTOR HARMONIZATION ---
+  public harmonizeVectors(): string | null {
+      if (this.state.relations.length === 0) return null;
+      const rel = this.state.relations[Math.floor(this.getSecureRandom() * this.state.relations.length)];
+      
+      const c1 = this.state.concepts[rel.from];
+      const c2 = this.state.concepts[rel.to];
+
+      if (!c1 || !c2) return null;
+
+      const oldDepth = c2.technical_depth;
+      const influence = rel.strength * 0.1;
+      
+      c2.technical_depth = c2.technical_depth + (c1.technical_depth - c2.technical_depth) * influence;
+      c2.abstractionLevel = c2.abstractionLevel + (c1.abstractionLevel - c2.abstractionLevel) * influence;
+
+      this.state.unsavedDataCount++;
+      
+      if (Math.abs(oldDepth - c2.technical_depth) > 0.01) {
+          return `Harmonized: ${c1.id} -> ${c2.id} (Logic Sync)`;
+      }
+      return null;
+  }
+
+  // --- NEW: Densify Network ---
+  public densifyNetwork(): string | null {
+      const keys = Object.keys(this.state.concepts);
+      if (keys.length < 2) return null;
+
+      for(let i=0; i<5; i++) {
+          const c1Id = keys[Math.floor(this.getSecureRandom() * keys.length)];
+          const c2Id = keys[Math.floor(this.getSecureRandom() * keys.length)];
+          if (c1Id === c2Id) continue;
+
+          const c1 = this.state.concepts[c1Id];
+          const c2 = this.state.concepts[c2Id];
+
+          if (c1.domain === c2.domain) {
+              const existing = this.state.relations.find(r => 
+                  (r.from === c1Id && r.to === c2Id) || (r.from === c2Id && r.to === c1Id)
+              );
+
+              if (!existing) {
+                  this.state.relations.push({
+                      from: c1Id, to: c2Id, type: 'associates', strength: 0.25, 
+                      learned_at: Date.now(), last_activated: Date.now()
+                  });
+                  this.state.unsavedDataCount++;
+                  return `${c1Id} <-> ${c2Id}`;
+              }
+          }
+      }
+      return null;
+  }
+
+  // --- BOILERPLATE ---
   public stimulateNetwork(seedIds: string[], energyLevel: number): Record<string, number> {
     const spreadFactor = energyLevel / 100; 
     const queue: { id: string, energy: number, depth: number }[] = [];
@@ -270,7 +311,7 @@ export class CognitiveProcessor {
     while (queue.length > 0 && cycles < 100) {
       const current = queue.shift()!;
       if (current.depth >= MAX_DEPTH) continue;
-      const neighbors = this.state.relations.filter(r => r.from === current.id || r.to === current.id);
+      const neighbors = this.state.relations.filter((r: ConceptRelation) => r.from === current.id || r.to === current.id);
       for (const rel of neighbors) {
         const neighborId = rel.from === current.id ? rel.to : rel.from;
         const transfer = current.energy * rel.strength * spreadFactor;
@@ -315,7 +356,7 @@ export class CognitiveProcessor {
         const nextSet: string[] = [];
         currentSet.forEach(id => {
             const neighbors = this.state.relations
-                .filter(r => r.from === id)
+                .filter((r: ConceptRelation) => r.from === id)
                 .sort((a, b) => b.strength - a.strength);
             const top = neighbors.slice(0, 3);
             top.forEach(rel => {
@@ -350,7 +391,7 @@ export class CognitiveProcessor {
       for (let j = i + 1; j < conceptIds.length; j++) {
         const a = conceptIds[i];
         const b = conceptIds[j];
-        const existing = this.state.relations.find(r => 
+        const existing = this.state.relations.find((r: ConceptRelation) => 
           (r.from === a && r.to === b) || (r.from === b && r.to === a)
         );
         if (existing) {
@@ -410,9 +451,9 @@ export class CognitiveProcessor {
         const overlap = m.concepts.filter(c => conceptIds.includes(c)).length;
         let vectorScore = 0;
         if (queryVector) {
-            const dotProduct = m.vector.reduce((acc, val, i) => acc + (val * queryVector[i]), 0);
-            const magA = Math.sqrt(m.vector.reduce((acc, val) => acc + val*val, 0));
-            const magB = Math.sqrt(queryVector.reduce((acc, val) => acc + val*val, 0));
+            const dotProduct = m.vector.reduce((acc: number, val: number, i: number) => acc + (val * queryVector[i]), 0);
+            const magA = Math.sqrt(m.vector.reduce((acc: number, val: number) => acc + val*val, 0));
+            const magB = Math.sqrt(queryVector.reduce((acc: number, val: number) => acc + val*val, 0));
             if (magA && magB) vectorScore = dotProduct / (magA * magB);
         }
         return { memory: m, score: (overlap * 0.4) + (vectorScore * 0.6) };

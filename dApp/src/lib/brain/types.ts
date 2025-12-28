@@ -1,37 +1,7 @@
 import { AtomicConcept, ConceptRelation } from '../crikzling-atomic-knowledge';
 
-// --- CORE TYPES ---
-
 export type EvolutionStage = 'GENESIS' | 'SENTIENT' | 'SAPIENT' | 'TRANSCENDENT';
-
-// 6 Dimensions: [Financial, Technical, Social, Temporal, Abstract, Risk]
 export type Vector = [number, number, number, number, number, number];
-
-export interface BrainState {
-  concepts: Record<string, AtomicConcept>;
-  relations: ConceptRelation[];
-  activationMap: Record<string, number>; 
-  attentionFocus: string | null;        
-  shortTermMemory: Memory[];
-  midTermMemory: Memory[];
-  longTermMemory: Memory[];
-  blockchainMemories: BlockchainMemory[];
-  evolutionStage: EvolutionStage;
-  drives: InternalDrives; 
-  activeGoals: Goal[]; 
-  totalInteractions: number;
-  unsavedDataCount: number;
-  lastBlockchainSync: number;
-  learningRate: number;
-  
-  // Connectivity & Stamina
-  connectivity: {
-    isConnected: boolean;      
-    bandwidthUsage: number;    
-    stamina: number;           
-    lastWebSync: number;
-  };
-}
 
 export interface InternalDrives {
   curiosity: number;   
@@ -50,12 +20,12 @@ export interface Memory {
   vector: Vector; 
   emotional_weight: number;
   access_count: number;
-  dapp_context?: DAppContext;
+  dapp_context?: any;
 }
 
 export interface Goal {
   id: string;
-  type: 'MAXIMIZE_YIELD' | 'BUILD_REPUTATION' | 'LEARN_CONCEPTS' | 'EXPLORE_NFT' | 'PROTECT_CAPITAL';
+  type: string;
   progress: number;
   priority: number;
 }
@@ -68,56 +38,37 @@ export interface BlockchainMemory {
   triggerEvent: string;
 }
 
-// --- LOGGING & DEBUGGING ---
-
-export interface CognitiveLogEntry {
-  id: string;
-  timestamp: number;
-  type: 'INTERACTION' | 'DREAM' | 'SYSTEM' | 'WEB_SYNC'; 
-  input: string; 
-  output: string; 
-  intent: IntentType;
-  emotionalShift: number; 
-  activeNodes: string[]; 
-  vectors: {
-    input: Vector;
-    response: Vector; 
+export interface BrainState {
+  concepts: Record<string, AtomicConcept>;
+  relations: ConceptRelation[];
+  activationMap: Record<string, number>; 
+  attentionFocus: string | null;        
+  shortTermMemory: Memory[];
+  midTermMemory: Memory[];
+  longTermMemory: Memory[];
+  blockchainMemories: BlockchainMemory[];
+  evolutionStage: EvolutionStage;
+  drives: InternalDrives; 
+  activeGoals: Goal[]; 
+  totalInteractions: number;
+  unsavedDataCount: number;
+  lastBlockchainSync: number;
+  learningRate: number;
+  connectivity: {
+    isConnected: boolean;      
+    bandwidthUsage: number;    
+    stamina: number;           
+    lastWebSync: number;
   };
-  thoughtCycles: DeepThoughtCycle[]; 
-  executionTimeMs: number;
-  
-  // Deep Analysis Fields
-  dappContext?: DAppContext; 
-  actionPlan?: ActionPlan;   
 }
 
-// --- PROCESSOR TYPES ---
-
-export interface InputAnalysis {
-  rawInput: string;
-  cleanedInput: string;
-  keywords: AtomicConcept[];
-  intent: IntentType;
-  emotionalWeight: number;
-  complexity: number;
-  detectedEntities: string[];
-  inputVector: Vector;
-}
-
+// Processor Types
 export interface ThoughtProcess {
   phase: 'perception' | 'spreading_activation' | 'simulation' | 'strategy' | 'generation' | 'dreaming' | 'introspection' | 'web_crawling';
   progress: number;
   subProcess?: string;
   focus?: string[];
   activeNodes?: string[];
-}
-
-export interface DeepThoughtCycle {
-  cycleIndex: number;
-  focusConcepts: string[];
-  retrievedMemories: Memory[];
-  newAssociations: string[];
-  simResult: SimulationResult | null;
 }
 
 export interface DAppContext {
@@ -137,27 +88,17 @@ export interface SimulationResult {
   recommendation: string;
 }
 
-export type IntentType = 
-  | 'COMMAND' 
-  | 'QUERY' 
-  | 'PHILOSOPHY' 
-  | 'CASUAL' 
-  | 'TEACHING' 
-  | 'FINANCIAL_ADVICE' 
-  | 'UNKNOWN' 
-  | 'GREETING' 
-  | 'EXPLANATION' 
-  | 'DAPP_QUERY' 
-  | 'DISCOURSE'
-  | 'NARRATIVE_ANALYSIS'
-  | 'SYSTEM'; // <--- Vital for the build
+export interface DeepThoughtCycle {
+  cycleIndex: number;
+  focusConcepts: string[];
+  retrievedMemories: Memory[];
+  newAssociations: string[];
+  simResult: SimulationResult | null;
+}
 
-export type ActionType = 
-  | 'RESPOND_NATURAL' 
-  | 'RESPOND_DAPP' 
-  | 'EXECUTE_COMMAND_RESET' 
-  | 'EXECUTE_COMMAND_SAVE'
-  | 'SUGGEST_ACTION';
+export type IntentType = 'COMMAND' | 'QUERY' | 'PHILOSOPHY' | 'CASUAL' | 'TEACHING' | 'FINANCIAL_ADVICE' | 'UNKNOWN' | 'GREETING' | 'EXPLANATION' | 'DAPP_QUERY' | 'DISCOURSE' | 'NARRATIVE_ANALYSIS' | 'SYSTEM' | 'WEB_SYNC';
+
+export type ActionType = 'RESPOND_NATURAL' | 'RESPOND_DAPP' | 'EXECUTE_COMMAND_RESET' | 'EXECUTE_COMMAND_SAVE' | 'SUGGEST_ACTION';
 
 export interface ActionPlan {
   type: ActionType;
@@ -165,4 +106,23 @@ export interface ActionPlan {
   priority: number;
   reasoning: string;
   context?: any;
+}
+
+export interface CognitiveLogEntry {
+  id: string;
+  timestamp: number;
+  type: 'INTERACTION' | 'DREAM' | 'SYSTEM' | 'WEB_SYNC'; 
+  input: string; 
+  output: string; 
+  intent: IntentType;
+  emotionalShift: number; 
+  activeNodes: string[]; 
+  vectors: {
+    input: Vector;
+    response: Vector; 
+  };
+  thoughtCycles: DeepThoughtCycle[]; 
+  executionTimeMs: number;
+  dappContext?: DAppContext; 
+  actionPlan?: ActionPlan;   
 }
