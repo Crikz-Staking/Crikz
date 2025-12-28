@@ -8,9 +8,6 @@ export class CognitiveProcessor {
   private publicClient?: PublicClient;
   private memoryContractAddress?: `0x${string}`;
 
-  // Sigmoid curve steepness for decay
-  private readonly DECAY_K = 10; 
-
   constructor(savedStateJson?: string, publicClient?: PublicClient, memoryContractAddress?: `0x${string}`) {
     this.state = this.initializeState(savedStateJson);
     this.publicClient = publicClient;
@@ -20,7 +17,6 @@ export class CognitiveProcessor {
   private initializeState(savedJson?: string): BrainState {
     const knowledgeModules = loadAllKnowledgeModules();
     
-    // Default drives initialized at balanced states
     const defaultDrives: InternalDrives = { 
         curiosity: 60, 
         stability: 100, 
@@ -45,7 +41,6 @@ export class CognitiveProcessor {
       activeGoals: [],
       lastBlockchainSync: 0,
       learningRate: 0.15,
-      // Initialize new connectivity state
       connectivity: {
         isConnected: false,
         bandwidthUsage: 0,
@@ -77,8 +72,7 @@ export class CognitiveProcessor {
   }
 
   public getState(): BrainState { return this.state; }
-  public getConcepts(): Record<string, AtomicConcept> { return this.state.concepts; }
-
+  
   private getSecureRandom(): number {
       const array = new Uint32Array(1);
       window.crypto.getRandomValues(array);
@@ -88,22 +82,15 @@ export class CognitiveProcessor {
   public calculateEntropy(): number {
       const activations = Object.values(this.state.activationMap);
       if (activations.length === 0) return 0;
-
       const totalEnergy = activations.reduce((sum, val) => sum + val, 0);
       if (totalEnergy === 0) return 0;
-
       let entropy = 0;
       for (const energy of activations) {
           const p = energy / totalEnergy;
-          if (p > 0) {
-              entropy -= p * Math.log2(p);
-          }
+          if (p > 0) entropy -= p * Math.log2(p);
       }
-
       const maxEntropy = Math.log2(activations.length || 1);
-      const normalized = maxEntropy === 0 ? 0 : (entropy / maxEntropy) * 100;
-      
-      return Math.min(100, normalized);
+      return maxEntropy === 0 ? 0 : Math.min(100, (entropy / maxEntropy) * 100);
   }
 
   public processNeuralTick(): string | null {
@@ -129,16 +116,105 @@ export class CognitiveProcessor {
     this.state.attentionFocus = dominantThought;
     this.state.drives.energy = Math.min(100, this.state.drives.energy + 0.2); 
     
-    // Spontaneous Activity (Dreaming) if offline
+    // Dreaming (Offline Only)
     if (!this.state.connectivity.isConnected && this.state.drives.energy > 80 && this.state.drives.curiosity > 70 && !dominantThought) {
         if (this.getSecureRandom() < 0.05) {
             return this.dream();
         }
     }
-
     return null;
   }
 
+  // --- IMPROVED: Logical Network Densification ---
+  public densifyNetwork(): string | null {
+      const keys = Object.keys(this.state.concepts);
+      if (keys.length < 2) return null;
+
+      // Try 3 times to find a logical match
+      for(let i=0; i<3; i++) {
+          const c1Id = keys[Math.floor(this.getSecureRandom() * keys.length)];
+          const c2Id = keys[Math.floor(this.getSecureRandom() * keys.length)];
+          
+          if (c1Id === c2Id) continue;
+
+          const c1 = this.state.concepts[c1Id];
+          const c2 = this.state.concepts[c2Id];
+
+          // Logic: Prefer connecting concepts in same domain
+          if (c1.domain === c2.domain) {
+              const existing = this.state.relations.find(r => 
+                  (r.from === c1Id && r.to === c2Id) || (r.from === c2Id && r.to === c1Id)
+              );
+
+              if (!existing) {
+                  this.state.relations.push({
+                      from: c1Id,
+                      to: c2Id,
+                      type: 'associates',
+                      strength: 0.2, // Stronger start for logical link
+                      learned_at: Date.now(),
+                      last_activated: Date.now()
+                  });
+                  this.state.unsavedDataCount++;
+                  return `${c1Id} <-> ${c2Id} (Domain: ${c1.domain})`;
+              }
+          }
+      }
+      return null;
+  }
+
+  // --- NEW: Deepen Knowledge (Refining existing nodes) ---
+  public deepenKnowledge(): string | null {
+      const keys = Object.keys(this.state.concepts);
+      if (keys.length === 0) return null;
+      
+      const targetId = keys[Math.floor(this.getSecureRandom() * keys.length)];
+      const concept = this.state.concepts[targetId];
+
+      if (concept.technical_depth < 1.0) {
+          concept.technical_depth = Math.min(1.0, concept.technical_depth + 0.1);
+          concept.abstractionLevel = Math.min(1.0, concept.abstractionLevel + 0.05);
+          this.state.unsavedDataCount++;
+          return `${targetId} (Depth: ${(concept.technical_depth * 100).toFixed(0)}%)`;
+      }
+      return null;
+  }
+
+  // --- NEW: Synthesize Concept (Creating NEW Nodes) ---
+  public synthesizeConcept(): string | null {
+      // Find two highly connected concepts and merge them
+      const keys = Object.keys(this.state.concepts);
+      const c1Id = keys[Math.floor(this.getSecureRandom() * keys.length)];
+      
+      // Find a neighbor
+      const relation = this.state.relations.find(r => r.from === c1Id || r.to === c1Id);
+      if (!relation) return null;
+      
+      const c2Id = relation.from === c1Id ? relation.to : relation.from;
+      const newId = `${c1Id}_${c2Id}`.substring(0, 30); // Prevent massive IDs
+
+      if (!this.state.concepts[newId]) {
+          this.state.concepts[newId] = {
+              id: newId,
+              essence: `Emergent synthesis of ${c1Id} and ${c2Id}`,
+              semanticField: [c1Id, c2Id, 'hybrid'],
+              examples: [],
+              abstractionLevel: 0.8,
+              technical_depth: 0.5,
+              domain: 'META'
+          };
+          
+          // Link back to parents
+          this.state.relations.push({ from: newId, to: c1Id, type: 'requires', strength: 0.9, learned_at: Date.now() });
+          this.state.relations.push({ from: newId, to: c2Id, type: 'requires', strength: 0.9, learned_at: Date.now() });
+          
+          this.state.unsavedDataCount += 3; // 1 node + 2 links
+          return newId;
+      }
+      return null;
+  }
+
+  // Standard Brain Functions
   public stimulateNetwork(seedIds: string[], energyLevel: number): Record<string, number> {
     const spreadFactor = energyLevel / 100; 
     const queue: { id: string, energy: number, depth: number }[] = [];
@@ -171,7 +247,6 @@ export class CognitiveProcessor {
       }
       cycles++;
     }
-
     this.state.drives.curiosity = Math.max(0, this.state.drives.curiosity - 10);
     return this.state.activationMap;
   }
@@ -179,17 +254,13 @@ export class CognitiveProcessor {
   public findAssociativePath(seedIds: string[], steps: number): string[] {
     let currentSet = [...seedIds];
     const path: string[] = [];
-
     for (let i = 0; i < steps; i++) {
         const nextSet: string[] = [];
-        
         currentSet.forEach(id => {
             const neighbors = this.state.relations
                 .filter(r => r.from === id)
                 .sort((a, b) => b.strength - a.strength);
-            
             const top = neighbors.slice(0, 3);
-            
             top.forEach(rel => {
                 if (!path.includes(rel.to) && !seedIds.includes(rel.to)) {
                     nextSet.push(rel.to);
@@ -197,48 +268,10 @@ export class CognitiveProcessor {
                 }
             });
         });
-
         if (nextSet.length === 0) break;
         currentSet = nextSet;
     }
-
     return [...new Set(path)];
-  }
-
-  // --- NEW: Densify Network (Auto-Connection when Online) ---
-  public densifyNetwork(): string | null {
-      const keys = Object.keys(this.state.concepts);
-      if (keys.length < 2) return null;
-
-      // Pick 2 random concepts
-      const c1 = keys[Math.floor(this.getSecureRandom() * keys.length)];
-      const c2 = keys[Math.floor(this.getSecureRandom() * keys.length)];
-
-      if (c1 === c2) return null;
-
-      // Check if already connected
-      const existing = this.state.relations.find(r => 
-          (r.from === c1 && r.to === c2) || (r.from === c2 && r.to === c1)
-      );
-
-      if (!existing) {
-          // Create weak association "from web"
-          this.state.relations.push({
-              from: c1,
-              to: c2,
-              type: 'associates', // Generic association
-              strength: 0.15, // Weak start
-              learned_at: Date.now(),
-              last_activated: Date.now()
-          });
-          this.state.unsavedDataCount++;
-          return `${c1} <-> ${c2}`;
-      } else {
-          // Strengthen existing
-          existing.strength = Math.min(1.0, existing.strength + 0.05);
-          existing.last_activated = Date.now();
-          return null; // Silent upgrade
-      }
   }
 
   public dream(): string {
@@ -277,9 +310,8 @@ export class CognitiveProcessor {
         const endConcept = walkPath[walkPath.length - 1];
         this.state.activationMap[startConcept] = 0.3;
         this.state.activationMap[endConcept] = 0.3;
-        return `Hypothesizing link between [${startConcept.replace(/_/g,' ')}] and [${endConcept.replace(/_/g,' ')}]...`;
+        return `Hypothesizing link between [${startConcept}] and [${endConcept}]...`;
     }
-
     return `Recalling data regarding ${startConcept}...`;
   }
 
@@ -341,24 +373,16 @@ export class CognitiveProcessor {
     
     if (role === 'user') {
       this.learnAssociations(concepts);
-      this.updateDrives(emotionalWeight, concepts.length);
-    }
-    this.consolidateMemories();
-  }
-
-  private updateDrives(emotion: number, complexity: number) {
-      const stabilityImpact = (emotion - 0.5) * 20; 
+      const stabilityImpact = (emotionalWeight - 0.5) * 20; 
       this.state.drives.stability = Math.max(0, Math.min(100, this.state.drives.stability - Math.abs(stabilityImpact)));
-      this.state.drives.energy = Math.max(0, this.state.drives.energy - (complexity * 2));
+      this.state.drives.energy = Math.max(0, this.state.drives.energy - (concepts.length * 2));
       this.state.drives.curiosity = Math.min(100, this.state.drives.curiosity + 5); 
-  }
-
-  private consolidateMemories() {
+    }
+    
     if (this.state.shortTermMemory.length > 10) {
       const moved = this.state.shortTermMemory.shift();
       if (moved) this.state.midTermMemory.push(moved);
     }
-    
     if (this.state.midTermMemory.length > 50) {
         const candidate = this.state.midTermMemory.shift();
         if (candidate && (candidate.emotional_weight > 0.8 || candidate.access_count > 3)) {
@@ -369,7 +393,6 @@ export class CognitiveProcessor {
 
   public retrieveRelevantMemories(conceptIds: string[], queryVector?: Vector): Memory[] {
     const allMemories = [...this.state.shortTermMemory, ...this.state.midTermMemory, ...this.state.longTermMemory];
-    
     return allMemories
       .map(m => {
         const overlap = m.concepts.filter(c => conceptIds.includes(c)).length;

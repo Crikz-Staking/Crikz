@@ -5,7 +5,7 @@ import {
     X, Search, ChevronRight, Terminal, Lock, Sliders, 
     PlusCircle, Save, Globe, Zap, Battery, Download, FileText,
     Wallet, Award, TrendingUp, Layers, ArrowRight, ShieldCheck, AlertTriangle,
-    HardDrive
+    HardDrive, Check
 } from 'lucide-react';
 import { CognitiveLogEntry, InternalDrives } from '@/lib/brain/types';
 import { AtomicConcept } from '@/lib/crikzling-atomic-knowledge';
@@ -99,7 +99,7 @@ export default function NeuralDashboard({
                 {/* Global Status Bar */}
                 <div className="h-16 border-b border-white/10 flex items-center justify-between px-8 bg-[#050508]">
                     <h2 className="text-xl font-black text-white tracking-widest uppercase flex items-center gap-3">
-                        {view} Station <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded text-gray-400 font-mono">v5.3.2</span>
+                        {view} Station <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded text-gray-400 font-mono">v5.4.0</span>
                     </h2>
                     
                     {/* Connectivity Module */}
@@ -147,7 +147,7 @@ export default function NeuralDashboard({
                                 <AccessDenied />
                             ) : (
                                 <>
-                                    {view === 'monitor' && <MonitorView stats={brainStats} />}
+                                    {view === 'monitor' && <MonitorView stats={brainStats} logs={logs} />}
                                     {view === 'synapse' && simpleTrain && <SynapseView onTrain={simpleTrain} lastLog={logs[0]} />}
                                     {view === 'cortex' && <CortexView logs={logs} />}
                                     {view === 'matrix' && updateDrives && <MatrixView stats={brainStats} onUpdate={updateDrives} />}
@@ -163,36 +163,52 @@ export default function NeuralDashboard({
 
 // --- VIEW COMPONENTS ---
 
-// Live Terminal for Monitor View
-const NetworkTerminal = () => {
+// Live Terminal: Shows actual WEB_SYNC events mixed with packet noise
+const NetworkTerminal = ({ logs }: { logs: CognitiveLogEntry[] }) => {
     const [lines, setLines] = useState<string[]>([]);
     const bottomRef = useRef<HTMLDivElement>(null);
+    const lastLogIdRef = useRef<string>('');
 
     useEffect(() => {
         const interval = setInterval(() => {
-            const actions = ['PACKET_IN', 'HANDSHAKE', 'SYN_ACK', 'GET_BLOCK', 'PARSING'];
-            const randomAction = actions[Math.floor(Math.random() * actions.length)];
-            const hash = Math.random().toString(36).substring(7);
-            const newLine = `[${new Date().toLocaleTimeString()}] ${randomAction} :: ${hash}`;
-            
-            setLines(prev => [...prev.slice(-15), newLine]);
+            // Check for new real logs first
+            const latest = logs[0];
+            if (latest && latest.type === 'WEB_SYNC' && latest.id !== lastLogIdRef.current) {
+                lastLogIdRef.current = latest.id;
+                const msg = `[${new Date(latest.timestamp).toLocaleTimeString()}] >> ${latest.output.toUpperCase()}`;
+                setLines(prev => [...prev.slice(-15), msg]);
+            } else {
+                // Background noise
+                const actions = ['PACKET_IN', 'HANDSHAKE', 'SYN_ACK', 'GET_BLOCK', 'PARSING', 'VALIDATING'];
+                const randomAction = actions[Math.floor(Math.random() * actions.length)];
+                const hash = Math.random().toString(36).substring(7);
+                const newLine = `[${new Date().toLocaleTimeString()}] ${randomAction} :: ${hash}`;
+                setLines(prev => [...prev.slice(-15), newLine]);
+            }
         }, 800);
         return () => clearInterval(interval);
-    }, []);
+    }, [logs]);
 
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [lines]);
 
     return (
-        <div className="absolute top-4 right-4 w-64 h-32 bg-black/80 border border-emerald-500/30 rounded-lg p-2 overflow-hidden pointer-events-none font-mono text-[9px] text-emerald-500">
-            {lines.map((l, i) => <div key={i}>{l}</div>)}
+        <div className="absolute top-4 right-4 w-72 h-40 bg-black/80 border border-emerald-500/30 rounded-lg p-3 overflow-hidden pointer-events-none font-mono text-[10px] text-emerald-500 shadow-lg">
+            <div className="mb-2 border-b border-emerald-500/20 pb-1 font-bold">NEURAL_UPLINK // ACTIVE</div>
+            <div className="space-y-1">
+                {lines.map((l, i) => (
+                    <div key={i} className={l.includes('>>') ? 'text-white font-bold bg-emerald-500/20' : 'opacity-70'}>
+                        {l}
+                    </div>
+                ))}
+            </div>
             <div ref={bottomRef} />
         </div>
     );
 };
 
-function MonitorView({ stats }: { stats: any }) {
+function MonitorView({ stats, logs }: { stats: any, logs: CognitiveLogEntry[] }) {
     const { isConnected, bandwidthUsage } = stats.connectivity;
 
     return (
@@ -200,7 +216,7 @@ function MonitorView({ stats }: { stats: any }) {
             <div className="lg:col-span-2 glass-card p-8 rounded-3xl border border-white/10 bg-black/40 relative overflow-hidden h-[400px] flex items-center justify-center">
                 <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:40px_40px]" />
                 
-                {isConnected && <NetworkTerminal />}
+                {isConnected && <NetworkTerminal logs={logs} />}
 
                 <div className="relative z-10">
                     <motion.div 
@@ -243,7 +259,7 @@ function SynapseView({ onTrain, lastLog }: { onTrain: (txt: string) => void, las
                 <p className="text-gray-400 text-sm">Teach Crikzling new concepts using formal syntax.</p>
                 <div className="flex gap-2 justify-center mt-2 text-[10px] text-gray-500 font-mono">
                     <span className="bg-white/5 px-2 py-1 rounded">Format: Concept := Definition</span>
-                    <span className="bg-white/5 px-2 py-1 rounded">Format: A implies B</span>
+                    <span className="bg-white/5 px-2 py-1 rounded">Format: Natural language association</span>
                 </div>
             </div>
             <div className="glass-card p-1 rounded-2xl bg-gradient-to-br from-white/10 to-white/5 border border-white/10">
@@ -264,7 +280,7 @@ function SynapseView({ onTrain, lastLog }: { onTrain: (txt: string) => void, las
                     </button>
                 </div>
             </div>
-            {lastLog && lastLog.type === 'SYSTEM' && (
+            {lastLog && (lastLog.type === 'SYSTEM' || lastLog.type === 'WEB_SYNC') && (
                 <div className="bg-emerald-900/20 border border-emerald-500/30 p-4 rounded-xl relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500" />
                     <div className="text-[10px] font-bold text-emerald-500 uppercase mb-1 flex items-center gap-2"><Check size={10} /> Latest Integration</div>
@@ -292,7 +308,11 @@ function CortexView({ logs }: { logs: CognitiveLogEntry[] }) {
                         className={`w-full text-left p-4 border-b border-white/5 transition-colors ${selected?.id === log.id ? 'bg-primary-500/10 border-l-2 border-l-primary-500' : 'hover:bg-white/5 border-l-2 border-l-transparent'}`}
                     >
                         <div className="flex justify-between items-center mb-1">
-                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${log.type === 'INTERACTION' ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400'}`}>{log.type}</span>
+                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                                log.type === 'INTERACTION' ? 'bg-blue-500/20 text-blue-400' : 
+                                log.type === 'WEB_SYNC' ? 'bg-emerald-500/20 text-emerald-400' :
+                                'bg-purple-500/20 text-purple-400'
+                            }`}>{log.type}</span>
                             <span className="text-[10px] text-gray-500">{new Date(log.timestamp).toLocaleTimeString()}</span>
                         </div>
                         <div className="text-xs font-bold text-white truncate">{log.input || "System Event"}</div>
@@ -437,8 +457,6 @@ function ContextMetric({ label, value, icon: Icon, color }: any) {
         </div>
     );
 }
-
-function Check({ size }: { size: number }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>; }
 
 function NavButton({ active, onClick, icon: Icon, label, locked }: any) {
     return (

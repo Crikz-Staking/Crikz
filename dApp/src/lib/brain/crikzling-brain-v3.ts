@@ -57,8 +57,6 @@ export class CrikzlingBrainV3 {
     this.thoughtCallback = callback;
   }
 
-  // --- NEW FEATURES ---
-
   public toggleNeuralLink(active: boolean) {
       const state = this.cognitive.getState();
       state.connectivity.isConnected = active;
@@ -68,7 +66,7 @@ export class CrikzlingBrainV3 {
   public simpleTrain(input: string): string {
       const state = this.cognitive.getState();
       
-      // Syntax Detection: "Term := Definition" or "Term -> Related"
+      // Syntax Detection: "Term := Definition"
       if (input.includes(':=')) {
           const [term, def] = input.split(':=').map(s => s.trim());
           if (term && def) {
@@ -120,44 +118,52 @@ export class CrikzlingBrainV3 {
       this.cognitive.getState().unsavedDataCount++;
   }
 
-  // --- CORE LOOP (UPDATED) ---
-
+  // --- IMPROVED CORE LOOP ---
   public async tick(dappContext?: DAppContext): Promise<void> {
     const now = Date.now();
     const state = this.cognitive.getState();
     const { isConnected } = state.connectivity;
 
-    // Tick Rate: 2s if connected, 8s if idle
     const tickRate = isConnected ? 2000 : 8000; 
     if (now - this.lastTick < tickRate) return;
     this.lastTick = now;
 
-    // --- NEURAL LINK LOGIC (Fuel) ---
+    // --- NEURAL LINK LOGIC ---
     if (isConnected) {
-        // Drain Stamina logic
         if (state.connectivity.stamina > 0) {
-            // Drain cost (Use fuel)
+            // 1. Drain Fuel
             state.connectivity.stamina = Math.max(0, state.connectivity.stamina - 2);
-            // Visual bandwidth
             state.connectivity.bandwidthUsage = Math.floor(Math.random() * 40) + 60;
             
-            // AUTOMATIC IMPROVEMENT: Densify Network
-            // 40% chance per tick to create a new neural pathway "from the web"
-            if (Math.random() > 0.6) {
-                this.updateThought('web_crawling', 50, 'Ingesting data stream...');
-                
-                const newLink = this.cognitive.densifyNetwork();
-                
-                if (newLink) {
-                    this.logEvent({
-                        type: 'WEB_SYNC',
-                        input: 'Neural Link Data Stream',
-                        output: `Auto-associated: ${newLink}`,
-                        intent: 'SYSTEM', // Valid now that types are unified
-                        activeNodes: [], 
-                    });
-                }
+            // 2. Perform Intelligent Operations based on probability
+            const roll = Math.random();
+            let actionLog = "";
+
+            if (roll > 0.8) {
+                // High Cost: Create New Node (Synthesis)
+                const newId = this.cognitive.synthesizeConcept();
+                if (newId) actionLog = `Synthesized Concept: ${newId}`;
+            } else if (roll > 0.5) {
+                // Medium Cost: Create New Link (Densify)
+                const link = this.cognitive.densifyNetwork();
+                if (link) actionLog = `Reinforced Logic: ${link}`;
+            } else if (roll > 0.2) {
+                // Low Cost: Refine existing (Deepen)
+                const depth = this.cognitive.deepenKnowledge();
+                if (depth) actionLog = `Deepened Research: ${depth}`;
             }
+
+            if (actionLog) {
+                this.updateThought('web_crawling', 50, actionLog);
+                this.logEvent({
+                    type: 'WEB_SYNC',
+                    input: 'Neural Link Data Stream',
+                    output: actionLog,
+                    intent: 'SYSTEM', 
+                    activeNodes: [], 
+                });
+            }
+
         } else {
             // Auto-disconnect on empty stamina
             this.toggleNeuralLink(false);
@@ -169,16 +175,11 @@ export class CrikzlingBrainV3 {
         state.connectivity.bandwidthUsage = 0;
     }
 
-    // Normal Dreaming logic (Offline Mode)
+    // Dreaming (Offline)
     if (!isConnected && state.drives.energy > 80 && Math.random() < 0.05) {
         const dream = this.cognitive.dream();
         if (dream) {
-            this.logEvent({
-                type: 'DREAM',
-                input: 'Subconscious',
-                output: dream,
-                intent: 'DISCOURSE'
-            });
+            this.logEvent({ type: 'DREAM', input: 'Subconscious', output: dream, intent: 'DISCOURSE' });
         }
     }
 
