@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useAccount, usePublicClient } from 'wagmi';
 import { NFT_MARKETPLACE_ADDRESS, NFT_MARKETPLACE_ABI } from '@/config/index';
 
@@ -22,9 +22,12 @@ export function useCollectionManager() {
   const [soldTokenIds, setSoldTokenIds] = useState<Set<string>>(new Set());
   const [loadingHistory, setLoadingHistory] = useState(false);
 
-  // 1. Load Local State
+  // 1. Load Local State (Wallet Specific)
   useEffect(() => {
-    if (!address) return;
+    if (!address) {
+        setCollections([]); 
+        return;
+    }
     
     const storedCols = localStorage.getItem(`crikz_cols_${address}`);
     const storedMap = localStorage.getItem(`crikz_map_${address}`);
@@ -32,7 +35,10 @@ export function useCollectionManager() {
     if (storedCols) {
         setCollections(JSON.parse(storedCols));
     } else {
-        setCollections([{ id: 'default', name: 'General', description: 'Unsorted items', isDefault: true }]);
+        // Initialize default if empty
+        const defaults = [{ id: 'default', name: 'General', description: 'Unsorted items', isDefault: true }];
+        setCollections(defaults);
+        localStorage.setItem(`crikz_cols_${address}`, JSON.stringify(defaults));
     }
 
     if (storedMap) {
@@ -40,19 +46,18 @@ export function useCollectionManager() {
     }
   }, [address]);
 
-  // 2. Fetch Sales History (The "Sold Once" Constraint)
+  // 2. Fetch Sales History
   useEffect(() => {
     if (!publicClient) return;
     
     const fetchHistory = async () => {
         setLoadingHistory(true);
         try {
-            // Get all ItemSold events from the marketplace
             const logs = await publicClient.getContractEvents({
                 address: NFT_MARKETPLACE_ADDRESS,
                 abi: NFT_MARKETPLACE_ABI,
                 eventName: 'ItemSold',
-                fromBlock: 0n, // Ideally query from deployment block
+                fromBlock: 0n, 
             });
 
             const soldIds = new Set<string>();
@@ -87,6 +92,7 @@ export function useCollectionManager() {
   const createCollection = (name: string, description: string) => {
       const newCol = { id: `col_${Date.now()}`, name, description };
       saveCollections([...collections, newCol]);
+      return newCol.id;
   };
 
   const editCollection = (id: string, name: string, description: string) => {
@@ -94,16 +100,13 @@ export function useCollectionManager() {
   };
 
   const deleteCollection = (id: string): { success: boolean, error?: string } => {
-      // Constraint: Cannot delete if it contains items that were sold
       const itemsInCol = Object.entries(itemMapping).filter(([_, colId]) => colId === id).map(([tid]) => tid);
       
       const hasSoldItems = itemsInCol.some(tid => soldTokenIds.has(tid));
-      
       if (hasSoldItems) {
           return { success: false, error: "Cannot delete: Contains historically traded items." };
       }
 
-      // Move remaining items to default
       const newMap = { ...itemMapping };
       itemsInCol.forEach(tid => { newMap[tid] = 'default'; });
       
@@ -113,14 +116,18 @@ export function useCollectionManager() {
   };
 
   const moveItem = (tokenId: string, targetColId: string): { success: boolean, error?: string } => {
-      // Constraint: Items sold once cannot be moved
       if (soldTokenIds.has(tokenId)) {
           return { success: false, error: "Item is immutable: Has been traded on market." };
       }
-
       const newMap = { ...itemMapping, [tokenId]: targetColId };
       saveMapping(newMap);
       return { success: true };
+  };
+
+  // Called by Minting Page
+  const assignToCollection = (tokenId: string, collectionId: string) => {
+      const newMap = { ...itemMapping, [tokenId]: collectionId };
+      saveMapping(newMap);
   };
 
   const isItemLocked = (tokenId: string) => soldTokenIds.has(tokenId);
@@ -132,6 +139,7 @@ export function useCollectionManager() {
       editCollection,
       deleteCollection,
       moveItem,
+      assignToCollection, // New Export
       isItemLocked,
       loadingHistory
   };
