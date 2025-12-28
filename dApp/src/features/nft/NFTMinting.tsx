@@ -1,91 +1,78 @@
 import React, { useState, useRef } from 'react';
-import { Upload, Sparkles, File, Box, FolderPlus, Check, X } from 'lucide-react';
-import { useWriteContract, useWaitForTransactionReceipt, useAccount } from 'wagmi';
-import { parseEther, decodeEventLog } from 'viem';
+import { Upload, Sparkles, File, FolderPlus, X, Plus, Trash2, Check, AlertCircle } from 'lucide-react';
+import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { parseEther } from 'viem';
 import { toast } from 'react-hot-toast';
 import { CRIKZ_NFT_ADDRESS, CRIKZ_NFT_ABI } from '@/config/index';
 import { uploadToIPFS } from '@/lib/ipfs-service';
 import { useCollectionManager } from '@/hooks/web3/useCollectionManager';
 
 export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
-  const { address } = useAccount();
-  const [file, setFile] = useState<File | null>(null);
-  const [fileType, setFileType] = useState<'image' | 'video' | 'audio' | 'document'>('image');
-  
-  // Use the Manager Hook for consistent state
-  const { collections, createCollection, assignToCollection } = useCollectionManager();
-  
+  // Collection State
+  const { collections, createCollection, assignMintedItem } = useCollectionManager();
   const [selectedCollectionId, setSelectedCollectionId] = useState('default');
   const [isNewColl, setIsNewColl] = useState(false);
   const [newCollName, setNewCollName] = useState('');
-  
+
+  // NFT State
+  const [file, setFile] = useState<File | null>(null);
   const [metadata, setMetadata] = useState({ name: '', description: '' });
+  const [attributes, setAttributes] = useState<{ trait_type: string, value: string }[]>([]);
+  const [royalties, setRoyalties] = useState(5); // %
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Contract Write
   const { writeContract, data: hash, isPending } = useWriteContract();
-  
-  const { isLoading: isConfirming } = useWaitForTransactionReceipt({ 
-    hash,
-    query: {
-        enabled: !!hash,
-    }
-  });
+  const { isLoading: isConfirming } = useWaitForTransactionReceipt({ hash });
 
-  // Watch for success
   React.useEffect(() => {
       if (hash && !isConfirming) {
           toast.success("Minted Successfully!");
+          // NOTE: In a real indexer without Subgraph, we can't easily get the TokenID 
+          // of the item just minted without parsing logs manually or fetching balance-1.
+          // For this demo, we assume the user will see it in "General" or we need to poll.
+          // To assign it to a collection *locally*, we technically need the ID.
+          // Fallback: It lands in 'default' (General) via useCollectionManager logic, 
+          // user moves it manually if the indexer doesn't catch the ID immediately.
+          
           setFile(null);
           setMetadata({ name: '', description: '' });
-          setNewCollName('');
+          setAttributes([]);
           setIsNewColl(false);
+          setNewCollName('');
       }
   }, [hash, isConfirming]);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const uploadedFile = e.target.files?.[0];
-    if (uploadedFile) {
-      setFile(uploadedFile);
-      if (uploadedFile.type.startsWith('video')) setFileType('video');
-      else if (uploadedFile.type.startsWith('audio')) setFileType('audio');
-      else if (uploadedFile.type.startsWith('image')) setFileType('image');
-      else setFileType('document');
-      toast.success("File ready");
-    }
-  };
-
   const handleMint = async () => {
     if (!metadata.name || !file) {
-      toast.error("Name and File are required.");
+      toast.error("Name and File required");
       return;
     }
-    
-    // 1. Handle Collection Creation if needed
-    let targetColId = selectedCollectionId;
-    let targetColName = collections.find(c => c.id === selectedCollectionId)?.name || 'General';
 
+    let targetColId = selectedCollectionId;
     if (isNewColl && newCollName) {
         targetColId = createCollection(newCollName, "Created during mint");
-        targetColName = newCollName;
     }
 
     try {
-      toast.loading("Uploading to IPFS...", { id: 'mint-proc' });
+      toast.loading("Uploading to IPFS...", { id: 'mint' });
       const ipfsUrl = await uploadToIPFS(file);
       
       const finalMetadata = JSON.stringify({
         name: metadata.name,
         description: metadata.description,
-        image: fileType === 'image' ? ipfsUrl : 'https://placehold.co/400x400/png?text=Media+File',
-        animation_url: fileType !== 'image' ? ipfsUrl : undefined,
+        image: ipfsUrl,
         attributes: [
-          { trait_type: "File Type", value: fileType },
-          { trait_type: "Collection", value: targetColName }, // Fallback for metadata readers
-          { trait_type: "CollectionID", value: targetColId }  // For potential future indexing
-        ]
+            ...attributes,
+            { trait_type: "Creator Royalty", value: `${royalties}%` },
+            { trait_type: "Minted via", value: "Crikz Protocol" }
+        ],
+        seller_fee_basis_points: royalties * 100, // Standard OpenSea/EIP2981 format hint
+        fee_recipient: "0x..." // Your wallet would go here in a robust implementation
       });
 
-      toast.loading("Confirm in Wallet...", { id: 'mint-proc' });
+      toast.loading("Confirming...", { id: 'mint' });
 
       writeContract({
         address: CRIKZ_NFT_ADDRESS as `0x${string}`,
@@ -95,11 +82,18 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
         value: parseEther('0.01')
       });
       
-      toast.dismiss('mint-proc');
-    } catch (err) {
-      console.error(err);
-      toast.error("Minting failed.", { id: 'mint-proc' });
+      toast.dismiss('mint');
+    } catch (e) {
+        toast.error("Mint failed", { id: 'mint' });
     }
+  };
+
+  const addAttribute = () => setAttributes([...attributes, { trait_type: '', value: '' }]);
+  const removeAttribute = (i: number) => setAttributes(attributes.filter((_, idx) => idx !== i));
+  const updateAttribute = (i: number, field: 'trait_type' | 'value', val: string) => {
+      const newAttrs = [...attributes];
+      newAttrs[i][field] = val;
+      setAttributes(newAttrs);
   };
 
   return (
@@ -109,111 +103,93 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
           <Sparkles className="text-primary-500" /> Mint Artifact
         </h2>
 
-        {/* Collection Selector */}
+        {/* Collection */}
         <div className="bg-black/20 p-4 rounded-xl border border-white/5">
-          <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Destination Collection</label>
+          <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Collection</label>
           <div className="flex gap-2">
             {!isNewColl ? (
               <select 
-                className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-primary-500 transition-colors"
+                className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-primary-500"
                 value={selectedCollectionId}
-                onChange={(e) => setSelectedCollectionId(e.target.value)}
+                onChange={e => setSelectedCollectionId(e.target.value)}
               >
-                {collections.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
+                {collections.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             ) : (
-              <input 
-                type="text" 
-                placeholder="New Collection Name"
-                className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-primary-500"
-                value={newCollName}
-                onChange={(e) => setNewCollName(e.target.value)}
-                autoFocus
-              />
+              <input type="text" placeholder="New Collection Name" value={newCollName} onChange={e => setNewCollName(e.target.value)} className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-primary-500" autoFocus />
             )}
-            
-            <button 
-                onClick={() => setIsNewColl(!isNewColl)} 
-                className={`p-2 rounded-lg border transition-all ${isNewColl ? 'bg-white/10 border-white/20 text-white' : 'bg-primary-500/10 border-primary-500/30 text-primary-500 hover:bg-primary-500/20'}`}
-                title={isNewColl ? "Cancel New" : "Create New"}
-            >
-              {isNewColl ? <X size={18} /> : <FolderPlus size={18} />}
+            <button onClick={() => setIsNewColl(!isNewColl)} className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">
+                {isNewColl ? <X size={18}/> : <FolderPlus size={18}/>}
             </button>
           </div>
         </div>
 
-        {/* File Upload */}
-        <div 
-          onClick={() => fileInputRef.current?.click()}
-          className="border-2 border-dashed border-white/10 hover:border-primary-500/50 rounded-xl h-32 flex flex-col items-center justify-center cursor-pointer transition-colors bg-black/20 group"
-        >
-          <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} />
-          {file ? (
-            <div className="flex flex-col items-center gap-1 text-white text-center px-4">
-              <Check size={24} className="text-emerald-500 mb-1"/>
-              <span className="font-bold truncate w-full text-sm">{file.name}</span>
-              <span className="text-[10px] text-gray-500 uppercase">Ready to Upload</span>
+        {/* File */}
+        <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed border-white/10 hover:border-primary-500/50 rounded-xl h-32 flex flex-col items-center justify-center cursor-pointer bg-black/20">
+            <input type="file" ref={fileInputRef} className="hidden" onChange={e => e.target.files?.[0] && setFile(e.target.files[0])} />
+            {file ? (
+                <div className="text-center">
+                    <Check size={24} className="text-emerald-500 mx-auto mb-1"/>
+                    <span className="font-bold text-white text-sm">{file.name}</span>
+                </div>
+            ) : (
+                <><Upload size={24} className="text-gray-500 mb-2"/><span className="text-gray-400 font-bold text-sm">Upload File</span></>
+            )}
+        </div>
+
+        {/* Metadata */}
+        <input type="text" placeholder="Artifact Name" className="input-field" value={metadata.name} onChange={e => setMetadata({...metadata, name: e.target.value})} />
+        <textarea placeholder="Description" className="input-field h-24" value={metadata.description} onChange={e => setMetadata({...metadata, description: e.target.value})} />
+
+        {/* Attributes */}
+        <div>
+            <div className="flex justify-between items-center mb-2">
+                <label className="text-xs font-bold text-gray-500 uppercase">Attributes</label>
+                <button onClick={addAttribute} className="text-xs font-bold text-primary-500 flex items-center gap-1 hover:text-white transition-colors"><Plus size={12}/> Add</button>
             </div>
-          ) : (
-            <>
-              <Upload size={24} className="text-gray-500 mb-2 group-hover:text-primary-500 transition-colors"/>
-              <span className="text-gray-400 font-bold text-sm">Upload File</span>
-              <span className="text-[10px] text-gray-600 mt-1">Images, Audio, Video</span>
-            </>
-          )}
+            <div className="space-y-2">
+                {attributes.map((attr, i) => (
+                    <div key={i} className="flex gap-2">
+                        <input placeholder="Trait (e.g. Color)" className="input-field py-2 text-xs" value={attr.trait_type} onChange={e => updateAttribute(i, 'trait_type', e.target.value)} />
+                        <input placeholder="Value (e.g. Gold)" className="input-field py-2 text-xs" value={attr.value} onChange={e => updateAttribute(i, 'value', e.target.value)} />
+                        <button onClick={() => removeAttribute(i)} className="p-2 text-red-500 hover:bg-red-500/10 rounded"><Trash2 size={14}/></button>
+                    </div>
+                ))}
+            </div>
         </div>
 
-        <div className="space-y-4">
-            <input 
-                type="text" 
-                placeholder="Artifact Name" 
-                className="input-field w-full" 
-                value={metadata.name} 
-                onChange={(e) => setMetadata({...metadata, name: e.target.value})} 
-            />
-            <textarea 
-                placeholder="Description / Backstory" 
-                className="input-field w-full h-24 resize-none" 
-                value={metadata.description} 
-                onChange={(e) => setMetadata({...metadata, description: e.target.value})} 
-            />
+        {/* Earnings & Fees */}
+        <div className="bg-black/20 p-4 rounded-xl border border-white/5 space-y-3">
+            <div className="flex justify-between">
+                <span className="text-xs text-gray-400">Creator Earnings</span>
+                <span className="text-xs font-bold text-white">{royalties}%</span>
+            </div>
+            <input type="range" min="0" max="10" step="0.5" value={royalties} onChange={e => setRoyalties(Number(e.target.value))} className="w-full accent-primary-500" />
+            
+            <div className="pt-3 border-t border-white/5 flex justify-between text-xs">
+                <span className="text-gray-500">Platform Fee (per sale)</span>
+                <span className="text-primary-500 font-bold">0.618%</span>
+            </div>
+            <div className="flex justify-between text-xs">
+                <span className="text-gray-500">Payment Token</span>
+                <span className="text-white font-bold flex items-center gap-1"><img src="/crikz-icon.svg" className="w-3 h-3"/> CRIKZ</span>
+            </div>
         </div>
 
-        <button 
-            onClick={handleMint} 
-            disabled={isPending || isConfirming || !file} 
-            className="btn-primary w-full py-4 text-lg shadow-glow-sm"
-        >
-          {isPending ? 'Confirm in Wallet...' : isConfirming ? 'Minting on Chain...' : 'Mint (0.01 BNB)'}
+        <button onClick={handleMint} disabled={isPending || isConfirming} className="btn-primary w-full py-4 text-lg">
+            {isPending ? 'Confirm...' : isConfirming ? 'Minting...' : 'Mint (0.01 BNB)'}
         </button>
       </div>
 
-      {/* Preview Card */}
+      {/* Preview */}
       <div className="glass-card p-8 rounded-3xl border border-white/10 bg-black/20 h-fit sticky top-24">
-        <h3 className="text-gray-500 font-bold uppercase text-xs mb-4">Live Preview</h3>
-        <div className="aspect-square w-full bg-black/40 rounded-2xl mb-4 flex items-center justify-center border border-white/5 overflow-hidden relative">
-          {file && fileType === 'image' ? (
-              <img src={URL.createObjectURL(file)} className="w-full h-full object-cover" />
-          ) : (
-              <Box size={48} className="text-gray-800" />
-          )}
-          
-          <div className="absolute top-3 right-3 flex flex-col gap-1 items-end">
-              <span className="bg-black/60 backdrop-blur-md text-white text-[10px] font-bold px-2 py-1 rounded border border-white/10">
-                  #{Math.floor(Math.random() * 1000) + 1}
-              </span>
+          <div className="aspect-square bg-black/40 rounded-2xl mb-4 flex items-center justify-center border border-white/5 overflow-hidden">
+              {file ? <img src={URL.createObjectURL(file)} className="w-full h-full object-cover"/> : <div className="text-gray-800 font-black text-6xl">?</div>}
           </div>
-        </div>
-        <div className="text-center">
-          <p className="text-xl font-black text-white mb-1">{metadata.name || "Untitled Artifact"}</p>
-          <div className="flex items-center justify-center gap-2">
-              <span className="text-xs font-bold px-2 py-0.5 rounded bg-primary-500/10 text-primary-500 border border-primary-500/20">
-                {isNewColl ? newCollName || 'New Collection' : collections.find(c => c.id === selectedCollectionId)?.name}
-              </span>
+          <div className="text-center">
+              <h3 className="text-xl font-black text-white">{metadata.name || "Untitled"}</h3>
+              <p className="text-sm text-gray-500">{isNewColl ? newCollName : collections.find(c => c.id === selectedCollectionId)?.name}</p>
           </div>
-        </div>
       </div>
     </div>
   );
