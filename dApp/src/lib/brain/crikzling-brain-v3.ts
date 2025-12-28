@@ -6,7 +6,7 @@ import { ResultProcessor } from './processors/ResultProcessor';
 import { ResponseGenerator } from './processors/ResponseGenerator';
 import { SimulationEngine } from './processors/SimulationEngine';
 import { NarrativeModule } from './narrative-module';
-import { BrainState, DAppContext, ThoughtProcess, DeepThoughtCycle } from './types';
+import { BrainState, DAppContext, ThoughtProcess, DeepThoughtCycle, CognitiveLogEntry } from './types';
 
 export class CrikzlingBrainV3 { 
   private cognitive: CognitiveProcessor;
@@ -20,6 +20,9 @@ export class CrikzlingBrainV3 {
   private thoughtCallback?: (thought: ThoughtProcess | null) => void;
   private pendingInsight: string | null = null;
   private lastTick: number = Date.now();
+
+  // History Log for Admin Tools
+  private history: CognitiveLogEntry[] = [];
 
   private readonly MAX_THOUGHT_CYCLES = 5;
 
@@ -54,6 +57,21 @@ export class CrikzlingBrainV3 {
     if (spontaneousThought) {
         this.updateThought('dreaming', 50, spontaneousThought);
         
+        // Log Dream
+        this.history.push({
+            id: crypto.randomUUID(),
+            timestamp: Date.now(),
+            type: 'DREAM',
+            input: 'Spontaneous Activation',
+            output: spontaneousThought,
+            intent: 'DISCOURSE',
+            emotionalShift: 0,
+            activeNodes: state.attentionFocus ? [state.attentionFocus] : [],
+            vectors: { input: [0,0,0,0,0,0], response: [0,0,0,0,0,0] },
+            thoughtCycles: [],
+            executionTimeMs: 0
+        });
+
         // Accumulate insight if stability allows
         if (state.drives.stability > 40) {
             this.pendingInsight = spontaneousThought;
@@ -87,6 +105,7 @@ export class CrikzlingBrainV3 {
     isOwner: boolean,
     dappContext?: DAppContext
   ): Promise<{ response: string; actionPlan: ActionPlan }> { 
+    const startTime = Date.now();
     try {
       // 1. PERCEPTION
       this.updateThought('perception', 10, 'Parsing semantics...');
@@ -169,6 +188,27 @@ export class CrikzlingBrainV3 {
         'bot', response, currentFocus, 0.5, dappContext, inputAnalysis.inputVector
       );
 
+      // 7. LOGGING FOR ADMIN
+      this.history.unshift({
+          id: crypto.randomUUID(),
+          timestamp: Date.now(),
+          type: 'INTERACTION',
+          input: text,
+          output: response,
+          intent: inputAnalysis.intent,
+          emotionalShift: inputAnalysis.emotionalWeight,
+          activeNodes: [...new Set([...activeIds, ...currentFocus])],
+          vectors: {
+              input: inputAnalysis.inputVector,
+              response: inputAnalysis.inputVector // Simplified for now
+          },
+          thoughtCycles: deepContext,
+          executionTimeMs: Date.now() - startTime
+      });
+      
+      // Limit history to 50 items
+      if (this.history.length > 50) this.history.pop();
+
       this.updateThought('generation', 100, 'Done');
       await this.think(400); 
       this.clearThought();
@@ -185,6 +225,17 @@ export class CrikzlingBrainV3 {
     }
   }
 
+  public getHistory(isOwner: boolean): CognitiveLogEntry[] {
+      if (isOwner) return this.history;
+      // Sanitize for public: remove raw vectors and thought cycles
+      return this.history.map(h => ({
+          ...h,
+          input: '***',
+          vectors: { input: [0,0,0,0,0,0], response: [0,0,0,0,0,0] },
+          thoughtCycles: [] 
+      }));
+  }
+
   public exportState(): string {
     return JSON.stringify(this.cognitive.getState(), (_, v) => typeof v === 'bigint' ? v.toString() : v);
   }
@@ -196,7 +247,6 @@ export class CrikzlingBrainV3 {
   public needsCrystallization(): boolean {
     const s = this.cognitive.getState();
     const entropy = this.cognitive.calculateEntropy();
-    // Real logic: Save if unsaved data > 10 OR Entropy is critical (> 80%)
     return s.unsavedDataCount >= 10 || entropy > 80;
   }
 

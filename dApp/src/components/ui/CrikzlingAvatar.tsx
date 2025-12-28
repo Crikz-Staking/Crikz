@@ -6,10 +6,12 @@ import {
 } from 'lucide-react';
 import { useCrikzlingV3 } from '@/hooks/useCrikzlingV3';
 import { GeometricCore } from './CrikzlingVisuals';
+import NeuralDashboard from '@/features/admin/NeuralDashboard';
 
 export default function CrikzlingAvatar() {
   const [isOpen, setIsOpen] = useState(false); 
   const [showMonitor, setShowMonitor] = useState(false);
+  const [showDashboard, setShowDashboard] = useState(false); // <--- NEW STATE
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
   
@@ -48,14 +50,11 @@ export default function CrikzlingAvatar() {
     }
   };
 
-  // LOGIC UPDATE: Separate user-blocking thought from background learning
-  // isThinking = Responding to user (Block Input)
-  // isLearning = Background loop (Allow Input)
   const isLearning = !isThinking && !!currentThought;
   
   const coreState = isSyncing ? 'crystallizing' 
                   : isThinking ? 'thinking' 
-                  : isLearning ? 'thinking' // Visuals spin, but UI is unlocked
+                  : isLearning ? 'thinking'
                   : 'idle';
   
   const stageColors = {
@@ -67,13 +66,15 @@ export default function CrikzlingAvatar() {
 
   const currentStageColor = stageColors[brainStats.stage as keyof typeof stageColors] || 'text-gray-400';
 
-  // Safe defaults for visualization
   const curiosity = Math.max(5, brainStats.drives.curiosity || 0);
   const stability = Math.max(5, brainStats.drives.stability || 0);
   const energy = Math.max(5, brainStats.drives.energy || 0);
 
   return (
     <>
+      {/* Dashboard Overlay */}
+      <NeuralDashboard isOpen={showDashboard} onClose={() => setShowDashboard(false)} />
+
       <AnimatePresence>
         {!isOpen && (
           <motion.button
@@ -113,7 +114,6 @@ export default function CrikzlingAvatar() {
                             CRIKZLING <span className={`text-[9px] px-1.5 py-0.5 rounded border border-white/10 ${currentStageColor} bg-white/5`}>{brainStats.stage}</span>
                         </h3>
                         <div className="flex items-center gap-2 text-[10px] font-mono text-gray-400 mt-0.5">
-                            {/* Status Indicator Logic */}
                             <span className={isThinking ? 'text-amber-500 animate-pulse' : isLearning ? 'text-blue-400' : 'text-emerald-500'}>
                                 {isSyncing ? 'CRYSTALLIZING' : isThinking ? 'PROCESSING' : isLearning ? 'LEARNING' : 'ONLINE'}
                             </span>
@@ -124,9 +124,16 @@ export default function CrikzlingAvatar() {
                 </div>
                 <div className="flex gap-1">
                     <button 
+                        onClick={() => setShowDashboard(true)}
+                        className="p-2 rounded-lg text-gray-500 hover:text-primary-500 hover:bg-white/10 transition-colors"
+                        title="Neural Dashboard"
+                    >
+                        <Brain size={16} />
+                    </button>
+                    <button 
                         onClick={() => setShowMonitor(!showMonitor)} 
                         className={`p-2 rounded-lg transition-colors ${showMonitor ? 'bg-white/10 text-white' : 'text-gray-500 hover:text-white'}`}
-                        title="Neural Monitor"
+                        title="Quick Stats"
                     >
                         <Activity size={16} />
                     </button>
@@ -277,7 +284,6 @@ export default function CrikzlingAvatar() {
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={handleKeyPress}
                         placeholder="Type a command or query..."
-                        // Fix: Allow input unless it's strictly user-response processing or sync
                         disabled={isThinking || isSyncing}
                         className="flex-1 bg-transparent border-none text-white text-sm px-2 py-3 focus:outline-none placeholder-gray-600 disabled:opacity-50"
                     />

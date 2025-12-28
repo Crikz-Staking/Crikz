@@ -24,7 +24,7 @@ export interface BrainState {
   
   // Cognitive State
   evolutionStage: EvolutionStage;
-  drives: InternalDrives; // The V5 Personality Engine
+  drives: InternalDrives; 
   activeGoals: Goal[]; 
   
   // Metrics
@@ -67,6 +67,25 @@ export interface BlockchainMemory {
   conceptsCount: bigint;
   evolutionStage: string;
   triggerEvent: string;
+}
+
+// --- LOGGING & DEBUGGING (NEW) ---
+
+export interface CognitiveLogEntry {
+  id: string;
+  timestamp: number;
+  type: 'INTERACTION' | 'DREAM' | 'SYSTEM';
+  input: string; // The user input or trigger
+  output: string; // The response
+  intent: IntentType;
+  emotionalShift: number; // Stability change
+  activeNodes: string[]; // IDs of concepts activated
+  vectors: {
+    input: Vector;
+    response: Vector; // Resulting vector
+  };
+  thoughtCycles: DeepThoughtCycle[]; // The detailed reasoning steps
+  executionTimeMs: number;
 }
 
 // --- PROCESSOR TYPES ---

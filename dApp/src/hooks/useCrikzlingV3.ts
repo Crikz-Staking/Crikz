@@ -4,7 +4,7 @@ import { bscTestnet } from 'wagmi/chains';
 import { toast } from 'react-hot-toast';
 
 import { CrikzlingBrainV3 } from '@/lib/brain/crikzling-brain-v3';
-import { ThoughtProcess, DAppContext } from '@/lib/brain/types';
+import { ThoughtProcess, DAppContext, CognitiveLogEntry } from '@/lib/brain/types';
 import { uploadToIPFS } from '@/lib/ipfs-service';
 import { CRIKZLING_MEMORY_ADDRESS, CRIKZLING_MEMORY_ABI } from '@/config/index';
 import { useContractData } from '@/hooks/web3/useContractData';
@@ -227,6 +227,8 @@ export function useCrikzlingV3() {
   };
 
   const stats = brain ? brain.getStats() : undefined;
+  // Get history - sanitized if not owner
+  const logs = brain ? brain.getHistory(isOwner) : [];
 
   return {
     messages,
@@ -246,6 +248,7 @@ export function useCrikzlingV3() {
       interactions: stats?.interactions || 0,
       lastBlockchainSync: stats?.lastBlockchainSync || 0,
     },
+    logs, // Exposed logs
     isThinking,
     isTyping,
     currentThought,
