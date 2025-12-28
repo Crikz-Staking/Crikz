@@ -23,6 +23,14 @@ export interface BrainState {
   unsavedDataCount: number;
   lastBlockchainSync: number;
   learningRate: number;
+  
+  // NEW: Connectivity & Stamina
+  connectivity: {
+    isConnected: boolean;      // Is "Neural Link" active?
+    bandwidthUsage: number;    // 0-100% representation
+    stamina: number;           // 0-100 resource consumed by high-speed processing
+    lastWebSync: number;
+  };
 }
 
 export interface InternalDrives {
@@ -35,7 +43,7 @@ export interface InternalDrives {
 
 export interface Memory {
   id: string;
-  role: 'user' | 'bot' | 'subconscious'; 
+  role: 'user' | 'bot' | 'subconscious' | 'system'; // Added 'system' for web search results
   content: string;
   timestamp: number;
   concepts: string[]; 
@@ -65,17 +73,17 @@ export interface BlockchainMemory {
 export interface CognitiveLogEntry {
   id: string;
   timestamp: number;
-  type: 'INTERACTION' | 'DREAM' | 'SYSTEM';
-  input: string; // The user input or trigger
-  output: string; // The response
+  type: 'INTERACTION' | 'DREAM' | 'SYSTEM' | 'WEB_SYNC'; // Added WEB_SYNC
+  input: string; 
+  output: string; 
   intent: IntentType;
-  emotionalShift: number; // Stability change
-  activeNodes: string[]; // IDs of concepts activated
+  emotionalShift: number; 
+  activeNodes: string[]; 
   vectors: {
     input: Vector;
-    response: Vector; // Resulting vector
+    response: Vector; 
   };
-  thoughtCycles: DeepThoughtCycle[]; // The detailed reasoning steps
+  thoughtCycles: DeepThoughtCycle[]; 
   executionTimeMs: number;
 }
 
@@ -93,7 +101,7 @@ export interface InputAnalysis {
 }
 
 export interface ThoughtProcess {
-  phase: 'perception' | 'spreading_activation' | 'simulation' | 'strategy' | 'generation' | 'dreaming' | 'introspection';
+  phase: 'perception' | 'spreading_activation' | 'simulation' | 'strategy' | 'generation' | 'dreaming' | 'introspection' | 'web_crawling';
   progress: number;
   subProcess?: string;
   focus?: string[];
@@ -111,10 +119,10 @@ export interface DeepThoughtCycle {
 export interface DAppContext {
   user_balance?: bigint;
   active_orders_count?: number;
-  total_reputation?: bigint; // User's Reputation
+  total_reputation?: bigint;
   pending_yield?: bigint;
   global_fund_balance?: bigint;
-  global_total_reputation?: bigint; // Protocol Total Reputation (Added)
+  global_total_reputation?: bigint;
   current_block?: bigint;
 }
 

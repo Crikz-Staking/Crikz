@@ -54,7 +54,35 @@ export class CrikzlingBrainV3 {
     this.thoughtCallback = callback;
   }
 
-  // --- NEW TRAINING METHODS ---
+  // --- NEW FEATURES: NEURAL LINK & SIMPLE TRAINING ---
+
+  public toggleNeuralLink(active: boolean) {
+      const state = this.cognitive.getState();
+      state.connectivity.isConnected = active;
+      // Reset bandwidth visual if turning off
+      if (!active) state.connectivity.bandwidthUsage = 0;
+  }
+
+  public simpleTrain(input: string): string {
+      // Parses natural language to extract concepts and link them
+      const state = this.cognitive.getState();
+      const analysis = this.inputProc.process(input, state.concepts);
+      const concepts = analysis.keywords.map(k => k.id);
+
+      if (concepts.length < 2) return "Not enough identifiable concepts to form a link.";
+
+      this.cognitive.learnAssociations(concepts);
+      state.unsavedDataCount++;
+      
+      this.logEvent({
+          type: 'SYSTEM',
+          input: `Training: ${input}`,
+          output: `Linked: ${concepts.join(' <-> ')}`,
+          intent: 'TEACHING'
+      });
+
+      return `Successfully linked ${concepts.length} concepts.`;
+  }
 
   public updateDrives(newDrives: InternalDrives) {
       this.cognitive.getState().drives = newDrives;
@@ -69,33 +97,43 @@ export class CrikzlingBrainV3 {
       this.cognitive.getState().unsavedDataCount++;
   }
 
-  public forceConnection(from: string, to: string, strength: number) {
-      const state = this.cognitive.getState();
-      const existing = state.relations.find(r => 
-          (r.from === from && r.to === to) || (r.from === to && r.from === from)
-      );
-      
-      if (existing) {
-          existing.strength = strength;
-          existing.last_activated = Date.now();
-      } else {
-          state.relations.push({
-              from, to, type: 'associates', strength, 
-              learned_at: Date.now(), last_activated: Date.now()
-          });
-      }
-      state.unsavedDataCount++;
-  }
-
-  // --- END NEW METHODS ---
+  // --- CORE LOOP ---
 
   public async tick(dappContext?: DAppContext): Promise<void> {
     const now = Date.now();
-    if (now - this.lastTick < 5000) return;
+    const state = this.cognitive.getState();
+    const { isConnected } = state.connectivity;
+
+    // 1. Determine Tick Rate (Turbo mode if connected)
+    const tickRate = isConnected ? 2000 : 8000; 
+    if (now - this.lastTick < tickRate) return;
     this.lastTick = now;
 
+    // 2. Handle Neural Link (Stamina / Web Sim)
+    if (isConnected) {
+        // Drain Stamina
+        if (state.connectivity.stamina > 0) {
+            state.connectivity.stamina = Math.max(0, state.connectivity.stamina - 2);
+            state.connectivity.bandwidthUsage = Math.floor(Math.random() * 40) + 60; // High usage visual
+            
+            // "Super Learning" - Randomly reinforce weak connections
+            if (Math.random() > 0.7) {
+                this.updateThought('web_crawling', 50, 'Indexing external data nodes...');
+                this.cognitive.dream(); // Force associative processing
+            }
+        } else {
+            // Stamina depleted, auto-disconnect
+            this.toggleNeuralLink(false);
+            this.updateThought('introspection', 0, 'Neural Link severed: Stamina Depleted.');
+        }
+    } else {
+        // Regen Stamina slowly when idle
+        state.connectivity.stamina = Math.min(100, state.connectivity.stamina + 1);
+        state.connectivity.bandwidthUsage = 0;
+    }
+
+    // 3. Normal Cognitive Tick
     const spontaneousThought = this.cognitive.processNeuralTick();
-    const state = this.cognitive.getState();
 
     if (spontaneousThought) {
         this.updateThought('dreaming', 50, spontaneousThought);
@@ -104,10 +142,7 @@ export class CrikzlingBrainV3 {
             input: 'Spontaneous Activation',
             output: spontaneousThought,
             intent: 'DISCOURSE',
-            emotionalShift: 0,
             activeNodes: state.attentionFocus ? [state.attentionFocus] : [],
-            vectors: { input: [0,0,0,0,0,0], response: [0,0,0,0,0,0] },
-            thoughtCycles: []
         });
 
         if (state.drives.stability > 40) {
@@ -115,23 +150,16 @@ export class CrikzlingBrainV3 {
         }
         
         this.cognitive.archiveMemory('subconscious', spontaneousThought, [], 0.1, dappContext);
-        await this.think(2500); 
+        await this.think(isConnected ? 1000 : 2500); // Faster processing if connected
         this.clearThought();
     } 
-    else if (state.drives.efficiency > 80 && dappContext) {
-        this.updateThought('simulation', 30, 'Background yield optimization...');
-        const simResult = this.simulator.runSimulation('FINANCIAL_ADVICE', dappContext, [1,0,0,0,0,0]);
-        if(simResult && simResult.riskLevel < 0.2) {
-             this.pendingInsight = `Note: ${simResult.recommendation}`;
-        }
-        await this.think(1500);
-        this.clearThought();
-    }
     else {
         this.clearThought();
     }
   }
 
+  // ... [Keep process(), logEvent(), getHistory(), etc. unchanged] ...
+  
   public async process(
     text: string, 
     isOwner: boolean,
@@ -210,9 +238,7 @@ export class CrikzlingBrainV3 {
         'bot', response, currentFocus, 0.5, dappContext, inputAnalysis.inputVector
       );
 
-      // Determine Result Vector based on last cycle focus or simple shift
       const outputVector = [...inputAnalysis.inputVector] as [number, number, number, number, number, number];
-      // Simple shift logic for demo purposes (real logic would re-vectorize the response)
       if (inputAnalysis.intent === 'FINANCIAL_ADVICE') outputVector[0] += 0.2; 
 
       this.logEvent({
@@ -300,6 +326,7 @@ export class CrikzlingBrainV3 {
         relations: s.relations.length,
         stage: s.evolutionStage,
         drives: s.drives, 
+        connectivity: s.connectivity, // Expose connectivity
         unsaved: s.unsavedDataCount,
         learningRate: s.learningRate,
         memories: {

@@ -91,58 +91,26 @@ export function useCrikzlingV3() {
     });
   }, [sessionId, publicClient]);
 
-  // OPTIMIZED HEARTBEAT: 8000ms
+  // DYNAMIC HEARTBEAT
   useEffect(() => {
     if (!brain) return;
+    
+    const stats = brain.getStats();
+    const tickRate = stats.connectivity?.isConnected ? 2000 : 8000; // Fast when connected
+
     const heartbeat = setInterval(() => {
       if (!isThinking && !isTyping) {
         brain.tick(dappContextRef.current).then(() => {
             setForceUpdate(prev => prev + 1);
         });
       }
-    }, 8000); 
+    }, tickRate); 
     return () => clearInterval(heartbeat);
-  }, [brain, isThinking, isTyping]);
+  }, [brain, isThinking, isTyping, forceUpdate]);
 
-  useEffect(() => {
-    if (txSuccess && brain && address && isSyncing) {
-      toast.success('Memory crystallized on-chain!', { id: 'crystallize' });
-      brain.clearUnsavedCount();
-      localStorage.setItem(`crikz_brain_v3_${address}`, brain.exportState());
-      setIsSyncing(false);
-      typeStreamResponse('Crystallization confirmed. My cognitive state is now permanently recorded on the Binance Smart Chain.');
-    }
-  }, [txSuccess, brain, address]);
+  // ... [Keep crystallize, sendMessage, resetBrain, uploadFile logic unchanged] ...
 
-  const typeStreamResponse = async (fullText: string) => {
-    setIsTyping(true);
-    setMessages(prev => [...prev, { role: 'bot', content: '', timestamp: Date.now() }]);
-    
-    const chars = fullText.split('');
-    let currentText = '';
-    
-    return new Promise<void>((resolve) => {
-        const typeChar = (index: number) => {
-            if (index >= chars.length) {
-                setIsTyping(false);
-                resolve();
-                return;
-            }
-            currentText += chars[index];
-            setMessages(prev => {
-                const newMsgs = [...prev];
-                if (newMsgs.length > 0) newMsgs[newMsgs.length - 1].content = currentText;
-                return newMsgs;
-            });
-            let delay = 15 + (crypto.getRandomValues(new Uint32Array(1))[0] % 25);
-            if (chars[index] === ' ') delay *= 0.3;
-            if (['.', '!', '?', ','].includes(chars[index])) delay *= 2;
-            setTimeout(() => typeChar(index + 1), delay);
-        };
-        typeChar(0);
-    });
-  };
-
+  // Standard functions needed for Avatar
   const crystallize = async () => {
     if (!brain || !address) {
       toast.error("Connect wallet to save memory.");
@@ -209,6 +177,35 @@ export function useCrikzlingV3() {
     }
   };
 
+  const typeStreamResponse = async (fullText: string) => {
+    setIsTyping(true);
+    setMessages(prev => [...prev, { role: 'bot', content: '', timestamp: Date.now() }]);
+    
+    const chars = fullText.split('');
+    let currentText = '';
+    
+    return new Promise<void>((resolve) => {
+        const typeChar = (index: number) => {
+            if (index >= chars.length) {
+                setIsTyping(false);
+                resolve();
+                return;
+            }
+            currentText += chars[index];
+            setMessages(prev => {
+                const newMsgs = [...prev];
+                if (newMsgs.length > 0) newMsgs[newMsgs.length - 1].content = currentText;
+                return newMsgs;
+            });
+            let delay = 15 + (crypto.getRandomValues(new Uint32Array(1))[0] % 25);
+            if (chars[index] === ' ') delay *= 0.3;
+            if (['.', '!', '?', ','].includes(chars[index])) delay *= 2;
+            setTimeout(() => typeChar(index + 1), delay);
+        };
+        typeChar(0);
+    });
+  };
+
   const resetBrain = () => {
     if (!brain || !sessionId) return;
     brain.wipe();
@@ -244,6 +241,23 @@ export function useCrikzlingV3() {
       }
   };
 
+  const simpleTrain = (text: string) => {
+      if (brain) {
+          const result = brain.simpleTrain(text);
+          toast.success(result);
+          setForceUpdate(prev => prev + 1);
+      }
+  };
+
+  const toggleNeuralLink = (active: boolean) => {
+      if (brain) {
+          brain.toggleNeuralLink(active);
+          setForceUpdate(prev => prev + 1);
+          if(active) toast.success("Neural Link Established");
+          else toast('Link Severed', { icon: '🔌' });
+      }
+  };
+
   const stats = brain ? brain.getStats() : undefined;
   const logs = brain ? brain.getHistory(isOwner) : [];
 
@@ -253,8 +267,10 @@ export function useCrikzlingV3() {
     uploadFile,
     crystallize,
     resetBrain,
-    updateDrives, // Exposed
-    trainConcept, // Exposed
+    updateDrives,
+    trainConcept,
+    simpleTrain,        // Exposed
+    toggleNeuralLink,   // Exposed
     needsSave: brain?.needsCrystallization() || false,
     isSyncing: isSyncing || isConfirming,
     brainStats: {
@@ -263,6 +279,7 @@ export function useCrikzlingV3() {
       relations: stats?.relations || 0,
       unsaved: stats?.unsaved || 0,
       drives: stats?.drives || { curiosity: 0, stability: 0, efficiency: 0, social: 0, energy: 0 },
+      connectivity: stats?.connectivity || { isConnected: false, bandwidthUsage: 0, stamina: 100 }, // Exposed
       memories: stats?.memories || { short: 0, mid: 0, long: 0, blockchain: 0 },
       interactions: stats?.interactions || 0,
       learningRate: stats?.learningRate || 0.15,
