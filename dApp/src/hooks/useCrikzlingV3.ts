@@ -55,24 +55,20 @@ export function useCrikzlingV3() {
     functionName: 'owner',
   });
 
+  // Poll faster to ensure we get data immediately on load
   const { data: latestSnapshot, refetch: refetchSnapshot } = useReadContract({
     address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
     abi: CRIKZLING_MEMORY_ABI,
     functionName: 'getLatestMemory',
     query: {
-        refetchInterval: 5000 // Poll faster for updates
+        refetchInterval: 3000 
     }
   });
 
-  // Helper to extract clean data from potential array or object return
   const snapshotData = useMemo(() => {
       if (!latestSnapshot) return null;
       const snap = latestSnapshot as any;
-      
-      // Wagmi can return array or object depending on config
-      // Struct: timestamp, ipfsCid, conceptsCount, evolutionStage, triggerEvent
       const cid = snap.ipfsCid || snap[1];
-      // Note: snap[2] is conceptsCount (BigInt), snap[3] is evolutionStage
       return {
           cid: cid,
           count: snap.conceptsCount || snap[2],
@@ -102,12 +98,12 @@ export function useCrikzlingV3() {
     setForceUpdate(prev => prev + 1); 
   }, []);
 
-  // --- 1. BRAIN INITIALIZATION (LOCAL) ---
+  // --- 1. BRAIN INITIALIZATION ---
   useEffect(() => {
     if (!sessionId || !publicClient) return;
     if (brain) return;
 
-    // Initialize with local diffs first
+    // Load purely local diff state first
     const diffStateJson = localStorage.getItem(`crikz_brain_diff_${sessionId}`) || undefined;
     
     const initialBrain = new CrikzlingBrainV3(
@@ -120,8 +116,8 @@ export function useCrikzlingV3() {
     initialBrain.setThoughtUpdateCallback(thoughtCallback);
     setBrain(initialBrain);
     
-    // Initial loading message while waiting for hydration
-    setMessages([{ role: 'bot', content: 'Connecting to Crikz Protocol... Loading Neural Graph from Blockchain...', timestamp: Date.now() }]);
+    // Set initial loading message - prevents user from talking until hydrated
+    setMessages([{ role: 'bot', content: 'Initializing Neural Graph... Establishing Blockchain Uplink...', timestamp: Date.now() }]);
     
   }, [sessionId, publicClient]);
 
@@ -130,10 +126,10 @@ export function useCrikzlingV3() {
       const syncBlockchain = async () => {
           if (!brain || !snapshotData) return;
           
-          // Prevent double hydration on same snapshot, unless retrying
+          // Prevent double hydration on same snapshot unless retrying
           if (hasHydrated && syncAttempts === 0) return;
 
-          console.log(`🔄 Attempting Hydration (Try ${syncAttempts + 1}) from Snapshot:`, snapshotData.cid);
+          console.log(`[HOOK] 🔄 Sync Attempt ${syncAttempts + 1}. CID: ${snapshotData.cid}`);
 
           try {
               const { cid, stage } = snapshotData;
@@ -141,62 +137,55 @@ export function useCrikzlingV3() {
               if (cid && cid.length > 5) {
                   const url = downloadFromIPFS(cid);
                   
-                  // Force fetch to bypass some aggressive caching
+                  // Force fetch to bypass caching
                   const response = await fetch(url, { cache: "no-store" });
-                  
                   if(!response.ok) throw new Error(`IPFS Fetch Failed: ${response.statusText}`);
                   
                   const remoteJson = await response.json();
                   
-                  if (remoteJson && (remoteJson.concepts || remoteJson.totalInteractions)) {
-                      console.log("✅ Remote JSON Parsed. Merging...", remoteJson.totalInteractions);
-                      
-                      // CRITICAL: Merge logic in processor now handles Math.max for ops
+                  if (remoteJson) {
+                      // MERGE LOGIC
                       brain.mergeState(remoteJson);
                       setHasHydrated(true);
-                      setSyncAttempts(0); // Reset attempts on success
+                      setSyncAttempts(0); 
                       
                       const stats = brain.getStats();
                       
-                      // RESET messages to start fresh with the Hive Mind context
                       setMessages([
                           { 
                               role: 'system', 
-                              content: `[SYSTEM] 🔗 Blockchain Uplink Established.\nCID: ${cid.substring(0,10)}...\nNodes: ${stats.nodes} | Total Ops: ${stats.interactions}`, 
+                              content: `[SYSTEM] 🟢 UPLINK SECURE.\nCID: ${cid.substring(0,8)}...\nNodes: ${stats.nodes} | Ops: ${stats.interactions}`, 
                               timestamp: Date.now() 
                           },
                           {
                               role: 'bot',
-                              content: `I have restored my memory from the immutable ledger. I am operating at stage ${stats.stage} with access to ${stats.nodes} crystallized concepts and ${stats.interactions} recorded operations.`,
+                              content: `I have successfully crystallized my memory from the blockchain. I hold ${stats.nodes} concepts and ${stats.interactions} operations in my permanent graph.`,
                               timestamp: Date.now() + 100
                           }
                       ]);
-                      
                       setForceUpdate(prev => prev + 1);
-                  } else {
-                      console.warn("⚠️ Invalid JSON structure from IPFS");
                   }
               } else {
-                  console.log("ℹ️ No valid CID found in contract. Starting Fresh.");
+                  console.log("ℹ️ No CID found. Fresh Start.");
                   if (!hasHydrated) {
-                      setMessages([{ role: 'bot', content: 'Genesis complete. No on-chain memory found. Starting fresh.', timestamp: Date.now() }]);
+                      setMessages([{ role: 'bot', content: 'Genesis complete. No history found on-chain. I am ready to learn.', timestamp: Date.now() }]);
                       setHasHydrated(true);
                   }
               }
           } catch (e) {
-              console.warn(`Background Sync Failed (Attempt ${syncAttempts + 1}):`, e);
+              console.warn(`Sync Error:`, e);
               if (syncAttempts < 3) {
-                  const delay = 2000 * (syncAttempts + 1);
-                  setTimeout(() => setSyncAttempts(p => p + 1), delay);
+                  setTimeout(() => setSyncAttempts(p => p + 1), 3000);
               } else {
                   if (!hasHydrated) {
-                       setMessages([{ role: 'bot', content: '⚠️ Connection to Hive Mind unstable (IPFS Timeout). Operating on local cache.', timestamp: Date.now() }]);
-                       setHasHydrated(true); // Stop retrying
+                       setMessages([{ role: 'bot', content: '⚠️ Connection unstable. Operating on local memory.', timestamp: Date.now() }]);
+                       setHasHydrated(true);
                   }
               }
           }
       };
 
+      // Only run if we have a brain and data
       if (brain && snapshotData) {
           syncBlockchain();
       }
@@ -210,7 +199,7 @@ export function useCrikzlingV3() {
       }
   }, [forceUpdate, brain, sessionId]);
 
-  // --- HIGH-SPEED HEARTBEAT ---
+  // --- HEARTBEAT ---
   useEffect(() => {
     if (!brain) return;
     const stats = brain.getStats();
@@ -246,10 +235,7 @@ export function useCrikzlingV3() {
                 if (newMsgs.length > 0) newMsgs[newMsgs.length - 1].content = currentText;
                 return newMsgs;
             });
-            let delay = 10;
-            if (chars[index] === ' ') delay *= 0.3;
-            if (['.', '!', '?', ','].includes(chars[index])) delay *= 5;
-            setTimeout(() => typeChar(index + 1), delay);
+            setTimeout(() => typeChar(index + 1), 10);
         };
         typeChar(0);
     });
@@ -263,28 +249,24 @@ export function useCrikzlingV3() {
     if (isSyncing) return;
 
     setIsSyncing(true); 
-    const toastId = toast.loading('Initiating Neural Sync...', { id: 'crystallize' });
+    const toastId = toast.loading('Exporting Neural Graph...', { id: 'crystallize' });
 
     try {
-        // 1. Export Full State (Includes new Nodes + Ops Count)
+        // 1. Export State (Safe for BigInt)
         const exportStr = brain.exportFullState();
         
-        // Debug Log
-        console.log("Preparing to save state:", JSON.parse(exportStr).totalInteractions);
-
         const blob = new Blob([exportStr], { type: 'application/json' });
         const file = new File([blob], `crikz_v5_mem_${Date.now()}.json`);
         
-        toast.loading('Uploading merged state to IPFS...', { id: toastId });
+        toast.loading('Uploading to IPFS...', { id: toastId });
         const cid = await uploadToIPFS(file);
-        console.log("IPFS Upload Success:", cid);
         
         const state = brain.getState();
         const conceptCount = BigInt(Object.keys(state.concepts).length);
         const stage = state.evolutionStage;
         const trigger = `V5_SYNC_${state.totalInteractions}`;
 
-        toast.loading('Signing transaction...', { id: toastId });
+        toast.loading('Confirming on Blockchain...', { id: toastId });
         const hash = await writeContractAsync({
             address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
             abi: CRIKZLING_MEMORY_ABI,
@@ -294,28 +276,25 @@ export function useCrikzlingV3() {
             chain: bscTestnet
         });
 
-        toast.loading('Confirming block...', { id: toastId });
         await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
 
-        // 2. Mark Saved & Clear Local Diff
+        // 2. Mark Saved locally
         brain.clearUnsavedCount();
-        if (sessionId) {
-            localStorage.removeItem(`crikz_brain_diff_${sessionId}`);
-        }
+        if (sessionId) localStorage.removeItem(`crikz_brain_diff_${sessionId}`);
         
-        await refetchSnapshot(); 
+        await refetchSnapshot(); // Force Wagmi to update contract read
         
-        toast.success('Crystallization Complete!', { id: toastId });
+        toast.success('Memory Crystallized!', { id: toastId });
         
         setMessages(prev => [...prev, { 
             role: 'system', 
-            content: `[SYSTEM] Memory Crystallized. New State: ${state.totalInteractions} Ops saved.`, 
+            content: `[SYSTEM] Save Successful.\nState: ${state.totalInteractions} Ops.\nCID: ${cid}`, 
             timestamp: Date.now() 
         }]);
 
     } catch (e: any) {
         console.error("Crystallize Error", e);
-        toast.error(`Sync Failed: ${e.message || 'Unknown error'}`, { id: toastId });
+        toast.error(`Sync Failed: ${e.message}`, { id: toastId });
     } finally {
         setIsSyncing(false); 
     }
@@ -333,12 +312,8 @@ export function useCrikzlingV3() {
       setCurrentThought(null);
       await typeStreamResponse(response);
 
-      if (actionPlan?.type === 'EXECUTE_COMMAND_SAVE') {
-          setTimeout(() => crystallize(), 500); 
-      }
-      if (actionPlan?.type === 'EXECUTE_COMMAND_RESET') {
-          resetBrain(); 
-      }
+      if (actionPlan?.type === 'EXECUTE_COMMAND_SAVE') setTimeout(() => crystallize(), 500); 
+      if (actionPlan?.type === 'EXECUTE_COMMAND_RESET') resetBrain(); 
 
     } catch (e) {
       console.error("Brain Error:", e);
@@ -358,7 +333,7 @@ export function useCrikzlingV3() {
     setBrain(newBrain);
     setHasHydrated(false); 
     
-    setMessages([{ role: 'bot', content: 'Local state purged. Re-synchronizing...', timestamp: Date.now() }]);
+    setMessages([{ role: 'bot', content: 'Local state purged. Re-scanning chain...', timestamp: Date.now() }]);
     setForceUpdate(prev => prev + 1);
   };
 
@@ -380,14 +355,14 @@ export function useCrikzlingV3() {
   const trainConcept = (concept: AtomicConcept) => {
       if (brain) {
           brain.injectConcept(concept);
-          toast.success(`Trained concept: ${concept.id}`);
+          toast.success(`Trained: ${concept.id}`);
           setForceUpdate(prev => prev + 1);
       }
   };
 
   const simpleTrain = (text: string) => {
       if (brain) {
-          const result = brain.simpleTrain(text);
+          brain.simpleTrain(text);
           toast.success("Input Processed");
           setForceUpdate(prev => prev + 1);
       }
@@ -397,7 +372,7 @@ export function useCrikzlingV3() {
       if (brain) {
           brain.toggleNeuralLink(active);
           setForceUpdate(prev => prev + 1);
-          if(active) toast.success("Hyper-Link Established");
+          if(active) toast.success("Hyper-Link Active");
           else toast('Link Severed', { icon: '🔌' });
       }
   };

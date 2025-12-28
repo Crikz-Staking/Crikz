@@ -12,7 +12,7 @@ import {
 } from './types'; 
 import { AtomicConcept } from '@/lib/crikzling-atomic-knowledge';
 
-// Helper to safely serialize BigInts (Fixes "Do not know how to serialize a BigInt")
+// --- CRITICAL FIX: Handle BigInt serialization for JSON.stringify ---
 const bigIntReplacer = (_key: string, value: any) => 
   typeof value === 'bigint' ? value.toString() : value;
 
@@ -58,19 +58,34 @@ export class CrikzlingBrainV3 {
     return Math.random();
   }
 
+  /**
+   * Merges remote blockchain state into local brain
+   */
   public mergeState(remoteState: BrainState) {
       this.cognitive.mergeExternalState(remoteState);
   }
 
   /**
-   * Exports for storage with BigInt safety
+   * Exports for storage - NOW SAFE FOR BIGINT
    */
   public exportFullState(): string {
     const state = this.cognitive.getState();
-    return JSON.stringify({
-        ...state,
-        exportedAt: Date.now()
-    }, bigIntReplacer); // <--- Critical Fix Applied Here
+    // We wrap this in a try-catch just in case, but the replacer handles the BigInt error
+    try {
+        return JSON.stringify({
+            ...state,
+            exportedAt: Date.now()
+        }, bigIntReplacer); 
+    } catch (e) {
+        console.error("Export Serialization Failed:", e);
+        // Fallback: minimal export
+        return JSON.stringify({
+            totalInteractions: state.totalInteractions,
+            evolutionStage: state.evolutionStage,
+            concepts: state.concepts,
+            exportedAt: Date.now()
+        });
+    }
   }
 
   public exportDiffState(): string {
@@ -83,7 +98,6 @@ export class CrikzlingBrainV3 {
     const state = this.cognitive.getState();
     const { isConnected } = state.connectivity;
 
-    // Hyper-Threading: 50ms when connected, 8000ms when idle
     const tickRate = isConnected ? 50 : 8000; 
     
     if (now - this.lastTick < tickRate) return;
@@ -92,11 +106,9 @@ export class CrikzlingBrainV3 {
     if (isConnected) {
         state.connectivity.stamina = 100; // Infinite Power
         
-        // Maximize Bandwidth Simulation
         const bandwidth = Math.floor(this.getSecureRandom() * 20) + 80;
         state.connectivity.bandwidthUsage = bandwidth;
         
-        // Parallel Operations
         const operations = Math.floor(bandwidth / 5); 
         const tasks: Promise<string | null>[] = [];
 
@@ -137,7 +149,6 @@ export class CrikzlingBrainV3 {
             }
         });
 
-        // Bulk increment Ops
         state.totalInteractions += validOps;
         this.updateThought('web_crawling', 100, `Hyper-processing ${validOps} nodes...`);
 
@@ -146,7 +157,6 @@ export class CrikzlingBrainV3 {
         state.connectivity.bandwidthUsage = 0;
     }
 
-    // Subconscious Dreaming (Offline Mode)
     if (!isConnected && state.drives.energy > 80 && this.getSecureRandom() < 0.05) {
         const dream = this.cognitive.dream();
         if (dream) {
@@ -162,7 +172,13 @@ export class CrikzlingBrainV3 {
     const startTime = Date.now();
     try {
       this.updateThought('perception', 10, 'Parsing semantics...');
+      
+      // CRITICAL: Ensure we are using the LATEST state including merged blockchain data
       const brainState = this.cognitive.getState();
+      
+      // Debug log to prove data usage
+      console.log(`[Brain] Processing with ${Object.keys(brainState.concepts).length} nodes and ${brainState.totalInteractions} ops.`);
+
       const inputAnalysis = this.inputProc.process(text, brainState.concepts, dappContext);
       
       this.updateThought('spreading_activation', 20, 'Activating neural lattice...');
@@ -249,7 +265,7 @@ export class CrikzlingBrainV3 {
     }
   }
 
-  // --- STATE ACCESSORS & UTILS ---
+  // --- UTILS ---
 
   public setThoughtUpdateCallback(callback: (thought: ThoughtProcess | null) => void) {
     this.thoughtCallback = callback;
