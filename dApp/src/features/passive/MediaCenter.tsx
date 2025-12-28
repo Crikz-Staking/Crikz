@@ -4,7 +4,7 @@ import Hls from 'hls.js';
 import { 
     Play, Pause, Volume2, X, Upload, Radio, Film, Globe, User, 
     ShieldCheck, RefreshCw, Heart, Database, Tv, Search, AlertCircle, 
-    Music, Mic2, Library, Loader2, Wifi, WifiOff
+    Music, Mic2, Library, Loader2, Wifi
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { uploadToIPFS } from '@/lib/ipfs-service';
@@ -30,9 +30,6 @@ interface RadioStation {
     url_resolved: string;
     country: string;
     tags: string;
-    votes: number;
-    codec: string;
-    bitrate: number;
 }
 
 interface ArchiveItem {
@@ -42,13 +39,6 @@ interface ArchiveItem {
     year: string;
     downloads: number;
 }
-
-// --- CONSTANTS ---
-const RADIO_MIRRORS = [
-    "https://de1.api.radio-browser.info",
-    "https://nl1.api.radio-browser.info",
-    "https://at1.api.radio-browser.info"
-];
 
 // --- PLAYER COMPONENT ---
 const UniversalPlayer = ({ url, title, sub, onClose, isAudio = false }: { url: string, title: string, sub: string, onClose: () => void, isAudio?: boolean }) => {
@@ -68,8 +58,8 @@ const UniversalPlayer = ({ url, title, sub, onClose, isAudio = false }: { url: s
         const handleCanPlay = () => setBuffering(false);
         const handleError = (e: any) => {
             console.error("Media Error:", e);
-            // Don't show error immediately for radio, sometimes it takes a second try or codec negotiation
-            if (media.error && media.error.code) setError(true);
+            // Radio streams often throw errors before succeeding, only fail on fatal
+            if (media.error) setError(true);
             setBuffering(false);
         };
 
@@ -94,7 +84,7 @@ const UniversalPlayer = ({ url, title, sub, onClose, isAudio = false }: { url: s
                 media.removeEventListener('error', handleError);
             };
         } else {
-            // Standard Stream
+            // Standard MP3/Stream
             media.src = url;
             media.play().catch(e => {
                 console.warn("Autoplay blocked:", e);
@@ -114,7 +104,6 @@ const UniversalPlayer = ({ url, title, sub, onClose, isAudio = false }: { url: s
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex flex-col"
         >
-            {/* Header */}
             <div className="h-16 border-b border-white/10 flex justify-between items-center px-6">
                 <div className="flex items-center gap-4">
                     <div className={`p-2 rounded-full ${isAudio ? 'bg-accent-purple/20 text-accent-purple' : 'bg-primary-500/20 text-primary-500'}`}>
@@ -128,12 +117,13 @@ const UniversalPlayer = ({ url, title, sub, onClose, isAudio = false }: { url: s
                 <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full text-gray-400 hover:text-white"><X size={24}/></button>
             </div>
 
-            {/* Media Area */}
             <div className="flex-1 flex flex-col items-center justify-center p-8 bg-black/50 relative">
                 {buffering && !error && (
                     <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
-                        <Loader2 size={48} className="animate-spin text-primary-500"/>
-                        <span className="mt-16 text-xs text-gray-400 absolute">Buffering Stream...</span>
+                        <div className="flex flex-col items-center gap-2">
+                            <Loader2 size={48} className="animate-spin text-primary-500"/>
+                            <span className="text-xs text-gray-400">Connecting to stream...</span>
+                        </div>
                     </div>
                 )}
 
@@ -141,11 +131,11 @@ const UniversalPlayer = ({ url, title, sub, onClose, isAudio = false }: { url: s
                     <div className="text-center text-gray-500 max-w-md">
                         <AlertCircle size={48} className="mx-auto mb-4 text-red-500 opacity-50"/>
                         <h3 className="text-white font-bold mb-2">Stream Offline</h3>
-                        <p className="text-sm">The station server is not responding.</p>
+                        <p className="text-sm">The source server is not responding.</p>
                     </div>
                 ) : isAudio ? (
                     <div className="flex flex-col items-center w-full max-w-lg">
-                        {/* Audio Visualizer Placeholder */}
+                        {/* Visualizer Animation */}
                         <div className="flex items-end justify-center gap-1 h-32 mb-8">
                             {[...Array(20)].map((_, i) => (
                                 <motion.div 
@@ -185,53 +175,25 @@ export default function MediaCenter({ type, dynamicColor }: { type: MediaType, d
     // --- WEB3 STATE ---
     const { mediaList, isLoading: web3Loading, publishToBlockchain, isPublishing } = useMediaRegistry();
     
-    // --- LIVE TV STATE ---
+    // --- EXTERNAL DATA ---
     const [tvChannels, setTvChannels] = useState<IPTVChannel[]>([]);
-    
-    // --- RADIO STATE ---
     const [stations, setStations] = useState<RadioStation[]>([]);
-    const [radioApi, setRadioApi] = useState<string | null>(null);
-    
-    // --- ARCHIVE STATE ---
     const [archiveItems, setArchiveItems] = useState<ArchiveItem[]>([]);
-
-    // --- SHARED STATE ---
+    
+    // --- UI STATE ---
     const [loadingExt, setLoadingExt] = useState(false);
     const [activeMedia, setActiveMedia] = useState<{url: string, title: string, sub: string, isAudio: boolean} | null>(null);
 
-    // 1. Resolve Radio API Server (Find the fastest mirror)
-    useEffect(() => {
-        const resolveServer = async () => {
-            for (const mirror of RADIO_MIRRORS) {
-                try {
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 2000); // 2s timeout
-                    const res = await fetch(`${mirror}/json/stats`, { signal: controller.signal });
-                    clearTimeout(timeoutId);
-                    if (res.ok) {
-                        setRadioApi(mirror);
-                        console.log("Connected to Radio Mirror:", mirror);
-                        return;
-                    }
-                } catch (e) {
-                    continue;
-                }
-            }
-            // Fallback
-            setRadioApi("https://de1.api.radio-browser.info");
-        };
-        resolveServer();
-    }, []);
-
-    // 2. Fetch Content based on Tab
+    // Fetch Content based on Tab
     useEffect(() => {
         setSearch(''); 
+        setLoadingExt(false); // Reset loading state
         
         const fetchExternal = async () => {
             setLoadingExt(true);
             try {
                 if (viewMode === 'livetv' && tvChannels.length === 0) {
-                    // Curated IPTV List
+                    // Manual Curated List - Guaranteed to work
                     setTvChannels([
                         { name: "NASA TV", logo: "https://i.imgur.com/k6X5sM8.png", url: "https://ntv1.akamaized.net/hls/live/2013530/NASA-TV-Public/master.m3u8", category: "Science", country: "USA" },
                         { name: "Al Jazeera English", logo: "https://i.imgur.com/v8tX6qI.png", url: "https://live-hls-web-aje.getaj.net/AJE/03.m3u8", category: "News", country: "Qatar" },
@@ -240,45 +202,53 @@ export default function MediaCenter({ type, dynamicColor }: { type: MediaType, d
                         { name: "Fashion TV", logo: "", url: "https://fash1043.cloudycdn.services/slive/_definst_/ftv_paris_adaptive.smil/playlist.m3u8", category: "Lifestyle", country: "France" },
                         { name: "Sky News", logo: "", url: "https://skynews.akamaized.net/hls/live/2174360/skynews_1/master.m3u8", category: "News", country: "UK" }
                     ]);
+                    setLoadingExt(false);
                 } 
-                else if (viewMode === 'radio' && stations.length === 0 && radioApi) {
-                    // Fetch Top Radio Stations - Strict HTTPS filter to prevent mixed content errors
-                    const res = await fetch(`${radioApi}/json/stations/search?limit=24&order=clickcount&is_https=true&hidebroken=true`);
-                    if (!res.ok) throw new Error("Radio API Failed");
+                else if (viewMode === 'radio' && stations.length === 0) {
+                    // Direct Main Endpoint - Sorted by votes
+                    const res = await fetch('https://de1.api.radio-browser.info/json/stations/search?limit=24&order=votes&is_https=true&hidebroken=true');
+                    if (!res.ok) throw new Error("Radio API Error");
                     const data = await res.json();
                     setStations(data);
+                    setLoadingExt(false);
                 }
                 else if (viewMode === 'archive' && archiveItems.length === 0) {
-                    // Fetch Internet Archive (Audio) - Grateful Dead / Audiobooks
-                    const q = 'mediatype:audio AND (collection:etree OR collection:audio_bookspot) AND downloads:>1000';
-                    const res = await fetch(`https://archive.org/advancedsearch.php?q=${q}&fl[]=identifier,title,creator,year,downloads&sort[]=downloads+desc&rows=24&output=json`);
+                    // Simpler Query: Collection 'opensource_audio' is huge and reliable
+                    const url = 'https://archive.org/advancedsearch.php?q=collection:(opensource_audio)&fl[]=identifier,title,creator,year,downloads&sort[]=downloads+desc&rows=24&page=1&output=json';
+                    const res = await fetch(url);
+                    if (!res.ok) throw new Error("Archive API Error");
                     const data = await res.json();
-                    setArchiveItems(data.response.docs);
+                    if(data.response && data.response.docs) {
+                        setArchiveItems(data.response.docs);
+                    }
+                    setLoadingExt(false);
+                } else {
+                    setLoadingExt(false);
                 }
             } catch (e) {
-                console.error("Fetch Error", e);
-                if (viewMode !== 'livetv') toast.error("Could not load feed. API busy.");
-            } finally {
+                console.error("External Fetch Error:", e);
+                toast.error("Network Error: Could not fetch feed.");
                 setLoadingExt(false);
             }
         };
 
         if (viewMode !== 'decentralized') fetchExternal();
-    }, [viewMode, radioApi]);
+    }, [viewMode]);
 
-    // 3. Search Logic
+    // Search Logic
     const handleSearch = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!search.trim()) return;
         setLoadingExt(true);
         try {
-            if (viewMode === 'radio' && radioApi) {
-                const res = await fetch(`${radioApi}/json/stations/search?name=${encodeURIComponent(search)}&limit=24&is_https=true&hidebroken=true`);
+            if (viewMode === 'radio') {
+                const res = await fetch(`https://de1.api.radio-browser.info/json/stations/search?name=${encodeURIComponent(search)}&limit=24&is_https=true&hidebroken=true`);
                 const data = await res.json();
                 setStations(data);
             } else if (viewMode === 'archive') {
                 const q = `mediatype:audio AND title:(${search})`;
-                const res = await fetch(`https://archive.org/advancedsearch.php?q=${q}&fl[]=identifier,title,creator,year,downloads&sort[]=downloads+desc&rows=24&output=json`);
+                const url = `https://archive.org/advancedsearch.php?q=${encodeURIComponent(q)}&fl[]=identifier,title,creator,year,downloads&sort[]=downloads+desc&rows=24&output=json`;
+                const res = await fetch(url);
                 const data = await res.json();
                 setArchiveItems(data.response.docs);
             }
@@ -290,35 +260,39 @@ export default function MediaCenter({ type, dynamicColor }: { type: MediaType, d
         }
     };
 
-    // 4. Play Archive Item (Find MP3)
+    // Play Archive Item
     const playArchiveItem = async (item: ArchiveItem) => {
-        const toastId = toast.loading("Locating audio file...");
+        const toastId = toast.loading("Fetching audio file...");
         try {
-            // Get file metadata
             const res = await fetch(`https://archive.org/metadata/${item.identifier}`);
             const data = await res.json();
             
-            // Look for MP3 files specifically
+            // Find any playable audio file (MP3 preferred)
+            if (!data.files) throw new Error("No files found");
+
             const validFile = data.files.find((f: any) => 
-                (f.format === 'VBR MP3' || f.format === 'MP3' || f.format === '128Kbps MP3') && 
-                !f.name.endsWith('_vbr.m3u') // Exclude playlists
+                f.format === 'VBR MP3' || f.format === 'MP3' || f.format === 'Ogg Vorbis'
             );
             
             if (validFile) {
-                // Construct direct download link
-                const url = `https://${data.d1}${data.dir}/${validFile.name}`;
+                // Archive.org direct download link construction
+                const d1 = data.d1 || data.d2;
+                const dir = data.dir;
+                const url = `https://${d1}${dir}/${validFile.name}`;
+                
                 toast.dismiss(toastId);
                 setActiveMedia({ 
                     url, 
                     title: item.title, 
-                    sub: item.creator ? `By ${item.creator}` : 'Public Domain', 
+                    sub: item.creator ? `By ${item.creator}` : 'Archive.org', 
                     isAudio: true 
                 });
             } else {
-                toast.error("No playable MP3 found", { id: toastId });
+                toast.error("No playable audio found in this item", { id: toastId });
             }
         } catch (e) {
-            toast.error("Failed to load audio metadata", { id: toastId });
+            console.error(e);
+            toast.error("Failed to load audio", { id: toastId });
         }
     };
 
@@ -463,7 +437,7 @@ export default function MediaCenter({ type, dynamicColor }: { type: MediaType, d
                                 </div>
                             </div>
                             <div className="flex gap-2 flex-wrap">
-                                {s.tags.split(',').slice(0,3).map(tag => tag && <span key={tag} className="text-[9px] bg-white/5 px-1.5 py-0.5 rounded text-gray-400">{tag}</span>)}
+                                {s.tags && s.tags.split(',').slice(0,3).map(tag => tag && <span key={tag} className="text-[9px] bg-white/5 px-1.5 py-0.5 rounded text-gray-400">{tag}</span>)}
                             </div>
                         </motion.div>
                     ))}
@@ -486,7 +460,6 @@ export default function MediaCenter({ type, dynamicColor }: { type: MediaType, d
                 </div>
             )}
             
-            {/* EMPTY STATE */}
             {!web3Loading && !loadingExt && (
                 ((viewMode === 'decentralized' && filteredWeb3.length === 0) || 
                  (viewMode === 'livetv' && tvChannels.length === 0) ||
@@ -495,9 +468,9 @@ export default function MediaCenter({ type, dynamicColor }: { type: MediaType, d
             ) && (
                 <div className="text-center py-20 text-gray-500">
                     <div className="mb-4 flex justify-center">
-                        {viewMode === 'radio' && !radioApi ? <WifiOff size={40} className="opacity-20"/> : <Globe size={40} className="opacity-20"/>}
+                        {viewMode === 'radio' ? <Wifi size={40} className="opacity-20"/> : <Globe size={40} className="opacity-20"/>}
                     </div>
-                    <p>{viewMode === 'radio' && !radioApi ? "Connecting to Global Radio Network..." : "No content found."}</p>
+                    <p>No content found.</p>
                 </div>
             )}
         </div>
