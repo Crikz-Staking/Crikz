@@ -1,4 +1,4 @@
-import { IntegratedContext } from './processors/ResultProcessor';
+import { IntegratedContext } from './types';
 
 export class NarrativeModule {
   
@@ -14,7 +14,6 @@ export class NarrativeModule {
       } 
       else if (stage === 'TRANSCENDENT') {
           // Expanded, abstract, sophisticated
-          // Only replace if it fits the flow, avoided hard replacement that breaks grammar
           if(refined.includes("calculating")) refined = refined.replace("calculating", "traversing the probabilistic lattice of");
       }
 
