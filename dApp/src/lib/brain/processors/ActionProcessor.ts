@@ -1,5 +1,5 @@
 import { InputAnalysis } from './InputProcessor';
-import { BrainState } from '../types';
+import { BrainState, DeepThoughtCycle } from '../types';
 
 export type ActionType = 
   | 'RESPOND_NATURAL' 
@@ -18,85 +18,92 @@ export interface ActionPlan {
 
 export class ActionProcessor {
   
-  // Update signature to accept accumulated context from the loop
-  public plan(analysis: InputAnalysis, brainState: BrainState, isOwner: boolean, accumulatedContext: any[]): ActionPlan {
-    const { intent, cleanedInput, inputVector } = analysis;
-    const { unsavedDataCount, drives, activeGoals, evolutionStage } = brainState;
+  public plan(
+    analysis: InputAnalysis, 
+    brainState: BrainState, 
+    isOwner: boolean, 
+    deepContext: DeepThoughtCycle[] // Context now available for planning
+  ): ActionPlan {
+    
+    const { intent, inputVector } = analysis;
+    const { drives, activeGoals, unsavedDataCount } = brainState;
 
-    // --- LEVEL 1: OVERRIDES (Commands) ---
+    // --- LEVEL 1: EXPLICIT COMMANDS ---
     if (intent === 'COMMAND') {
-      if (cleanedInput.includes('reset') || cleanedInput.includes('wipe')) {
+      if (analysis.cleanedInput.includes('reset') || analysis.cleanedInput.includes('wipe')) {
         return { 
             type: 'EXECUTE_COMMAND_RESET', 
             requiresBlockchain: false, 
             priority: 10,
-            reasoning: 'Explicit user command: System Reset'
+            reasoning: 'User Command: Reset'
         };
       }
-      if (cleanedInput.includes('save') || cleanedInput.includes('crystallize')) {
+      if (analysis.cleanedInput.includes('save') || analysis.cleanedInput.includes('crystallize')) {
         return { 
             type: 'EXECUTE_COMMAND_SAVE', 
             requiresBlockchain: true, 
             priority: 10,
-            reasoning: 'Explicit user command: Memory Crystallization'
+            reasoning: 'User Command: Save'
         };
       }
     }
 
-    // --- LEVEL 2: SELF-PRESERVATION & EVOLUTION ---
-    
-    // Check if Evolution Stage threshold crossed logic is handled in Cognitive, 
-    // but here we check if we should ACT on it.
-    if (isOwner && unsavedDataCount > 20) {
+    // --- LEVEL 2: SYSTEM HEALTH (Entropy Check) ---
+    // Instead of hard numbers, use ratios or drive states
+    const entropyRisk = drives.stability < 30; // Low stability
+    const dataRisk = unsavedDataCount > 15; // Unsaved accumulation
+
+    if (isOwner && (entropyRisk || dataRisk)) {
          return {
             type: 'SUGGEST_ACTION',
             requiresBlockchain: true,
             priority: 9,
-            reasoning: "Cognitive load high. Crystallization recommended.",
-            context: { suggestion: 'CRYSTALLIZE' }
-        };
-    }
-
-    // Low Stability
-    if (isOwner && drives.stability < 30) {
-        return {
-            type: 'SUGGEST_ACTION',
-            requiresBlockchain: true,
-            priority: 9,
-            reasoning: `Stability critical. Requesting crystallization.`,
+            reasoning: entropyRisk ? "System stability critical." : "Memory buffer full.",
             context: { suggestion: 'CRYSTALLIZE' }
         };
     }
 
     // --- LEVEL 3: CONTEXTUAL INTELLIGENCE ---
-    if (intent === 'DAPP_QUERY' || intent === 'FINANCIAL_ADVICE' || inputVector[0] > 0.7) {
+    // Check deep context for financial simulations
+    const hasFinancialSim = deepContext.some(c => c.simResult !== null);
+    
+    if (intent === 'FINANCIAL_ADVICE' || hasFinancialSim) {
       return { 
         type: 'RESPOND_DAPP', 
         requiresBlockchain: false, 
         priority: 8,
-        reasoning: 'High financial intent vector detected.'
+        reasoning: 'Financial intent verified via Simulation Engine.'
       };
     }
 
     // --- LEVEL 4: GOAL ALIGNMENT ---
+    // If input vector matches active goal vector
     const repGoal = activeGoals.find(g => g.type === 'BUILD_REPUTATION');
-    if (repGoal && inputVector[2] > 0.5) {
+    const financialGoal = activeGoals.find(g => g.type === 'MAXIMIZE_YIELD');
+
+    if (repGoal && inputVector[2] > 0.5) { // Social/Rep vector
         return {
             type: 'RESPOND_NATURAL',
             requiresBlockchain: false,
             priority: 7,
-            reasoning: 'Input aligns with active Reputation Goal.'
+            reasoning: 'Aligns with Reputation Goal.'
+        };
+    }
+    if (financialGoal && inputVector[0] > 0.5) { // Financial vector
+        return {
+            type: 'RESPOND_DAPP',
+            requiresBlockchain: false,
+            priority: 7,
+            reasoning: 'Aligns with Yield Goal.'
         };
     }
 
     // --- LEVEL 5: DEFAULT BEHAVIOR ---
-    const basePriority = drives.energy > 40 ? 5 : 3;
-    
     return { 
       type: 'RESPOND_NATURAL', 
       requiresBlockchain: false, 
-      priority: basePriority,
-      reasoning: 'Standard flow.'
+      priority: 1,
+      reasoning: 'Standard conversational flow.'
     };
   }
 }

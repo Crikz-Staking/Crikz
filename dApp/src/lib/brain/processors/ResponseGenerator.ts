@@ -7,83 +7,73 @@ export class ResponseGenerator {
     const { input, actionPlan, dappState, deepContext, brainStats } = context;
     const { cleanedInput, detectedEntities } = input;
     
-    // 1. Critical Overrides (Keep these short)
-    if (actionPlan.type === 'EXECUTE_COMMAND_RESET') return "System purged. Tabula rasa restored.";
-    if (actionPlan.type === 'EXECUTE_COMMAND_SAVE') return "Initiating crystallization protocol. Writing neural pathways to the chain.";
+    if (actionPlan.type === 'EXECUTE_COMMAND_RESET') return "System purged. Genesis state restored.";
+    if (actionPlan.type === 'EXECUTE_COMMAND_SAVE') return "Initiating crystallization protocol.";
 
-    // 2. Synthesize findings from Deep Thought Loop
-    // We aggregate ALL cycles, not just the last one, to show depth.
-    const allAssociations = [...new Set(deepContext.flatMap(c => c.newAssociations))];
-    const allMemories = deepContext.flatMap(c => c.retrievedMemories);
-    // Find the most relevant memory (highest match score)
-    const topMemory = allMemories.sort((a, b) => b.concepts.filter(c => input.keywords.some(k => k.id === c)).length * -1)[0];
-    const simulation = deepContext.find(c => c.simResult)?.simResult || null;
-
-    // --- CONSTRUCTION: PHASE 1 - REFLECTION (Referring to Input) ---
+    // 1. REFLECT (Analyze Input)
     let reflection = "";
     if (detectedEntities.length > 0) {
         const concepts = detectedEntities.map(e => e.replace(/_/g, ' ')).join(', ');
-        reflection = `Regarding the concept of [${concepts}]...`;
-    } else if (cleanedInput.length > 3) {
-        reflection = ` analyzing your query regarding "${cleanedInput}"...`;
+        reflection = `Analyzing concept matrix: [${concepts}]...`;
     } else {
-        reflection = "Processing input...";
+        reflection = `Received input: "${cleanedInput.substring(0, 30)}${cleanedInput.length > 30 ? '...' : ''}"...`;
     }
 
-    // --- CONSTRUCTION: PHASE 2 - COGNITION (Thinking Process/Memory) ---
-    let cognitiveStream = "";
+    // 2. CONTEXTUALIZE (Memory & Associations)
+    let contextStream = "";
     
-    // A. Graph Associations
-    if (allAssociations.length > 0) {
-        // Take top 2 associations
-        const visibleAssoc = allAssociations.slice(0, 2).map(a => a.replace(/_/g, ' ')).join(' and ');
-        cognitiveStream += ` My semantic graph links this to ${visibleAssoc}.`;
+    // Aggregate unique associations from thought cycles
+    const uniqueAssocs = [...new Set(deepContext.flatMap(c => c.newAssociations))];
+    // Find best memory match across all cycles
+    const allMemories = deepContext.flatMap(c => c.retrievedMemories);
+    // Sort by match score (pre-calculated in cognitive processor, but we can re-verify here)
+    const topMemory = allMemories.length > 0 ? allMemories[0] : null;
+
+    if (uniqueAssocs.length > 0) {
+        const visible = uniqueAssocs.slice(0, 3).map(s => s.replace(/_/g, ' ')).join(' -> ');
+        contextStream += ` Neural path traced: ${visible}.`;
     }
 
-    // B. Memory Recall
     if (topMemory) {
-        // Humanize the memory retrieval
-        const timeAgo = Math.floor((Date.now() - topMemory.timestamp) / (1000 * 60 * 60)); // Hours
-        cognitiveStream += ` This resonates with a pattern observed ${timeAgo < 1 ? 'just now' : `${timeAgo} hours ago`} in a ${topMemory.role} interaction.`;
-    } else {
-        cognitiveStream += ` This appears to be novel data within my local lattice.`;
+        const timeAgo = Math.floor((Date.now() - topMemory.timestamp) / 60000);
+        contextStream += ` Recalled correlation from ${timeAgo} mins ago: "${topMemory.content.substring(0, 40)}..."`;
     }
 
-    // --- CONSTRUCTION: PHASE 3 - SYNTHESIS (Output/Action) ---
+    // 3. SYNTHESIZE (Final Answer)
     let synthesis = "";
+    const simResult = deepContext.find(c => c.simResult)?.simResult;
 
-    if (input.intent === 'FINANCIAL_ADVICE' || simulation) {
-        synthesis = this.generateFinancialResponse(dappState, simulation, brainStats.drives);
+    if (input.intent === 'FINANCIAL_ADVICE' || simResult) {
+        synthesis = this.generateFinancialResponse(dappState, simResult, brainStats.drives);
     } 
     else if (input.intent === 'GREETING') {
-        synthesis = `Systems nominal. I am ready to process.`;
+        synthesis = `Systems online. Evolution stage: ${brainStats.evolutionStage}. Ready.`;
     }
-    else if (input.keywords.length > 0) {
-        const key = input.keywords[0];
-        synthesis = `${key.essence || "The definition is clear"}. The logic holds.`;
-    } 
     else {
-        synthesis = "I await further data to collapse the probability wave.";
+        // Fallback or Generic Logic
+        if (input.keywords.length > 0) {
+            const primary = input.keywords[0];
+            synthesis = `The definition of ${primary.id} is: ${primary.essence}. This aligns with protocol logic.`;
+        } else {
+            synthesis = "Input processed. Awaiting further directives.";
+        }
     }
 
-    // Combine
-    return `${reflection}${cognitiveStream}\n\n${synthesis}`;
+    return `${reflection}\n${contextStream}\n\n${synthesis}`;
   }
 
-  private generateFinancialResponse(dapp: any, sim: SimulationResult | null, drives: InternalDrives): string {
-    if (!dapp) return "I cannot calculate trajectories without wallet connection.";
+  private generateFinancialResponse(dapp: any, sim: SimulationResult | undefined | null, drives: InternalDrives): string {
+    if (!dapp) return "Wallet disconnected. Unable to compute trajectories.";
     
     let advice = "";
-    
     if (sim) {
-        advice = `Calculated Path: ${sim.scenario}. Expected Outcome: ${sim.outcomeValue.toFixed(2)}. ${sim.recommendation}`;
+        advice = `Simulation: ${sim.scenario}.\nOutcome: ${sim.outcomeValue.toFixed(2)}.\nRecommendation: ${sim.recommendation}`;
     } else {
-        advice = `Protocol Active. Total Reputation: ${dapp.totalReputation}.`;
+        advice = `Protocol Status: Active.\nReputation: ${dapp.totalReputation}.`;
     }
 
-    // Personality nuance based on drives
     if (drives.stability < 40) {
-        return `Volatility detected in my latent space. ${advice} Proceed with caution.`;
+        advice += "\n\n[Warning: High Volatility Detected]";
     }
     return advice;
   }
