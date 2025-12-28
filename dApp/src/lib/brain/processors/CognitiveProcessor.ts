@@ -72,15 +72,22 @@ export class CognitiveProcessor {
   public getConcepts(): Record<string, AtomicConcept> { return this.state.concepts; }
 
   /**
+   * Helper for Cryptographically Secure Random Numbers
+   * Returns float between 0 and 1
+   */
+  private getSecureRandom(): number {
+      const array = new Uint32Array(1);
+      window.crypto.getRandomValues(array);
+      return array[0] / (0xFFFFFFFF + 1);
+  }
+
+  /**
    * Calculates real Shannon Entropy (H) of the activation network.
-   * H = -Σ (pi * log2(pi))
-   * Represents the uncertainty/disorder of the current thought process.
    */
   public calculateEntropy(): number {
       const activations = Object.values(this.state.activationMap);
       if (activations.length === 0) return 0;
 
-      // Normalize activation energies to probabilities
       const totalEnergy = activations.reduce((sum, val) => sum + val, 0);
       if (totalEnergy === 0) return 0;
 
@@ -92,8 +99,6 @@ export class CognitiveProcessor {
           }
       }
 
-      // Normalize entropy to 0-100 scale (assuming max entropy ~ log2(N))
-      // A high entropy means energy is scattered (confused). Low means focused.
       const maxEntropy = Math.log2(activations.length || 1);
       const normalized = maxEntropy === 0 ? 0 : (entropy / maxEntropy) * 100;
       
@@ -106,14 +111,12 @@ export class CognitiveProcessor {
     let dominantThought = null;
 
     // 1. Sigmoid Decay of Activation Energy
-    // Mimics biological neural refractory periods
     activeNodes.forEach(id => {
         const current = this.state.activationMap[id];
-        // x / (1 + abs(x)) allows for smooth decay towards zero
         const decayAmount = 0.05 + (current * 0.1); 
         this.state.activationMap[id] = Math.max(0, current - decayAmount);
 
-        if (this.state.activationMap[id] <= 0.05) { // Cutoff threshold
+        if (this.state.activationMap[id] <= 0.05) { 
             delete this.state.activationMap[id];
         } else {
             if (this.state.activationMap[id] > highestEnergy) {
@@ -128,17 +131,19 @@ export class CognitiveProcessor {
     // 2. Drive Homeostasis
     this.state.drives.energy = Math.min(100, this.state.drives.energy + 0.2); 
     
-    // 3. Spontaneous Activity (Dreaming)
-    // Triggered by High Energy + High Curiosity + Low Focus
+    // 3. Spontaneous Activity (Dreaming) - Secure Random
     if (this.state.drives.energy > 80 && this.state.drives.curiosity > 70 && !dominantThought) {
-        return this.dream();
+        // 5% chance per tick to dream if idle
+        if (this.getSecureRandom() < 0.05) {
+            return this.dream();
+        }
     }
 
     return null;
   }
 
   public stimulateNetwork(seedIds: string[], energyLevel: number): Record<string, number> {
-    const spreadFactor = energyLevel / 100; // Energy determines connection strength
+    const spreadFactor = energyLevel / 100; 
     const queue: { id: string, energy: number, depth: number }[] = [];
 
     seedIds.forEach(id => {
@@ -170,7 +175,6 @@ export class CognitiveProcessor {
       cycles++;
     }
 
-    // Creating activation consumes curiosity
     this.state.drives.curiosity = Math.max(0, this.state.drives.curiosity - 10);
     return this.state.activationMap;
   }
@@ -187,7 +191,6 @@ export class CognitiveProcessor {
                 .filter(r => r.from === id)
                 .sort((a, b) => b.strength - a.strength);
             
-            // Logic: Prefer strongest connections
             const top = neighbors.slice(0, 3);
             
             top.forEach(rel => {
@@ -205,12 +208,11 @@ export class CognitiveProcessor {
     return [...new Set(path)];
   }
 
-  // Weighted Graph Walk for Dreaming
+  // Weighted Graph Walk for Dreaming - Secure Random
   public dream(): string {
-    // 1. Pick a seed from Long Term Memory (weighted by emotion)
     const seedMemory = this.state.longTermMemory
         .sort((a, b) => b.emotional_weight - a.emotional_weight)
-        .slice(0, 5)[Math.floor(Math.random() * 5)];
+        .slice(0, 5)[Math.floor(this.getSecureRandom() * 5)];
 
     if (!seedMemory || seedMemory.concepts.length === 0) {
         const keys = Object.keys(this.state.concepts);
@@ -220,8 +222,7 @@ export class CognitiveProcessor {
 
     const startConcept = seedMemory.concepts[0];
 
-    // 2. Traverse the graph to find a distant connection using weighted random walk
-    // Instead of random depth, we walk based on relation strength
+    // Probabilistic Walk
     let currentId = startConcept;
     const walkPath: string[] = [currentId];
     
@@ -229,9 +230,8 @@ export class CognitiveProcessor {
         const connections = this.state.relations.filter(r => r.from === currentId || r.to === currentId);
         if(connections.length === 0) break;
         
-        // Probabilistic selection based on strength
         const totalStrength = connections.reduce((acc, r) => acc + r.strength, 0);
-        let randomVal = Math.random() * totalStrength;
+        let randomVal = this.getSecureRandom() * totalStrength;
         
         for(const conn of connections) {
             randomVal -= conn.strength;
@@ -246,7 +246,6 @@ export class CognitiveProcessor {
     if (walkPath.length > 1) {
         const endConcept = walkPath[walkPath.length - 1];
         
-        // Ignite these nodes slightly
         this.state.activationMap[startConcept] = 0.3;
         this.state.activationMap[endConcept] = 0.3;
 
@@ -301,7 +300,7 @@ export class CognitiveProcessor {
     vector: Vector = [0,0,0,0,0,0]
   ) {
     const memory: Memory = {
-      id: crypto.randomUUID(), // Secure ID
+      id: crypto.randomUUID(), 
       role, content, timestamp: Date.now(),
       concepts, emotional_weight: emotionalWeight,
       dapp_context: dappContext,
@@ -345,18 +344,14 @@ export class CognitiveProcessor {
     
     return allMemories
       .map(m => {
-        // Dot Product for Vector Similarity (More accurate than simple sum)
         const overlap = m.concepts.filter(c => conceptIds.includes(c)).length;
-        
         let vectorScore = 0;
         if (queryVector) {
-            // Cosine Similarity
             const dotProduct = m.vector.reduce((acc, val, i) => acc + (val * queryVector[i]), 0);
             const magA = Math.sqrt(m.vector.reduce((acc, val) => acc + val*val, 0));
             const magB = Math.sqrt(queryVector.reduce((acc, val) => acc + val*val, 0));
             if (magA && magB) vectorScore = dotProduct / (magA * magB);
         }
-
         return { memory: m, score: (overlap * 0.4) + (vectorScore * 0.6) };
       })
       .filter(item => item.score > 0.3) 

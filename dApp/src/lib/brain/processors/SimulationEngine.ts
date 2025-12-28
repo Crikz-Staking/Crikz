@@ -16,26 +16,29 @@ export class SimulationEngine {
     const reputation = context.total_reputation ? parseFloat(formatEther(context.total_reputation)) : 0;
     const globalFund = context.global_fund_balance ? parseFloat(formatEther(context.global_fund_balance)) : 0;
     
+    // REAL LOGIC: Use actual protocol reputation if available, else fallback to 1 (avoid div by zero)
+    const globalRep = context.global_total_reputation ? parseFloat(formatEther(context.global_total_reputation)) : 1;
+    
     // Vector Decomposition
     const financialDrive = userVector[0]; // Financial
     const riskTolerance = userVector[5];  // Risk
     const timePreference = userVector[3]; // Temporal
 
-    // Global Health Check
-    // If Global Fund is low relative to reputation, yield density is low.
-    const globalHealth = globalFund > 1000 ? 1 : 0.5; 
+    // Global Health Check (Yield per Reputation Unit)
+    // Determines if the protocol is diluted or rich
+    const yieldDensity = globalFund / Math.max(1, globalRep);
 
-    if (globalHealth < 0.5 && balance > 0) {
+    if (yieldDensity < 0.0001 && balance > 0) {
         return {
             scenario: "Liquidity Constraint",
             outcomeValue: globalFund,
             riskLevel: 0.9,
-            recommendation: "Global production fund is currently low. Staking now yields primarily reputation, not token rewards."
+            recommendation: `Global yield density is critical (${yieldDensity.toFixed(6)}). Staking now yields reputation, but token rewards are diluted due to high global participation.`
         };
     }
 
     if (financialDrive > 0.4 || intent === 'FINANCIAL_ADVICE') {
-        return this.simulateYieldStrategy(balance, reputation, riskTolerance, timePreference);
+        return this.simulateYieldStrategy(balance, riskTolerance, timePreference);
     }
 
     if (intent === 'DAPP_QUERY') {
@@ -47,25 +50,13 @@ export class SimulationEngine {
 
   private simulateYieldStrategy(
     balance: number, 
-    reputation: number, 
     riskTolerance: number,
     timePreference: number
   ): SimulationResult {
     
-    // EXACT CONTRACT MATH:
-    // Yield = (Fund * Time * 6182) / (100000 * 365)
-    // Here we approximate the Fund portion using the User's Share logic from ProductionDistributor.sol
-    // UserShare = (UserRep / TotalRep) * AccumulatedYield
-    
-    // We simulate "Standard" vs "Industrial" tiers
     const standardTier = ORDER_TYPES[2]; // 34 days
     const industrialTier = ORDER_TYPES[4]; // 233 days
 
-    // Calculate Raw Reputation Gain
-    const standardRep = balance * standardTier.multiplier;
-    const industrialRep = balance * industrialTier.multiplier;
-
-    // Calculate Projected Yield (Approximate based on BASE_APR)
     // Formula: Principal * APR * (Days/365)
     const aprDecimal = BASE_APR / 100; // 0.06182
     
@@ -81,9 +72,8 @@ export class SimulationEngine {
         };
     }
 
-    // Long-term Preference Logic
     if (timePreference > 0.6) {
-        const roi = ((industrialYield / balance) * 100).toFixed(2);
+        const roi = balance > 0 ? ((industrialYield / balance) * 100).toFixed(2) : '0';
         return {
             scenario: "Industrial Fibonacci Compounding",
             outcomeValue: industrialYield,

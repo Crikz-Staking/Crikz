@@ -34,6 +34,7 @@ export function useCrikzlingV3() {
 
   const dappContextRef = useRef<DAppContext | undefined>(undefined);
 
+  // REAL DATA INTEGRATION: Map smart contract state to brain context
   useEffect(() => {
     dappContextRef.current = {
       user_balance: balance,
@@ -41,7 +42,8 @@ export function useCrikzlingV3() {
       total_reputation: totalReputation,
       pending_yield: pendingYield,
       global_fund_balance: globalFund?.balance,
-      current_block: BigInt(Date.now()),
+      global_total_reputation: globalFund?.totalReputation, // <--- REAL DATA
+      current_block: BigInt(Date.now()), // Using timestamp as proxy for block in non-critical paths
     };
   }, [balance, activeOrders, totalReputation, pendingYield, globalFund]);
 
@@ -49,7 +51,7 @@ export function useCrikzlingV3() {
     if (address) return address;
     let stored = localStorage.getItem('crikz_guest_id');
     if (!stored) {
-      stored = `guest_${Math.random().toString(36).substr(2, 9)}`;
+      stored = `guest_${crypto.randomUUID()}`; // Secure UUID
       localStorage.setItem('crikz_guest_id', stored);
     }
     return stored;
@@ -132,7 +134,8 @@ export function useCrikzlingV3() {
                 if (newMsgs.length > 0) newMsgs[newMsgs.length - 1].content = currentText;
                 return newMsgs;
             });
-            let delay = 15 + Math.random() * 25;
+            // Human-like typing variance
+            let delay = 15 + (crypto.getRandomValues(new Uint32Array(1))[0] % 25);
             if (chars[index] === ' ') delay *= 0.3;
             if (['.', '!', '?', ','].includes(chars[index])) delay *= 2;
             setTimeout(() => typeChar(index + 1), delay);
@@ -227,7 +230,6 @@ export function useCrikzlingV3() {
   };
 
   const stats = brain ? brain.getStats() : undefined;
-  // Get history - sanitized if not owner
   const logs = brain ? brain.getHistory(isOwner) : [];
 
   return {
@@ -248,7 +250,7 @@ export function useCrikzlingV3() {
       interactions: stats?.interactions || 0,
       lastBlockchainSync: stats?.lastBlockchainSync || 0,
     },
-    logs, // Exposed logs
+    logs, 
     isThinking,
     isTyping,
     currentThought,

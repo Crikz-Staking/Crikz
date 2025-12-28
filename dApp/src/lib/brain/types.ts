@@ -111,9 +111,10 @@ export interface DeepThoughtCycle {
 export interface DAppContext {
   user_balance?: bigint;
   active_orders_count?: number;
-  total_reputation?: bigint;
+  total_reputation?: bigint; // User's Reputation
   pending_yield?: bigint;
   global_fund_balance?: bigint;
+  global_total_reputation?: bigint; // Protocol Total Reputation (Added)
   current_block?: bigint;
 }
 
