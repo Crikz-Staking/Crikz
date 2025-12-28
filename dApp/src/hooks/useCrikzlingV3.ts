@@ -24,9 +24,8 @@ export function useCrikzlingV3() {
   const [currentThought, setCurrentThought] = useState<ThoughtProcess | null>(null);
   const [forceUpdate, setForceUpdate] = useState(0); 
   
-  // New States for explicit Sync flow
   const [hasHydrated, setHasHydrated] = useState(false); 
-  const [initialLoading, setInitialLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(false);
 
   // --- CONTRACT DATA ---
   const { balance, activeOrders, totalReputation, pendingYield, globalFund } = useContractData();
@@ -64,7 +63,8 @@ export function useCrikzlingV3() {
       return {
           cid: cid,
           count: snap.conceptsCount || snap[2],
-          stage: snap.evolutionStage || snap[3]
+          stage: snap.evolutionStage || snap[3],
+          trigger: snap.triggerEvent || snap[4]
       };
   }, [latestSnapshot]);
 
@@ -90,7 +90,7 @@ export function useCrikzlingV3() {
     setForceUpdate(prev => prev + 1); 
   }, []);
 
-  // --- 1. BRAIN INITIALIZATION ---
+  // --- 1. BRAIN INITIALIZATION (Lazy Load) ---
   useEffect(() => {
     if (!sessionId) return;
     if (brain) return;
@@ -107,90 +107,74 @@ export function useCrikzlingV3() {
     initialBrain.setThoughtUpdateCallback(thoughtCallback);
     setBrain(initialBrain);
     
-    // Blocking Initial Message
     setMessages([{ 
         role: 'system', 
-        content: 'NEURAL UPLINK STANDBY... WAITING FOR SYNC.', 
+        content: 'NEURAL UPLINK STANDBY... CLICK TO AUTHENTICATE.', 
         timestamp: Date.now() 
     }]);
     
   }, [sessionId, publicClient]);
 
-  // --- 2. EXPLICIT SYNC (Triggered Automatically on Load) ---
-  useEffect(() => {
-      const initUplink = async () => {
-          if (!brain || hasHydrated || !snapshotData) return;
+  // --- 2. EXPLICIT SYNC WITH SIGNATURE ---
+  const syncWithBlockchain = useCallback(async () => {
+    if (!brain || !snapshotData) return;
 
-          setInitialLoading(true);
-          console.log("[HOOK] 📡 Initiating Blockchain Uplink...");
+    try {
+      setInitialLoading(true);
 
-          try {
-              // OPTIONAL: Require Signature to "Login" to the Brain?
-              // For now, we auto-sync to fulfill the request "when chat window is opened"
-              
-              const { cid } = snapshotData;
-              
-              if (cid && cid.length > 5) {
-                  const url = downloadFromIPFS(cid);
-                  // Force Fetch
-                  const response = await fetch(url, { cache: "no-store" });
-                  if(!response.ok) throw new Error("IPFS Gateway Timeout");
-                  
-                  const remoteJson = await response.json();
-                  
-                  if (remoteJson) {
-                      brain.mergeState(remoteJson);
-                      setHasHydrated(true);
-                      
-                      const stats = brain.getStats();
-                      
-                      setMessages([
-                          { 
-                              role: 'system', 
-                              content: `[SYSTEM] ✅ UPLINK ESTABLISHED.\nCID: ${cid.substring(0,8)}...\nNodes: ${stats.nodes} | Ops: ${stats.interactions}`, 
-                              timestamp: Date.now() 
-                          },
-                          {
-                              role: 'bot',
-                              content: `I am online. My cognitive graph has been restored from the chain.`,
-                              timestamp: Date.now() + 100
-                          }
-                      ]);
-                      setForceUpdate(prev => prev + 1);
-                  }
-              } else {
-                  // No data on chain
-                  if (!hasHydrated) {
-                      setMessages([{ role: 'bot', content: 'Genesis complete. No history found on-chain. I am ready to learn.', timestamp: Date.now() }]);
-                      setHasHydrated(true);
-                  }
+      // 1. VISUAL/SECURITY: Request Signature
+      await signMessageAsync({ 
+        message: `Authenticate Neural Uplink\nTimestamp: ${Date.now()}\nRequest: Sync State` 
+      });
+
+      toast.loading("Identity Verified. Fetching Neural Data...", { duration: 2000 });
+      console.log("[HOOK] 📡 Identity Verified. Fetching from IPFS...");
+      
+      const { cid, count, trigger } = snapshotData;
+      
+      // Parse Ops from Blockchain trigger if possible
+      let blockchainOps = 0;
+      if (trigger && trigger.includes('_')) {
+         blockchainOps = parseInt(trigger.split('_')[1]) || 0;
+      }
+
+      if (cid) {
+          const url = downloadFromIPFS(cid);
+          const response = await fetch(url);
+          const remoteJson = await response.json();
+
+          if (remoteJson) {
+              // Ensure the remote Ops count overrides local if needed
+              if (blockchainOps > 0 && (!remoteJson.totalInteractions || remoteJson.totalInteractions < blockchainOps)) {
+                  remoteJson.totalInteractions = blockchainOps;
               }
-          } catch (e) {
-              console.warn("Sync Failed:", e);
-              setMessages([{ role: 'system', content: '⚠️ UPLINK FAILED. Operating on local cache.', timestamp: Date.now() }]);
-              setHasHydrated(true); // Allow usage anyway
-          } finally {
-              setInitialLoading(false);
+
+              brain.mergeState(remoteJson);
+              setHasHydrated(true);
+              
+              setMessages(prev => [
+                  ...prev, 
+                  { 
+                      role: 'system', 
+                      content: `[UPLINK ESTABLISHED]\n\nBlockchain Nodes: ${count}\nBlockchain Ops: ${blockchainOps}\n\nLocal Graph Updated.`, 
+                      timestamp: Date.now() 
+                  },
+                  {
+                      role: 'bot',
+                      content: `I am online. My cognitive graph has been restored from the chain.`,
+                      timestamp: Date.now() + 100
+                  }
+              ]);
+              setForceUpdate(p => p + 1);
           }
-      };
-
-      if (brain && snapshotData) {
-          initUplink();
       }
-  }, [brain, snapshotData, hasHydrated]);
-
-  // --- EXPLICIT SYNC BUTTON HANDLER (The "Transaction") ---
-  const forceSync = async () => {
-      if(!brain || !address) return;
-      try {
-          // Visual "Transaction" - User signs to request latest data
-          await signMessageAsync({ message: `Authorize Neural Sync: ${Date.now()}` });
-          toast.success("Identity Verified. Syncing...");
-          setHasHydrated(false); // Trigger useEffect re-run
-      } catch (e) {
-          toast.error("Sync Cancelled");
-      }
-  };
+    } catch (error) {
+      console.error("Sync Cancelled or Failed:", error);
+      toast.error("Sync Failed: Authentication Rejected");
+    } finally {
+      setInitialLoading(false);
+    }
+  }, [brain, snapshotData, signMessageAsync]);
 
   // --- SAVE DIFF ON UPDATE ---
   useEffect(() => {
@@ -278,7 +262,7 @@ export function useCrikzlingV3() {
   };
 
   const sendMessage = async (text: string) => {
-    if (!brain || isThinking || initialLoading) return; // Block chat if loading
+    if (!brain || isThinking || initialLoading) return;
     setIsThinking(true);
     setMessages(prev => [...prev, { role: 'user', content: text, timestamp: Date.now() }]);
 
@@ -322,12 +306,10 @@ export function useCrikzlingV3() {
       if (brain) { brain.simpleTrain(text); setForceUpdate(p => p + 1); }
   };
   
-  // NEW: Feature 5 - Neural Link optimization logic
   const toggleNeuralLink = (active: boolean) => {
       if (brain) { 
           brain.toggleNeuralLink(active); 
           if(active) {
-              // Trigger specific optimization when link activated
               brain.optimizeNeuralGraph();
           }
           setForceUpdate(p => p + 1); 
@@ -339,8 +321,8 @@ export function useCrikzlingV3() {
 
   return {
     messages, sendMessage, uploadFile, crystallize, resetBrain, updateDrives, trainConcept, simpleTrain, toggleNeuralLink,
+    syncWithBlockchain, // EXPORTED
     needsSave: brain?.needsCrystallization() || false, isSyncing, initialLoading,
-    forceSync, // Exported to be used in UI
     brainStats: {
       stage: stats?.stage || 'GENESIS',
       nodes: stats?.nodes || 0,

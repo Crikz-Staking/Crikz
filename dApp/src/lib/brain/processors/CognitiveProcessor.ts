@@ -98,15 +98,20 @@ export class CognitiveProcessor {
 
   /**
    * SMART MERGE: Authority on State
+   * Called when data is fetched from IPFS after signature
    */
   public mergeExternalState(remoteState: any) {
       const remoteOps = Number(remoteState.totalInteractions || remoteState.interactions || 0);
       const currentOps = Number(this.state.totalInteractions || 0);
 
-      console.log(`[Cognitive] 📥 MERGE REQUEST | Blockchain: ${remoteOps} | Local: ${currentOps}`);
+      console.log(`[Cognitive] 📥 MERGE REQUEST | Blockchain Ops: ${remoteOps} | Local Ops: ${currentOps}`);
 
-      // 1. Sync Ops - Monotonic Increase Only
-      this.state.totalInteractions = Math.max(currentOps, remoteOps);
+      // 1. Sync Ops - Always accept the blockchain number if it's valid
+      // This ensures the UI reflects the "Official" count from the contract state
+      if (remoteOps > currentOps) {
+          this.state.totalInteractions = remoteOps;
+      }
+
       this.state.lastBlockchainSync = Date.now();
 
       // 2. Merge Concepts
@@ -120,6 +125,7 @@ export class CognitiveProcessor {
                   this.state.concepts[id] = remoteConcept;
                   newNodes++;
               } else {
+                  // Merge if remote has more depth
                   if ((remoteConcept.technical_depth || 0) > (localConcept.technical_depth || 0)) {
                       this.state.concepts[id] = { ...localConcept, ...remoteConcept };
                   }
@@ -143,12 +149,20 @@ export class CognitiveProcessor {
           if(newEdges > 0) console.log(`[Cognitive] Integrated ${newEdges} connections.`);
       }
 
-      // 4. Update Stage
+      // 4. Update Stage from Remote if higher
       const stages = ['GENESIS', 'SENTIENT', 'SAPIENT', 'TRANSCENDENT'];
       const localIdx = stages.indexOf(this.state.evolutionStage);
       const remoteIdx = stages.indexOf(remoteState.evolutionStage || 'GENESIS');
       if (remoteIdx > localIdx) {
           this.state.evolutionStage = remoteState.evolutionStage;
+      }
+      
+      // 5. Clean up unsaved state if we are now up to date
+      if (remoteOps >= currentOps) {
+          this.state.unsavedDataCount = 0;
+          this.unsavedIds.concepts.clear();
+          this.unsavedIds.memories.clear();
+          this.unsavedIds.relations.clear();
       }
       
       this.state.activationMap = {}; 
@@ -420,8 +434,6 @@ export class CognitiveProcessor {
     }
     return [...new Set(path)];
   }
-
-  // --- MISSING METHODS RESTORED ---
 
   public clusterConcepts(): string | null {
       const candidates = this.getPriorityNodes();

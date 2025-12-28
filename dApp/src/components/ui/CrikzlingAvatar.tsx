@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Send, Minimize2, Save, RefreshCw, Upload, 
-  Terminal, Database, Cpu, Activity, Zap, Lock, Brain, Wifi 
+  Terminal, Database, Cpu, Activity, Zap, Lock, Brain, Wifi, Loader2
 } from 'lucide-react';
 import { useCrikzlingV3 } from '@/hooks/useCrikzlingV3';
 import { GeometricCore } from './CrikzlingVisuals';
@@ -15,12 +15,12 @@ export default function CrikzlingAvatar() {
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
   
-  // 1. EXTRACT NEW FUNCTIONS HERE
   const { 
     messages, sendMessage, crystallize, needsSave, isSyncing, 
     brainStats, isThinking, isTyping, currentThought, 
     uploadFile, resetBrain, isOwner, logs, 
-    updateDrives, trainConcept, simpleTrain, toggleNeuralLink // <--- New
+    updateDrives, trainConcept, simpleTrain, toggleNeuralLink,
+    syncWithBlockchain, initialLoading // <--- New Exports
   } = useCrikzlingV3();
 
   useEffect(() => {
@@ -28,6 +28,21 @@ export default function CrikzlingAvatar() {
       scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
     }
   }, [messages, isTyping, currentThought]);
+
+  // --- SYNC & OPEN HANDLER ---
+  const handleOpen = async () => {
+      // Trigger Blockchain Sync/Transaction Request before showing UI
+      if (!isOpen && !initialLoading) {
+          try {
+              await syncWithBlockchain();
+              setIsOpen(true);
+          } catch(e) {
+              console.error("Open aborted due to sync failure");
+          }
+      } else {
+          setIsOpen(true);
+      }
+  };
 
   const handleSend = async () => {
     if (!input.trim() || isThinking || isTyping) return;
@@ -55,9 +70,8 @@ export default function CrikzlingAvatar() {
   const isLearning = !isThinking && !!currentThought;
   const isConnected = brainStats.connectivity?.isConnected;
   
-  // 2. UPDATE VISUAL STATE LOGIC
-  const coreState = isSyncing ? 'crystallizing' 
-                  : isConnected ? 'connected' // <--- New Visual State
+  const coreState = isSyncing || initialLoading ? 'crystallizing' 
+                  : isConnected ? 'connected'
                   : isThinking ? 'thinking' 
                   : isLearning ? 'thinking'
                   : 'idle';
@@ -77,7 +91,6 @@ export default function CrikzlingAvatar() {
 
   return (
     <>
-      {/* 3. PASS PROPS TO DASHBOARD */}
       <NeuralDashboard 
         isOpen={showDashboard} 
         onClose={() => setShowDashboard(false)} 
@@ -96,17 +109,24 @@ export default function CrikzlingAvatar() {
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
-            onClick={() => setIsOpen(true)}
-            className="fixed bottom-6 right-6 z-50 w-16 h-16 rounded-full glass-card border border-primary-500/30 flex items-center justify-center cursor-pointer shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:scale-110 transition-transform"
+            onClick={handleOpen}
+            disabled={initialLoading}
+            className="fixed bottom-6 right-6 z-50 w-16 h-16 rounded-full glass-card border border-primary-500/30 flex items-center justify-center cursor-pointer shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:scale-110 transition-transform disabled:opacity-80"
           >
             <div className="w-10 h-10">
-              <GeometricCore state={coreState} />
+              {initialLoading ? (
+                  <Loader2 className="animate-spin text-primary-500 w-full h-full" />
+              ) : (
+                  <GeometricCore state={coreState} />
+              )}
             </div>
             {/* Status Indicators */}
-            <div className="absolute top-0 right-0 flex h-3 w-3">
-              {needsSave && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>}
-              <span className={`relative inline-flex rounded-full h-3 w-3 ${needsSave ? 'bg-red-500' : isConnected ? 'bg-cyan-400' : 'bg-emerald-500'}`}></span>
-            </div>
+            {!initialLoading && (
+                <div className="absolute top-0 right-0 flex h-3 w-3">
+                {needsSave && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>}
+                <span className={`relative inline-flex rounded-full h-3 w-3 ${needsSave ? 'bg-red-500' : isConnected ? 'bg-cyan-400' : 'bg-emerald-500'}`}></span>
+                </div>
+            )}
           </motion.button>
         )}
       </AnimatePresence>
@@ -134,7 +154,7 @@ export default function CrikzlingAvatar() {
                                 {isSyncing ? 'CRYSTALLIZING' : isConnected ? 'NEURAL LINK' : isThinking ? 'PROCESSING' : isLearning ? 'LEARNING' : 'ONLINE'}
                             </span>
                             <span className="text-white/20">|</span>
-                            <span>v5.2.0</span>
+                            <span>Ops: {brainStats.interactions}</span>
                         </div>
                     </div>
                 </div>
@@ -201,7 +221,7 @@ export default function CrikzlingAvatar() {
                                 {isConnected ? <Wifi size={10} className="text-cyan-400"/> : <Wifi size={10}/>} 
                                 {isConnected ? 'LINK: ACTIVE' : 'LINK: OFFLINE'}
                             </span>
-                            <span className="flex items-center gap-1"><Cpu size={10}/> Ops: {brainStats.interactions}</span>
+                            <span className="flex items-center gap-1"><Database size={10}/> Nodes: {brainStats.nodes}</span>
                         </div>
                     </motion.div>
                 )}
