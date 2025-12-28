@@ -33,8 +33,35 @@ export const CRIKZ_TOKEN_ABI = [
   { "inputs": [], "name": "productionFund", "outputs": [{"name": "balance", "type": "uint256"}, {"name": "totalReputation", "type": "uint256"}, {"name": "accumulatedYieldPerReputation", "type": "uint256"}, {"name": "lastUpdateTime", "type": "uint256"}], "stateMutability": "view", "type": "function" }
 ] as const;
 
+// UPDATED ABI WITH READ FUNCTION
 export const CRIKZLING_MEMORY_ABI = [
-  { "inputs": [{"internalType": "string", "name": "_ipfsCid", "type": "string"}, {"internalType": "uint256", "name": "_conceptsCount", "type": "uint256"}, {"internalType": "string", "name": "_evolutionStage", "type": "string"}, {"internalType": "string", "name": "_trigger", "type": "string"}], "name": "crystallizeMemory", "outputs": [], "stateMutability": "nonpayable", "type": "function" }
+  { 
+    "inputs": [{"internalType": "string", "name": "_ipfsCid", "type": "string"}, {"internalType": "uint256", "name": "_conceptsCount", "type": "uint256"}, {"internalType": "string", "name": "_evolutionStage", "type": "string"}, {"internalType": "string", "name": "_trigger", "type": "string"}], 
+    "name": "crystallizeMemory", 
+    "outputs": [], 
+    "stateMutability": "nonpayable", 
+    "type": "function" 
+  },
+  { 
+    "inputs": [], 
+    "name": "getLatestMemory", 
+    "outputs": [
+      {
+        "components": [
+          { "internalType": "uint256", "name": "timestamp", "type": "uint256" },
+          { "internalType": "string", "name": "ipfsCid", "type": "string" },
+          { "internalType": "uint256", "name": "conceptsCount", "type": "uint256" },
+          { "internalType": "string", "name": "evolutionStage", "type": "string" },
+          { "internalType": "string", "name": "triggerEvent", "type": "string" }
+        ],
+        "internalType": "struct CrikzlingMemory.MemorySnapshot",
+        "name": "",
+        "type": "tuple"
+      }
+    ], 
+    "stateMutability": "view", 
+    "type": "function" 
+  }
 ] as const;
 
 export const CRIKZ_NFT_ABI = [
@@ -42,7 +69,6 @@ export const CRIKZ_NFT_ABI = [
   { "inputs": [{"name": "owner", "type": "address"}, {"name": "index", "type": "uint256"}], "name": "tokenOfOwnerByIndex", "outputs": [{"name": "", "type": "uint256"}], "stateMutability": "view", "type": "function" },
   { "inputs": [{"name": "tokenId", "type": "uint256"}], "name": "tokenURI", "outputs": [{"name": "", "type": "string"}], "stateMutability": "view", "type": "function" },
   { "inputs": [{"name": "_tokenURI", "type": "string"}], "name": "mint", "outputs": [], "stateMutability": "payable", "type": "function" },
-  // FIX: Added missing functions for ListingModal
   { "inputs": [{"name": "tokenId", "type": "uint256"}], "name": "getApproved", "outputs": [{"name": "", "type": "address"}], "stateMutability": "view", "type": "function" },
   { "inputs": [{"name": "owner", "type": "address"}, {"name": "operator", "type": "address"}], "name": "isApprovedForAll", "outputs": [{"name": "", "type": "bool"}], "stateMutability": "view", "type": "function" },
   { "inputs": [{"name": "to", "type": "address"}, {"name": "tokenId", "type": "uint256"}], "name": "approve", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
