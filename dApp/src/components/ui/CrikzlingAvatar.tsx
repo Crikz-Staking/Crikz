@@ -2,13 +2,15 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Send, Maximize2, Minimize2, Save, RefreshCw, Upload, 
-  Terminal, X, ChevronDown, Database, Cpu, Sparkles 
+  Terminal, X, ChevronDown, Database, Cpu, Sparkles,
+  Activity, Zap, Brain, Lock
 } from 'lucide-react';
 import { useCrikzlingV3 } from '@/hooks/useCrikzlingV3';
 import { GeometricCore } from './CrikzlingVisuals';
 
 export default function CrikzlingAvatar() {
-  const [isOpen, setIsOpen] = useState(false); // Collapsed by default
+  const [isOpen, setIsOpen] = useState(false); 
+  const [showMonitor, setShowMonitor] = useState(false); // New Monitor View
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
   
@@ -27,7 +29,7 @@ export default function CrikzlingAvatar() {
     isOwner
   } = useCrikzlingV3();
 
-  // Auto-scroll to bottom
+  // Auto-scroll
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTo({
@@ -60,8 +62,17 @@ export default function CrikzlingAvatar() {
     }
   };
 
-  // Determine Visual State
+  // V4 Visual Logic
   const coreState = isSyncing ? 'crystallizing' : isThinking ? 'thinking' : 'idle';
+  
+  const stageColors = {
+      GENESIS: 'text-gray-400',
+      SENTIENT: 'text-blue-400',
+      SAPIENT: 'text-purple-400',
+      TRANSCENDENT: 'text-amber-400'
+  };
+
+  const currentStageColor = stageColors[brainStats.stage as keyof typeof stageColors] || 'text-gray-400';
 
   return (
     <>
@@ -78,9 +89,11 @@ export default function CrikzlingAvatar() {
             <div className="w-10 h-10">
               <GeometricCore state={coreState} />
             </div>
-            {needsSave && (
-              <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-black animate-pulse" />
-            )}
+            {/* Status Dot */}
+            <div className="absolute top-0 right-0 flex h-3 w-3">
+              {needsSave && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>}
+              <span className={`relative inline-flex rounded-full h-3 w-3 ${needsSave ? 'bg-red-500' : 'bg-emerald-500'}`}></span>
+            </div>
           </motion.button>
         )}
       </AnimatePresence>
@@ -93,38 +106,101 @@ export default function CrikzlingAvatar() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 50, scale: 0.9 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed bottom-6 right-6 z-50 w-[400px] h-[600px] flex flex-col rounded-3xl overflow-hidden glass-card border border-white/10 shadow-2xl bg-[#0a0a0f]/90 backdrop-blur-xl"
+            className="fixed bottom-6 right-6 z-50 w-[400px] h-[650px] flex flex-col rounded-3xl overflow-hidden glass-card border border-white/10 shadow-2xl bg-[#0a0a0f]/95 backdrop-blur-xl"
           >
             
-            {/* Header: Visual Core & Controls */}
-            <div className="relative h-24 bg-gradient-to-b from-white/5 to-transparent border-b border-white/5 flex items-center px-6 justify-between">
+            {/* --- HEADER --- */}
+            <div className="relative h-20 bg-gradient-to-b from-white/5 to-transparent border-b border-white/5 flex items-center px-6 justify-between shrink-0">
                 <div className="flex items-center gap-4">
-                    <div className="w-12 h-12">
+                    <div className="w-10 h-10">
                         <GeometricCore state={coreState} />
                     </div>
                     <div>
-                        <h3 className="text-white font-black tracking-wide text-lg">CRIKZLING</h3>
-                        <div className="flex items-center gap-2 text-[10px] font-mono text-gray-400">
-                            <div className={`w-1.5 h-1.5 rounded-full ${isThinking ? 'bg-amber-500 animate-ping' : 'bg-emerald-500'}`} />
-                            {isSyncing ? 'CRYSTALLIZING...' : isThinking ? 'PROCESSING...' : 'ONLINE'}
+                        <h3 className="text-white font-black tracking-wide text-sm flex items-center gap-2">
+                            CRIKZLING <span className={`text-[9px] px-1.5 py-0.5 rounded border border-white/10 ${currentStageColor} bg-white/5`}>{brainStats.stage}</span>
+                        </h3>
+                        <div className="flex items-center gap-2 text-[10px] font-mono text-gray-400 mt-0.5">
+                            <span className={isThinking ? 'text-amber-500 animate-pulse' : 'text-emerald-500'}>
+                                {isThinking ? 'PROCESSING' : 'ONLINE'}
+                            </span>
+                            <span className="text-white/20">|</span>
+                            <span>v4.0.1</span>
                         </div>
                     </div>
                 </div>
-                <div className="flex gap-2">
-                    <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-white/10 rounded-full text-gray-400 transition-colors">
-                        <Minimize2 size={18} />
+                <div className="flex gap-1">
+                    <button 
+                        onClick={() => setShowMonitor(!showMonitor)} 
+                        className={`p-2 rounded-lg transition-colors ${showMonitor ? 'bg-white/10 text-white' : 'text-gray-500 hover:text-white'}`}
+                        title="Neural Monitor"
+                    >
+                        <Activity size={16} />
+                    </button>
+                    <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-white/10 rounded-lg text-gray-500 hover:text-white transition-colors">
+                        <Minimize2 size={16} />
                     </button>
                 </div>
             </div>
 
-            {/* Cognitive Pipeline (Thinking Bar) */}
+            {/* --- NEURAL MONITOR (V4 Feature) --- */}
+            <AnimatePresence>
+                {showMonitor && (
+                    <motion.div 
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="bg-[#050508] border-b border-white/5 overflow-hidden"
+                    >
+                        <div className="p-4 grid grid-cols-3 gap-4">
+                            {/* Logic */}
+                            <div className="flex flex-col gap-1">
+                                <div className="flex justify-between text-[9px] font-bold text-blue-400 uppercase">
+                                    <span>Logic</span>
+                                    <span>{Math.round(brainStats.mood.logic)}%</span>
+                                </div>
+                                <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                    <motion.div className="h-full bg-blue-500" animate={{ width: `${brainStats.mood.logic}%` }} />
+                                </div>
+                            </div>
+                            {/* Entropy */}
+                            <div className="flex flex-col gap-1">
+                                <div className="flex justify-between text-[9px] font-bold text-purple-400 uppercase">
+                                    <span>Entropy</span>
+                                    <span>{Math.round(brainStats.mood.entropy)}%</span>
+                                </div>
+                                <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                    <motion.div className="h-full bg-purple-500" animate={{ width: `${brainStats.mood.entropy}%` }} />
+                                </div>
+                            </div>
+                            {/* Energy */}
+                            <div className="flex flex-col gap-1">
+                                <div className="flex justify-between text-[9px] font-bold text-amber-400 uppercase">
+                                    <span>Energy</span>
+                                    <span>{Math.round(brainStats.mood.energy)}%</span>
+                                </div>
+                                <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                    <motion.div className="h-full bg-amber-500" animate={{ width: `${brainStats.mood.energy}%` }} />
+                                </div>
+                            </div>
+                        </div>
+                        <div className="px-4 pb-3 flex justify-between text-[10px] text-gray-500 font-mono">
+                            <span className="flex items-center gap-1"><Brain size={10}/> Nodes: {brainStats.nodes}</span>
+                            <span className="flex items-center gap-1"><Cpu size={10}/> Ops: {brainStats.interactions}</span>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* --- THOUGHT PIPELINE --- */}
             {isThinking && currentThought && (
-                <div className="bg-black/40 border-b border-amber-500/20 px-4 py-2">
+                <div className="bg-black/40 border-b border-amber-500/20 px-4 py-2 shrink-0">
                     <div className="flex justify-between text-[10px] text-amber-500 font-mono mb-1">
-                        <span className="uppercase">{currentThought.phase}</span>
+                        <span className="uppercase flex items-center gap-1">
+                            <Zap size={10} className="fill-current" /> {currentThought.phase}
+                        </span>
                         <span>{Math.round(currentThought.progress)}%</span>
                     </div>
-                    <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                    <div className="h-0.5 bg-white/5 rounded-full overflow-hidden">
                         <motion.div 
                             className="h-full bg-amber-500"
                             initial={{ width: 0 }}
@@ -137,16 +213,19 @@ export default function CrikzlingAvatar() {
                 </div>
             )}
 
-            {/* Chat Area */}
+            {/* --- CHAT AREA --- */}
             <div 
                 ref={scrollRef}
                 className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide relative"
             >
                 {messages.length === 0 && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center opacity-30 pointer-events-none">
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center opacity-30 pointer-events-none p-8">
                         <Terminal size={40} className="mb-4 text-white" />
                         <p className="text-sm font-bold text-white">NEURAL LINK ESTABLISHED</p>
-                        <p className="text-xs text-gray-400 mt-1 max-w-[200px]">I am ready to analyze production orders, simulate yield, or evolve my knowledge base.</p>
+                        <p className="text-xs text-gray-400 mt-2">
+                            I am analyzing the Fibonacci production protocol. 
+                            My subconscious is running simulations on yield strategies.
+                        </p>
                     </div>
                 )}
 
@@ -157,11 +236,16 @@ export default function CrikzlingAvatar() {
                         animate={{ opacity: 1, x: 0 }}
                         className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
-                        <div className={`max-w-[85%] p-3 rounded-2xl text-sm leading-relaxed ${
+                        <div className={`max-w-[85%] p-3 rounded-2xl text-sm leading-relaxed relative ${
                             msg.role === 'user' 
                             ? 'bg-primary-500 text-black font-medium rounded-tr-sm' 
-                            : 'bg-white/10 text-gray-200 border border-white/5 rounded-tl-sm backdrop-blur-md'
+                            : 'bg-white/5 text-gray-200 border border-white/5 rounded-tl-sm'
                         }`}>
+                            {msg.role === 'bot' && (
+                                <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-[#0a0a0f] rounded-full border border-white/10 flex items-center justify-center">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-primary-500" />
+                                </div>
+                            )}
                             {msg.content}
                         </div>
                     </motion.div>
@@ -169,27 +253,30 @@ export default function CrikzlingAvatar() {
 
                 {isTyping && !isThinking && (
                     <div className="flex justify-start">
-                        <div className="bg-white/5 px-4 py-2 rounded-2xl rounded-tl-sm flex gap-1 items-center">
-                            <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" />
-                            <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce delay-100" />
-                            <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce delay-200" />
+                        <div className="bg-white/5 px-4 py-2 rounded-2xl rounded-tl-sm flex gap-1 items-center border border-white/5">
+                            <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" />
+                            <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce delay-100" />
+                            <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce delay-200" />
                         </div>
                     </div>
                 )}
             </div>
 
-            {/* Quick Actions Panel (Memory Management) */}
-            <div className="bg-[#0f0f13] border-t border-white/5 px-4 py-2 flex items-center justify-between text-[10px] text-gray-500 font-mono">
-                <div className="flex items-center gap-3">
-                    <span className="flex items-center gap-1" title="Concepts Learned">
-                        <Database size={10} /> {brainStats.nodes}
-                    </span>
-                    <span className="flex items-center gap-1" title="Neural Connections">
-                        <Cpu size={10} /> {brainStats.relations}
-                    </span>
+            {/* --- FOOTER: QUICK ACTIONS --- */}
+            <div className="bg-[#0f0f13] border-t border-white/5 px-4 py-2 flex items-center justify-between text-[10px] text-gray-500 font-mono shrink-0">
+                <div className="flex items-center gap-1">
+                    {needsSave ? (
+                        <span className="text-red-400 flex items-center gap-1">
+                            <Lock size={10} /> Unsaved Data
+                        </span>
+                    ) : (
+                        <span className="text-emerald-500 flex items-center gap-1">
+                            <Database size={10} /> Synced
+                        </span>
+                    )}
                 </div>
                 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                     {needsSave && (
                         <motion.button 
                             whileHover={{ scale: 1.05 }}
@@ -198,17 +285,17 @@ export default function CrikzlingAvatar() {
                             className="flex items-center gap-1 text-amber-500 hover:text-amber-400 disabled:opacity-50"
                         >
                             {isSyncing ? <RefreshCw size={10} className="animate-spin" /> : <Save size={10} />}
-                            {isSyncing ? 'SAVING...' : 'CRYSTALLIZE'}
+                            {isSyncing ? 'CRYSTALLIZING...' : 'SAVE MEMORY'}
                         </motion.button>
                     )}
                     
                     {isOwner && (
                         <>
-                            <label className="cursor-pointer hover:text-white transition-colors">
+                            <label className="cursor-pointer hover:text-white transition-colors" title="Upload Knowledge File">
                                 <Upload size={10} />
                                 <input type="file" className="hidden" onChange={handleFileUpload} />
                             </label>
-                            <button onClick={resetBrain} className="hover:text-red-500 transition-colors">
+                            <button onClick={resetBrain} className="hover:text-red-500 transition-colors" title="Reset Brain">
                                 <RefreshCw size={10} />
                             </button>
                         </>
@@ -216,15 +303,15 @@ export default function CrikzlingAvatar() {
                 </div>
             </div>
 
-            {/* Input Area */}
-            <div className="p-4 bg-[#0a0a0f] border-t border-white/10">
+            {/* --- INPUT AREA --- */}
+            <div className="p-4 bg-[#0a0a0f] border-t border-white/10 shrink-0">
                 <div className="flex items-center gap-2 bg-white/5 rounded-xl border border-white/10 px-2 py-1 focus-within:border-primary-500/50 transition-colors">
                     <input 
                         type="text" 
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={handleKeyPress}
-                        placeholder="Type a command or query..."
+                        placeholder="Ask about strategy, yield, or protocols..."
                         disabled={isThinking || isSyncing}
                         className="flex-1 bg-transparent border-none text-white text-sm px-2 py-3 focus:outline-none placeholder-gray-600"
                     />

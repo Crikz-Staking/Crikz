@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from 'wagmi';
 import { bscTestnet } from 'wagmi/chains';
 import { toast } from 'react-hot-toast';
 
 import { CrikzlingBrainV3 } from '@/lib/brain/crikzling-brain-v3';
-import { ThoughtProcess, DAppContext } from '@/lib/brain/types'; // FIXED IMPORT
+import { ThoughtProcess, DAppContext } from '@/lib/brain/types';
 import { uploadToIPFS } from '@/lib/ipfs-service';
 import { CRIKZLING_MEMORY_ADDRESS, CRIKZLING_MEMORY_ABI } from '@/config/index';
 import { useContractData } from '@/hooks/web3/useContractData';
@@ -14,13 +14,19 @@ const ARCHITECT_ADDRESS = "0x7072F8955FEb6Cdac4cdA1e069f864969Da4D379";
 export function useCrikzlingV3() {
   const { address } = useAccount();
   const publicClient = usePublicClient();
+  
+  // -- STATE --
   const [brain, setBrain] = useState<CrikzlingBrainV3 | null>(null);
   const [messages, setMessages] = useState<{role: 'user' | 'bot', content: string, timestamp: number}[]>([]);
+  
+  // Visual States
   const [isThinking, setIsThinking] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
-  const [currentThought, setCurrentThought] = useState<ThoughtProcess | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [currentThought, setCurrentThought] = useState<ThoughtProcess | null>(null);
+  const [forceUpdate, setForceUpdate] = useState(0); // Trigger re-render for background brain updates
 
+  // -- BLOCKCHAIN DATA --
   const {
     balance,
     activeOrders,
@@ -29,6 +35,22 @@ export function useCrikzlingV3() {
     globalFund,
   } = useContractData();
 
+  // Use a Ref to hold the latest context for the interval loop
+  // This prevents the interval from resetting every time the block updates
+  const dappContextRef = useRef<DAppContext | undefined>(undefined);
+
+  useEffect(() => {
+    dappContextRef.current = {
+      user_balance: balance,
+      active_orders_count: activeOrders?.length || 0,
+      total_reputation: totalReputation,
+      pending_yield: pendingYield,
+      global_fund_balance: globalFund?.balance,
+      current_block: BigInt(Date.now()),
+    };
+  }, [balance, activeOrders, totalReputation, pendingYield, globalFund]);
+
+  // -- INIT --
   const sessionId = useMemo(() => {
     if (address) return address;
     let stored = localStorage.getItem('crikz_guest_id');
@@ -46,11 +68,13 @@ export function useCrikzlingV3() {
 
   const thoughtCallback = useCallback((thought: ThoughtProcess | null) => {
     setCurrentThought(thought);
+    // If thought is null (process ended) or changed, trigger UI update
+    setForceUpdate(prev => prev + 1); 
   }, []);
 
+  // Initialize Brain
   useEffect(() => {
     if (!sessionId) return;
-    
     if (brain) return;
 
     const savedLocal = localStorage.getItem(`crikz_brain_v3_${sessionId}`);
@@ -67,11 +91,30 @@ export function useCrikzlingV3() {
     setMessages(prev => {
       if (prev.length > 0) return prev;
       const welcomeMsg = savedLocal 
-        ? 'Neural lattice restored. All systems online. I have access to my complete memory - both local and on-chain.'
-        : 'Genesis complete. I am Crikzling v4. I can now access the dApp state, my conversation history, and my immutable blockchain memories. How may I assist you?';
+        ? 'Neural lattice restored. Subconscious systems active. I am monitoring the protocol state.'
+        : 'Genesis complete. Crikzling V4 online. Subconscious processing initialized. I may occasionally analyze data in the background.';
       return [{ role: 'bot', content: welcomeMsg, timestamp: Date.now() }];
     });
   }, [sessionId, publicClient]);
+
+  // -- THE SUBCONSCIOUS LOOP (V4 UPGRADE) --
+  useEffect(() => {
+    if (!brain) return;
+
+    const heartbeat = setInterval(() => {
+      // Only tick if not actively talking
+      if (!isThinking && !isTyping) {
+        brain.tick(dappContextRef.current).then(() => {
+            // Trigger a re-render to update 'brainStats' (mood, dreaming status)
+            setForceUpdate(prev => prev + 1);
+        });
+      }
+    }, 4000); // Pulse every 4 seconds
+
+    return () => clearInterval(heartbeat);
+  }, [brain, isThinking, isTyping]);
+
+  // -- HANDLERS --
 
   useEffect(() => {
     if (writeError) {
@@ -86,22 +129,9 @@ export function useCrikzlingV3() {
       brain.clearUnsavedCount();
       localStorage.setItem(`crikz_brain_v3_${address}`, brain.exportState());
       setIsSyncing(false);
-      typeStreamResponse('Crystallization confirmed. My cognitive state is now permanently recorded on the Binance Smart Chain, accessible to all future iterations of myself.');
+      typeStreamResponse('Crystallization confirmed. My cognitive state is now permanently recorded on the Binance Smart Chain.');
     }
   }, [txSuccess, isSyncing, brain, address]);
-
-  const buildDAppContext = useCallback((): DAppContext | undefined => {
-    if (!address) return undefined;
-
-    return {
-      user_balance: balance,
-      active_orders_count: activeOrders?.length || 0,
-      total_reputation: totalReputation,
-      pending_yield: pendingYield,
-      global_fund_balance: globalFund?.balance,
-      current_block: BigInt(Date.now()),
-    };
-  }, [address, balance, activeOrders, totalReputation, pendingYield, globalFund]);
 
   const typeStreamResponse = async (fullText: string) => {
     setIsTyping(true);
@@ -110,29 +140,32 @@ export function useCrikzlingV3() {
     const chars = fullText.split('');
     let currentText = '';
     
-    const typeChar = (index: number) => {
-      if (index >= chars.length) {
-        setIsTyping(false);
-        return;
-      }
-      
-      currentText += chars[index];
-      setMessages(prev => {
-        const newMsgs = [...prev];
-        if (newMsgs.length > 0) {
-            newMsgs[newMsgs.length - 1].content = currentText;
-        }
-        return newMsgs;
-      });
-      
-      let delay = 15 + Math.random() * 25;
-      if (chars[index] === ' ') delay *= 0.3;
-      if (['.', '!', '?', ','].includes(chars[index])) delay *= 2;
-      
-      setTimeout(() => typeChar(index + 1), delay);
-    };
-    
-    typeChar(0);
+    // Typing animation logic
+    return new Promise<void>((resolve) => {
+        const typeChar = (index: number) => {
+            if (index >= chars.length) {
+                setIsTyping(false);
+                resolve();
+                return;
+            }
+            
+            currentText += chars[index];
+            setMessages(prev => {
+                const newMsgs = [...prev];
+                if (newMsgs.length > 0) {
+                    newMsgs[newMsgs.length - 1].content = currentText;
+                }
+                return newMsgs;
+            });
+            
+            let delay = 15 + Math.random() * 25;
+            if (chars[index] === ' ') delay *= 0.3;
+            if (['.', '!', '?', ','].includes(chars[index])) delay *= 2;
+            
+            setTimeout(() => typeChar(index + 1), delay);
+        };
+        typeChar(0);
+    });
   };
 
   const sendMessage = async (text: string) => {
@@ -142,9 +175,7 @@ export function useCrikzlingV3() {
     setMessages(prev => [...prev, { role: 'user', content: text, timestamp: Date.now() }]);
 
     try {
-      const dappContext = buildDAppContext();
-      
-      const { response } = await brain.process(text, isOwner, dappContext);
+      const { response } = await brain.process(text, isOwner, dappContextRef.current);
       
       if (sessionId) {
         localStorage.setItem(`crikz_brain_v3_${sessionId}`, brain.exportState());
@@ -175,13 +206,13 @@ export function useCrikzlingV3() {
       const state = brain.getState();
       const exportStr = brain.exportState();
       const blob = new Blob([exportStr], { type: 'application/json' });
-      const file = new File([blob], `crikz_v3_mem_${Date.now()}.json`);
+      const file = new File([blob], `crikz_v4_mem_${Date.now()}.json`);
       
       const cid = await uploadToIPFS(file);
       const conceptCount = BigInt(Object.keys(state.concepts).length);
       const stage = state.evolutionStage;
       
-      const trigger = `V3_MANUAL_SAVE_INTERACTIONS_${state.totalInteractions}_BLOCKCHAIN_SYNCS_${state.blockchainMemories.length}`;
+      const trigger = `V4_MANUAL_SAVE_INTERACTIONS_${state.totalInteractions}`;
 
       toast.loading('Confirming on Blockchain...', { id: 'crystallize' });
       
@@ -205,6 +236,7 @@ export function useCrikzlingV3() {
     brain.wipe();
     localStorage.removeItem(`crikz_brain_v3_${sessionId}`);
     
+    // Re-instantiate
     const newBrain = new CrikzlingBrainV3(
       undefined,
       publicClient,
@@ -216,7 +248,7 @@ export function useCrikzlingV3() {
     
     setMessages([{ 
       role: 'bot', 
-      content: 'Neural matrices purged. Genesis state restored. All local memories cleared, but blockchain memories remain accessible.', 
+      content: 'Neural matrices purged. Genesis state restored. All local memories cleared.', 
       timestamp: Date.now() 
     }]);
   };
@@ -233,12 +265,12 @@ export function useCrikzlingV3() {
     
     setIsThinking(false);
     typeStreamResponse(
-      `Knowledge assimilation complete. I've integrated ${count} new concepts into my neural architecture. ` +
-      `This expands my understanding significantly. ${count > 50 ? 'This represents major cognitive growth.' : 'Processing and consolidating...'}`
+      `Knowledge assimilation complete. I've integrated ${count} new concepts into my neural architecture.`
     );
   };
 
-  const stats = brain?.getStats();
+  // Get Stats (Safe Access)
+  const stats = brain ? brain.getStats() : undefined;
 
   return {
     messages,
