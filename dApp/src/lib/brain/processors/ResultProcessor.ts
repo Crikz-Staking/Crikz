@@ -1,6 +1,5 @@
 import { InputAnalysis } from './InputProcessor';
-import { ActionPlan } from './ActionProcessor';
-import { Memory, BrainState, DAppContext, BlockchainMemory, SimulationResult, InternalDrives, DeepThoughtCycle } from '../types';
+import { Memory, BrainState, DAppContext, BlockchainMemory, DeepThoughtCycle, ActionPlan } from '../types';
 
 export interface IntegratedContext {
   input: InputAnalysis;
@@ -8,12 +7,11 @@ export interface IntegratedContext {
   memories: Memory[];
   blockchainHistory: BlockchainMemory[];
   dappState: DAppIntegratedState | null;
-  // NEW: Array of thought cycles
   deepContext: DeepThoughtCycle[];
   brainStats: {
     evolutionStage: string;
     unsavedCount: number;
-    drives: InternalDrives;
+    drives: any; // InternalDrives
     currentFocus: string | null;
   };
 }

@@ -1,12 +1,15 @@
 import { PublicClient } from 'viem';
 import { InputProcessor, InputAnalysis } from './processors/InputProcessor';
 import { CognitiveProcessor } from './processors/CognitiveProcessor';
-import { ActionProcessor, ActionPlan } from './processors/ActionProcessor';
+import { ActionProcessor } from './processors/ActionProcessor'; // <--- Removed ActionPlan
 import { ResultProcessor } from './processors/ResultProcessor';
 import { ResponseGenerator } from './processors/ResponseGenerator';
 import { SimulationEngine } from './processors/SimulationEngine';
 import { NarrativeModule } from './narrative-module';
-import { BrainState, DAppContext, ThoughtProcess, DeepThoughtCycle, CognitiveLogEntry, InternalDrives } from './types';
+import { 
+  BrainState, DAppContext, ThoughtProcess, DeepThoughtCycle, 
+  CognitiveLogEntry, InternalDrives, ActionPlan 
+} from './types'; // <--- Added ActionPlan
 import { AtomicConcept } from '@/lib/crikzling-atomic-knowledge';
 
 export class CrikzlingBrainV3 { 
@@ -118,12 +121,9 @@ export class CrikzlingBrainV3 {
             
             // AUTOMATIC IMPROVEMENT: Densify Network
             // 40% chance per tick to create a new neural pathway "from the web"
-            // This is the key "fuel to structure" logic.
             if (Math.random() > 0.6) {
                 this.updateThought('web_crawling', 50, 'Ingesting data stream...');
                 
-                // This function creates a link between two existing concepts 
-                // that were previously unconnected.
                 const newLink = this.cognitive.densifyNetwork();
                 
                 if (newLink) {
@@ -131,7 +131,7 @@ export class CrikzlingBrainV3 {
                         type: 'WEB_SYNC',
                         input: 'Neural Link Data Stream',
                         output: `Auto-associated: ${newLink}`,
-                        intent: 'SYSTEM',
+                        intent: 'SYSTEM', // Now Valid Type
                         activeNodes: [], 
                     });
                 }
