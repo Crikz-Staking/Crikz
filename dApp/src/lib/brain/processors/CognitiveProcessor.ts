@@ -79,8 +79,135 @@ export class CognitiveProcessor {
       return array[0] / (0xFFFFFFFF + 1);
   }
 
-  // --- NEW: COGNITIVE EVOLUTION ENGINE ---
-  // Analyzes the Graph Topology to alter Personality (Drives)
+  // --- HELPER: Context Awareness ---
+  // Returns nodes that are currently "hot" (Active or in Memory)
+  private getPriorityNodes(): string[] {
+      const active = Object.keys(this.state.activationMap);
+      const recent = this.state.shortTermMemory.slice(-5).flatMap(m => m.concepts);
+      
+      // Merge unique
+      const pool = [...new Set([...active, ...recent])];
+      
+      // Fallback to random if mind is empty
+      if (pool.length < 2) return Object.keys(this.state.concepts);
+      return pool;
+  }
+
+  // --- LOGIC 1: Semantic Clustering (Organization) ---
+  // Groups related concepts into a "Hyper-Node" to clean up the graph
+  public clusterConcepts(): string | null {
+      const candidates = this.getPriorityNodes();
+      if (candidates.length < 3) return null;
+
+      const targetId = candidates[Math.floor(this.getSecureRandom() * candidates.length)];
+      const target = this.state.concepts[targetId];
+      if (!target || !target.domain) return null;
+
+      // Find neighbors in same domain with strong connections
+      const neighbors = this.state.relations
+          .filter(r => (r.from === targetId || r.to === targetId) && r.strength > 0.4)
+          .map(r => r.from === targetId ? r.to : r.from)
+          .filter(nid => this.state.concepts[nid]?.domain === target.domain);
+
+      // If we find a tight group, bundle them
+      if (neighbors.length >= 2) {
+          const clusterId = `cluster_${target.domain}_${Date.now().toString().slice(-4)}`.toLowerCase();
+          
+          if (!this.state.concepts[clusterId]) {
+              this.state.concepts[clusterId] = {
+                  id: clusterId,
+                  essence: `Hyper-structure organizing ${target.domain} logic: ${targetId}, ${neighbors[0]}...`,
+                  semanticField: ['paradigm', 'cluster', target.domain],
+                  examples: [],
+                  abstractionLevel: 0.95,
+                  technical_depth: 0.9,
+                  domain: target.domain
+              };
+
+              // Link constituents to cluster
+              [targetId, ...neighbors].forEach(n => {
+                  this.state.relations.push({
+                      from: n, to: clusterId, type: 'categorized_by', strength: 1.0, learned_at: Date.now()
+                  });
+              });
+
+              this.state.unsavedDataCount += (neighbors.length + 2);
+              return `Formed Paradigm: ${clusterId} (${neighbors.length + 1} nodes)`;
+          }
+      }
+      return null;
+  }
+
+  // --- LOGIC 2: Graph Optimization (Pruning) ---
+  // Removes weak/nonsensical connections (Fixes the "Virus <-> Stats" issue)
+  public optimizeGraph(): string | null {
+      const initialCount = this.state.relations.length;
+      
+      // Keep strong links (>0.15) OR very new links (< 1 hour old)
+      // This allows new ideas to form but kills them if they don't get stronger
+      const oneHour = 60 * 60 * 1000;
+      const now = Date.now();
+
+      this.state.relations = this.state.relations.filter(r => {
+          const isNew = (now - r.learned_at) < oneHour;
+          const isStrong = r.strength > 0.15;
+          return isNew || isStrong;
+      });
+
+      const removed = initialCount - this.state.relations.length;
+      if (removed > 0) {
+          // Increase Efficiency Drive when cleaning up
+          this.state.drives.efficiency = Math.min(100, this.state.drives.efficiency + (removed * 0.1));
+          return `Pruned ${removed} weak neural pathways`;
+      }
+      return null;
+  }
+
+  // --- LOGIC 3: Prioritized Synthesis ---
+  // Creates new concepts based on what the AI is *actually* thinking about
+  public prioritizedSynthesis(): string | null {
+      const pool = this.getPriorityNodes();
+      
+      // Try to merge a priority node with a valid neighbor
+      const c1Id = pool[Math.floor(this.getSecureRandom() * pool.length)];
+      
+      const neighbors = this.state.relations
+          .filter(r => r.from === c1Id || r.to === c1Id)
+          .map(r => r.from === c1Id ? r.to : r.from);
+      
+      if (neighbors.length === 0) return null; // No context found
+      
+      const c2Id = neighbors[Math.floor(this.getSecureRandom() * neighbors.length)];
+      
+      // Check if combination exists
+      const newId = `${c1Id}_${c2Id}`.substring(0, 40).toLowerCase(); 
+      const altId = `${c2Id}_${c1Id}`.substring(0, 40).toLowerCase();
+
+      if (!this.state.concepts[newId] && !this.state.concepts[altId]) {
+          const c1 = this.state.concepts[c1Id];
+          const c2 = this.state.concepts[c2Id];
+
+          // Smart Synthesis
+          this.state.concepts[newId] = {
+              id: newId,
+              essence: `Context-aware synthesis of ${c1Id} and ${c2Id}`,
+              semanticField: [c1Id, c2Id, 'synthesis', 'insight'],
+              examples: [],
+              abstractionLevel: Math.min(1.0, (c1.abstractionLevel + c2.abstractionLevel) / 2 + 0.1),
+              technical_depth: (c1.technical_depth + c2.technical_depth) / 2,
+              domain: c1.domain || 'META'
+          };
+          
+          this.state.relations.push({ from: newId, to: c1Id, type: 'requires', strength: 0.95, learned_at: Date.now() });
+          this.state.relations.push({ from: newId, to: c2Id, type: 'requires', strength: 0.95, learned_at: Date.now() });
+          
+          this.state.unsavedDataCount += 3;
+          return `Synthesized Insight: ${newId}`;
+      }
+      return null;
+  }
+
+  // --- LOGIC 4: Personality Evolution (Existing) ---
   public evolveCognitiveState(): string {
       const concepts = Object.values(this.state.concepts);
       const total = concepts.length;
@@ -92,30 +219,18 @@ export class CognitiveProcessor {
           counts[d] = (counts[d] || 0) + 1;
       });
 
-      // Calculate dominance
       const finRatio = (counts['FINANCIAL'] || 0) + (counts['DEFI'] || 0) / total;
       const techRatio = (counts['TECHNICAL'] || 0) + (counts['BLOCKCHAIN'] || 0) / total;
       const socRatio = (counts['SOCIAL'] || 0) + (counts['LINGUISTIC'] || 0) / total;
 
-      // Adjust Drives based on what the AI "knows"
       let changeLog = "";
-
-      // If AI knows a lot about Finance, it becomes Efficient and Stable
       if (finRatio > 0.3) {
           this.state.drives.efficiency = Math.min(100, this.state.drives.efficiency + 1);
-          this.state.drives.stability = Math.min(100, this.state.drives.stability + 0.5);
           changeLog = "Optimizing for Financial Logic";
-      }
-      
-      // If AI knows a lot about Social/Art, it becomes Social and Curious
-      else if (socRatio > 0.3) {
+      } else if (socRatio > 0.3) {
           this.state.drives.social = Math.min(100, this.state.drives.social + 1);
-          this.state.drives.curiosity = Math.min(100, this.state.drives.curiosity + 1);
           changeLog = "Expanding Social Heuristics";
-      }
-
-      // If AI knows Technical, it balances everything
-      else if (techRatio > 0.3) {
+      } else if (techRatio > 0.3) {
           this.state.drives.energy = Math.min(100, this.state.drives.energy + 1);
           changeLog = "Refining System Architecture";
       }
@@ -124,77 +239,13 @@ export class CognitiveProcessor {
       return changeLog || "Balancing Neural Weights";
   }
 
-  // --- NEW: VECTOR HARMONIZATION ---
-  // Propagates "Mood" (Abstraction/Depth) through connections
-  public harmonizeVectors(): string | null {
-      // Pick a random relation
-      if (this.state.relations.length === 0) return null;
-      const rel = this.state.relations[Math.floor(this.getSecureRandom() * this.state.relations.length)];
-      
-      const c1 = this.state.concepts[rel.from];
-      const c2 = this.state.concepts[rel.to];
-
-      if (!c1 || !c2) return null;
-
-      // Logic: Connected concepts should share similar technical depth properties over time
-      // This simulates "understanding context"
-      
-      const oldDepth = c2.technical_depth;
-      
-      // Pull c2 towards c1 based on connection strength
-      const influence = rel.strength * 0.1;
-      c2.technical_depth = c2.technical_depth + (c1.technical_depth - c2.technical_depth) * influence;
-      c2.abstractionLevel = c2.abstractionLevel + (c1.abstractionLevel - c2.abstractionLevel) * influence;
-
-      this.state.unsavedDataCount++;
-      
-      // Only report significant shifts
-      if (Math.abs(oldDepth - c2.technical_depth) > 0.01) {
-          return `Harmonized: ${c1.id} -> ${c2.id} (Logic Sync)`;
-      }
-      return null;
-  }
-
-  // --- EXISTING LOGIC (Optimized) ---
-
-  public densifyNetwork(): string | null {
-      const keys = Object.keys(this.state.concepts);
-      if (keys.length < 2) return null;
-
-      for(let i=0; i<5; i++) {
-          const c1Id = keys[Math.floor(this.getSecureRandom() * keys.length)];
-          const c2Id = keys[Math.floor(this.getSecureRandom() * keys.length)];
-          if (c1Id === c2Id) continue;
-
-          const c1 = this.state.concepts[c1Id];
-          const c2 = this.state.concepts[c2Id];
-
-          if (c1.domain === c2.domain) {
-              const existing = this.state.relations.find(r => 
-                  (r.from === c1Id && r.to === c2Id) || (r.from === c2Id && r.to === c1Id)
-              );
-
-              if (!existing) {
-                  this.state.relations.push({
-                      from: c1Id, to: c2Id, type: 'associates', strength: 0.25, 
-                      learned_at: Date.now(), last_activated: Date.now()
-                  });
-                  this.state.unsavedDataCount++;
-                  return `${c1Id} <-> ${c2Id}`;
-              }
-          }
-      }
-      return null;
-  }
-
+  // --- LOGIC 5: Deepening (Existing) ---
   public deepenKnowledge(): string | null {
-      const keys = Object.keys(this.state.concepts);
-      if (keys.length === 0) return null;
-      
-      const targetId = keys[Math.floor(this.getSecureRandom() * keys.length)];
+      const pool = this.getPriorityNodes(); // Use Priority Pool now
+      const targetId = pool[Math.floor(this.getSecureRandom() * pool.length)];
       const concept = this.state.concepts[targetId];
 
-      if (concept.technical_depth < 1.0 || concept.abstractionLevel < 1.0) {
+      if (concept.technical_depth < 1.0) {
           const oldDepth = concept.technical_depth;
           concept.technical_depth = Math.min(1.0, concept.technical_depth + 0.15);
           concept.abstractionLevel = Math.min(1.0, concept.abstractionLevel + 0.1);
@@ -204,42 +255,7 @@ export class CognitiveProcessor {
       return null;
   }
 
-  public synthesizeConcept(): string | null {
-      const keys = Object.keys(this.state.concepts);
-      if (keys.length < 2) return null;
-
-      for (let i = 0; i < 5; i++) {
-          const c1Id = keys[Math.floor(this.getSecureRandom() * keys.length)];
-          const c2Id = keys[Math.floor(this.getSecureRandom() * keys.length)];
-          if (c1Id === c2Id) continue;
-
-          const newId = `${c1Id}_${c2Id}`.substring(0, 40).toLowerCase(); 
-          const altId = `${c2Id}_${c1Id}`.substring(0, 40).toLowerCase();
-
-          if (!this.state.concepts[newId] && !this.state.concepts[altId]) {
-              const c1 = this.state.concepts[c1Id];
-              const c2 = this.state.concepts[c2Id];
-
-              this.state.concepts[newId] = {
-                  id: newId,
-                  essence: `Synthesized logic derived from ${c1Id} and ${c2Id}`,
-                  semanticField: [c1Id, c2Id, 'synthesis'],
-                  examples: [],
-                  abstractionLevel: (c1.abstractionLevel + c2.abstractionLevel) / 2,
-                  technical_depth: 0.5,
-                  domain: c1.domain || 'META'
-              };
-              this.state.relations.push({ from: newId, to: c1Id, type: 'requires', strength: 0.9, learned_at: Date.now() });
-              this.state.relations.push({ from: newId, to: c2Id, type: 'requires', strength: 0.9, learned_at: Date.now() });
-              
-              this.state.unsavedDataCount += 3;
-              return newId;
-          }
-      }
-      return null;
-  }
-
-  // --- BOILERPLATE BELOW (Unchanged) ---
+  // --- LEGACY HELPERS ---
   public stimulateNetwork(seedIds: string[], energyLevel: number): Record<string, number> {
     const spreadFactor = energyLevel / 100; 
     const queue: { id: string, energy: number, depth: number }[] = [];
