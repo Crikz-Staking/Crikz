@@ -275,11 +275,11 @@ function ControlView({ stats, onUpdate }: { stats: any, onUpdate: (d: InternalDr
             </div>
 
             <div className="space-y-6 bg-black/20 p-8 rounded-2xl border border-white/10">
-                <DriveSlider label="Curiosity" value={drives.curiosity} color="accent-purple" onChange={(v) => handleChange('curiosity', v)} />
-                <DriveSlider label="Stability" value={drives.stability} color="accent-cyan" onChange={(v) => handleChange('stability', v)} />
-                <DriveSlider label="Efficiency" value={drives.efficiency} color="emerald-500" onChange={(v) => handleChange('efficiency', v)} />
-                <DriveSlider label="Social" value={drives.social} color="pink-500" onChange={(v) => handleChange('social', v)} />
-                <DriveSlider label="Energy" value={drives.energy} color="primary-500" onChange={(v) => handleChange('energy', v)} />
+                <DriveSlider label="Curiosity" value={drives.curiosity} color="accent-purple" onChange={(v: number) => handleChange('curiosity', v)} />
+                <DriveSlider label="Stability" value={drives.stability} color="accent-cyan" onChange={(v: number) => handleChange('stability', v)} />
+                <DriveSlider label="Efficiency" value={drives.efficiency} color="emerald-500" onChange={(v: number) => handleChange('efficiency', v)} />
+                <DriveSlider label="Social" value={drives.social} color="pink-500" onChange={(v: number) => handleChange('social', v)} />
+                <DriveSlider label="Energy" value={drives.energy} color="primary-500" onChange={(v: number) => handleChange('energy', v)} />
             </div>
 
             <button onClick={handleSave} className="mt-6 w-full py-4 bg-primary-500 text-black font-bold rounded-xl hover:bg-primary-400 flex items-center justify-center gap-2">
