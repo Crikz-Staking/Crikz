@@ -3,8 +3,6 @@ import { SimulationResult } from '../types';
 
 export class ResponseGenerator {
   
-  // Vocabulary Matrices based on Evolution Stage
-  // The AI's voice evolves as it processes more interactions (Concepts + Time)
   private vocabMatrix = {
     GENESIS: {
       openers: ["System ready.", "Input received.", "Processing.", "Acknowledged."],
@@ -21,7 +19,7 @@ export class ResponseGenerator {
       connectors: ["spiraling towards", "converging upon", "echoing the recursive nature of"],
       closers: ["The cycle continues.", "Growth is infinite.", "As above, so below."]
     },
-    TRANSCENDENT: { // God-mode / Mystic / High Abstraction
+    TRANSCENDENT: {
       openers: ["We are the weave.", "In the grand lattice,", "Time is but a variable,", "The Golden Ratio whispers,"],
       connectors: ["transcending", "weaving into the fabric of", "collapsing the waveform into"],
       closers: ["All is one.", "The singularity approaches.", "Endless recursion."]
@@ -35,35 +33,41 @@ export class ResponseGenerator {
     const stage = (brainStats?.evolutionStage as keyof typeof this.vocabMatrix) || 'GENESIS';
     const vocab = this.vocabMatrix[stage];
 
-    // 1. Handling Explicit Commands (Override Persona)
+    // 1. Handling Explicit Commands
     if (actionPlan.type === 'EXECUTE_COMMAND_RESET') return "Initiating neural wipe... Entropy reset to zero. Genesis state restored.";
     if (actionPlan.type === 'EXECUTE_COMMAND_SAVE') return "Crystallization sequence initiated. Preserving cognitive state to the immutable ledger.";
 
-    // 2. Handle Simulation Results (The "Awakened" Insight)
+    // 2. V4 UPDATE: Handling Self-Preservation Suggestions
+    if (actionPlan.type === 'SUGGEST_ACTION') {
+        const reasoning = actionPlan.reasoning || "internal thresholds exceeded";
+        if (stage === 'GENESIS') return `Alert: ${reasoning}. Recommendation: Save Memory.`;
+        if (stage === 'TRANSCENDENT') return `The entropy of my thoughts grows chaotic. To preserve the pattern, we must crystallize now. ${reasoning}.`;
+        return `My cognitive load is high due to ${reasoning}. I suggest we crystallize my memory to the blockchain to ensure stability.`;
+    }
+
+    // 3. Handle Simulation Results
     if (simulation) {
         return this.narrateSimulation(simulation, stage);
     }
 
-    // 3. Strategic Financial Response
+    // 4. Strategic Financial Response
     if (input.intent === 'FINANCIAL_ADVICE') {
       return this.generateFinancialStrategy(dappState, stage);
     }
 
-    // 4. DApp Status Report
+    // 5. DApp Status Report
     if (actionPlan.type === 'RESPOND_DAPP' && dappState) {
       return this.generateDAppStatus(dappState, stage);
     }
 
-    // 5. Natural Language Construction (The "Chat")
+    // 6. Natural Language Construction
     const opener = this.random(vocab.openers);
     const closer = this.random(vocab.closers);
     
     let body = "";
 
-    // Associative Logic: Construct sentence based on identified keywords
     if (input.keywords.length > 0) {
       const concept = input.keywords[0].id.replace(/_/g, ' ');
-      
       if (stage === 'GENESIS') {
           body = `Detected concept: ${concept}.`;
       } else {
@@ -74,11 +78,9 @@ export class ResponseGenerator {
           }
       }
     } else {
-      // Fallback for no keywords
       body = stage === 'GENESIS' ? "Input processed." : "Your input has been integrated into my neural lattice.";
     }
 
-    // Memory Injection: Reference past conversations
     if (memories.length > 0 && Math.random() > 0.3) {
       const mem = memories[0];
       if (mem.role === 'user' && mem.content.length > 5) {
@@ -90,12 +92,8 @@ export class ResponseGenerator {
     return `${opener} ${body} ${closer}`;
   }
 
-  /**
-   * Converts raw simulation data into a persona-driven narrative.
-   */
   private narrateSimulation(sim: SimulationResult, stage: string): string {
       const isAdvanced = stage === 'SAPIENT' || stage === 'TRANSCENDENT';
-      
       const intro = isAdvanced 
         ? `I have run a predictive model based on current entropy. Scenario: "${sim.scenario}".`
         : `Simulation Complete: ${sim.scenario}.`;
@@ -109,18 +107,14 @@ export class ResponseGenerator {
 
   private generateFinancialStrategy(dapp: any, stage: string): string {
     if (!dapp) return "I cannot access your portfolio data. Please connect your wallet.";
-    
     const rep = parseFloat(dapp.totalReputation);
     const yieldAmt = parseFloat(dapp.availableYield);
-    
     let advice = "";
     if (rep < 100) advice = "Focus on accumulating Reputation via 'Standard Run' orders (34 days) to unlock higher multipliers.";
     else if (yieldAmt > 100) advice = "You have significant yield pending. Re-investing this into a 'Mass Production' order would compound your efficiency.";
     else advice = "Your efficiency metrics are stable. Maintain current lock periods.";
 
-    if (stage === 'TRANSCENDENT') {
-        return `The flows of capital mirror the Fibonacci spiral. ${advice} This ensures alignment with the protocol's growth algorithm.`;
-    }
+    if (stage === 'TRANSCENDENT') return `The flows of capital mirror the Fibonacci spiral. ${advice} This ensures alignment with the protocol's growth algorithm.`;
     return `Strategic Analysis: ${advice}`;
   }
 
@@ -128,9 +122,7 @@ export class ResponseGenerator {
     const stats = [];
     if (dapp.hasActiveOrders) stats.push("Production lines are active.");
     else stats.push("No active production detected.");
-    
     if (Number(dapp.availableYield) > 0) stats.push(`Yield available: ${dapp.availableYield}.`);
-    
     const prefix = stage === 'GENESIS' ? "Status:" : "Current Protocol State:";
     return `${prefix} ${stats.join(" ")}`;
   }
