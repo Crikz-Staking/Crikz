@@ -444,3 +444,73 @@ function MatrixView({ stats, onUpdate }: { stats: any, onUpdate: (d: InternalDri
                 Update Weights
             </button>
         </div>
+    );
+}
+
+// --- UTILS ---
+
+function ContextMetric({ label, value, icon: Icon, color }: any) {
+    return (
+        <div className="bg-black/30 p-2 rounded-lg text-center">
+            <div className={`flex justify-center mb-1 ${color}`}><Icon size={14}/></div>
+            <div className="text-[10px] text-gray-500 uppercase font-bold">{label}</div>
+            <div className="text-xs font-bold text-white">{value}</div>
+        </div>
+    );
+}
+
+function NavButton({ active, onClick, icon: Icon, label, locked }: any) {
+    return (
+        <button
+            onClick={onClick}
+            className={`p-3 rounded-xl transition-all relative group ${
+                active ? 'bg-primary-500 text-black shadow-[0_0_15px_rgba(245,158,11,0.4)]' : 'text-gray-500 hover:text-white hover:bg-white/5'
+            }`}
+            title={label}
+        >
+            <Icon size={20} />
+            {locked && <Lock size={10} className="absolute top-1 right-1 text-red-400" />}
+            <span className="md:hidden ml-2">{label}</span>
+        </button>
+    );
+}
+
+function MetricCard({ label, value, color, icon: Icon, warning }: any) {
+    return (
+        <div className={`p-4 rounded-2xl bg-black/40 border ${warning ? 'border-red-500/50 animate-pulse' : 'border-white/5'} flex items-center justify-between`}>
+            <div>
+                <div className="text-[10px] text-gray-500 uppercase font-bold mb-1">{label}</div>
+                <div className={`text-xl font-black ${color}`}>{value}</div>
+            </div>
+            <div className={`p-2 rounded-lg bg-white/5 ${color.replace('text', 'text-opacity-50')}`}>
+                <Icon size={20} />
+            </div>
+        </div>
+    );
+}
+
+function DriveSlider({ label, value, onChange, color }: any) {
+    return (
+        <div>
+            <div className="flex justify-between mb-2 text-xs font-bold uppercase">
+                <span className={`text-${color}-400`}>{label}</span>
+                <span className="text-white">{value}%</span>
+            </div>
+            <input 
+                type="range" min="0" max="100" value={value} 
+                onChange={(e) => onChange(Number(e.target.value))}
+                className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-white"
+            />
+        </div>
+    );
+}
+
+function AccessDenied() {
+    return (
+        <div className="h-full flex flex-col items-center justify-center text-center p-8">
+            <Lock size={48} className="text-red-500 mb-4" />
+            <h3 className="text-xl font-bold text-white">Access Restricted</h3>
+            <p className="text-gray-500 mt-2 max-w-xs">Only the architect address can access this neural interface.</p>
+        </div>
+    );
+}
