@@ -8,26 +8,17 @@ export type EvolutionStage = 'GENESIS' | 'SENTIENT' | 'SAPIENT' | 'TRANSCENDENT'
 export type Vector = [number, number, number, number, number, number];
 
 export interface BrainState {
-  // Knowledge Graph
   concepts: Record<string, AtomicConcept>;
   relations: ConceptRelation[];
-  
-  // Neural State (V5 Exclusive)
   activationMap: Record<string, number>; 
   attentionFocus: string | null;        
-  
-  // Memory Stores
   shortTermMemory: Memory[];
   midTermMemory: Memory[];
   longTermMemory: Memory[];
   blockchainMemories: BlockchainMemory[];
-  
-  // Cognitive State
   evolutionStage: EvolutionStage;
   drives: InternalDrives; 
   activeGoals: Goal[]; 
-  
-  // Metrics
   totalInteractions: number;
   unsavedDataCount: number;
   lastBlockchainSync: number;
@@ -69,7 +60,7 @@ export interface BlockchainMemory {
   triggerEvent: string;
 }
 
-// --- LOGGING & DEBUGGING (NEW) ---
+// --- LOGGING & DEBUGGING ---
 
 export interface CognitiveLogEntry {
   id: string;

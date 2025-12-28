@@ -38,6 +38,18 @@ export class CrikzlingBrainV3 {
     this.generator = new ResponseGenerator();
     this.simulator = new SimulationEngine();
     this.narrative = new NarrativeModule();
+
+    // RESTORE HISTORY IF AVAILABLE
+    if (savedState) {
+        try {
+            const parsed = JSON.parse(savedState);
+            if (parsed.history && Array.isArray(parsed.history)) {
+                this.history = parsed.history;
+            }
+        } catch (e) {
+            console.warn("Failed to restore logs");
+        }
+    }
   }
 
   public setThoughtUpdateCallback(callback: (thought: ThoughtProcess | null) => void) {
@@ -58,9 +70,7 @@ export class CrikzlingBrainV3 {
         this.updateThought('dreaming', 50, spontaneousThought);
         
         // Log Dream
-        this.history.push({
-            id: crypto.randomUUID(),
-            timestamp: Date.now(),
+        this.logEvent({
             type: 'DREAM',
             input: 'Spontaneous Activation',
             output: spontaneousThought,
@@ -68,8 +78,7 @@ export class CrikzlingBrainV3 {
             emotionalShift: 0,
             activeNodes: state.attentionFocus ? [state.attentionFocus] : [],
             vectors: { input: [0,0,0,0,0,0], response: [0,0,0,0,0,0] },
-            thoughtCycles: [],
-            executionTimeMs: 0
+            thoughtCycles: []
         });
 
         // Accumulate insight if stability allows
@@ -189,9 +198,7 @@ export class CrikzlingBrainV3 {
       );
 
       // 7. LOGGING FOR ADMIN
-      this.history.unshift({
-          id: crypto.randomUUID(),
-          timestamp: Date.now(),
+      this.logEvent({
           type: 'INTERACTION',
           input: text,
           output: response,
@@ -200,14 +207,11 @@ export class CrikzlingBrainV3 {
           activeNodes: [...new Set([...activeIds, ...currentFocus])],
           vectors: {
               input: inputAnalysis.inputVector,
-              response: inputAnalysis.inputVector // Simplified for now
+              response: inputAnalysis.inputVector
           },
           thoughtCycles: deepContext,
           executionTimeMs: Date.now() - startTime
       });
-      
-      // Limit history to 50 items
-      if (this.history.length > 50) this.history.pop();
 
       this.updateThought('generation', 100, 'Done');
       await this.think(400); 
@@ -225,6 +229,27 @@ export class CrikzlingBrainV3 {
     }
   }
 
+  // Helper to push to history and manage size
+  private logEvent(entry: Partial<CognitiveLogEntry>) {
+      const fullEntry: CognitiveLogEntry = {
+          id: crypto.randomUUID(),
+          timestamp: Date.now(),
+          type: 'SYSTEM',
+          input: '',
+          output: '',
+          intent: 'UNKNOWN',
+          emotionalShift: 0,
+          activeNodes: [],
+          vectors: { input: [0,0,0,0,0,0], response: [0,0,0,0,0,0] },
+          thoughtCycles: [],
+          executionTimeMs: 0,
+          ...entry
+      };
+      
+      this.history.unshift(fullEntry);
+      if (this.history.length > 100) this.history.pop();
+  }
+
   public getHistory(isOwner: boolean): CognitiveLogEntry[] {
       if (isOwner) return this.history;
       // Sanitize for public: remove raw vectors and thought cycles
@@ -237,17 +262,23 @@ export class CrikzlingBrainV3 {
   }
 
   public exportState(): string {
-    return JSON.stringify(this.cognitive.getState(), (_, v) => typeof v === 'bigint' ? v.toString() : v);
+    const state = this.cognitive.getState();
+    // Inject history into the export payload
+    const exportData = {
+        ...state,
+        history: this.history
+    };
+    return JSON.stringify(exportData, (_, v) => typeof v === 'bigint' ? v.toString() : v);
   }
 
   public assimilateFile(content: string): number {
     return this.cognitive.assimilateKnowledge(content);
   }
 
+  // FIX: Removed Entropy check for Save Prompt
   public needsCrystallization(): boolean {
     const s = this.cognitive.getState();
-    const entropy = this.cognitive.calculateEntropy();
-    return s.unsavedDataCount >= 10 || entropy > 80;
+    return s.unsavedDataCount > 0;
   }
 
   public clearUnsavedCount() { this.cognitive.markSaved(); }
@@ -272,7 +303,10 @@ export class CrikzlingBrainV3 {
       };
   }
 
-  public wipe() { this.cognitive.wipeLocalMemory(); }
+  public wipe() { 
+      this.cognitive.wipeLocalMemory(); 
+      this.history = []; // Clear history on wipe
+  }
 
   private clearThought() { if (this.thoughtCallback) this.thoughtCallback(null); }
 
