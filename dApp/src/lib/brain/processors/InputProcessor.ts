@@ -1,16 +1,8 @@
 import { AtomicConcept, ATOMIC_PRIMITIVES } from '@/lib/crikzling-atomic-knowledge';
-import { DAppContext, Vector, IntentType } from '../types';
+import { DAppContext, Vector, IntentType, InputAnalysis } from '../types'; // Import InputAnalysis from types
 
-export interface InputAnalysis {
-  rawInput: string;
-  cleanedInput: string;
-  keywords: AtomicConcept[];
-  intent: IntentType;
-  emotionalWeight: number;
-  complexity: number;
-  detectedEntities: string[];
-  inputVector: Vector; 
-}
+// Re-export for compatibility with older imports
+export type { InputAnalysis };
 
 export class InputProcessor {
   private stopWords: Set<string>;
@@ -101,8 +93,6 @@ export class InputProcessor {
     if (input.match(/^(hello|hi|hey|greetings)/i)) return 'GREETING';
     
     // Vector-based classification
-    // [Financial, Technical, Social, Temporal, Abstract, Risk]
-    
     if (vector[0] > 0.5) return 'FINANCIAL_ADVICE'; // High Financial signal
     if (vector[1] > 0.6) return 'EXPLANATION';      // High Technical signal
     if (vector[4] > 0.6) return 'PHILOSOPHY';       // High Abstract signal

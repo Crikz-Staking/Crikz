@@ -1,7 +1,7 @@
 import { PublicClient } from 'viem';
-import { InputProcessor, InputAnalysis } from './processors/InputProcessor';
+import { InputProcessor } from './processors/InputProcessor';
 import { CognitiveProcessor } from './processors/CognitiveProcessor';
-import { ActionProcessor } from './processors/ActionProcessor'; // <--- Removed ActionPlan
+import { ActionProcessor } from './processors/ActionProcessor';
 import { ResultProcessor } from './processors/ResultProcessor';
 import { ResponseGenerator } from './processors/ResponseGenerator';
 import { SimulationEngine } from './processors/SimulationEngine';
@@ -9,7 +9,7 @@ import { NarrativeModule } from './narrative-module';
 import { 
   BrainState, DAppContext, ThoughtProcess, DeepThoughtCycle, 
   CognitiveLogEntry, InternalDrives, ActionPlan 
-} from './types'; // <--- Added ActionPlan
+} from './types'; 
 import { AtomicConcept } from '@/lib/crikzling-atomic-knowledge';
 
 export class CrikzlingBrainV3 { 
@@ -131,7 +131,7 @@ export class CrikzlingBrainV3 {
                         type: 'WEB_SYNC',
                         input: 'Neural Link Data Stream',
                         output: `Auto-associated: ${newLink}`,
-                        intent: 'SYSTEM', // Now Valid Type
+                        intent: 'SYSTEM', // Valid now that types are unified
                         activeNodes: [], 
                     });
                 }

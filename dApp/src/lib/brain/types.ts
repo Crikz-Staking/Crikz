@@ -86,9 +86,9 @@ export interface CognitiveLogEntry {
   thoughtCycles: DeepThoughtCycle[]; 
   executionTimeMs: number;
   
-  // NEW FIELDS FOR DEEP ANALYSIS
-  dappContext?: DAppContext; // Snapshot of wallet/protocol state
-  actionPlan?: ActionPlan;   // The decision logic output
+  // Deep Analysis Fields
+  dappContext?: DAppContext; 
+  actionPlan?: ActionPlan;   
 }
 
 // --- PROCESSOR TYPES ---
@@ -150,9 +150,8 @@ export type IntentType =
   | 'DAPP_QUERY' 
   | 'DISCOURSE'
   | 'NARRATIVE_ANALYSIS'
-  | 'SYSTEM'; // <--- Added SYSTEM to valid types
+  | 'SYSTEM'; // <--- Vital for the build
 
-// Moved from ActionProcessor to avoid circular deps
 export type ActionType = 
   | 'RESPOND_NATURAL' 
   | 'RESPOND_DAPP' 
