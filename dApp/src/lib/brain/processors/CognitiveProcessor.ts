@@ -44,21 +44,31 @@ export class CognitiveProcessor {
       drives: defaultDrives,
       activeGoals: [],
       lastBlockchainSync: 0,
-      learningRate: 0.15
+      learningRate: 0.15,
+      // --- FIX: Initialize new connectivity state ---
+      connectivity: {
+        isConnected: false,
+        bandwidthUsage: 0,
+        stamina: 100,
+        lastWebSync: 0
+      }
     };
 
     if (savedJson) {
       try {
-        const parsed = JSON.parse(savedJson);
+        const parsed = JSON.parse(savedStateJson || '{}');
         const loadedDrives = parsed.drives || defaultDrives;
 
+        // Ensure we merge defaults for any new properties added to the schema
         return {
           ...defaults,
           ...parsed,
           concepts: { ...defaults.concepts, ...(parsed.concepts || {}) },
           relations: [...defaults.relations, ...(parsed.relations || [])],
           drives: loadedDrives,
-          activationMap: parsed.activationMap || {}
+          activationMap: parsed.activationMap || {},
+          // Ensure connectivity exists even if loading old save state
+          connectivity: parsed.connectivity || defaults.connectivity 
         };
       } catch (e) {
         console.error("Cognitive Load Error - Reverting to defaults", e);
@@ -292,7 +302,7 @@ export class CognitiveProcessor {
   }
 
   public archiveMemory(
-    role: 'user'|'bot'|'subconscious', 
+    role: 'user'|'bot'|'subconscious'|'system', // Added 'system' for type compatibility
     content: string, 
     concepts: string[], 
     emotionalWeight: number, 
@@ -369,14 +379,9 @@ export class CognitiveProcessor {
   }
 
   public wipeLocalMemory() {
-      this.state.shortTermMemory = [];
-      this.state.midTermMemory = [];
-      this.state.longTermMemory = [];
-      this.state.unsavedDataCount = 0;
-      this.state.totalInteractions = 0;
-      this.state.evolutionStage = 'GENESIS';
-      this.state.activationMap = {};
-      this.state.drives = { curiosity: 60, stability: 100, efficiency: 50, social: 50, energy: 100 };
+      // Re-initialize with defaults
+      const fresh = this.initializeState();
+      this.state = fresh;
   }
 
   public markSaved() { this.state.unsavedDataCount = 0; }
