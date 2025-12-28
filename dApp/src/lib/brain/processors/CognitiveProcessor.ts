@@ -106,9 +106,8 @@ export class CognitiveProcessor {
 
       console.log(`[Cognitive] 📥 MERGE REQUEST | Blockchain Ops: ${remoteOps} | Local Ops: ${currentOps}`);
 
-      // 1. Sync Ops - Always accept the blockchain number if it's valid
-      // This ensures the UI reflects the "Official" count from the contract state
-      if (remoteOps > currentOps) {
+      // 1. Sync Ops - Always accept the blockchain number if it's valid/higher
+      if (remoteOps >= currentOps) {
           this.state.totalInteractions = remoteOps;
       }
 
@@ -157,7 +156,8 @@ export class CognitiveProcessor {
           this.state.evolutionStage = remoteState.evolutionStage;
       }
       
-      // 5. Clean up unsaved state if we are now up to date
+      // 5. Clean up unsaved state if we are now up to date with the blockchain
+      // This prevents the "unsaved data" indicator from persisting after a fresh sync
       if (remoteOps >= currentOps) {
           this.state.unsavedDataCount = 0;
           this.unsavedIds.concepts.clear();

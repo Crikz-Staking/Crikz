@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Send, Minimize2, Save, RefreshCw, Upload, 
-  Terminal, Database, Cpu, Activity, Zap, Lock, Brain, Wifi, Loader2
+  Terminal, Database, Cpu, Activity, Zap, Lock, Brain, Wifi, Loader2, CloudDownload 
 } from 'lucide-react';
 import { useCrikzlingV3 } from '@/hooks/useCrikzlingV3';
 import { GeometricCore } from './CrikzlingVisuals';
@@ -20,7 +20,7 @@ export default function CrikzlingAvatar() {
     brainStats, isThinking, isTyping, currentThought, 
     uploadFile, resetBrain, isOwner, logs, 
     updateDrives, trainConcept, simpleTrain, toggleNeuralLink,
-    syncWithBlockchain, initialLoading // <--- New Exports
+    syncWithBlockchain, initialLoading 
   } = useCrikzlingV3();
 
   useEffect(() => {
@@ -28,21 +28,6 @@ export default function CrikzlingAvatar() {
       scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
     }
   }, [messages, isTyping, currentThought]);
-
-  // --- SYNC & OPEN HANDLER ---
-  const handleOpen = async () => {
-      // Trigger Blockchain Sync/Transaction Request before showing UI
-      if (!isOpen && !initialLoading) {
-          try {
-              await syncWithBlockchain();
-              setIsOpen(true);
-          } catch(e) {
-              console.error("Open aborted due to sync failure");
-          }
-      } else {
-          setIsOpen(true);
-      }
-  };
 
   const handleSend = async () => {
     if (!input.trim() || isThinking || isTyping) return;
@@ -109,9 +94,8 @@ export default function CrikzlingAvatar() {
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
-            onClick={handleOpen}
-            disabled={initialLoading}
-            className="fixed bottom-6 right-6 z-50 w-16 h-16 rounded-full glass-card border border-primary-500/30 flex items-center justify-center cursor-pointer shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:scale-110 transition-transform disabled:opacity-80"
+            onClick={() => setIsOpen(true)}
+            className="fixed bottom-6 right-6 z-50 w-16 h-16 rounded-full glass-card border border-primary-500/30 flex items-center justify-center cursor-pointer shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:scale-110 transition-transform"
           >
             <div className="w-10 h-10">
               {initialLoading ? (
@@ -159,6 +143,16 @@ export default function CrikzlingAvatar() {
                     </div>
                 </div>
                 <div className="flex gap-1">
+                    {/* Manual Sync Button */}
+                    <button 
+                        onClick={syncWithBlockchain}
+                        disabled={initialLoading}
+                        className={`p-2 rounded-lg transition-colors ${initialLoading ? 'animate-spin text-primary-500' : 'text-gray-500 hover:text-white hover:bg-white/10'}`}
+                        title="Sync with Blockchain"
+                    >
+                        <CloudDownload size={16} />
+                    </button>
+
                     <button 
                         onClick={() => setShowDashboard(true)}
                         className={`p-2 rounded-lg transition-colors ${isConnected ? 'text-cyan-400 bg-cyan-900/20' : 'text-gray-500 hover:text-primary-500 hover:bg-white/10'}`}

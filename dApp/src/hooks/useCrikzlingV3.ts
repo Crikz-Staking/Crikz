@@ -24,7 +24,6 @@ export function useCrikzlingV3() {
   const [currentThought, setCurrentThought] = useState<ThoughtProcess | null>(null);
   const [forceUpdate, setForceUpdate] = useState(0); 
   
-  const [hasHydrated, setHasHydrated] = useState(false); 
   const [initialLoading, setInitialLoading] = useState(false);
 
   // --- CONTRACT DATA ---
@@ -90,7 +89,7 @@ export function useCrikzlingV3() {
     setForceUpdate(prev => prev + 1); 
   }, []);
 
-  // --- 1. BRAIN INITIALIZATION (Lazy Load) ---
+  // --- 1. BRAIN INITIALIZATION ---
   useEffect(() => {
     if (!sessionId) return;
     if (brain) return;
@@ -109,74 +108,75 @@ export function useCrikzlingV3() {
     
     setMessages([{ 
         role: 'system', 
-        content: 'NEURAL UPLINK STANDBY... CLICK TO AUTHENTICATE.', 
+        content: 'SYSTEM ONLINE. Manual sync available.', 
         timestamp: Date.now() 
     }]);
     
   }, [sessionId, publicClient]);
 
-  // --- 2. EXPLICIT SYNC WITH SIGNATURE ---
+  // --- 2. MANUAL SYNC ---
   const syncWithBlockchain = useCallback(async () => {
-    if (!brain || !snapshotData) return;
+    if (!brain || !snapshotData) {
+        toast.error("No blockchain data available");
+        return;
+    }
 
     try {
       setInitialLoading(true);
 
-      // 1. VISUAL/SECURITY: Request Signature
+      // 1. Signature Request
       await signMessageAsync({ 
         message: `Authenticate Neural Uplink\nTimestamp: ${Date.now()}\nRequest: Sync State` 
       });
 
-      toast.loading("Identity Verified. Fetching Neural Data...", { duration: 2000 });
-      console.log("[HOOK] 📡 Identity Verified. Fetching from IPFS...");
+      toast.loading("Identity Verified. Syncing...", { duration: 2000 });
       
       const { cid, count, trigger } = snapshotData;
       
-      // Parse Ops from Blockchain trigger if possible
+      // Parse Ops
       let blockchainOps = 0;
       if (trigger && trigger.includes('_')) {
          blockchainOps = parseInt(trigger.split('_')[1]) || 0;
       }
 
-      if (cid) {
+      if (cid && cid.length > 5) {
           const url = downloadFromIPFS(cid);
           const response = await fetch(url);
+          if (!response.ok) throw new Error("IPFS Fetch Failed");
+          
           const remoteJson = await response.json();
 
           if (remoteJson) {
-              // Ensure the remote Ops count overrides local if needed
-              if (blockchainOps > 0 && (!remoteJson.totalInteractions || remoteJson.totalInteractions < blockchainOps)) {
+              // Override ops count from blockchain trigger if available
+              if (blockchainOps > 0) {
                   remoteJson.totalInteractions = blockchainOps;
               }
 
               brain.mergeState(remoteJson);
-              setHasHydrated(true);
               
               setMessages(prev => [
                   ...prev, 
                   { 
                       role: 'system', 
-                      content: `[UPLINK ESTABLISHED]\n\nBlockchain Nodes: ${count}\nBlockchain Ops: ${blockchainOps}\n\nLocal Graph Updated.`, 
+                      content: `[UPLINK ESTABLISHED]\n\nNodes: ${Object.keys(remoteJson.concepts || {}).length}\nOps: ${blockchainOps}\n\nLocal Graph Updated.`, 
                       timestamp: Date.now() 
-                  },
-                  {
-                      role: 'bot',
-                      content: `I am online. My cognitive graph has been restored from the chain.`,
-                      timestamp: Date.now() + 100
                   }
               ]);
               setForceUpdate(p => p + 1);
+              toast.success("Synchronized!");
           }
+      } else {
+          toast.error("No valid snapshot on chain.");
       }
     } catch (error) {
-      console.error("Sync Cancelled or Failed:", error);
-      toast.error("Sync Failed: Authentication Rejected");
+      console.error("Sync Failed:", error);
+      toast.error("Sync Failed: Authentication Rejected or Network Error");
     } finally {
       setInitialLoading(false);
     }
   }, [brain, snapshotData, signMessageAsync]);
 
-  // --- SAVE DIFF ON UPDATE ---
+  // --- SAVE DIFF ---
   useEffect(() => {
       if (brain && sessionId) {
           const diff = brain.exportDiffState();
@@ -221,7 +221,7 @@ export function useCrikzlingV3() {
     if (!publicClient) { toast.error("Client not ready"); return; }
     
     setIsSyncing(true); 
-    const toastId = toast.loading('Exporting...');
+    const toastId = toast.loading('Exporting state...');
 
     try {
         const exportStr = brain.exportFullState();
@@ -244,18 +244,18 @@ export function useCrikzlingV3() {
 
         await publicClient!.waitForTransactionReceipt({ hash, confirmations: 1 });
 
-        // IMPORTANT: Clear local diffs because we just saved EVERYTHING to chain
+        // Cleanup local diffs, but keep brain state valid in memory
         brain.clearUnsavedCount();
         if (sessionId) localStorage.removeItem(`crikz_brain_diff_${sessionId}`);
         
         await refetchSnapshot(); 
         
-        toast.success('Saved!', { id: toastId });
-        setMessages(prev => [...prev, { role: 'system', content: `[SYSTEM] Saved. State: ${state.totalInteractions} Ops. CID: ${cid}`, timestamp: Date.now() }]);
+        toast.success('Saved to Chain!', { id: toastId });
+        setMessages(prev => [...prev, { role: 'system', content: `[SYSTEM] State Saved.\nCID: ${cid}\nOps: ${state.totalInteractions}`, timestamp: Date.now() }]);
 
     } catch (e: any) {
         console.error(e);
-        toast.error('Failed', { id: toastId });
+        toast.error('Save Failed', { id: toastId });
     } finally {
         setIsSyncing(false); 
     }
@@ -277,7 +277,7 @@ export function useCrikzlingV3() {
       console.error(e);
       setIsThinking(false);
       setCurrentThought(null);
-      typeStreamResponse("Error.");
+      typeStreamResponse("Error processing input.");
     }
   };
 
@@ -309,9 +309,7 @@ export function useCrikzlingV3() {
   const toggleNeuralLink = (active: boolean) => {
       if (brain) { 
           brain.toggleNeuralLink(active); 
-          if(active) {
-              brain.optimizeNeuralGraph();
-          }
+          if(active) brain.optimizeNeuralGraph();
           setForceUpdate(p => p + 1); 
       }
   };
@@ -321,8 +319,8 @@ export function useCrikzlingV3() {
 
   return {
     messages, sendMessage, uploadFile, crystallize, resetBrain, updateDrives, trainConcept, simpleTrain, toggleNeuralLink,
-    syncWithBlockchain, // EXPORTED
-    needsSave: brain?.needsCrystallization() || false, isSyncing, initialLoading,
+    syncWithBlockchain, initialLoading, // Exported for UI
+    needsSave: brain?.needsCrystallization() || false, isSyncing, 
     brainStats: {
       stage: stats?.stage || 'GENESIS',
       nodes: stats?.nodes || 0,
