@@ -12,7 +12,6 @@ export class CognitiveProcessor {
 
   // Constants for Neural Simulation
   private readonly DECAY_RATE = 0.05; // Energy loss per tick
-  private readonly ACTIVATION_THRESHOLD = 0.2; // Min energy to be "conscious" of a thought
   private readonly SPREAD_FACTOR = 0.6; // How much energy flows to neighbors
 
   constructor(savedStateJson?: string, publicClient?: PublicClient, memoryContractAddress?: `0x${string}`) {
@@ -44,13 +43,19 @@ export class CognitiveProcessor {
     if (savedJson) {
       try {
         const parsed = JSON.parse(savedJson);
-        // Merge strategy to ensure new code structures exist in old saves
         return {
           ...defaults,
           ...parsed,
           concepts: { ...defaults.concepts, ...(parsed.concepts || {}) },
           relations: [...defaults.relations, ...(parsed.relations || [])],
-          drives: { ...defaults.drives, ...(parsed.drives || parsed.mood || {}) }, // Backward compat
+          // Map old mood to new drives if upgrading from V3
+          drives: parsed.drives || { 
+             curiosity: parsed.mood?.curiosity || 50,
+             stability: 100 - (parsed.mood?.entropy || 50),
+             efficiency: parsed.mood?.logic || 50,
+             social: parsed.mood?.empathy || 50,
+             energy: parsed.mood?.energy || 100
+          },
           activationMap: parsed.activationMap || {}
         };
       } catch (e) {
@@ -66,10 +71,9 @@ export class CognitiveProcessor {
 
   /**
    * THE CORE THINKING LOOP
-   * Called every tick to simulate continuous consciousness
    */
   public processNeuralTick(): string | null {
-    // 1. Decay Activations (Forgetting)
+    // 1. Decay Activations
     const activeNodes = Object.keys(this.state.activationMap);
     let highestEnergy = 0;
     let dominantThought = null;
@@ -79,7 +83,6 @@ export class CognitiveProcessor {
         if (this.state.activationMap[id] <= 0) {
             delete this.state.activationMap[id];
         } else {
-            // Check for dominant thought
             if (this.state.activationMap[id] > highestEnergy) {
                 highestEnergy = this.state.activationMap[id];
                 dominantThought = id;
@@ -89,11 +92,11 @@ export class CognitiveProcessor {
 
     this.state.attentionFocus = dominantThought;
 
-    // 2. Drive Updates (Metabolism)
-    this.state.drives.energy = Math.min(100, this.state.drives.energy + 0.5); // Recover energy
-    this.state.drives.curiosity = Math.min(100, this.state.drives.curiosity + 0.1); // Get bored
+    // 2. Drive Updates
+    this.state.drives.energy = Math.min(100, this.state.drives.energy + 0.5); 
+    this.state.drives.curiosity = Math.min(100, this.state.drives.curiosity + 0.1);
     
-    // 3. Spontaneous Thought Generation (If high energy & bored)
+    // 3. Spontaneous Thought
     if (this.state.drives.energy > 80 && this.state.drives.curiosity > 90 && !dominantThought) {
         return this.dream();
     }
@@ -101,15 +104,9 @@ export class CognitiveProcessor {
     return null;
   }
 
-  /**
-   * SPREADING ACTIVATION
-   * Stimulates the graph based on input concepts.
-   * Energy flows from seed -> neighbors -> neighbors of neighbors.
-   */
   public stimulateNetwork(seedIds: string[]): Record<string, number> {
     const queue: { id: string, energy: number, depth: number }[] = [];
 
-    // Initial Injection
     seedIds.forEach(id => {
       if (this.state.concepts[id]) {
         this.state.activationMap[id] = 1.0;
@@ -124,16 +121,12 @@ export class CognitiveProcessor {
       const current = queue.shift()!;
       if (current.depth >= MAX_DEPTH) continue;
 
-      // Find connections
       const neighbors = this.state.relations.filter(r => r.from === current.id || r.to === current.id);
       
       for (const rel of neighbors) {
         const neighborId = rel.from === current.id ? rel.to : rel.from;
-        
-        // Calculate energy transfer based on relation strength
         const transfer = current.energy * rel.strength * this.SPREAD_FACTOR;
         
-        // Apply activation
         const currentVal = this.state.activationMap[neighborId] || 0;
         if (transfer > 0.1 && (currentVal < transfer)) {
             this.state.activationMap[neighborId] = Math.min(1.0, currentVal + transfer);
@@ -143,42 +136,67 @@ export class CognitiveProcessor {
       cycles++;
     }
 
-    // Refill drives based on stimulation
-    this.state.drives.curiosity = Math.max(0, this.state.drives.curiosity - 20); // Satisfied curiosity
-    
+    this.state.drives.curiosity = Math.max(0, this.state.drives.curiosity - 20);
     return this.state.activationMap;
   }
 
-  /**
-   * DREAM / SUBCONSCIOUS
-   * Finds random connections or consolidates memories.
-   */
   public dream(): string {
     const keys = Object.keys(this.state.concepts);
     if (keys.length < 2) return "";
 
-    // Pick two random concepts
     const c1 = keys[Math.floor(Math.random() * keys.length)];
     const c2 = keys[Math.floor(Math.random() * keys.length)];
 
-    // Check if path exists
     const relation = this.state.relations.find(r => 
         (r.from === c1 && r.to === c2) || (r.from === c2 && r.to === c1)
     );
 
     if (!relation) {
-        // Create a speculative connection (Imagination)
         return `I wonder if ${c1.replace(/_/g,' ')} implies ${c2.replace(/_/g,' ')}?`;
     } else {
-        // Reinforce existing
         this.state.activationMap[c1] = 0.5;
         this.state.activationMap[c2] = 0.5;
         return `Recalling the link between ${c1} and ${c2}...`;
     }
   }
 
-  // ... (Keep existing memory management methods: archiveMemory, learnAssociations, etc.)
-  
+  // --- MEMORY & LEARNING IMPLEMENTATION ---
+
+  public learnAssociations(conceptIds: string[]) {
+    if (conceptIds.length < 2) return;
+    for (let i = 0; i < conceptIds.length; i++) {
+      for (let j = i + 1; j < conceptIds.length; j++) {
+        const a = conceptIds[i];
+        const b = conceptIds[j];
+        
+        const existing = this.state.relations.find(r => 
+          (r.from === a && r.to === b) || (r.from === b && r.to === a)
+        );
+
+        if (existing) {
+          existing.strength = Math.min(1.0, existing.strength + (0.05 * this.state.learningRate));
+          existing.last_activated = Date.now();
+        } else {
+          this.state.relations.push({
+            from: a, to: b, type: 'associates', strength: 0.1,
+            learned_at: Date.now(), last_activated: Date.now()
+          });
+          this.state.unsavedDataCount++;
+        }
+      }
+    }
+    this.checkEvolution();
+  }
+
+  private checkEvolution() {
+      const nodeCount = Object.keys(this.state.concepts).length;
+      const interactions = this.state.totalInteractions;
+      if (interactions > 500 && nodeCount > 500) this.state.evolutionStage = 'TRANSCENDENT';
+      else if (interactions > 100 && nodeCount > 200) this.state.evolutionStage = 'SAPIENT';
+      else if (interactions > 20 && nodeCount > 50) this.state.evolutionStage = 'SENTIENT';
+      else this.state.evolutionStage = 'GENESIS';
+  }
+
   public archiveMemory(role: 'user'|'bot'|'subconscious', content: string, concepts: string[], emotionalWeight: number, dappContext: any, vector: Vector = [0,0,0,0,0,0]) {
     const memory: Memory = {
       id: Math.random().toString(36).substr(2, 9),
@@ -200,24 +218,19 @@ export class CognitiveProcessor {
   }
 
   private updateDrives(emotion: number, complexity: number) {
-      // High emotion decreases stability (excitement or fear)
       if (emotion > 0.7 || emotion < 0.3) {
           this.state.drives.stability = Math.max(0, this.state.drives.stability - 10);
       } else {
           this.state.drives.stability = Math.min(100, this.state.drives.stability + 5);
       }
-      
-      // Complexity drains energy
       this.state.drives.energy = Math.max(0, this.state.drives.energy - (complexity * 2));
   }
 
-  // Keep existing helpers...
   private consolidateMemories() {
     if (this.state.shortTermMemory.length > 15) {
       const moved = this.state.shortTermMemory.shift();
       if (moved) this.state.midTermMemory.push(moved);
     }
-    // Simple FIFO for now, can be upgraded to relevance-based later
     if (this.state.midTermMemory.length > 50) this.state.midTermMemory.shift();
   }
 
@@ -253,5 +266,5 @@ export class CognitiveProcessor {
 
   public markSaved() { this.state.unsavedDataCount = 0; }
   
-  public async syncBlockchainMemories(): Promise<void> { /* Keep existing stub */ }
+  public async syncBlockchainMemories(): Promise<void> { /* Sync Logic Stub */ }
 }

@@ -1,6 +1,8 @@
+// src/lib/brain/processors/ResultProcessor.ts
+
 import { InputAnalysis } from './InputProcessor';
 import { ActionPlan } from './ActionProcessor';
-import { Memory, BrainState, DAppContext, BlockchainMemory, SimulationResult, MoodState } from '../types';
+import { Memory, BrainState, DAppContext, BlockchainMemory, SimulationResult, InternalDrives } from '../types';
 
 export interface IntegratedContext {
   input: InputAnalysis;
@@ -12,7 +14,8 @@ export interface IntegratedContext {
   brainStats: {
     evolutionStage: string;
     unsavedCount: number;
-    mood: MoodState; // Fixed: Now strictly typed
+    drives: InternalDrives;
+    currentFocus: string | null;
   };
 }
 
@@ -57,7 +60,8 @@ export class ResultProcessor {
       brainStats: {
         evolutionStage: brainState.evolutionStage,
         unsavedCount: brainState.unsavedDataCount,
-        mood: brainState.mood
+        drives: brainState.drives,
+        currentFocus: brainState.attentionFocus
       }
     };
   }

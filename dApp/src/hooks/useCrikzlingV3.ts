@@ -1,3 +1,5 @@
+// src/hooks/useCrikzlingV3.ts
+
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from 'wagmi';
 import { bscTestnet } from 'wagmi/chains';
@@ -61,10 +63,8 @@ export function useCrikzlingV3() {
 
   const isOwner = address?.toLowerCase() === ARCHITECT_ADDRESS.toLowerCase();
 
-  // Use writeContractAsync for better async control flow
   const { writeContractAsync, data: hash } = useWriteContract();
   
-  // Watch for the receipt (Mining)
   const { isLoading: isConfirming, isSuccess: txSuccess } = useWaitForTransactionReceipt({ 
     hash,
     confirmations: 1 
@@ -94,7 +94,7 @@ export function useCrikzlingV3() {
       if (prev.length > 0) return prev;
       const welcomeMsg = savedLocal 
         ? 'Neural lattice restored. Subconscious systems active. I am monitoring the protocol state.'
-        : 'Genesis complete. Crikzling V4 online. Subconscious processing initialized.';
+        : 'Genesis complete. Crikzling V5 online. Subconscious processing initialized.';
       return [{ role: 'bot', content: welcomeMsg, timestamp: Date.now() }];
     });
   }, [sessionId, publicClient]);
@@ -114,9 +114,6 @@ export function useCrikzlingV3() {
     return () => clearInterval(heartbeat);
   }, [brain, isThinking, isTyping]);
 
-  // -- HANDLERS --
-
-  // 1. Handle Transaction Success (Mining Complete)
   useEffect(() => {
     if (txSuccess && brain && address && isSyncing) {
       toast.success('Memory crystallized on-chain!', { id: 'crystallize' });
@@ -127,7 +124,7 @@ export function useCrikzlingV3() {
       setIsSyncing(false);
       typeStreamResponse('Crystallization confirmed. My cognitive state is now permanently recorded on the Binance Smart Chain.');
     }
-  }, [txSuccess, brain, address]); // Removed isSyncing dependency to avoid race, handled inside
+  }, [txSuccess, brain, address]);
 
   const typeStreamResponse = async (fullText: string) => {
     setIsTyping(true);
@@ -163,13 +160,11 @@ export function useCrikzlingV3() {
     });
   };
 
-  // --- MAIN CRYSTALLIZE LOGIC (FIXED) ---
   const crystallize = async () => {
     if (!brain || !address) {
       toast.error("You must connect a wallet to crystallize memory.");
       return;
     }
-    // Prevent double triggers, but allow retry if hash exists but failed previously
     if (isSyncing || isConfirming) return;
 
     setIsSyncing(true);
@@ -177,21 +172,18 @@ export function useCrikzlingV3() {
     toast.loading('Encoding neural state...', { id: toastId });
 
     try {
-      // 1. Prepare Data
       const state = brain.getState();
       const exportStr = brain.exportState();
       const blob = new Blob([exportStr], { type: 'application/json' });
-      const file = new File([blob], `crikz_v4_mem_${Date.now()}.json`);
+      const file = new File([blob], `crikz_v5_mem_${Date.now()}.json`);
       
-      // 2. Upload to IPFS
       toast.loading('Uploading to decentralized storage...', { id: toastId });
       const cid = await uploadToIPFS(file);
       
       const conceptCount = BigInt(Object.keys(state.concepts).length);
       const stage = state.evolutionStage;
-      const trigger = `V4_MANUAL_SAVE_INTERACTIONS_${state.totalInteractions}`;
+      const trigger = `V5_MANUAL_SAVE_INTERACTIONS_${state.totalInteractions}`;
 
-      // 3. Trigger Wallet Signature
       toast.loading('Waiting for wallet approval...', { id: toastId });
       
       await writeContractAsync({
@@ -203,19 +195,16 @@ export function useCrikzlingV3() {
         chain: bscTestnet
       });
 
-      // 4. Wallet Signed -> Waiting for Mining
       toast.loading('Confirming on Blockchain...', { id: toastId });
-      // Logic continues in the useEffect watching [txSuccess]
 
     } catch (e: any) {
       console.error(e);
-      // Determine error type for better user feedback
       const msg = e.message?.includes('User rejected') 
         ? 'Transaction rejected by user' 
         : 'Crystallization failed';
       
       toast.error(msg, { id: toastId });
-      setIsSyncing(false); // Reset state immediately on error
+      setIsSyncing(false); 
     }
   };
 
@@ -275,13 +264,10 @@ export function useCrikzlingV3() {
   const uploadFile = async (content: string) => {
     if (!brain) return;
     setIsThinking(true);
-    
     const count = brain.assimilateFile(content);
-    
     if (sessionId) {
       localStorage.setItem(`crikz_brain_v3_${sessionId}`, brain.exportState());
     }
-    
     setIsThinking(false);
     typeStreamResponse(
       `Knowledge assimilation complete. I've integrated ${count} new concepts into my neural architecture.`
@@ -297,19 +283,14 @@ export function useCrikzlingV3() {
     crystallize,
     resetBrain,
     needsSave: brain?.needsCrystallization() || false,
-    isSyncing: isSyncing || isConfirming, // Combine states for UI locking
+    isSyncing: isSyncing || isConfirming,
     brainStats: {
       stage: stats?.stage || 'GENESIS',
       nodes: stats?.nodes || 0,
       relations: stats?.relations || 0,
       unsaved: stats?.unsaved || 0,
-      mood: stats?.mood || { logic: 0, empathy: 0, curiosity: 0, entropy: 0, energy: 0, confidence: 0 },
-      memories: {
-        short: stats?.memories?.short || 0,
-        mid: stats?.memories?.mid || 0,
-        long: stats?.memories?.long || 0,
-        blockchain: stats?.memories?.blockchain || 0,
-      },
+      mood: stats?.mood || { curiosity: 0, stability: 0, efficiency: 0, social: 0, energy: 0 },
+      memories: stats?.memories || { short: 0, mid: 0, long: 0, blockchain: 0 },
       interactions: stats?.interactions || 0,
       lastBlockchainSync: stats?.lastBlockchainSync || 0,
     },

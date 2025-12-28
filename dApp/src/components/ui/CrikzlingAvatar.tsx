@@ -1,3 +1,5 @@
+// src/components/ui/CrikzlingAvatar.tsx
+
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -48,8 +50,6 @@ export default function CrikzlingAvatar() {
     }
   };
 
-  // --- V4 FIX: Visual Reactivity ---
-  // The core should look "busy" if it is syncing OR thinking (user) OR dreaming (background thought)
   const isBusy = isThinking || !!currentThought;
   const coreState = isSyncing ? 'crystallizing' : isBusy ? 'thinking' : 'idle';
   
@@ -61,6 +61,11 @@ export default function CrikzlingAvatar() {
   };
 
   const currentStageColor = stageColors[brainStats.stage as keyof typeof stageColors] || 'text-gray-400';
+
+  // Safely access drives, falling back if they aren't initialized yet
+  const curiosity = brainStats.mood?.curiosity || 50;
+  const stability = brainStats.mood?.stability || 50;
+  const energy = brainStats.mood?.energy || 50;
 
   return (
     <>
@@ -110,7 +115,7 @@ export default function CrikzlingAvatar() {
                                 {isSyncing ? 'CRYSTALLIZING' : isBusy ? 'PROCESSING' : 'ONLINE'}
                             </span>
                             <span className="text-white/20">|</span>
-                            <span>v4.0.2</span>
+                            <span>v5.0.0</span>
                         </div>
                     </div>
                 </div>
@@ -140,26 +145,26 @@ export default function CrikzlingAvatar() {
                         <div className="p-4 grid grid-cols-3 gap-4">
                             <div className="flex flex-col gap-1">
                                 <div className="flex justify-between text-[9px] font-bold text-blue-400 uppercase">
-                                    <span>Logic</span><span>{Math.round(brainStats.mood.logic)}%</span>
+                                    <span>Stability</span><span>{Math.round(stability)}%</span>
                                 </div>
                                 <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-                                    <motion.div className="h-full bg-blue-500" animate={{ width: `${brainStats.mood.logic}%` }} />
+                                    <motion.div className="h-full bg-blue-500" animate={{ width: `${stability}%` }} />
                                 </div>
                             </div>
                             <div className="flex flex-col gap-1">
                                 <div className="flex justify-between text-[9px] font-bold text-purple-400 uppercase">
-                                    <span>Entropy</span><span>{Math.round(brainStats.mood.entropy)}%</span>
+                                    <span>Curiosity</span><span>{Math.round(curiosity)}%</span>
                                 </div>
                                 <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-                                    <motion.div className="h-full bg-purple-500" animate={{ width: `${brainStats.mood.entropy}%` }} />
+                                    <motion.div className="h-full bg-purple-500" animate={{ width: `${curiosity}%` }} />
                                 </div>
                             </div>
                             <div className="flex flex-col gap-1">
                                 <div className="flex justify-between text-[9px] font-bold text-amber-400 uppercase">
-                                    <span>Energy</span><span>{Math.round(brainStats.mood.energy)}%</span>
+                                    <span>Energy</span><span>{Math.round(energy)}%</span>
                                 </div>
                                 <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-                                    <motion.div className="h-full bg-amber-500" animate={{ width: `${brainStats.mood.energy}%` }} />
+                                    <motion.div className="h-full bg-amber-500" animate={{ width: `${energy}%` }} />
                                 </div>
                             </div>
                         </div>
@@ -198,8 +203,8 @@ export default function CrikzlingAvatar() {
                 {messages.length === 0 && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-center opacity-30 pointer-events-none p-8">
                         <Terminal size={40} className="mb-4 text-white" />
-                        <p className="text-sm font-bold text-white">NEURAL LINK ESTABLISHED</p>
-                        <p className="text-xs text-gray-400 mt-2">I am analyzing the Fibonacci production protocol. My subconscious is running simulations.</p>
+                        <p className="text-sm font-bold text-white">COGNITIVE SYSTEM ONLINE</p>
+                        <p className="text-xs text-gray-400 mt-2">I am thinking. My subconscious is processing the graph.</p>
                     </div>
                 )}
                 {messages.map((msg, i) => (

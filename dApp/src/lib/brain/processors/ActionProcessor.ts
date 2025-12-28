@@ -1,18 +1,20 @@
+// src/lib/brain/processors/ActionProcessor.ts
+
 import { InputAnalysis } from './InputProcessor';
-import { BrainState, Goal } from '../types';
+import { BrainState } from '../types';
 
 export type ActionType = 
   | 'RESPOND_NATURAL' 
   | 'RESPOND_DAPP' 
   | 'EXECUTE_COMMAND_RESET' 
   | 'EXECUTE_COMMAND_SAVE'
-  | 'SUGGEST_ACTION'; // New: Proactive suggestion bucket
+  | 'SUGGEST_ACTION';
 
 export interface ActionPlan {
   type: ActionType;
   requiresBlockchain: boolean;
-  priority: number; // 1-10 (10 = Critical/Immediate)
-  reasoning: string; // For debugging and AI introspection
+  priority: number;
+  reasoning: string;
   context?: any;
 }
 
@@ -20,7 +22,7 @@ export class ActionProcessor {
   
   public plan(analysis: InputAnalysis, brainState: BrainState, isOwner: boolean): ActionPlan {
     const { intent, cleanedInput, inputVector } = analysis;
-    const { unsavedDataCount, mood, activeGoals } = brainState;
+    const { unsavedDataCount, drives, activeGoals } = brainState;
 
     // --- LEVEL 1: OVERRIDES (Commands) ---
     if (intent === 'COMMAND') {
@@ -42,51 +44,47 @@ export class ActionProcessor {
       }
     }
 
-    // --- LEVEL 2: SELF-PRESERVATION (Autonomic) ---
-    // If the brain has accumulated too much volatility (unsaved data + high entropy),
-    // it prioritizes stabilizing its state over chatting.
-    if (isOwner && unsavedDataCount > 15 && mood.entropy > 60) {
+    // --- LEVEL 2: SELF-PRESERVATION ---
+    // Low Stability (High Entropy) + High Load = Request Save
+    if (isOwner && unsavedDataCount > 15 && drives.stability < 30) {
         return {
             type: 'SUGGEST_ACTION',
             requiresBlockchain: true,
             priority: 9,
-            reasoning: `Cognitive load critical (${unsavedDataCount} items). Entropy high. Requesting stabilization.`,
+            reasoning: `Cognitive load high. Stability low. Requesting crystallization.`,
             context: { suggestion: 'CRYSTALLIZE' }
         };
     }
 
-    // --- LEVEL 3: CONTEXTUAL INTELLIGENCE (DApp & Finance) ---
-    // Use Vector Analysis: If Financial dimension (index 0) is dominant (> 0.7)
+    // --- LEVEL 3: CONTEXTUAL INTELLIGENCE ---
     if (intent === 'DAPP_QUERY' || intent === 'FINANCIAL_ADVICE' || inputVector[0] > 0.7) {
       return { 
         type: 'RESPOND_DAPP', 
         requiresBlockchain: false, 
         priority: 8,
-        reasoning: 'High financial intent vector detected. Engaging protocol analysis.'
+        reasoning: 'High financial intent vector detected.'
       };
     }
 
     // --- LEVEL 4: GOAL ALIGNMENT ---
-    // If the user has an active goal (e.g., "Build Reputation") and the input touches on Social dimensions
     const repGoal = activeGoals.find(g => g.type === 'BUILD_REPUTATION');
-    if (repGoal && inputVector[2] > 0.5) { // Social dimension > 0.5
+    if (repGoal && inputVector[2] > 0.5) {
         return {
             type: 'RESPOND_NATURAL',
             requiresBlockchain: false,
             priority: 7,
-            reasoning: 'Input aligns with active Reputation Goal. Focusing response on governance.'
+            reasoning: 'Input aligns with active Reputation Goal.'
         };
     }
 
     // --- LEVEL 5: DEFAULT BEHAVIOR ---
-    // Adjust base priority based on Energy levels
-    const basePriority = mood.energy > 40 ? 5 : 3;
+    const basePriority = drives.energy > 40 ? 5 : 3;
     
     return { 
       type: 'RESPOND_NATURAL', 
       requiresBlockchain: false, 
       priority: basePriority,
-      reasoning: 'Standard conversational flow. No critical overrides active.'
+      reasoning: 'Standard flow.'
     };
   }
 }
