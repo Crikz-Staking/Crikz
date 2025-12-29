@@ -1,5 +1,3 @@
-// src/lib/brain/processors/ResponseEvaluator.ts
-
 import { IntegratedContext, PersonaArchetype } from '../types';
 
 interface EvaluationResult {
@@ -10,9 +8,6 @@ interface EvaluationResult {
 
 export class ResponseEvaluator {
   
-  /**
-   * Critiques a draft response against internal drives, persona constraints, and safety.
-   */
   public evaluate(draft: string, context: IntegratedContext): EvaluationResult {
     const { brainStats, input } = context;
     const { drives, currentArchetype } = brainStats;
@@ -28,22 +23,29 @@ export class ResponseEvaluator {
         }
     }
 
-    // 2. Persona Consistency Check
-    const personaScore = this.checkPersonaAlignment(draft, currentArchetype);
-    if (personaScore < 0.5) {
-        score -= 0.2;
-        critiques.push("Voice drift detected. Does not match archetype.");
+    // 2. RELEVANCE CHECK (Critical Fix)
+    // If the input was NOT about the protocol, but the response talks about "Protocol Active", punish it.
+    if (!input.isProtocolSpecific && input.intent !== 'DAPP_QUERY' && input.intent !== 'FINANCIAL_ADVICE') {
+        if (draft.includes("Protocol Active") || draft.includes("Reputation:") || draft.includes("Capital efficiency")) {
+            score -= 0.6;
+            critiques.push("Response contains irrelevant protocol data. Keep it conversational.");
+        }
     }
 
-    // 3. Drive Alignment (Goal Check)
-    // If Efficiency is high, penalize fluff
+    // 3. Persona Consistency Check
+    const personaScore = this.checkPersonaAlignment(draft, currentArchetype);
+    if (personaScore < 0.5) {
+        score -= 0.1;
+        critiques.push("Voice drift detected.");
+    }
+
+    // 4. Drive Alignment
     if (drives.efficiency > 80 && draft.length > 200 && input.verbosityNeeded < 0.5) {
-        score -= 0.3;
+        score -= 0.2;
         critiques.push("Output inefficient. Simplicity required.");
     }
 
-    // 4. Hallucination Check (Heuristic)
-    // Check if he promised something impossible
+    // 5. Hallucination Check
     if (draft.includes("transfer") && draft.toLowerCase().includes("i will")) {
         score -= 0.5;
         critiques.push("False agency detected. I cannot execute transfers autonomously.");
@@ -52,13 +54,12 @@ export class ResponseEvaluator {
     return {
         score,
         critique: critiques.join(' '),
-        needsRevision: score < 0.7
+        needsRevision: score < 0.6 // Stricter threshold
     };
   }
 
   private checkPersonaAlignment(text: string, archetype: PersonaArchetype): number {
       const lower = text.toLowerCase();
-      // Heuristic checks for specific archetype keywords
       if (archetype === 'ANALYST' && (lower.includes("feel") || lower.includes("love"))) return 0.2;
       if (archetype === 'MYSTIC' && (lower.includes("price is") || lower.includes("exact"))) return 0.4;
       if (archetype === 'GLITCH' && !lower.includes("_")) return 0.3;

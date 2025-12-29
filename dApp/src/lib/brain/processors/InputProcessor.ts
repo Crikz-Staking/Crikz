@@ -9,9 +9,11 @@ export class InputProcessor {
   private actionVerbs: Record<string, CapabilityType>;
   private sensitiveTerms: Record<string, 'UNSAFE' | 'SENSITIVE_DATA'>;
   
-  // Sentiment Lexicon
   private posWords: Set<string>;
   private negWords: Set<string>;
+  
+  // Specific triggers for the DApp
+  private protocolTriggers: Set<string>;
 
   constructor() {
     this.noiseWords = new Set(['um', 'uh', 'er', 'ah', 'hmm', 'like']);
@@ -34,6 +36,8 @@ export class InputProcessor {
 
     this.posWords = new Set(['good', 'great', 'profit', 'gain', 'up', 'safe', 'secure', 'love', 'happy', 'smart', 'bullish', 'optimal']);
     this.negWords = new Set(['bad', 'loss', 'down', 'broken', 'scam', 'hate', 'stupid', 'crash', 'bearish', 'risk', 'fail', 'error']);
+    
+    this.protocolTriggers = new Set(['protocol', 'crikz', 'staking', 'yield', 'apr', 'reputation', 'balance', 'wallet', 'locked']);
   }
 
   private calculateVectorFromConcepts(concepts: AtomicConcept[], modifiers: { specificity: number }): Vector {
@@ -64,7 +68,7 @@ export class InputProcessor {
     const cleanedInput = input.trim();
     const lowerInput = cleanedInput.toLowerCase();
     
-    // 1. Tokenization with Symbol Preservation for Math/Code
+    // 1. Tokenization with Symbol Preservation
     const rawTokens = lowerInput
         .replace(/[^\w\s\+\-\*\/%=\.]/gi, '') 
         .split(/\s+/)
@@ -74,6 +78,7 @@ export class InputProcessor {
     const detectedEntities: string[] = [];
     
     let specificityScore = 0; 
+    let isProtocolSpecific = false;
 
     // 2. Syntactic & Semantic Pass
     const grammar: GrammarStructure = {
@@ -81,7 +86,6 @@ export class InputProcessor {
       isQuestion: input.includes('?'), isImperative: false, tense: 'PRESENT'
     };
 
-    // Tense Logic
     if (lowerInput.match(/\b(will|going to|future|next|prediction)\b/)) grammar.tense = 'FUTURE';
     if (lowerInput.match(/\b(was|did|history|past|previous)\b/)) grammar.tense = 'PAST';
 
@@ -90,7 +94,9 @@ export class InputProcessor {
         
         let concept = knownConcepts[word] || ATOMIC_PRIMITIVES[word];
         
-        // Deep Search for Synonyms
+        // Protocol Specific Check
+        if (this.protocolTriggers.has(word)) isProtocolSpecific = true;
+
         if (!concept) {
             for (const key in ATOMIC_PRIMITIVES) {
                 if (ATOMIC_PRIMITIVES[key].semanticField.includes(word)) {
@@ -105,13 +111,8 @@ export class InputProcessor {
             if (concept.id === 'determinism') specificityScore += 0.5; 
             else if (concept.id === 'potential') specificityScore -= 0.3;
         } else {
-            // Numeric or Entity Identification
-            if (!isNaN(Number(word))) {
-                detectedEntities.push(word);
-            } else if (word.length > 2) {
-                // Ignore general filler words not in known concepts but not noise
-                detectedEntities.push(word);
-            }
+            if (!isNaN(Number(word))) detectedEntities.push(word);
+            else if (word.length > 2) detectedEntities.push(word);
         }
 
         if (i === 0 && this.actionVerbs[word]) {
@@ -123,6 +124,7 @@ export class InputProcessor {
     if (cleanedInput.match(/0x[a-fA-F0-9]{40}/)) {
         detectedEntities.push('wallet_address');
         specificityScore = 1.0; 
+        isProtocolSpecific = true;
     }
 
     const inputVector = this.calculateVectorFromConcepts(keywords, { specificity: specificityScore });
@@ -131,7 +133,10 @@ export class InputProcessor {
     const verbosityNeeded = this.calculateVerbosity(lowerInput, grammar, inputVector);
     const sentiment = this.calculateSentiment(rawTokens);
 
-    const intent = this.classifyIntent(lowerInput, grammar, inputVector, specificityScore, safetyAnalysis.rating, capability);
+    const intent = this.classifyIntent(
+        lowerInput, grammar, inputVector, specificityScore, 
+        safetyAnalysis.rating, capability, isProtocolSpecific
+    );
 
     return {
       rawInput: input,
@@ -139,14 +144,15 @@ export class InputProcessor {
       keywords: [...new Set(keywords)],
       intent,
       emotionalWeight: 0.5 + (Math.abs(sentiment) * 0.5),
-      sentiment, // <--- New Field
+      sentiment, 
       complexity: (rawTokens.length * 0.1) + (keywords.length * 0.2),
       detectedEntities,
       inputVector,
       grammar,
       requestedCapability: capability,
       safety: safetyAnalysis,
-      verbosityNeeded
+      verbosityNeeded,
+      isProtocolSpecific // <--- New Flag
     };
   }
 
@@ -158,14 +164,12 @@ export class InputProcessor {
           if (this.posWords.has(t)) score += 1;
           if (this.negWords.has(t)) score -= 1;
       });
-      // Normalize between -1 and 1
       return Math.max(-1, Math.min(1, score * 0.5));
   }
 
   private calculateVerbosity(input: string, grammar: GrammarStructure, vector: Vector): number {
       if (input.match(/^(why|how|explain|describe|teach|elaborate)/)) return 0.9; 
       if (input.match(/^(what is|status|price|balance|check|is|equals)/)) return 0.2; 
-      
       if (grammar.isQuestion) {
           if (vector[4] > 0.5 || vector[1] > 0.5) return 0.8;
           return 0.5; 
@@ -205,7 +209,6 @@ export class InputProcessor {
 
     if (action && this.actionVerbs[action]) return this.actionVerbs[action];
     
-    // Abstract Inference Check - User asking for relationships "Why", "How does X affect Y"
     if (input.includes('why') || input.includes('relationship') || input.includes('affect')) {
         return 'INFER_RELATIONSHIP';
     }
@@ -223,7 +226,8 @@ export class InputProcessor {
       vector: Vector, 
       specificity: number,
       safety: SafetyRating,
-      capability: CapabilityType
+      capability: CapabilityType,
+      isProtocolSpecific: boolean
   ): IntentType {
     
     if (safety === 'UNSAFE' || safety === 'SENSITIVE_DATA') return 'SECURITY_ALERT';
@@ -231,17 +235,25 @@ export class InputProcessor {
     if (input.match(/^(reset|wipe|clear|save|crystallize|upload)/)) return 'COMMAND';
     if (input.match(/^(hello|hi|hey|greetings)/i) && input.split(' ').length < 3) return 'GREETING';
 
+    // Financial Logic - Tighter Constraints
     if (vector[0] > 0.4) {
         if (grammar.isImperative && (grammar.action === 'buy' || grammar.action === 'stake')) return 'TRANSACTION_REQUEST';
-        if (specificity > 0 || input.includes('my')) return 'DAPP_QUERY'; 
+        
+        // Only return DAPP_QUERY if user explicitly mentions protocol terms ("my balance", "yield")
+        if (isProtocolSpecific || (specificity > 0 && input.includes('my'))) {
+            return 'DAPP_QUERY'; 
+        }
+        
         return 'FINANCIAL_ADVICE'; 
     }
 
-    // Logic for Abstract vs Concrete
-    if (vector[4] > 0.6 || capability === 'INFER_RELATIONSHIP') return 'PHILOSOPHY'; // Interprets concepts
-    if (vector[1] > 0.5 && grammar.isQuestion) return 'EXPLANATION'; // Explains tech
+    // Abstract vs Concrete
+    if (vector[4] > 0.6 || capability === 'INFER_RELATIONSHIP') return 'PHILOSOPHY'; 
+    if (vector[1] > 0.5 && grammar.isQuestion) return 'EXPLANATION'; 
 
     if (grammar.isQuestion) return 'QUERY';
-    return 'CASUAL';
+    
+    // Default to Discourse if no specific intent found
+    return 'DISCOURSE';
   }
 }

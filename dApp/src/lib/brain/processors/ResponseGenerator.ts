@@ -1,6 +1,6 @@
 import { IntegratedContext, InternalDrives, SimulationResult } from '../types';
 import { PersonaEngine } from './PersonaEngine';
-import { ResponseEvaluator } from './ResponseEvaluator'; // <--- Evaluator Integration
+import { ResponseEvaluator } from './ResponseEvaluator';
 
 export class ResponseGenerator {
   private persona: PersonaEngine;
@@ -23,13 +23,16 @@ export class ResponseGenerator {
     let draft = this.constructRawDraft(context);
 
     // 3. The "Critic" Loop (Self-Correction)
-    // We run the draft through the evaluator. If it fails, we try to fix it.
     const evaluation = this.critic.evaluate(draft, context);
     
     if (evaluation.needsRevision) {
-        // Simple revision logic: Simplify and apologize if necessary, or strip dangerous parts
-        // In a real LLM this would re-prompt. Here we append a caveat.
-        draft += ` (Note: ${evaluation.critique})`;
+        // Revision Logic: If irrelevant protocol data led to bad score, strip it.
+        if (evaluation.critique.includes("irrelevant protocol data")) {
+            draft = "I acknowledge your input. " + 
+                    (context.inferredLogic || "However, I drifted into irrelevant data. Let's focus on your topic.");
+        } else {
+            draft += ` (${evaluation.critique})`;
+        }
     }
 
     // 4. Humanization
@@ -40,53 +43,56 @@ export class ResponseGenerator {
 
   private constructRawDraft(context: IntegratedContext): string {
     const { input, deepContext, dappState, brainStats, computationResult, inferredLogic } = context;
-    const { detectedEntities, intent } = input;
+    const { detectedEntities, intent, isProtocolSpecific } = input;
 
     // A. Math
     if (intent === 'MATH_CALCULATION') {
         if (computationResult !== null && computationResult !== undefined) {
-            return `Calculation complete. Result: ${computationResult}.`;
+            return `Result: ${computationResult}.`;
         } else {
             return "Calculation failed due to ambiguous parameters.";
         }
     }
 
-    // B. Financial
+    // B. Financial - Only if Protocol Specific OR explicitly asked
     const simResult = deepContext.find(c => c.simResult)?.simResult;
-    if (intent === 'FINANCIAL_ADVICE' || simResult) {
+    if (intent === 'DAPP_QUERY' || (intent === 'FINANCIAL_ADVICE' && isProtocolSpecific)) {
         return this.generateFinancialResponse(dappState, simResult);
     } 
 
-    // C. Transactions
     if (intent === 'TRANSACTION_REQUEST') {
-        return "I can prepare the transaction parameters, but you must sign via your wallet. I do not hold custody keys.";
+        return "I can help you structure this transaction contextually, but you must physically sign it via your wallet provider.";
     }
 
-    // D. Inferred Logic (Dynamic Synthesis)
-    if (inferredLogic && (intent === 'PHILOSOPHY' || intent === 'EXPLANATION' || intent === 'DISCOURSE')) {
-        let response = inferredLogic;
-        if (input.sentiment < -0.2) response += " This path seems volatile.";
-        if (input.sentiment > 0.2) response += " This structure resonates efficiently.";
-        return response;
+    // C. Logic Inference (General Conversation / Philosophy)
+    if (inferredLogic || intent === 'PHILOSOPHY' || intent === 'EXPLANATION' || intent === 'DISCOURSE') {
+        if (inferredLogic) {
+            let response = inferredLogic;
+            if (input.sentiment < -0.2) response += " This path seems volatile.";
+            if (input.sentiment > 0.2) response += " This structure resonates efficiently.";
+            return response;
+        }
+        // Fallback for Discourse if no logic path found
+        return `Your query regarding [${detectedEntities.join(' ')}] touches on interesting concepts. I am analyzing the semantic relevance.`;
     }
 
     if (intent === 'GREETING') {
-        return `Crikzling Online. Evolution Stage: ${brainStats.evolutionStage}. Monitoring protocol state.`;
+        return `Crikzling Online. Evolution Stage: ${brainStats.evolutionStage}. Ready.`;
     }
 
-    // E. Fallback
+    // D. Fallback
     if (detectedEntities.length > 0) {
-        return `I perceive the concept of [${detectedEntities.join(', ')}], but I lack specific vector data to process a conclusion.`;
+        return `I perceive the concept of [${detectedEntities.join(', ')}]. How should I relate this to the network?`;
     }
 
-    return "Awaiting valid input vector.";
+    return "Processing input vector... Please elaborate.";
   }
 
   private generateFinancialResponse(dapp: any, sim: SimulationResult | undefined | null): string {
     if (!dapp) return "Wallet not detected. I cannot access on-chain state.";
     
     if (sim) {
-        return `Simulated Outcome: ${sim.outcomeValue.toFixed(2)}. ${sim.recommendation}`;
+        return `Predictive Model: ${sim.scenario}. Outcome Projection: ${sim.outcomeValue.toFixed(2)} units. ${sim.recommendation}`;
     } 
     
     let advice = `Protocol Active. Reputation: ${dapp.totalReputation}.`;

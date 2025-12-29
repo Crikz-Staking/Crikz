@@ -40,21 +40,19 @@ export interface BlockchainMemory {
   triggerEvent: string;
 }
 
-// --- HIERARCHICAL STRUCTURES ---
 export interface ConceptCluster {
   id: string;
-  centerConcept: string; // The "Topic"
-  relatedNodes: string[]; // The "Details"
-  strength: number;       // How tight is this cluster?
+  centerConcept: string; 
+  relatedNodes: string[]; 
+  strength: number;       
   lastActivated: number;
 }
 
-// --- MULTI-HEAD ATTENTION ---
 export interface AttentionState {
-  semanticFocus: string | null;  // What are we talking about? (e.g., "yield")
-  emotionalFocus: string | null; // What do we feel? (e.g., "anxiety")
-  goalFocus: string | null;      // What do we want? (e.g., "teach")
-  workingCluster: ConceptCluster | null; // Current abstract thought
+  semanticFocus: string | null;  
+  emotionalFocus: string | null; 
+  goalFocus: string | null;      
+  workingCluster: ConceptCluster | null; 
 }
 
 export interface BrainState {
@@ -62,7 +60,6 @@ export interface BrainState {
   relations: ConceptRelation[];
   activationMap: Record<string, number>; 
   
-  // NOTE: attentionFocus removed, replaced by attentionState
   attentionState: AttentionState;       
   generatedClusters: ConceptCluster[]; 
 
@@ -167,11 +164,14 @@ export interface InputAnalysis {
   cleanedInput: string;
   keywords: AtomicConcept[];
   intent: IntentType;
-  emotionalWeight: number;
-  sentiment: number;
+  
+  emotionalWeight: number; 
+  sentiment: number;       
+  
   complexity: number;
   detectedEntities: string[];
   inputVector: Vector;
+  
   grammar: GrammarStructure;
   requestedCapability: CapabilityType;
   verbosityNeeded: number; 
@@ -180,6 +180,9 @@ export interface InputAnalysis {
     flaggedTerms: string[];
     reason?: string;
   };
+  
+  // NEW: Helps distinguish "Philosophy of money" vs "My Money"
+  isProtocolSpecific: boolean; 
 }
 
 export interface DAppIntegratedState {
@@ -201,7 +204,7 @@ export interface IntegratedContext {
     evolutionStage: string;
     unsavedCount: number;
     drives: InternalDrives;
-    attentionState: AttentionState; // Corrected: Uses attentionState, not currentFocus
+    attentionState: AttentionState;
     currentArchetype: PersonaArchetype;
   };
   computationResult?: string | number | null;

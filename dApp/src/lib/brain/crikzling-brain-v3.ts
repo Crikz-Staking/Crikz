@@ -28,7 +28,9 @@ export class CrikzlingBrainV3 {
   private lastTick: number = Date.now();
   private batchLogBuffer: string[] = [];
   private history: CognitiveLogEntry[] = [];
-  private readonly MAX_THOUGHT_CYCLES = 5;
+  
+  // INCREASED: More cycles for better depth
+  private readonly MAX_THOUGHT_CYCLES = 8;
 
   constructor(
     baseState?: string,
@@ -68,32 +70,27 @@ export class CrikzlingBrainV3 {
   }
 
   public optimizeNeuralGraph() {
-      // Optimization is now automatic in tick
+      // Optimization handled in tick
   }
 
   public async tick(dappContext?: DAppContext): Promise<void> {
     const now = Date.now();
     const state = this.cognitive.getState();
     const { isConnected } = state.connectivity;
-    // Slower tick for deep thinking moments
     const tickRate = isConnected ? 1000 : 8000; 
     
     if (now - this.lastTick < tickRate) return;
     this.lastTick = now;
 
-    // 1. Evolve Persona based on drives
     this.evolvePersona(state);
 
-    // 2. Background Processing (Simulating subconscious thought)
     if (state.drives.energy > 50) {
-        // Retrieve active concepts from Short Term Memory
         const activeIds = state.shortTermMemory
-            .slice(-3) // Last 3 interactions
+            .slice(-3) 
             .flatMap(m => m.concepts)
-            .slice(0, 10); // Take top 10 relevant concepts
+            .slice(0, 10); 
 
         if (activeIds.length > 2) {
-            // Attempt to form an Abstract Cluster
             const abstraction = this.cognitive.formAbstractCluster(activeIds);
             if (abstraction) {
                 this.batchLogBuffer.push(abstraction);
@@ -101,22 +98,19 @@ export class CrikzlingBrainV3 {
         }
     }
 
-    if (isConnected) {
-        // Process buffers
-        if (this.batchLogBuffer.length >= 3) {
-            const summary = this.batchLogBuffer.join("\n• ");
-            this.logEvent({ 
-                type: 'SYSTEM', 
-                input: 'Background Processing', 
-                output: `Abstraction Formed:\n• ${summary}`, 
-                intent: 'SYSTEM', 
-                activeNodes: [], 
-                vectors: {input:[0,0,0,0,0,0], response:[0,0,0,0,0,0]}, 
-                thoughtCycles: [], 
-                executionTimeMs: tickRate 
-            });
-            this.batchLogBuffer = [];
-        }
+    if (isConnected && this.batchLogBuffer.length >= 3) {
+        const summary = this.batchLogBuffer.join("\n• ");
+        this.logEvent({ 
+            type: 'SYSTEM', 
+            input: 'Background Processing', 
+            output: `Abstraction Formed:\n• ${summary}`, 
+            intent: 'SYSTEM', 
+            activeNodes: [], 
+            vectors: {input:[0,0,0,0,0,0], response:[0,0,0,0,0,0]}, 
+            thoughtCycles: [], 
+            executionTimeMs: tickRate 
+        });
+        this.batchLogBuffer = [];
     } 
 
     if (!isConnected && state.drives.energy > 80 && this.getSecureRandom() < 0.05) {
@@ -145,37 +139,40 @@ export class CrikzlingBrainV3 {
   public async process(text: string, isOwner: boolean, dappContext?: DAppContext): Promise<{ response: string; actionPlan: ActionPlan }> { 
     const startTime = Date.now();
     try {
-      this.updateThought('perception', 10, 'Parsing semantics...');
+      this.updateThought('perception', 5, 'Parsing semantics...');
       const brainState = this.cognitive.getState();
       const inputAnalysis = this.inputProc.process(text, brainState.concepts, dappContext);
       
-      this.updateThought('spreading_activation', 20, 'Activating neural lattice...');
+      this.updateThought('spreading_activation', 15, 'Activating neural lattice...');
       const activeIds = inputAnalysis.keywords.map((k: AtomicConcept) => k.id); 
       this.cognitive.stimulateNetwork(activeIds, brainState.drives.energy);
       
       let deepContext: DeepThoughtCycle[] = [];
       let currentFocus = [...activeIds];
 
-      // Use the new Working Cluster if available for context
       if (currentFocus.length === 0 && brainState.attentionState.workingCluster) {
           currentFocus = brainState.attentionState.workingCluster.relatedNodes.slice(0, 3);
       }
 
+      // Check if deep simulation is needed
       const needsSim = inputAnalysis.intent === 'FINANCIAL_ADVICE' || 
                        inputAnalysis.intent === 'DAPP_QUERY' || 
                        inputAnalysis.intent === 'PHILOSOPHY' || 
                        inputAnalysis.intent === 'EXPLANATION';
 
+      // --- EXTENDED THINKING LOOP ---
       for (let cycle = 1; cycle <= this.MAX_THOUGHT_CYCLES; cycle++) {
-          const progress = 20 + (cycle * (60 / this.MAX_THOUGHT_CYCLES));
-          this.updateThought('introspection', progress, `Cycle ${cycle}: Associative walk...`);
-          await this.think(500); 
+          const progress = 15 + (cycle * (60 / this.MAX_THOUGHT_CYCLES));
+          this.updateThought('introspection', progress, `Cycle ${cycle}: Recursive inference...`);
+          
+          // Added artificial delay for "Deep Thought" feel vs instantaneous click/response
+          await this.think(400); 
 
           const memories = this.cognitive.retrieveRelevantMemories(currentFocus, inputAnalysis.inputVector);
           const newAssociations = this.cognitive.findAssociativePath(currentFocus, 2);
           
           let simResult = null;
-          if (dappContext && needsSim) {
+          if (dappContext && needsSim && cycle > 2) { // Only sim after initial association
               simResult = this.simulator.runSimulation(inputAnalysis.intent, dappContext, inputAnalysis.inputVector);
           }
 
@@ -190,11 +187,12 @@ export class CrikzlingBrainV3 {
           if (newAssociations.length > 0) currentFocus = newAssociations.slice(0, 3); 
       }
 
-      this.updateThought('strategy', 90, 'Evaluator critique...');
+      this.updateThought('strategy', 85, 'Running internal critique...');
       const actionPlan = this.actionProc.plan(inputAnalysis, brainState, isOwner, deepContext);
       
       if (actionPlan.type === 'EXECUTE_COMMAND_RESET' && isOwner) this.cognitive.wipeLocalMemory();
 
+      // Final Synthesis
       const integratedContext = this.resultProc.processMultiCycle(inputAnalysis, actionPlan, deepContext, brainState, dappContext);
       let response = this.generator.generateDeep(integratedContext);
       
@@ -218,8 +216,8 @@ export class CrikzlingBrainV3 {
           actionPlan: actionPlan
       });
 
-      this.updateThought('generation', 100, 'Done');
-      await this.think(200); 
+      this.updateThought('generation', 100, 'Finalizing output...');
+      await this.think(300); 
       this.clearThought();
       
       return { response, actionPlan }; 
