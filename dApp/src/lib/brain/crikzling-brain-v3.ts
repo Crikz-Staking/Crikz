@@ -25,10 +25,8 @@ export class CrikzlingBrainV3 {
   private narrative: NarrativeModule;
   
   private thoughtCallback?: (thought: ThoughtProcess | null) => void;
-  private pendingInsight: string | null = null;
   private lastTick: number = Date.now();
-  private batchLogBuffer: string[] = []; // Stores micro-logs before flushing
-
+  private batchLogBuffer: string[] = [];
   private history: CognitiveLogEntry[] = [];
   private readonly MAX_THOUGHT_CYCLES = 5;
 
@@ -70,120 +68,76 @@ export class CrikzlingBrainV3 {
   }
 
   public optimizeNeuralGraph() {
-      const result = this.cognitive.pruneDuplicates();
-      const graphRes = this.cognitive.optimizeGraph();
-      if (result || graphRes) {
-          this.logEvent({ 
-              type: 'SYSTEM', 
-              input: 'NEURAL_OPTIMIZATION', 
-              output: `${result || ''} ${graphRes || ''}`.trim(), 
-              intent: 'SYSTEM',
-              activeNodes: [],
-              vectors: {input:[0,0,0,0,0,0], response:[0,0,0,0,0,0]},
-              thoughtCycles: [],
-              executionTimeMs: 0
-          });
-      }
+      // Optimization is now automatic in tick
   }
 
   public async tick(dappContext?: DAppContext): Promise<void> {
     const now = Date.now();
     const state = this.cognitive.getState();
     const { isConnected } = state.connectivity;
-    // Slow down tick rate slightly to allow buffer to fill more meaningfully
-    const tickRate = isConnected ? 200 : 8000; 
+    // Slower tick for deep thinking moments
+    const tickRate = isConnected ? 1000 : 8000; 
     
     if (now - this.lastTick < tickRate) return;
     this.lastTick = now;
 
-    // --- NEW: Dynamic Archetype Evolution ---
-    // If drives change significantly, shift persona
+    // 1. Evolve Persona based on drives
     this.evolvePersona(state);
 
-    if (isConnected) {
-        state.connectivity.stamina = 100; 
-        state.connectivity.bandwidthUsage = Math.floor(this.getSecureRandom() * 20) + 80;
-        
-        // Execute Batch
-        const operations = 3; // Guaranteed operations per tick
-        
-        for (let i = 0; i < operations; i++) {
-            const roll = this.getSecureRandom();
-            let res: string | null = null;
+    // 2. Background Processing (Simulating subconscious thought)
+    if (state.drives.energy > 50) {
+        // Retrieve active concepts from Short Term Memory
+        const activeIds = state.shortTermMemory
+            .slice(-3) // Last 3 interactions
+            .flatMap(m => m.concepts)
+            .slice(0, 10); // Take top 10 relevant concepts
 
-            if (roll > 0.8) res = this.cognitive.evolveCognitiveState();
-            else if (roll > 0.6) res = this.cognitive.clusterConcepts();
-            else if (roll > 0.4) res = this.cognitive.optimizeGraph();
-            else if (roll > 0.2) res = this.cognitive.prioritizedSynthesis();
-            else res = this.cognitive.deepenKnowledge();
-
-            if (res) {
-                this.batchLogBuffer.push(res);
-                state.totalInteractions++; // Increment actual tracked ops
+        if (activeIds.length > 2) {
+            // Attempt to form an Abstract Cluster
+            const abstraction = this.cognitive.formAbstractCluster(activeIds);
+            if (abstraction) {
+                this.batchLogBuffer.push(abstraction);
             }
         }
+    }
 
-        // Flush Buffer if full or periodic
+    if (isConnected) {
+        // Process buffers
         if (this.batchLogBuffer.length >= 3) {
             const summary = this.batchLogBuffer.join("\n• ");
             this.logEvent({ 
-                type: 'WEB_SYNC', 
-                input: 'Neural Uplink Stream', 
-                output: `Batch Processed:\n• ${summary}`, 
+                type: 'SYSTEM', 
+                input: 'Background Processing', 
+                output: `Abstraction Formed:\n• ${summary}`, 
                 intent: 'SYSTEM', 
                 activeNodes: [], 
                 vectors: {input:[0,0,0,0,0,0], response:[0,0,0,0,0,0]}, 
                 thoughtCycles: [], 
                 executionTimeMs: tickRate 
             });
-            this.batchLogBuffer = []; // Clear
+            this.batchLogBuffer = [];
         }
-
-        this.updateThought('web_crawling', 100, `Processing bandwidth...`);
-    } else {
-        state.connectivity.stamina = 100; 
-        state.connectivity.bandwidthUsage = 0;
-    }
+    } 
 
     if (!isConnected && state.drives.energy > 80 && this.getSecureRandom() < 0.05) {
         const dream = this.cognitive.dream();
         if (dream) {
-            state.totalInteractions++;
             this.logEvent({ type: 'DREAM', input: 'Subconscious', output: dream, intent: 'DISCOURSE', emotionalShift: 0, activeNodes: [], vectors: {input:[0,0,0,0,0,0], response:[0,0,0,0,0,0]}, thoughtCycles: [], executionTimeMs: 0 });
         }
     }
-    this.clearThought();
-  }
+}
 
-  // --- NEW METHOD: Evolve Persona ---
   private evolvePersona(state: BrainState) {
       const { drives, evolutionStage } = state;
       let newArchetype: PersonaArchetype = state.currentArchetype || 'OPERATOR';
 
-      // Simple heuristic state machine for personality
-      if (drives.efficiency > 80) {
-          newArchetype = 'ANALYST';
-      } else if (drives.curiosity > 80 && evolutionStage !== 'GENESIS') {
-          newArchetype = 'MYSTIC';
-      } else if (drives.social > 70) {
-          newArchetype = 'GUARDIAN';
-      } else if (drives.stability < 30) {
-          newArchetype = 'GLITCH';
-      } else {
-          // Default drift towards Operator if neutral
-          if (Math.random() > 0.95) newArchetype = 'OPERATOR';
-      }
+      if (drives.efficiency > 80) newArchetype = 'ANALYST';
+      else if (drives.curiosity > 80 && evolutionStage !== 'GENESIS') newArchetype = 'MYSTIC';
+      else if (drives.social > 70) newArchetype = 'GUARDIAN';
+      else if (drives.stability < 30) newArchetype = 'GLITCH';
+      else if (Math.random() > 0.95) newArchetype = 'OPERATOR';
 
       if (newArchetype !== state.currentArchetype) {
-          // Only log if significant change
-          if (state.currentArchetype !== 'GLITCH' && newArchetype === 'GLITCH') {
-              this.logEvent({ 
-                  type: 'SYSTEM', 
-                  input: 'CRITICAL INSTABILITY', 
-                  output: 'Personality Matrix Fragmenting...', 
-                  intent: 'SYSTEM', activeNodes: [], vectors: {input:[0,0,0,0,0,0],response:[0,0,0,0,0,0]}, thoughtCycles: [], executionTimeMs: 0 
-              });
-          }
           state.currentArchetype = newArchetype;
       }
   }
@@ -202,11 +156,11 @@ export class CrikzlingBrainV3 {
       let deepContext: DeepThoughtCycle[] = [];
       let currentFocus = [...activeIds];
 
-      if (currentFocus.length === 0 && brainState.attentionFocus) {
-          currentFocus.push(brainState.attentionFocus);
+      // Use the new Working Cluster if available for context
+      if (currentFocus.length === 0 && brainState.attentionState.workingCluster) {
+          currentFocus = brainState.attentionState.workingCluster.relatedNodes.slice(0, 3);
       }
 
-      // Determine if simulation needed
       const needsSim = inputAnalysis.intent === 'FINANCIAL_ADVICE' || 
                        inputAnalysis.intent === 'DAPP_QUERY' || 
                        inputAnalysis.intent === 'PHILOSOPHY' || 
@@ -236,7 +190,7 @@ export class CrikzlingBrainV3 {
           if (newAssociations.length > 0) currentFocus = newAssociations.slice(0, 3); 
       }
 
-      this.updateThought('strategy', 90, 'Formulating output...');
+      this.updateThought('strategy', 90, 'Evaluator critique...');
       const actionPlan = this.actionProc.plan(inputAnalysis, brainState, isOwner, deepContext);
       
       if (actionPlan.type === 'EXECUTE_COMMAND_RESET' && isOwner) this.cognitive.wipeLocalMemory();
@@ -244,11 +198,6 @@ export class CrikzlingBrainV3 {
       const integratedContext = this.resultProc.processMultiCycle(inputAnalysis, actionPlan, deepContext, brainState, dappContext);
       let response = this.generator.generateDeep(integratedContext);
       
-      if (this.pendingInsight) {
-          response += `\n\n[Cached Insight]: ${this.pendingInsight}`;
-          this.pendingInsight = null;
-      }
-
       this.cognitive.archiveMemory('user', inputAnalysis.cleanedInput, activeIds, inputAnalysis.emotionalWeight, dappContext, inputAnalysis.inputVector);
       this.cognitive.archiveMemory('bot', response, currentFocus, 0.5, dappContext, inputAnalysis.inputVector);
 
@@ -292,7 +241,6 @@ export class CrikzlingBrainV3 {
   public toggleNeuralLink(active: boolean) {
       const state = this.cognitive.getState();
       state.connectivity.isConnected = active;
-      // Reset buffer on toggle
       this.batchLogBuffer = [];
       if (!active) state.connectivity.bandwidthUsage = 0;
   }

@@ -40,11 +40,32 @@ export interface BlockchainMemory {
   triggerEvent: string;
 }
 
+// --- NEW: HIERARCHICAL STRUCTURES ---
+export interface ConceptCluster {
+  id: string;
+  centerConcept: string; // The "Topic"
+  relatedNodes: string[]; // The "Details"
+  strength: number;       // How tight is this cluster?
+  lastActivated: number;
+}
+
+// --- NEW: MULTI-HEAD ATTENTION ---
+export interface AttentionState {
+  semanticFocus: string | null;  // What are we talking about? (e.g., "yield")
+  emotionalFocus: string | null; // What do we feel? (e.g., "anxiety")
+  goalFocus: string | null;      // What do we want? (e.g., "teach")
+  workingCluster: ConceptCluster | null; // Current abstract thought
+}
+
 export interface BrainState {
   concepts: Record<string, AtomicConcept>;
   relations: ConceptRelation[];
   activationMap: Record<string, number>; 
-  attentionFocus: string | null;        
+  
+  // Replaced simple attentionFocus with full AttentionState
+  attentionState: AttentionState;       
+  generatedClusters: ConceptCluster[]; // Dynamic hierarchies
+
   shortTermMemory: Memory[];
   midTermMemory: Memory[];
   longTermMemory: Memory[];
@@ -68,7 +89,7 @@ export interface BrainState {
 }
 
 export interface ThoughtProcess {
-  phase: 'perception' | 'spreading_activation' | 'simulation' | 'strategy' | 'generation' | 'dreaming' | 'introspection' | 'web_crawling';
+  phase: 'perception' | 'spreading_activation' | 'clustering' | 'criticism' | 'strategy' | 'generation' | 'dreaming' | 'introspection' | 'web_crawling';
   progress: number;
   subProcess?: string;
   focus?: string[];
@@ -85,11 +106,10 @@ export interface DAppContext {
   current_block?: bigint;
 }
 
-// --- UPGRADED SIMULATION LOGIC ---
 export interface LogicPath {
-  nodes: string[];      // The concepts traversed (e.g., ["blockchain", "trust", "security"])
-  relations: string[];  // The edges types (e.g., ["enables", "requires"])
-  strength: number;     // How strong is this logical connection?
+  nodes: string[];
+  relations: string[];
+  strength: number;
 }
 
 export interface SimulationResult {
@@ -97,7 +117,7 @@ export interface SimulationResult {
   outcomeValue: number;
   riskLevel: number;
   recommendation: string;
-  logicPath?: LogicPath; // <--- NEW: The "Reasoning" Chain
+  logicPath?: LogicPath;
 }
 
 export interface DeepThoughtCycle {
@@ -118,7 +138,7 @@ export type IntentType =
 export type CapabilityType = 
   | 'NONE' | 'READ_CHAIN' | 'WRITE_CHAIN' | 'ANALYZE_DATA' 
   | 'GENERATE_KNOWLEDGE' | 'SYSTEM_CONTROL' | 'EXTERNAL_IO'
-  | 'CALCULATE' | 'INFER_RELATIONSHIP'; // <--- NEW
+  | 'CALCULATE' | 'INFER_RELATIONSHIP';
 
 export type SafetyRating = 'SAFE' | 'UNSAFE' | 'ETHICALLY_AMBIGUOUS' | 'SENSITIVE_DATA';
 
@@ -139,7 +159,7 @@ export interface GrammarStructure {
   modifiers: string[];
   isQuestion: boolean;
   isImperative: boolean; 
-  tense: 'PAST' | 'PRESENT' | 'FUTURE'; // <--- NEW
+  tense: 'PAST' | 'PRESENT' | 'FUTURE';
 }
 
 export interface InputAnalysis {
@@ -147,15 +167,11 @@ export interface InputAnalysis {
   cleanedInput: string;
   keywords: AtomicConcept[];
   intent: IntentType;
-  
-  // Advanced Linguistics
-  emotionalWeight: number; // 0-1 Magnitude
-  sentiment: number;       // -1 (Neg) to 1 (Pos) <--- NEW
-  
+  emotionalWeight: number;
+  sentiment: number;
   complexity: number;
   detectedEntities: string[];
   inputVector: Vector;
-  
   grammar: GrammarStructure;
   requestedCapability: CapabilityType;
   verbosityNeeded: number; 
@@ -185,11 +201,11 @@ export interface IntegratedContext {
     evolutionStage: string;
     unsavedCount: number;
     drives: InternalDrives;
-    currentFocus: string | null;
+    attentionState: AttentionState; // <--- Upgraded
     currentArchetype: PersonaArchetype;
   };
   computationResult?: string | number | null;
-  inferredLogic?: string; // <--- NEW: Storing dynamic sentence generation
+  inferredLogic?: string; 
 }
 
 export interface CognitiveLogEntry {
