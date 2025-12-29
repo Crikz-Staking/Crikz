@@ -9,7 +9,7 @@ export interface MemorySnapshot {
   conceptsCount: bigint;
   evolutionStage: string;
   triggerEvent: string;
-  opsCount: number; // Parsed from triggerEvent
+  opsCount: number; 
 }
 
 export function useMemoryTimeline() {
@@ -21,58 +21,64 @@ export function useMemoryTimeline() {
     if (!publicClient) return;
     setLoading(true);
     
+    const snapshots: MemorySnapshot[] = [];
+    let index = 0;
+    let keepFetching = true;
+
+    // Safety limit to prevent infinite loops if something goes wrong, 
+    // though realistically it stops on the first error.
+    const MAX_FETCH = 100; 
+
     try {
-        // 1. Get all 'MemoryCrystallized' events
-        const logs = await publicClient.getContractEvents({
-            address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
-            abi: CRIKZLING_MEMORY_ABI,
-            eventName: 'MemoryCrystallized',
-            fromBlock: 0n // Or 'earliest'
-        });
+        while (keepFetching && index < MAX_FETCH) {
+            try {
+                // Try to read the specific index
+                const data = await publicClient.readContract({
+                    address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
+                    abi: CRIKZLING_MEMORY_ABI,
+                    functionName: 'memoryTimeline',
+                    args: [BigInt(index)]
+                });
 
-        // 2. Fetch details for each ID found in logs
-        // Note: logs give us the ID. We then read the struct from the array.
-        // Optimization: Run in parallel
-        const promises = logs.map(async (log) => {
-            const id = Number(log.args.snapshotId);
-            
-            const data = await publicClient.readContract({
-                address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
-                abi: CRIKZLING_MEMORY_ABI,
-                functionName: 'memoryTimeline',
-                args: [BigInt(id)]
-            });
+                if (data) {
+                    // Parse result (Solidity generated getter returns array/tuple)
+                    // Order: [timestamp, ipfsCid, conceptsCount, evolutionStage, triggerEvent]
+                    const timestamp = Number(data[0]);
+                    const ipfsCid = data[1];
+                    const conceptsCount = data[2];
+                    const evolutionStage = data[3];
+                    const triggerEvent = data[4];
+                    
+                    let opsCount = 0;
+                    if (triggerEvent && triggerEvent.includes('_')) {
+                        opsCount = parseInt(triggerEvent.split('_')[1]) || 0;
+                    }
 
-            // Parse result
-            const timestamp = Number(data[0]);
-            const ipfsCid = data[1];
-            const conceptsCount = data[2];
-            const evolutionStage = data[3];
-            const triggerEvent = data[4];
-            
-            let opsCount = 0;
-            if (triggerEvent && triggerEvent.includes('_')) {
-                opsCount = parseInt(triggerEvent.split('_')[1]) || 0;
+                    snapshots.push({
+                        id: index,
+                        timestamp,
+                        ipfsCid,
+                        conceptsCount,
+                        evolutionStage,
+                        triggerEvent,
+                        opsCount
+                    });
+                    
+                    index++;
+                } else {
+                    keepFetching = false;
+                }
+            } catch (error) {
+                // Contract reverted (Index out of bounds), so we reached the end of the array
+                keepFetching = false;
             }
+        }
 
-            return {
-                id,
-                timestamp,
-                ipfsCid,
-                conceptsCount,
-                evolutionStage,
-                triggerEvent,
-                opsCount
-            };
-        });
-
-        const results = await Promise.all(promises);
-        
         // Sort by ID descending (newest first)
-        setTimeline(results.sort((a, b) => b.id - a.id));
+        setTimeline(snapshots.sort((a, b) => b.id - a.id));
 
     } catch (e) {
-        console.error("Timeline Fetch Error:", e);
+        console.error("Timeline Fetch Critical Error:", e);
     } finally {
         setLoading(false);
     }
