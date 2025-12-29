@@ -100,20 +100,49 @@ export class CrikzlingBrainV3 {
         state.connectivity.stamina = 100; 
         state.connectivity.bandwidthUsage = Math.floor(this.getSecureRandom() * 20) + 80;
         
-        // Randomly trigger optimization when connected
-        if (this.getSecureRandom() < 0.05) {
-            this.optimizeNeuralGraph();
+        // Operations
+        const operations = Math.floor(state.connectivity.bandwidthUsage / 5); 
+        let logBuffer = "";
+
+        // Only run intensive tasks rarely even if connected, to avoid spamming
+        if (Math.random() < 0.2) {
+            const roll = this.getSecureRandom();
+            let res: string | null = null;
+
+            if (roll > 0.85) {
+                // Evolve (No string return yet usually)
+                this.cognitive.evolveCognitiveState();
+            }
+            else if (roll > 0.70) {
+                res = this.cognitive.clusterConcepts();
+            }
+            else if (roll > 0.55) {
+                res = this.cognitive.optimizeGraph();
+            }
+            else if (roll > 0.30) {
+                res = this.cognitive.prioritizedSynthesis();
+            }
+            else {
+                res = this.cognitive.deepenKnowledge();
+            }
+
+            if (res) logBuffer = res;
         }
 
-        const operations = Math.floor(state.connectivity.bandwidthUsage / 5); 
-        for(let i=0; i<operations; i++) {
-            const roll = this.getSecureRandom();
-            if (roll > 0.85) this.cognitive.evolveCognitiveState();
-            else if (roll > 0.70) this.cognitive.clusterConcepts();
-            else if (roll > 0.55) this.cognitive.optimizeGraph();
-            else if (roll > 0.30) this.cognitive.prioritizedSynthesis();
-            else this.cognitive.deepenKnowledge();
+        // --- NEW: Log Significant WEB_SYNC Events ---
+        if (logBuffer) {
+            this.logEvent({ 
+                type: 'WEB_SYNC', 
+                input: 'Neural Uplink Activity', 
+                output: logBuffer, 
+                intent: 'SYSTEM', 
+                activeNodes: [], 
+                vectors: {input:[0,0,0,0,0,0], response:[0,0,0,0,0,0]}, 
+                thoughtCycles: [], 
+                executionTimeMs: 0 
+            });
         }
+
         state.totalInteractions += operations;
         this.updateThought('web_crawling', 100, `Hyper-processing ${operations} nodes...`);
     } else {
@@ -123,7 +152,7 @@ export class CrikzlingBrainV3 {
 
     if (!isConnected && state.drives.energy > 80 && this.getSecureRandom() < 0.05) {
         const dream = this.cognitive.dream();
-        if (dream) {
+        if (dream && dream !== "Void state...") {
             state.totalInteractions++;
             this.logEvent({ type: 'DREAM', input: 'Subconscious', output: dream, intent: 'DISCOURSE', emotionalShift: 0, activeNodes: [], vectors: {input:[0,0,0,0,0,0], response:[0,0,0,0,0,0]}, thoughtCycles: [], executionTimeMs: 0 });
         }

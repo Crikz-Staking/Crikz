@@ -51,7 +51,6 @@ export class CognitiveProcessor {
       connectivity: { isConnected: false, bandwidthUsage: 0, stamina: 100, lastWebSync: 0 }
     };
 
-    // 1. Apply Base (Blockchain)
     if (baseJson) {
         try {
             const base = JSON.parse(baseJson);
@@ -66,7 +65,6 @@ export class CognitiveProcessor {
         } catch (e) { console.error("Base Load Error", e); }
     }
 
-    // 2. Apply Diff (Local Storage)
     if (diffJson) {
         try {
             const diff = JSON.parse(diffJson);
@@ -96,24 +94,18 @@ export class CognitiveProcessor {
     return state;
   }
 
-  /**
-   * SMART MERGE: Authority on State
-   * Called when data is fetched from IPFS after signature
-   */
   public mergeExternalState(remoteState: any) {
       const remoteOps = Number(remoteState.totalInteractions || remoteState.interactions || 0);
       const currentOps = Number(this.state.totalInteractions || 0);
 
       console.log(`[Cognitive] 📥 MERGE REQUEST | Blockchain Ops: ${remoteOps} | Local Ops: ${currentOps}`);
 
-      // 1. Sync Ops - Always accept the blockchain number if it's valid/higher
       if (remoteOps >= currentOps) {
           this.state.totalInteractions = remoteOps;
       }
 
       this.state.lastBlockchainSync = Date.now();
 
-      // 2. Merge Concepts
       if (remoteState.concepts) {
           let newNodes = 0;
           Object.entries(remoteState.concepts).forEach(([id, remoteConceptRaw]) => {
@@ -124,7 +116,6 @@ export class CognitiveProcessor {
                   this.state.concepts[id] = remoteConcept;
                   newNodes++;
               } else {
-                  // Merge if remote has more depth
                   if ((remoteConcept.technical_depth || 0) > (localConcept.technical_depth || 0)) {
                       this.state.concepts[id] = { ...localConcept, ...remoteConcept };
                   }
@@ -133,7 +124,6 @@ export class CognitiveProcessor {
           if(newNodes > 0) console.log(`[Cognitive] Integrated ${newNodes} nodes from Hive Mind.`);
       }
 
-      // 3. Merge Relations
       if (remoteState.relations && Array.isArray(remoteState.relations)) {
           const existingSignatures = new Set(this.state.relations.map(r => `${r.from}-${r.to}-${r.type}`));
           let newEdges = 0;
@@ -148,7 +138,6 @@ export class CognitiveProcessor {
           if(newEdges > 0) console.log(`[Cognitive] Integrated ${newEdges} connections.`);
       }
 
-      // 4. Update Stage from Remote if higher
       const stages = ['GENESIS', 'SENTIENT', 'SAPIENT', 'TRANSCENDENT'];
       const localIdx = stages.indexOf(this.state.evolutionStage);
       const remoteIdx = stages.indexOf(remoteState.evolutionStage || 'GENESIS');
@@ -156,8 +145,6 @@ export class CognitiveProcessor {
           this.state.evolutionStage = remoteState.evolutionStage;
       }
       
-      // 5. Clean up unsaved state if we are now up to date with the blockchain
-      // This prevents the "unsaved data" indicator from persisting after a fresh sync
       if (remoteOps >= currentOps) {
           this.state.unsavedDataCount = 0;
           this.unsavedIds.concepts.clear();
@@ -196,14 +183,15 @@ export class CognitiveProcessor {
   }
 
   public optimizeGraph(): string | null {
-      if (this.state.relations.length < 1000) return null;
+      if (this.state.relations.length < 50) return null; // Lowered threshold for testing
       
       const initialCount = this.state.relations.length;
-      this.state.relations = this.state.relations.filter(r => r.strength > 0.2); 
+      // Filter extremely weak connections only
+      this.state.relations = this.state.relations.filter(r => r.strength > 0.05); 
       
       const pruned = initialCount - this.state.relations.length;
       if (pruned > 0) {
-          return `Neural Pruning: Removed ${pruned} weak synaptic pathways.`;
+          return `Pruned ${pruned} weak synaptic pathways.`;
       }
       return null;
   }
@@ -505,7 +493,27 @@ export class CognitiveProcessor {
   public evolveCognitiveState(): string { return "Optimizing neural weights"; }
   
   public dream(): string {
-      const seed = this.state.longTermMemory[Math.floor(this.getSecureRandom() * this.state.longTermMemory.length)];
-      return seed ? `Dreaming of ${seed.concepts[0]}...` : "Void state...";
+      // 1. Try Long Term Memory
+      let pool = this.state.longTermMemory;
+      
+      // 2. Fallback to Short Term Memory
+      if (pool.length === 0) {
+          pool = this.state.shortTermMemory;
+      }
+
+      // 3. Fallback to ALL concepts (Guaranteed to have data unless genesis is broken)
+      const keys = Object.keys(this.state.concepts);
+      
+      if (pool.length > 0) {
+          const seed = pool[Math.floor(this.getSecureRandom() * pool.length)];
+          // Ensure concept exists in concepts map or use raw content text snippet
+          const conceptName = seed.concepts[0] || "patterns";
+          return `Dreaming of ${conceptName}...`;
+      } else if (keys.length > 0) {
+          const randomKey = keys[Math.floor(this.getSecureRandom() * keys.length)];
+          return `Analyzing recursive loop: ${randomKey}...`;
+      }
+      
+      return "Initializing latent space...";
   }
 }
