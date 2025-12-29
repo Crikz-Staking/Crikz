@@ -4,17 +4,26 @@ import path from 'path'
 
 export default defineConfig({
   plugins: [react()],
-  
-  base: './', 
-
+  base: './',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
   },
+  // REQUIRED for WebLLM / Transformers.js
+  server: {
+    headers: {
+      "Cross-Origin-Embedder-Policy": "require-corp",
+      "Cross-Origin-Opener-Policy": "same-origin",
+    },
+  },
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
-    chunkSizeWarningLimit: 1000,
+    chunkSizeWarningLimit: 2000, // Increased for AI models
+    target: 'esnext' // Required for Top-level await
+  },
+  optimizeDeps: {
+    exclude: ['@mlc-ai/web-llm', '@xenova/transformers']
   }
 })

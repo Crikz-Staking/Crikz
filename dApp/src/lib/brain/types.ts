@@ -1,8 +1,7 @@
-import { AtomicConcept, ConceptRelation } from '../crikzling-atomic-knowledge';
+// src/lib/brain/types.ts
 
 export type EvolutionStage = 'GENESIS' | 'SENTIENT' | 'SAPIENT' | 'TRANSCENDENT';
 export type Vector = [number, number, number, number, number, number];
-export type PersonaArchetype = 'ANALYST' | 'MYSTIC' | 'GUARDIAN' | 'GLITCH' | 'OPERATOR';
 
 export interface InternalDrives {
   curiosity: number;   
@@ -14,99 +13,33 @@ export interface InternalDrives {
 
 export interface Memory {
   id: string;
-  role: 'user' | 'bot' | 'subconscious' | 'system'; 
+  role: 'user' | 'bot' | 'system'; 
   content: string;
   timestamp: number;
-  concepts: string[]; 
+  // Vector embedding for RAG (384 dimensions for all-MiniLM-L6-v2)
+  embedding?: number[]; 
+  // Legacy vector for UI stats (6 dimensions)
   vector: Vector; 
   emotional_weight: number;
-  access_count: number;
   dapp_context?: any;
 }
 
-export interface Goal {
-  id: string;
-  type: string;
-  progress: number;
-  priority: number;
-}
-
-export interface BlockchainMemory {
-  timestamp: number;
-  ipfsCid: string;
-  conceptsCount: bigint;
-  evolutionStage: string;
-  triggerEvent: string;
-}
-
-export interface ConceptCluster {
-  id: string;
-  centerConcept: string; 
-  relatedNodes: string[]; 
-  strength: number;       
-  lastActivated: number;
-}
-
-export interface AttentionState {
-  semanticFocus: string | null;  
-  emotionalFocus: string | null; 
-  goalFocus: string | null;      
-  workingCluster: ConceptCluster | null; 
-}
-
-// --- GENERATIVE LLM STRUCTURES ---
-export interface NeuralToken {
-  id: string;        
-  weight: number;    
-  position: number;  
-}
-
-export interface HyperParameters {
-  temperature: number; 
-  topK: number;        
-  contextSize: number; 
-}
-
 export interface BrainState {
-  concepts: Record<string, AtomicConcept>; 
-  relations: ConceptRelation[]; 
-  activationMap: Record<string, number>; 
-  
-  attentionState: AttentionState;       
-  generatedClusters: ConceptCluster[]; 
-
-  contextWindow: NeuralToken[]; 
-  hyperParameters: HyperParameters; 
-
-  shortTermMemory: Memory[];
-  midTermMemory: Memory[];
-  longTermMemory: Memory[];
-  blockchainMemories: BlockchainMemory[];
-  
   evolutionStage: EvolutionStage;
-  currentArchetype: PersonaArchetype; 
-  drives: InternalDrives; 
-  activeGoals: Goal[]; 
-  
   totalInteractions: number;
   unsavedDataCount: number;
-  lastBlockchainSync: number;
-  learningRate: number;
+  
+  // Connectivity stats for the UI
   connectivity: {
     isConnected: boolean;      
     bandwidthUsage: number;    
     stamina: number;           
     lastWebSync: number;
   };
-}
 
-export interface ThoughtProcess {
-  // FIXED: Added missing union types used in Brain V3
-  phase: 'perception' | 'tokenization' | 'spreading_activation' | 'attention_head' | 'sampling' | 'decoding' | 'introspection' | 'generation' | 'criticism' | 'strategy' | 'web_crawling' | 'dreaming';
-  progress: number;
-  subProcess?: string;
-  focus?: string[];
-  activeNodes?: string[];
+  // Legacy support for UI components that expect these
+  drives: InternalDrives;
+  longTermMemory: Memory[];
 }
 
 export interface DAppContext {
@@ -116,47 +49,9 @@ export interface DAppContext {
   pending_yield?: bigint;
   global_fund_balance?: bigint;
   global_total_reputation?: bigint;
-  current_block?: bigint;
 }
 
-export interface LogicPath {
-  nodes: string[];
-  relations: string[];
-  strength: number;
-}
-
-export interface SimulationResult {
-  scenario: string;
-  outcomeValue: number;
-  riskLevel: number;
-  recommendation: string;
-  logicPath?: LogicPath;
-}
-
-export interface DeepThoughtCycle {
-  cycleIndex: number;
-  focusConcepts: string[];
-  retrievedMemories: Memory[];
-  newAssociations: string[];
-  simResult: SimulationResult | null;
-}
-
-export type IntentType = 
-  | 'COMMAND' | 'QUERY' | 'PHILOSOPHY' | 'CASUAL' | 'TEACHING' 
-  | 'FINANCIAL_ADVICE' | 'UNKNOWN' | 'GREETING' | 'EXPLANATION' 
-  | 'DAPP_QUERY' | 'DISCOURSE' | 'NARRATIVE_ANALYSIS' | 'SYSTEM' 
-  | 'WEB_SYNC' | 'TRANSACTION_REQUEST' | 'SECURITY_ALERT'
-  | 'MATH_CALCULATION';
-
-export type CapabilityType = 
-  | 'NONE' | 'READ_CHAIN' | 'WRITE_CHAIN' | 'ANALYZE_DATA' 
-  | 'GENERATE_KNOWLEDGE' | 'SYSTEM_CONTROL' | 'EXTERNAL_IO'
-  | 'CALCULATE' | 'INFER_RELATIONSHIP'
-  | 'GENERATE_TEXT';
-
-export type SafetyRating = 'SAFE' | 'UNSAFE' | 'ETHICALLY_AMBIGUOUS' | 'SENSITIVE_DATA';
-
-export type ActionType = 'RESPOND_NATURAL' | 'RESPOND_DAPP' | 'EXECUTE_COMMAND_RESET' | 'EXECUTE_COMMAND_SAVE' | 'SUGGEST_ACTION' | 'REFUSE_UNSAFE' | 'RESPOND_LOGICAL_INFERENCE' | 'STREAM_GENERATION';
+export type ActionType = 'RESPOND_NATURAL' | 'RESPOND_DAPP' | 'EXECUTE_COMMAND_SAVE';
 
 export interface ActionPlan {
   type: ActionType;
@@ -166,79 +61,19 @@ export interface ActionPlan {
   context?: any;
 }
 
-export interface GrammarStructure {
-  subject: string | null;
-  action: string | null; 
-  object: string | null; 
-  modifiers: string[];
-  isQuestion: boolean;
-  isImperative: boolean; 
-  tense: 'PAST' | 'PRESENT' | 'FUTURE';
-}
-
-export interface InputAnalysis {
-  rawInput: string;
-  cleanedInput: string;
-  keywords: AtomicConcept[];
-  intent: IntentType;
-  emotionalWeight: number; 
-  sentiment: number;       
-  complexity: number;
-  detectedEntities: string[];
-  inputVector: Vector;
-  grammar: GrammarStructure;
-  requestedCapability: CapabilityType;
-  verbosityNeeded: number; 
-  safety: {
-    rating: SafetyRating;
-    flaggedTerms: string[];
-    reason?: string;
-  };
-  isProtocolSpecific: boolean; 
-}
-
-export interface DAppIntegratedState {
-  hasActiveOrders: boolean;
-  totalReputation: string;
-  availableYield: string;
-  fundBalance: string;
-  orders: any[];
-}
-
-export interface IntegratedContext {
-  input: InputAnalysis;
-  actionPlan: ActionPlan;
-  memories: Memory[];
-  blockchainHistory: BlockchainMemory[];
-  dappState: DAppIntegratedState | null;
-  deepContext: DeepThoughtCycle[];
-  brainStats: {
-    evolutionStage: string;
-    unsavedCount: number;
-    drives: InternalDrives;
-    attentionState: AttentionState;
-    currentArchetype: PersonaArchetype;
-  };
-  computationResult?: string | number | null;
-  inferredLogic?: string; 
-  generatedStream?: string[]; 
-}
-
 export interface CognitiveLogEntry {
   id: string;
   timestamp: number;
-  type: 'INTERACTION' | 'DREAM' | 'SYSTEM' | 'WEB_SYNC'; 
+  type: 'INTERACTION' | 'SYSTEM' | 'WEB_SYNC'; 
   input: string; 
   output: string; 
-  intent: IntentType;
-  emotionalShift: number; 
-  activeNodes: string[]; 
+  intent?: string;
+  // UI Visualizers expect these
   vectors: {
     input: Vector;
     response: Vector; 
   };
-  thoughtCycles: DeepThoughtCycle[]; 
-  executionTimeMs: number;
+  thoughtCycles: any[]; // Kept for UI compatibility
   dappContext?: DAppContext; 
   actionPlan?: ActionPlan;   
 }
