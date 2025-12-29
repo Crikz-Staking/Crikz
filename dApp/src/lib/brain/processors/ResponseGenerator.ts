@@ -29,26 +29,35 @@ export class ResponseGenerator {
   }
 
   private constructRawDraft(context: IntegratedContext): string {
-    const { input, deepContext, dappState, brainStats } = context;
+    const { input, deepContext, dappState, brainStats, computationResult } = context;
     const { grammar, detectedEntities, intent } = input;
 
-    // A. Financial Responses (Prioritize Data)
+    // A. Math Calculations
+    if (intent === 'MATH_CALCULATION') {
+        if (computationResult !== null && computationResult !== undefined) {
+            return `I have calculated the result. ${input.rawInput.replace(/what is/i, '').trim()} equals ${computationResult}.`;
+        } else {
+            return "I attempted the calculation, but the input parameters were ambiguous.";
+        }
+    }
+
+    // B. Financial Responses (Prioritize Data)
     const simResult = deepContext.find(c => c.simResult)?.simResult;
     if (intent === 'FINANCIAL_ADVICE' || simResult) {
         return this.generateFinancialResponse(dappState, simResult);
     } 
 
-    // B. Transaction Requests
+    // C. Transaction Requests
     if (intent === 'TRANSACTION_REQUEST') {
         return "I can help you structure this transaction, but you must physically sign it via your wallet provider. I do not hold custody of assets.";
     }
 
-    // C. Greetings
+    // D. Greetings
     if (intent === 'GREETING') {
         return "Systems online. I am ready to process your input.";
     }
 
-    // D. Philosophy / Discourse (The Abstract Mind)
+    // E. Philosophy / Discourse (The Abstract Mind)
     if (intent === 'PHILOSOPHY' || intent === 'EXPLANATION') {
         // Construct concepts
         let thought = "";
@@ -67,7 +76,7 @@ export class ResponseGenerator {
         return thought;
     }
 
-    // E. Fallback
+    // F. Fallback
     return `I processed your input regarding ${detectedEntities.join(', ') || 'this topic'}, but I require more specific parameters to act effectively.`;
   }
 

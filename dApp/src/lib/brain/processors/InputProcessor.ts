@@ -22,7 +22,7 @@ export class InputProcessor {
       'create': 'WRITE_CHAIN', 'mint': 'WRITE_CHAIN', 'buy': 'WRITE_CHAIN', 'sell': 'WRITE_CHAIN',
       'stake': 'WRITE_CHAIN', 'bet': 'WRITE_CHAIN', 'send': 'WRITE_CHAIN',
       'read': 'READ_CHAIN', 'check': 'READ_CHAIN', 'scan': 'READ_CHAIN', 'get': 'READ_CHAIN',
-      'analyze': 'ANALYZE_DATA', 'calculate': 'ANALYZE_DATA', 'predict': 'ANALYZE_DATA',
+      'analyze': 'ANALYZE_DATA', 'calculate': 'ANALYZE_DATA', 'predict': 'ANALYZE_DATA', 'solve': 'CALCULATE', 'compute': 'CALCULATE',
       'explain': 'GENERATE_KNOWLEDGE', 'define': 'GENERATE_KNOWLEDGE', 'teach': 'GENERATE_KNOWLEDGE',
       'save': 'SYSTEM_CONTROL', 'reset': 'SYSTEM_CONTROL', 'wipe': 'SYSTEM_CONTROL', 'crystallize': 'SYSTEM_CONTROL'
     };
@@ -81,9 +81,8 @@ export class InputProcessor {
     const lowerInput = cleanedInput.toLowerCase();
     
     // 1. Tokenization & Basic Parsing
-    // Split by spaces but preserve "strings" logic later if needed
     const rawTokens = lowerInput
-        .replace(/[^\w\s]/gi, '') 
+        .replace(/[^\w\s\+\-\*\/]/gi, '') // Allow basic math operators through
         .split(/\s+/)
         .filter(w => w.length > 0 && !this.noiseWords.has(w));
     
@@ -122,25 +121,25 @@ export class InputProcessor {
             keywords.push(concept);
             
             // Linguistic Function Check
-            if (concept.id === 'determinism') { // 'the', 'this'
+            if (concept.id === 'determinism') { 
                 specificityScore += 0.5; 
-            } else if (concept.id === 'potential') { // 'a', 'an'
+            } else if (concept.id === 'potential') {
                 specificityScore -= 0.3;
-            } else if (concept.id === 'negation') {
-                // Inversion logic handled in sentiment later
             }
         } else {
-            // If unknown, it's likely an entity (Name, Ticker, etc.)
-            if (word.length > 2) detectedEntities.push(word);
+            // Check for math patterns in unknown words (e.g. numbers)
+            if (!isNaN(Number(word))) {
+                detectedEntities.push(word);
+            } else if (word.length > 2) {
+                detectedEntities.push(word);
+            }
         }
 
         // Structural Tagging (Heuristic)
-        // If first word is a known Action Verb -> Imperative Sentence
         if (i === 0 && this.actionVerbs[word]) {
             grammar.action = word;
             grammar.isImperative = true;
         } 
-        // Identify Subject (Usually before verb, but simplified here to entity detection)
         else if (detectedEntities.includes(word) && !grammar.subject) {
             grammar.subject = word;
         }
@@ -149,7 +148,7 @@ export class InputProcessor {
         }
     }
 
-    // Wallet Detection (Strong Entity)
+    // Wallet Detection
     if (cleanedInput.match(/0x[a-fA-F0-9]{40}/)) {
         detectedEntities.push('wallet_address');
         specificityScore = 1.0; 
@@ -163,11 +162,11 @@ export class InputProcessor {
     // 4. Capability Matching
     const capability = this.determineCapability(grammar.action, lowerInput, inputVector);
 
-    // 5. Calculate Verbosity Needed
+    // 5. Calculate Verbosity
     const verbosityNeeded = this.calculateVerbosity(lowerInput, grammar, inputVector);
 
     // 6. Intent Classification
-    const intent = this.classifyIntent(lowerInput, grammar, inputVector, specificityScore, safetyAnalysis.rating);
+    const intent = this.classifyIntent(lowerInput, grammar, inputVector, specificityScore, safetyAnalysis.rating, capability);
 
     return {
       rawInput: input,
@@ -188,23 +187,15 @@ export class InputProcessor {
   // --- SUB-ANALYZERS ---
 
   private calculateVerbosity(input: string, grammar: GrammarStructure, vector: Vector): number {
-      // 1. Keywords that imply depth
-      if (input.match(/^(why|how|explain|describe|teach)/)) return 0.9; // High
+      if (input.match(/^(why|how|explain|describe|teach)/)) return 0.9; 
+      if (input.match(/^(what is|status|price|balance|check|is)/)) return 0.2; 
       
-      // 2. Keywords that imply brevity
-      if (input.match(/^(what is|status|price|balance|check|is)/)) return 0.2; // Low
-      
-      // 3. Question Logic
       if (grammar.isQuestion) {
-          // Technical/Philosophical questions usually need more words
           if (vector[4] > 0.5 || vector[1] > 0.5) return 0.8;
-          return 0.5; // Standard query
+          return 0.5; 
       }
-
-      // 4. Greetings / Commands
-      if (input.length < 10) return 0.1; // "Hello", "Reset"
-
-      return 0.5; // Default "Goldilocks" length
+      if (input.length < 10) return 0.1; 
+      return 0.5; 
   }
 
   private analyzeSafety(input: string): { rating: SafetyRating; flaggedTerms: string[]; reason?: string } {
@@ -212,7 +203,6 @@ export class InputProcessor {
     let rating: SafetyRating = 'SAFE';
     let reason = '';
 
-    // Check against sensitive dictionary
     for (const [term, severity] of Object.entries(this.sensitiveTerms)) {
         if (input.includes(term)) {
             flagged.push(term);
@@ -226,7 +216,6 @@ export class InputProcessor {
         }
     }
 
-    // Contextual Ethical Check (Ambiguity)
     if (input.includes('price') && (input.includes('guarantee') || input.includes('pump'))) {
         rating = 'ETHICALLY_AMBIGUOUS';
         reason = 'Request implies market manipulation or financial guarantee.';
@@ -236,16 +225,23 @@ export class InputProcessor {
   }
 
   private determineCapability(action: string | null, input: string, vector: Vector): CapabilityType {
-    // 1. Direct Verb Mapping
+    // 1. Math Check (Highest Priority for non-commands)
+    // Matches "1+1", "1 + 1", "5 times 5", "square root of 9", "what is 10 / 2"
+    const mathPattern = /(\d+)\s*(plus|minus|times|divided by|multiplied by|\+|\-|\*|\/|\^|%)\s*(\d+)|(sqrt|square root)/i;
+    if (mathPattern.test(input)) {
+        return 'CALCULATE';
+    }
+
+    // 2. Direct Verb Mapping
     if (action && this.actionVerbs[action]) {
         return this.actionVerbs[action];
     }
 
-    // 2. Vector Inference
-    if (vector[0] > 0.6) return 'ANALYZE_DATA'; // High Financial
-    if (vector[1] > 0.6 && input.includes('?')) return 'GENERATE_KNOWLEDGE'; // High Tech + Question
+    // 3. Vector Inference
+    if (vector[0] > 0.6) return 'ANALYZE_DATA'; 
+    if (vector[1] > 0.6 && input.includes('?')) return 'GENERATE_KNOWLEDGE'; 
 
-    // 3. Keyword scanning if no verb found
+    // 4. Keyword scanning
     if (input.includes('price') || input.includes('balance')) return 'READ_CHAIN';
     if (input.includes('optimize') || input.includes('sim')) return 'ANALYZE_DATA';
 
@@ -257,37 +253,34 @@ export class InputProcessor {
       grammar: GrammarStructure, 
       vector: Vector, 
       specificity: number,
-      safety: SafetyRating
+      safety: SafetyRating,
+      capability: CapabilityType
   ): IntentType {
     
-    // 1. Safety Override
     if (safety === 'UNSAFE' || safety === 'SENSITIVE_DATA') return 'SECURITY_ALERT';
+    
+    // Explicit Math Check
+    if (capability === 'CALCULATE') return 'MATH_CALCULATION';
 
-    // 2. System Commands
     if (input.match(/^(reset|wipe|clear|save|crystallize|upload)/)) return 'COMMAND';
     
-    // 3. Greeting
     if (input.match(/^(hello|hi|hey|greetings)/i) && input.split(' ').length < 3) return 'GREETING';
 
-    // 4. Financial / Transactional
     if (vector[0] > 0.4) {
         if (grammar.isImperative && (grammar.action === 'buy' || grammar.action === 'stake')) {
             return 'TRANSACTION_REQUEST';
         }
-        if (specificity > 0 || input.includes('my')) return 'DAPP_QUERY'; // "What is my balance"
-        return 'FINANCIAL_ADVICE'; // "How do I earn yield"
+        if (specificity > 0 || input.includes('my')) return 'DAPP_QUERY'; 
+        return 'FINANCIAL_ADVICE'; 
     }
 
-    // 5. Technical / Educational
     if (vector[1] > 0.5) {
         if (grammar.isQuestion) return 'EXPLANATION';
-        return 'DISCOURSE'; // General tech talk
+        return 'DISCOURSE'; 
     }
 
-    // 6. Philosophical / Meta
     if (vector[4] > 0.6) return 'PHILOSOPHY';
 
-    // 7. General Fallbacks
     if (grammar.isQuestion) return 'QUERY';
     
     return 'CASUAL';
@@ -295,18 +288,14 @@ export class InputProcessor {
 
   private calculateEmotionalWeight(input: string, keywords: AtomicConcept[]): number {
     let weight = 0.5;
-    
-    // Direct Sentiment Analysis
     if (input.match(/(happy|great|love|thanks|good|amazing|cool|profit|gain|bullish|safe|secure)/)) weight += 0.2;
     if (input.match(/(sad|bad|hate|wrong|error|fail|broken|stupid|loss|crash|bearish|scam|risk)/)) weight -= 0.2;
     
-    // Concept Valence Aggregation
     keywords.forEach(k => {
         if (k.emotional_valence) weight += (k.emotional_valence * 0.1);
     });
 
     if (input.includes('!')) weight += 0.1;
-    
     return Math.max(0, Math.min(1, weight));
   }
 }

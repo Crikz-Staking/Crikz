@@ -1,4 +1,4 @@
-import { AtomicConcept, ConceptRelation } from '../crikzling-atomic-knowledge';
+import { AtomicConcept } from '../crikzling-atomic-knowledge';
 
 export type EvolutionStage = 'GENESIS' | 'SENTIENT' | 'SAPIENT' | 'TRANSCENDENT';
 export type Vector = [number, number, number, number, number, number];
@@ -43,7 +43,7 @@ export interface BlockchainMemory {
 
 export interface BrainState {
   concepts: Record<string, AtomicConcept>;
-  relations: ConceptRelation[];
+  relations: any[];
   activationMap: Record<string, number>; 
   attentionFocus: string | null;        
   shortTermMemory: Memory[];
@@ -52,7 +52,7 @@ export interface BrainState {
   blockchainMemories: BlockchainMemory[];
   
   evolutionStage: EvolutionStage;
-  currentArchetype: PersonaArchetype; // NEW: Active personality
+  currentArchetype: PersonaArchetype; 
   drives: InternalDrives; 
   activeGoals: Goal[]; 
   
@@ -107,11 +107,13 @@ export type IntentType =
   | 'COMMAND' | 'QUERY' | 'PHILOSOPHY' | 'CASUAL' | 'TEACHING' 
   | 'FINANCIAL_ADVICE' | 'UNKNOWN' | 'GREETING' | 'EXPLANATION' 
   | 'DAPP_QUERY' | 'DISCOURSE' | 'NARRATIVE_ANALYSIS' | 'SYSTEM' 
-  | 'WEB_SYNC' | 'TRANSACTION_REQUEST' | 'SECURITY_ALERT';
+  | 'WEB_SYNC' | 'TRANSACTION_REQUEST' | 'SECURITY_ALERT'
+  | 'MATH_CALCULATION'; // <--- NEW
 
 export type CapabilityType = 
   | 'NONE' | 'READ_CHAIN' | 'WRITE_CHAIN' | 'ANALYZE_DATA' 
-  | 'GENERATE_KNOWLEDGE' | 'SYSTEM_CONTROL' | 'EXTERNAL_IO';
+  | 'GENERATE_KNOWLEDGE' | 'SYSTEM_CONTROL' | 'EXTERNAL_IO'
+  | 'CALCULATE'; // <--- NEW
 
 export type SafetyRating = 'SAFE' | 'UNSAFE' | 'ETHICALLY_AMBIGUOUS' | 'SENSITIVE_DATA';
 
@@ -178,6 +180,7 @@ export interface IntegratedContext {
     currentFocus: string | null;
     currentArchetype: PersonaArchetype;
   };
+  computationResult?: string | number | null; // <--- NEW
 }
 
 export interface CognitiveLogEntry {
