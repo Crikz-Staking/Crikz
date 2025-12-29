@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
     Brain, Activity, Wifi, Database, GitBranch, Cpu, 
     X, Search, ChevronRight, Terminal, Lock, Sliders, 
     PlusCircle, Save, Globe, Zap, Battery, Download, FileText,
     Wallet, Award, TrendingUp, Layers, ArrowRight, ShieldCheck, AlertTriangle,
-    HardDrive, Check, History, RotateCcw, RefreshCw // <--- ADDED HERE
+    HardDrive, Check, History, RotateCcw, RefreshCw, Upload, Calendar, ChevronLeft
 } from 'lucide-react';
 import { CognitiveLogEntry, InternalDrives } from '@/lib/brain/types';
 import { AtomicConcept } from '@/lib/crikzling-atomic-knowledge';
@@ -48,15 +48,20 @@ interface NeuralDashboardProps {
     trainConcept?: (concept: AtomicConcept) => void;
     simpleTrain?: (text: string) => void;
     toggleNeuralLink?: (active: boolean) => void;
+    crystallize?: () => void; // New Prop
+    uploadFile?: (content: string) => void; // New Prop
+    isSyncing?: boolean; // New Prop
 }
 
 export default function NeuralDashboard({ 
     isOpen, onClose, logs, brainStats, isOwner, 
-    updateDrives, trainConcept, simpleTrain, toggleNeuralLink 
+    updateDrives, trainConcept, simpleTrain, toggleNeuralLink,
+    crystallize, uploadFile, isSyncing
 }: NeuralDashboardProps) {
     const [view, setView] = useState<'monitor' | 'synapse' | 'cortex' | 'matrix' | 'timeline'>('monitor');
     const { isConnected, stamina, bandwidthUsage } = brainStats.connectivity;
     
+    // We instantiate hook here just for restore capability on timeline
     const { restoreMemory } = useCrikzlingV3(); 
 
     if (!isOpen) return null;
@@ -151,8 +156,8 @@ export default function NeuralDashboard({
                                 <AccessDenied />
                             ) : (
                                 <>
-                                    {view === 'monitor' && <MonitorView stats={brainStats} logs={logs} />}
-                                    {view === 'synapse' && simpleTrain && <SynapseView onTrain={simpleTrain} lastLog={logs[0]} />}
+                                    {view === 'monitor' && <MonitorView stats={brainStats} logs={logs} crystallize={crystallize} isSyncing={isSyncing} />}
+                                    {view === 'synapse' && simpleTrain && <SynapseView onTrain={simpleTrain} onUpload={uploadFile} lastLog={logs[0]} />}
                                     {view === 'cortex' && <CortexView logs={logs} />}
                                     {view === 'matrix' && updateDrives && <MatrixView stats={brainStats} onUpdate={updateDrives} />}
                                     {view === 'timeline' && <TimelineView isOwner={isOwner} onRestore={restoreMemory} />}
@@ -166,8 +171,162 @@ export default function NeuralDashboard({
     );
 }
 
+// --- VIEW COMPONENTS ---
+
+function MonitorView({ stats, logs, crystallize, isSyncing }: { stats: any, logs: CognitiveLogEntry[], crystallize?: () => void, isSyncing?: boolean }) {
+    const { isConnected, bandwidthUsage } = stats.connectivity;
+
+    return (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 glass-card p-8 rounded-3xl border border-white/10 bg-black/40 relative overflow-hidden h-[400px] flex items-center justify-center">
+                <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:40px_40px]" />
+                
+                {isConnected && <NetworkTerminal logs={logs} />}
+
+                <div className="relative z-10 flex flex-col items-center gap-6">
+                    <motion.div 
+                        animate={{ 
+                            scale: isConnected ? [1, 1.1, 1] : 1,
+                            rotate: isConnected ? 360 : 0
+                        }}
+                        transition={{ duration: isConnected ? 2 : 0, repeat: Infinity, ease: "linear" }}
+                        className={`w-32 h-32 rounded-full border-4 flex items-center justify-center ${isConnected ? 'border-primary-500 shadow-[0_0_50px_rgba(245,158,11,0.3)]' : 'border-white/10'}`}
+                    >
+                        <Brain size={48} className={isConnected ? 'text-primary-500' : 'text-gray-600'} />
+                    </motion.div>
+
+                    {/* NEW: Quick Action Crystallize */}
+                    {crystallize && (
+                        <button 
+                            onClick={crystallize}
+                            disabled={isSyncing}
+                            className="flex items-center gap-2 px-6 py-3 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/50 text-amber-500 rounded-xl font-bold transition-all disabled:opacity-50"
+                        >
+                            {isSyncing ? <RefreshCw className="animate-spin" /> : <Save />}
+                            {isSyncing ? 'CRYSTALLIZING...' : 'CRYSTALLIZE MEMORY'}
+                        </button>
+                    )}
+                </div>
+
+                {isConnected && (
+                    <div className="absolute bottom-4 left-4 font-mono text-[10px] text-primary-500">
+                        <div className="flex items-center gap-2"><Activity size={10} className="animate-pulse"/> BANDWIDTH: {bandwidthUsage} MB/s</div>
+                        <div>PACKETS: {Math.floor(Date.now() / 1000)}</div>
+                    </div>
+                )}
+            </div>
+            <div className="space-y-4">
+                <MetricCard label="Evolution Stage" value={stats.stage} color="text-purple-400" icon={GitBranch} />
+                <MetricCard label="Graph Nodes" value={stats.nodes} color="text-blue-400" icon={Database} />
+                <MetricCard label="Total Ops" value={stats.interactions} color="text-emerald-400" icon={Cpu} />
+                <MetricCard label="Pending Saves" value={stats.unsaved} color="text-red-400" icon={Save} warning={stats.unsaved > 10} />
+            </div>
+        </div>
+    );
+}
+
+function SynapseView({ onTrain, onUpload, lastLog }: { onTrain: (txt: string) => void, onUpload?: (txt: string) => void, lastLog?: CognitiveLogEntry }) {
+    const [mode, setMode] = useState<'atomic' | 'corpus' | 'upload'>('atomic');
+    const [input, setInput] = useState('');
+    
+    // File Input Ref
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleTrain = () => { if (!input.trim()) return; onTrain(input); setInput(''); };
+    
+    const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if(file && onUpload) {
+            const reader = new FileReader();
+            reader.onload = (ev) => onUpload(ev.target?.result as string);
+            reader.readAsText(file);
+        }
+    };
+
+    return (
+        <div className="max-w-2xl mx-auto space-y-6">
+            <div className="flex justify-center gap-4 border-b border-white/10 pb-4">
+                <button onClick={() => setMode('atomic')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${mode === 'atomic' ? 'bg-primary-500 text-black' : 'text-gray-500 hover:text-white'}`}>Atomic Injection</button>
+                <button onClick={() => setMode('corpus')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${mode === 'corpus' ? 'bg-primary-500 text-black' : 'text-gray-500 hover:text-white'}`}>Corpus Batch</button>
+                <button onClick={() => setMode('upload')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${mode === 'upload' ? 'bg-primary-500 text-black' : 'text-gray-500 hover:text-white'}`}>File Upload</button>
+            </div>
+
+            {mode === 'atomic' && (
+                <div className="glass-card p-6 rounded-2xl border border-white/10">
+                    <h4 className="text-white font-bold mb-2 flex items-center gap-2"><Zap size={16} className="text-amber-500"/> Single Concept</h4>
+                    <p className="text-xs text-gray-500 mb-4">Define a single node with strict syntax.</p>
+                    <input 
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        placeholder="e.g. arbitrage := Exploit price difference"
+                        className="w-full bg-[#050508] rounded-xl px-4 py-3 text-white outline-none font-mono text-sm border border-white/10 focus:border-amber-500/50 transition-colors mb-4"
+                    />
+                    <button onClick={handleTrain} disabled={!input} className="w-full bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-xl transition-all">Inject Node</button>
+                </div>
+            )}
+
+            {mode === 'corpus' && (
+                <div className="glass-card p-6 rounded-2xl border border-white/10">
+                    <h4 className="text-white font-bold mb-2 flex items-center gap-2"><Layers size={16} className="text-blue-500"/> Bulk Data</h4>
+                    <p className="text-xs text-gray-500 mb-4">Paste multiple definitions (one per line).</p>
+                    <textarea 
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        placeholder="concept1 := def1&#10;concept2 := def2"
+                        className="w-full bg-[#050508] rounded-xl p-4 text-white min-h-[150px] outline-none font-mono text-sm border border-white/10 focus:border-blue-500/50 transition-colors mb-4 resize-none"
+                    />
+                    <button onClick={handleTrain} disabled={!input} className="w-full bg-blue-500 hover:bg-blue-400 text-black font-bold py-3 rounded-xl transition-all">Batch Process</button>
+                </div>
+            )}
+
+            {mode === 'upload' && (
+                <div className="glass-card p-8 rounded-2xl border border-white/10 text-center border-dashed border-white/20 hover:border-emerald-500/50 transition-colors cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                    <input type="file" ref={fileInputRef} className="hidden" onChange={handleFile} accept=".txt,.json,.md" />
+                    <Upload size={48} className="mx-auto text-emerald-500 mb-4" />
+                    <h4 className="text-white font-bold mb-1">Upload Knowledge Base</h4>
+                    <p className="text-xs text-gray-500">Supports .txt, .json, .md</p>
+                </div>
+            )}
+
+            {lastLog && (lastLog.type === 'SYSTEM' || lastLog.type === 'WEB_SYNC') && (
+                <div className="bg-emerald-900/20 border border-emerald-500/30 p-4 rounded-xl relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500" />
+                    <div className="text-[10px] font-bold text-emerald-500 uppercase mb-1 flex items-center gap-2"><Check size={10} /> Latest Integration</div>
+                    <p className="text-sm text-emerald-200 font-mono">{lastLog.output}</p>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// --- NEW COMPONENT: TIMELINE VIEW ---
 function TimelineView({ isOwner, onRestore }: { isOwner: boolean, onRestore: (s: MemorySnapshot) => void }) {
     const { timeline, loading, refresh } = useMemoryTimeline();
+    const [selectedDate, setSelectedDate] = useState(new Date().toDateString());
+
+    // 1. Group by Date
+    const grouped = useMemo(() => {
+        const groups: Record<string, MemorySnapshot[]> = {};
+        timeline.forEach(snap => {
+            const dateStr = new Date(snap.timestamp * 1000).toDateString();
+            if (!groups[dateStr]) groups[dateStr] = [];
+            groups[dateStr].push(snap);
+        });
+        return groups;
+    }, [timeline]);
+
+    // 2. Navigation
+    const availableDates = Object.keys(grouped).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+    const currentIndex = availableDates.indexOf(selectedDate);
+    
+    const handlePrevDay = () => {
+        if (currentIndex < availableDates.length - 1) setSelectedDate(availableDates[currentIndex + 1]);
+    };
+    const handleNextDay = () => {
+        if (currentIndex > 0) setSelectedDate(availableDates[currentIndex - 1]);
+    };
+
+    const currentSnapshots = grouped[selectedDate] || [];
 
     return (
         <div className="glass-card p-6 rounded-3xl border border-white/10 bg-background-elevated h-full flex flex-col">
@@ -183,12 +342,22 @@ function TimelineView({ isOwner, onRestore }: { isOwner: boolean, onRestore: (s:
                 </button>
             </div>
 
+            {/* Date Navigator */}
+            <div className="flex items-center justify-between bg-black/30 p-2 rounded-xl mb-4 border border-white/5">
+                <button onClick={handlePrevDay} disabled={currentIndex >= availableDates.length - 1} className="p-2 hover:bg-white/10 rounded-lg disabled:opacity-30"><ChevronLeft size={16}/></button>
+                <div className="flex items-center gap-2 text-sm font-bold text-white">
+                    <Calendar size={14} className="text-purple-500"/> 
+                    {selectedDate === new Date().toDateString() ? 'Today' : selectedDate}
+                </div>
+                <button onClick={handleNextDay} disabled={currentIndex <= 0} className="p-2 hover:bg-white/10 rounded-lg disabled:opacity-30"><ChevronRight size={16}/></button>
+            </div>
+
             <div className="flex-1 overflow-y-auto custom-scrollbar">
                 <table className="w-full text-left border-collapse">
                     <thead className="sticky top-0 bg-[#12121A] z-10">
                         <tr className="text-[10px] font-bold text-gray-500 uppercase border-b border-white/10">
                             <th className="py-3 pl-4">ID</th>
-                            <th className="py-3">Timestamp</th>
+                            <th className="py-3">Time</th>
                             <th className="py-3">Nodes</th>
                             <th className="py-3">Ops</th>
                             <th className="py-3">CID</th>
@@ -196,10 +365,10 @@ function TimelineView({ isOwner, onRestore }: { isOwner: boolean, onRestore: (s:
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
-                        {timeline.map((snap) => (
+                        {currentSnapshots.map((snap) => (
                             <tr key={snap.id} className="hover:bg-white/5 transition-colors group">
                                 <td className="py-3 pl-4 text-sm font-mono text-gray-400">#{snap.id}</td>
-                                <td className="py-3 text-xs text-white">{new Date(snap.timestamp * 1000).toLocaleString()}</td>
+                                <td className="py-3 text-xs text-white">{new Date(snap.timestamp * 1000).toLocaleTimeString()}</td>
                                 <td className="py-3">
                                     <span className="bg-blue-500/10 text-blue-400 px-2 py-1 rounded text-xs font-bold">{snap.conceptsCount.toString()}</span>
                                 </td>
@@ -210,7 +379,7 @@ function TimelineView({ isOwner, onRestore }: { isOwner: boolean, onRestore: (s:
                                 <td className="py-3 pr-4 text-right">
                                     {isOwner && (
                                         <button 
-                                            onClick={() => { if(confirm(`Restore state #${snap.id}? This will append a new snapshot.`)) onRestore(snap); }}
+                                            onClick={() => { if(confirm(`Restore state #${snap.id}?`)) onRestore(snap); }}
                                             className="px-3 py-1 bg-white/5 hover:bg-purple-500 hover:text-white text-gray-400 rounded text-xs font-bold transition-all flex items-center gap-1 ml-auto"
                                         >
                                             <RotateCcw size={12} /> Restore
@@ -219,8 +388,8 @@ function TimelineView({ isOwner, onRestore }: { isOwner: boolean, onRestore: (s:
                                 </td>
                             </tr>
                         ))}
-                        {timeline.length === 0 && !loading && (
-                            <tr><td colSpan={6} className="text-center py-8 text-gray-500">No history found.</td></tr>
+                        {currentSnapshots.length === 0 && !loading && (
+                            <tr><td colSpan={6} className="text-center py-8 text-gray-500">No snapshots for this date.</td></tr>
                         )}
                     </tbody>
                 </table>
@@ -229,131 +398,7 @@ function TimelineView({ isOwner, onRestore }: { isOwner: boolean, onRestore: (s:
     );
 }
 
-// Live Terminal
-const NetworkTerminal = ({ logs }: { logs: CognitiveLogEntry[] }) => {
-    const [lines, setLines] = useState<string[]>([]);
-    const bottomRef = useRef<HTMLDivElement>(null);
-    const lastLogIdRef = useRef<string>('');
-
-    useEffect(() => {
-        const interval = setInterval(() => {
-            const latest = logs[0];
-            if (latest && latest.type === 'WEB_SYNC' && latest.id !== lastLogIdRef.current) {
-                lastLogIdRef.current = latest.id;
-                const msg = `[${new Date(latest.timestamp).toLocaleTimeString()}] >> ${latest.output.toUpperCase()}`;
-                setLines(prev => [...prev.slice(-15), msg]);
-            } else {
-                const actions = ['PACKET_IN', 'HANDSHAKE', 'SYN_ACK', 'GET_BLOCK', 'PARSING', 'VALIDATING'];
-                const randomAction = actions[Math.floor(Math.random() * actions.length)];
-                const hash = Math.random().toString(36).substring(7);
-                const newLine = `[${new Date().toLocaleTimeString()}] ${randomAction} :: ${hash}`;
-                setLines(prev => [...prev.slice(-15), newLine]);
-            }
-        }, 800);
-        return () => clearInterval(interval);
-    }, [logs]);
-
-    useEffect(() => {
-        bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [lines]);
-
-    return (
-        <div className="absolute top-4 right-4 w-72 h-40 bg-black/80 border border-emerald-500/30 rounded-lg p-3 overflow-hidden pointer-events-none font-mono text-[10px] text-emerald-500 shadow-lg">
-            <div className="mb-2 border-b border-emerald-500/20 pb-1 font-bold">NEURAL_UPLINK // ACTIVE</div>
-            <div className="space-y-1">
-                {lines.map((l, i) => (
-                    <div key={i} className={l.includes('>>') ? 'text-white font-bold bg-emerald-500/20' : 'opacity-70'}>
-                        {l}
-                    </div>
-                ))}
-            </div>
-            <div ref={bottomRef} />
-        </div>
-    );
-};
-
-function MonitorView({ stats, logs }: { stats: any, logs: CognitiveLogEntry[] }) {
-    const { isConnected, bandwidthUsage } = stats.connectivity;
-
-    return (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 glass-card p-8 rounded-3xl border border-white/10 bg-black/40 relative overflow-hidden h-[400px] flex items-center justify-center">
-                <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:40px_40px]" />
-                
-                {isConnected && <NetworkTerminal logs={logs} />}
-
-                <div className="relative z-10">
-                    <motion.div 
-                        animate={{ 
-                            scale: isConnected ? [1, 1.1, 1] : 1,
-                            rotate: isConnected ? 360 : 0
-                        }}
-                        transition={{ duration: isConnected ? 2 : 0, repeat: Infinity, ease: "linear" }}
-                        className={`w-40 h-40 rounded-full border-4 flex items-center justify-center ${isConnected ? 'border-primary-500 shadow-[0_0_50px_rgba(245,158,11,0.3)]' : 'border-white/10'}`}
-                    >
-                        <Brain size={64} className={isConnected ? 'text-primary-500' : 'text-gray-600'} />
-                    </motion.div>
-                </div>
-                {isConnected && (
-                    <div className="absolute bottom-4 left-4 font-mono text-[10px] text-primary-500">
-                        <div className="flex items-center gap-2"><Activity size={10} className="animate-pulse"/> BANDWIDTH: {bandwidthUsage} MB/s</div>
-                        <div>PACKETS: {Math.floor(Date.now() / 1000)}</div>
-                        <div className="text-emerald-400 mt-1">SYNCING KNOWLEDGE GRAPH...</div>
-                    </div>
-                )}
-            </div>
-            <div className="space-y-4">
-                <MetricCard label="Evolution Stage" value={stats.stage} color="text-purple-400" icon={GitBranch} />
-                <MetricCard label="Graph Nodes" value={stats.nodes} color="text-blue-400" icon={Database} />
-                <MetricCard label="Total Ops" value={stats.interactions} color="text-emerald-400" icon={Cpu} />
-                <MetricCard label="Pending Saves" value={stats.unsaved} color="text-red-400" icon={Save} warning={stats.unsaved > 10} />
-            </div>
-        </div>
-    );
-}
-
-function SynapseView({ onTrain, lastLog }: { onTrain: (txt: string) => void, lastLog?: CognitiveLogEntry }) {
-    const [input, setInput] = useState('');
-    const handleTrain = () => { if (!input.trim()) return; onTrain(input); setInput(''); };
-
-    return (
-        <div className="max-w-2xl mx-auto space-y-8">
-            <div className="text-center">
-                <h3 className="text-2xl font-black text-white mb-2">Knowledge Injection</h3>
-                <p className="text-gray-400 text-sm">Teach Crikzling new concepts using formal syntax.</p>
-                <div className="flex gap-2 justify-center mt-2 text-[10px] text-gray-500 font-mono">
-                    <span className="bg-white/5 px-2 py-1 rounded">Format: Concept := Definition</span>
-                    <span className="bg-white/5 px-2 py-1 rounded">Format: Natural language association</span>
-                </div>
-            </div>
-            <div className="glass-card p-1 rounded-2xl bg-gradient-to-br from-white/10 to-white/5 border border-white/10">
-                <textarea 
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    placeholder="e.g. 'arbitrage := The practice of taking advantage of price differences'"
-                    className="w-full bg-[#050508] rounded-xl p-6 text-white min-h-[150px] outline-none text-lg resize-none font-mono"
-                />
-                <div className="p-2 flex justify-between items-center">
-                    <span className="text-[10px] text-gray-500 ml-2">Characters: {input.length}</span>
-                    <button 
-                        onClick={handleTrain}
-                        disabled={!input.trim()}
-                        className="bg-primary-500 hover:bg-primary-400 text-black font-bold px-8 py-3 rounded-xl flex items-center gap-2 transition-all disabled:opacity-50"
-                    >
-                        <Zap size={18} /> Inject
-                    </button>
-                </div>
-            </div>
-            {lastLog && (lastLog.type === 'SYSTEM' || lastLog.type === 'WEB_SYNC') && (
-                <div className="bg-emerald-900/20 border border-emerald-500/30 p-4 rounded-xl relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500" />
-                    <div className="text-[10px] font-bold text-emerald-500 uppercase mb-1 flex items-center gap-2"><Check size={10} /> Latest Integration</div>
-                    <p className="text-sm text-emerald-200 font-mono">{lastLog.output}</p>
-                </div>
-            )}
-        </div>
-    );
-}
+// ... [Keep CortexView, MatrixView, NetworkTerminal, AccessDenied, Utils as they were] ...
 
 function CortexView({ logs }: { logs: CognitiveLogEntry[] }) {
     const [selected, setSelected] = useState<CognitiveLogEntry | null>(logs[0] || null);
@@ -362,7 +407,6 @@ function CortexView({ logs }: { logs: CognitiveLogEntry[] }) {
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 h-[700px]">
-            {/* Sidebar List */}
             <div className="md:col-span-3 bg-black/20 rounded-2xl border border-white/10 overflow-y-auto custom-scrollbar">
                 {logs.map(log => (
                     <button 
@@ -383,7 +427,6 @@ function CortexView({ logs }: { logs: CognitiveLogEntry[] }) {
                 ))}
             </div>
 
-            {/* Analysis Station */}
             <div className="md:col-span-9 glass-card p-6 rounded-2xl border border-white/10 overflow-y-auto bg-black/40 flex flex-col">
                 {selected ? (
                     <>
@@ -403,10 +446,7 @@ function CortexView({ logs }: { logs: CognitiveLogEntry[] }) {
                         </div>
 
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            
-                            {/* LEFT: FLOW & LOGIC */}
                             <div className="space-y-6">
-                                {/* DAPP CONTEXT */}
                                 <div className="bg-white/5 rounded-xl p-4 border border-white/5">
                                     <h4 className="text-[10px] font-bold text-gray-500 uppercase mb-3 flex items-center gap-2"><Globe size={12}/> dApp State Context</h4>
                                     <div className="grid grid-cols-3 gap-3">
@@ -416,7 +456,6 @@ function CortexView({ logs }: { logs: CognitiveLogEntry[] }) {
                                     </div>
                                 </div>
 
-                                {/* THOUGHT PROCESS */}
                                 <div>
                                     <h4 className="text-[10px] font-bold text-gray-500 uppercase mb-2">Cognitive Pipeline</h4>
                                     <div className="space-y-2">
@@ -439,9 +478,7 @@ function CortexView({ logs }: { logs: CognitiveLogEntry[] }) {
                                 </div>
                             </div>
 
-                            {/* RIGHT: ACTION & OUTPUT */}
                             <div className="space-y-6">
-                                {/* ACTION PLAN */}
                                 {selected.actionPlan && (
                                     <div className={`p-4 rounded-xl border ${selected.actionPlan.requiresBlockchain ? 'bg-amber-900/10 border-amber-500/30' : 'bg-white/5 border-white/10'}`}>
                                         <h4 className="text-[10px] font-bold text-gray-500 uppercase mb-2 flex items-center gap-2">
@@ -456,7 +493,6 @@ function CortexView({ logs }: { logs: CognitiveLogEntry[] }) {
                                     </div>
                                 )}
 
-                                {/* OUTPUT */}
                                 <div>
                                     <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Final Output</label>
                                     <div className="text-sm text-gray-300 font-mono bg-white/5 p-4 rounded-xl border border-white/5 whitespace-pre-wrap leading-relaxed">
@@ -464,7 +500,6 @@ function CortexView({ logs }: { logs: CognitiveLogEntry[] }) {
                                     </div>
                                 </div>
 
-                                {/* VECTOR SHIFT */}
                                 <div>
                                     <label className="text-[10px] font-bold text-gray-500 uppercase mb-2 block">Cognitive Shift</label>
                                     <div className="flex gap-1 h-16 items-end">
@@ -508,6 +543,48 @@ function MatrixView({ stats, onUpdate }: { stats: any, onUpdate: (d: InternalDri
         </div>
     );
 }
+
+const NetworkTerminal = ({ logs }: { logs: CognitiveLogEntry[] }) => {
+    const [lines, setLines] = useState<string[]>([]);
+    const bottomRef = useRef<HTMLDivElement>(null);
+    const lastLogIdRef = useRef<string>('');
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            const latest = logs[0];
+            if (latest && latest.type === 'WEB_SYNC' && latest.id !== lastLogIdRef.current) {
+                lastLogIdRef.current = latest.id;
+                const msg = `[${new Date(latest.timestamp).toLocaleTimeString()}] >> ${latest.output.toUpperCase()}`;
+                setLines(prev => [...prev.slice(-15), msg]);
+            } else {
+                const actions = ['PACKET_IN', 'HANDSHAKE', 'SYN_ACK', 'GET_BLOCK', 'PARSING', 'VALIDATING'];
+                const randomAction = actions[Math.floor(Math.random() * actions.length)];
+                const hash = Math.random().toString(36).substring(7);
+                const newLine = `[${new Date().toLocaleTimeString()}] ${randomAction} :: ${hash}`;
+                setLines(prev => [...prev.slice(-15), newLine]);
+            }
+        }, 800);
+        return () => clearInterval(interval);
+    }, [logs]);
+
+    useEffect(() => {
+        bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [lines]);
+
+    return (
+        <div className="absolute top-4 right-4 w-72 h-40 bg-black/80 border border-emerald-500/30 rounded-lg p-3 overflow-hidden pointer-events-none font-mono text-[10px] text-emerald-500 shadow-lg">
+            <div className="mb-2 border-b border-emerald-500/20 pb-1 font-bold">NEURAL_UPLINK // ACTIVE</div>
+            <div className="space-y-1">
+                {lines.map((l, i) => (
+                    <div key={i} className={l.includes('>>') ? 'text-white font-bold bg-emerald-500/20' : 'opacity-70'}>
+                        {l}
+                    </div>
+                ))}
+            </div>
+            <div ref={bottomRef} />
+        </div>
+    );
+};
 
 function ContextMetric({ label, value, icon: Icon, color }: any) {
     return (

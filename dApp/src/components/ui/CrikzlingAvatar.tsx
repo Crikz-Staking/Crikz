@@ -20,7 +20,7 @@ export default function CrikzlingAvatar() {
     brainStats, isThinking, isTyping, currentThought, 
     uploadFile, resetBrain, isOwner, logs, 
     updateDrives, trainConcept, simpleTrain, toggleNeuralLink,
-    syncWithBlockchain, initialLoading, isSynced // <--- NEW PROP
+    syncWithBlockchain, initialLoading, isSynced 
   } = useCrikzlingV3();
 
   useEffect(() => {
@@ -86,6 +86,9 @@ export default function CrikzlingAvatar() {
         trainConcept={trainConcept}
         simpleTrain={simpleTrain}
         toggleNeuralLink={toggleNeuralLink}
+        crystallize={crystallize} // <--- PASSED
+        uploadFile={uploadFile}   // <--- PASSED
+        isSyncing={isSyncing}     // <--- PASSED
       />
 
       <AnimatePresence>
@@ -104,7 +107,6 @@ export default function CrikzlingAvatar() {
                   <GeometricCore state={coreState} />
               )}
             </div>
-            {/* Status Indicators */}
             {!initialLoading && (
                 <div className="absolute top-0 right-0 flex h-3 w-3">
                 {needsSave && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>}
@@ -172,7 +174,6 @@ export default function CrikzlingAvatar() {
                 </div>
             </div>
 
-            {/* Quick Stats Drawer */}
             <AnimatePresence>
                 {showMonitor && (
                     <motion.div 
@@ -208,7 +209,6 @@ export default function CrikzlingAvatar() {
                             </div>
                         </div>
                         
-                        {/* Connection Status */}
                         <div className="px-4 pb-3 flex justify-between text-[10px] text-gray-500 font-mono border-t border-white/5 pt-2">
                             <span className="flex items-center gap-1">
                                 {isConnected ? <Wifi size={10} className="text-cyan-400"/> : <Wifi size={10}/>} 
@@ -220,7 +220,6 @@ export default function CrikzlingAvatar() {
                 )}
             </AnimatePresence>
 
-            {/* Existing Thought Progress Bar */}
             {currentThought && (
                 <div className={`border-b px-4 py-2 shrink-0 transition-colors ${isConnected ? 'bg-cyan-900/10 border-cyan-500/20' : isLearning ? 'bg-blue-900/10 border-blue-500/20' : 'bg-black/40 border-amber-500/20'}`}>
                     <div className={`flex justify-between text-[10px] font-mono mb-1 ${isConnected ? 'text-cyan-400' : isLearning ? 'text-blue-400' : 'text-amber-500'}`}>
@@ -263,7 +262,6 @@ export default function CrikzlingAvatar() {
                                     <div className="w-1.5 h-1.5 rounded-full bg-primary-500" />
                                 </div>
                             )}
-                            {/* Render Sync Button Inside Message if Marker Found */}
                             {msg.content.includes('[SYNC_REQUIRED]') ? (
                                 <div className="flex flex-col gap-3">
                                     <span>{msg.content.replace('[SYNC_REQUIRED]', '')}</span>
