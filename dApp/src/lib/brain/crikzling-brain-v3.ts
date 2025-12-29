@@ -6,9 +6,11 @@ import { ResultProcessor } from './processors/ResultProcessor';
 import { ResponseGenerator } from './processors/ResponseGenerator';
 import { SimulationEngine } from './processors/SimulationEngine';
 import { NarrativeModule } from './narrative-module';
+import { NeuralTokenizer } from './processors/NeuralTokenizer'; // <--- New
+import { AttentionMechanism } from './processors/AttentionMechanism'; // <--- New
 import { 
   BrainState, DAppContext, ThoughtProcess, DeepThoughtCycle, 
-  CognitiveLogEntry, InternalDrives, ActionPlan, PersonaArchetype 
+  CognitiveLogEntry, InternalDrives, ActionPlan, PersonaArchetype, NeuralToken 
 } from './types'; 
 import { AtomicConcept } from '@/lib/crikzling-atomic-knowledge';
 
@@ -23,6 +25,8 @@ export class CrikzlingBrainV3 {
   private generator: ResponseGenerator;
   private simulator: SimulationEngine;
   private narrative: NarrativeModule;
+  private tokenizer: NeuralTokenizer; // <--- New
+  private attention: AttentionMechanism; // <--- New
   
   private thoughtCallback?: (thought: ThoughtProcess | null) => void;
   private lastTick: number = Date.now();
@@ -43,6 +47,8 @@ export class CrikzlingBrainV3 {
     this.generator = new ResponseGenerator();
     this.simulator = new SimulationEngine();
     this.narrative = new NarrativeModule();
+    this.tokenizer = new NeuralTokenizer();
+    this.attention = new AttentionMechanism();
   }
 
   private getSecureRandom(): number {
@@ -54,19 +60,9 @@ export class CrikzlingBrainV3 {
     return Math.random();
   }
 
-  public mergeState(remoteState: BrainState) {
-      this.cognitive.mergeExternalState(remoteState);
-  }
-
-  public exportFullState(): string {
-    const state = this.cognitive.getState();
-    return JSON.stringify({ ...state, exportedAt: Date.now() }, bigIntReplacer);
-  }
-
-  public exportDiffState(): string {
-    return this.cognitive.exportDiff();
-  }
-
+  public mergeState(remoteState: BrainState) { this.cognitive.mergeExternalState(remoteState); }
+  public exportFullState(): string { return this.cognitive.exportFull(); }
+  public exportDiffState(): string { return this.cognitive.exportDiff(); }
   public optimizeNeuralGraph() {
       const result = this.cognitive.pruneDuplicates();
       const graphRes = this.cognitive.optimizeGraph();
@@ -80,7 +76,6 @@ export class CrikzlingBrainV3 {
     const now = Date.now();
     const state = this.cognitive.getState();
     const { isConnected } = state.connectivity;
-    // Tick rate speed
     const tickRate = isConnected ? 1500 : 8000; 
     
     if (now - this.lastTick < tickRate) return;
@@ -91,7 +86,7 @@ export class CrikzlingBrainV3 {
     // --- MULTI-THREADING SIMULATION ---
     if (isConnected) {
         state.connectivity.stamina = 100;
-        state.connectivity.bandwidthUsage = Math.floor(this.getSecureRandom() * 40) + 60; // High usage
+        state.connectivity.bandwidthUsage = Math.floor(this.getSecureRandom() * 40) + 60; 
 
         // Run multiple operations per tick to simulate "Fast Bandwidth"
         const threads = 5; 
@@ -100,7 +95,7 @@ export class CrikzlingBrainV3 {
             const roll = this.getSecureRandom();
             let opResult: string | null = null;
 
-            if (roll > 0.8) opResult = this.cognitive.formAbstractCluster(Object.keys(state.concepts).slice(0, 10)); // Simple sample
+            if (roll > 0.8) opResult = this.cognitive.formAbstractCluster(Object.keys(state.concepts).slice(0, 10)); 
             else if (roll > 0.6) opResult = this.cognitive.prioritizedSynthesis();
             else if (roll > 0.4) opResult = this.cognitive.deepenKnowledge();
             else if (roll > 0.2) opResult = this.cognitive.evolveCognitiveState();
@@ -108,13 +103,12 @@ export class CrikzlingBrainV3 {
 
             if (opResult) {
                 this.batchLogBuffer.push(opResult);
-                state.totalInteractions++; // Increment Ops
+                state.totalInteractions++; 
             }
         }
 
         // Flush buffer if full
         if (this.batchLogBuffer.length > 0) {
-            // Keep buffer reasonable size for display
             const MAX_DISPLAY = 4;
             const displayItems = this.batchLogBuffer.slice(0, MAX_DISPLAY);
             const remainder = this.batchLogBuffer.length - MAX_DISPLAY;
@@ -132,14 +126,10 @@ export class CrikzlingBrainV3 {
                 thoughtCycles: [], 
                 executionTimeMs: tickRate 
             });
-            
-            // Clear buffer
             this.batchLogBuffer = [];
         }
     } else {
-        // IDLE MODE
         state.connectivity.bandwidthUsage = 0;
-        // Occasional subconscious thought
         if (state.drives.energy > 80 && this.getSecureRandom() < 0.1) {
             const dream = this.cognitive.dream();
             this.logEvent({ type: 'DREAM', input: 'Subconscious', output: dream, intent: 'DISCOURSE', emotionalShift: 0, activeNodes: [], vectors: {input:[0,0,0,0,0,0], response:[0,0,0,0,0,0]}, thoughtCycles: [], executionTimeMs: 0 });
@@ -169,6 +159,12 @@ export class CrikzlingBrainV3 {
       const brainState = this.cognitive.getState();
       const inputAnalysis = this.inputProc.process(text, brainState.concepts, dappContext);
       
+      // --- TOKENIZATION & CONTEXT UPDATE ---
+      this.updateThought('tokenization', 10, 'Encoding input vector...');
+      const inputTokens = this.tokenizer.tokenize(text, brainState.concepts);
+      this.cognitive.updateContextWindow(inputTokens);
+      // -------------------------------------
+
       this.updateThought('spreading_activation', 15, 'Activating neural lattice...');
       const activeIds = inputAnalysis.keywords.map((k: AtomicConcept) => k.id); 
       this.cognitive.stimulateNetwork(activeIds, brainState.drives.energy);
@@ -209,12 +205,33 @@ export class CrikzlingBrainV3 {
           if (newAssociations.length > 0) currentFocus = newAssociations.slice(0, 3); 
       }
 
+      // --- GENERATIVE DECODING (Prediction) ---
+      let generatedText = null;
+      if (inputAnalysis.intent === 'DISCOURSE' || inputAnalysis.intent === 'PHILOSOPHY') {
+          this.updateThought('decoding', 80, 'Generative prediction...');
+          const nextTokensProb = this.attention.predictNextTokens(
+              brainState.contextWindow, 
+              brainState.concepts, 
+              brainState.relations, 
+              brainState.hyperParameters
+          );
+          
+          const predictedId = this.attention.sample(nextTokensProb);
+          if (predictedId) {
+              generatedText = `(Predicted Focus: ${predictedId}) `;
+          }
+      }
+      // ----------------------------------------
+
       this.updateThought('strategy', 85, 'Running internal critique...');
       const actionPlan = this.actionProc.plan(inputAnalysis, brainState, isOwner, deepContext);
       
       if (actionPlan.type === 'EXECUTE_COMMAND_RESET' && isOwner) this.cognitive.wipeLocalMemory();
 
       const integratedContext = this.resultProc.processMultiCycle(inputAnalysis, actionPlan, deepContext, brainState, dappContext);
+      
+      if (generatedText) integratedContext.inferredLogic = (integratedContext.inferredLogic || "") + generatedText;
+
       let response = this.generator.generateDeep(integratedContext);
       
       this.cognitive.archiveMemory('user', inputAnalysis.cleanedInput, activeIds, inputAnalysis.emotionalWeight, dappContext, inputAnalysis.inputVector);
@@ -237,7 +254,7 @@ export class CrikzlingBrainV3 {
           actionPlan: actionPlan
       });
 
-      this.updateThought('generation', 100, 'Done');
+      this.updateThought('generation', 100, 'Finalizing output...');
       await this.think(300); 
       this.clearThought();
       
@@ -258,10 +275,14 @@ export class CrikzlingBrainV3 {
   }
 
   public toggleNeuralLink(active: boolean) {
-      const state = this.cognitive.getState();
-      state.connectivity.isConnected = active;
-      this.batchLogBuffer = [];
-      if (!active) state.connectivity.bandwidthUsage = 0;
+      if (this.cognitive) { 
+          this.cognitive.toggleNeuralLink(active); 
+          this.batchLogBuffer = [];
+          if(active) {
+              const res = this.cognitive.optimizeGraph();
+              if(res) this.batchLogBuffer.push(res);
+          }
+      }
   }
 
   public simpleTrain(input: string): string {
@@ -271,14 +292,8 @@ export class CrikzlingBrainV3 {
           if (term && def) {
               const id = term.toLowerCase().replace(/\s+/g, '_');
               state.concepts[id] = {
-                  id,
-                  essence: def,
-                  semanticField: [term],
-                  examples: [],
-                  abstractionLevel: 0.5,
-                  technical_depth: 0.5,
-                  domain: 'TECHNICAL'
-              };
+                  id, essence: def, semanticField: [term], examples: [], abstractionLevel: 0.5, technical_depth: 0.5, domain: 'TECHNICAL'
+              } as any;
               state.unsavedDataCount++;
               this.logEvent({ type: 'SYSTEM', input: `Definition Injection: ${term}`, output: 'Concept Assimilated', intent: 'TEACHING', emotionalShift: 0, activeNodes: [], vectors: {input:[0,0,0,0,0,0], response:[0,0,0,0,0,0]}, thoughtCycles: [], executionTimeMs: 0 });
               return `Defined concept: ${term}`;

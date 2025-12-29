@@ -1,7 +1,7 @@
 import { PublicClient } from 'viem';
 import { AtomicConcept, ConceptRelation, ATOMIC_PRIMITIVES, ATOMIC_RELATIONS } from '@/lib/crikzling-atomic-knowledge';
 import { loadAllKnowledgeModules, parseExternalKnowledgeFile } from '@/lib/knowledge/knowledge-loader';
-import { BrainState, Memory, Vector, InternalDrives, PersonaArchetype, AttentionState, ConceptCluster } from '../types';
+import { BrainState, Memory, Vector, InternalDrives, PersonaArchetype, AttentionState, ConceptCluster, NeuralToken, HyperParameters } from '../types';
 
 const bigIntReplacer = (_key: string, value: any) => 
   typeof value === 'bigint' ? value.toString() : value;
@@ -37,12 +37,24 @@ export class CognitiveProcessor {
         workingCluster: null
     };
 
+    // Default Generative Settings (The "Model Config")
+    const defaultHyperParams: HyperParameters = {
+        temperature: 0.7, // Balanced creativity
+        topK: 5,          // Consider top 5 tokens
+        contextSize: 20   // Rolling window
+    };
+
     let state: BrainState = {
       concepts: { ...ATOMIC_PRIMITIVES, ...knowledgeModules.concepts },
       relations: [...ATOMIC_RELATIONS, ...knowledgeModules.relations],
       activationMap: {},
       attentionState: emptyAttention, 
       generatedClusters: [],
+      
+      // LLM State
+      contextWindow: [],
+      hyperParameters: defaultHyperParams,
+
       shortTermMemory: [],
       midTermMemory: [],
       longTermMemory: [],
@@ -62,8 +74,11 @@ export class CognitiveProcessor {
         try {
             const base = JSON.parse(baseJson);
             state = { ...state, ...base };
+            // Hydrate missing structures if they didn't exist in base JSON
             if(!state.attentionState) state.attentionState = emptyAttention;
             if(!state.generatedClusters) state.generatedClusters = [];
+            if(!state.contextWindow) state.contextWindow = [];
+            if(!state.hyperParameters) state.hyperParameters = defaultHyperParams;
             
             state.concepts = { ...state.concepts, ...base.concepts };
             state.relations = Array.isArray(base.relations) ? base.relations : state.relations;
@@ -87,35 +102,44 @@ export class CognitiveProcessor {
     return state;
   }
 
+  // --- LLM MODEL UTILS ---
+  
+  public updateContextWindow(newTokens: NeuralToken[]) {
+      this.state.contextWindow = [...this.state.contextWindow, ...newTokens];
+      // Maintain sliding window size
+      if (this.state.contextWindow.length > this.state.hyperParameters.contextSize) {
+          this.state.contextWindow = this.state.contextWindow.slice(-this.state.hyperParameters.contextSize);
+      }
+  }
+
+  // --- FEDERATED LEARNING MERGE ---
   public mergeExternalState(remoteState: any) {
       if (!remoteState) return;
-
-      // 1. Merge Concepts
-      if (remoteState.concepts) {
-          Object.assign(this.state.concepts, remoteState.concepts);
-      }
-
-      // 2. Merge Relations
+      if (remoteState.concepts) Object.assign(this.state.concepts, remoteState.concepts);
+      
       if (remoteState.relations && Array.isArray(remoteState.relations)) {
           const currentSigs = new Set(this.state.relations.map(r => `${r.from}-${r.to}-${r.type}`));
           remoteState.relations.forEach((r: ConceptRelation) => {
               const sig = `${r.from}-${r.to}-${r.type}`;
               if (!currentSigs.has(sig)) {
                   this.state.relations.push(r);
+              } else {
+                  // FEDERATED WEIGHT UPDATE:
+                  // Average the strength between local and remote model to create consensus
+                  const existing = this.state.relations.find(er => `${er.from}-${er.to}-${er.type}` === sig);
+                  if (existing) {
+                      existing.strength = (existing.strength + r.strength) / 2;
+                  }
               }
           });
       }
 
-      // 3. Force Ops Sync
       const remoteOps = Number(remoteState.totalInteractions || remoteState.interactions || 0);
       if (remoteOps > this.state.totalInteractions) {
           this.state.totalInteractions = remoteOps;
       }
-
-      // 4. Update Time
       this.state.lastBlockchainSync = Date.now();
       
-      // 5. Clear unsaved if clean sync
       if (remoteOps >= this.state.totalInteractions) {
           this.state.unsavedDataCount = 0;
           this.unsavedIds.concepts.clear();
@@ -125,36 +149,21 @@ export class CognitiveProcessor {
 
   public formAbstractCluster(activeNodes: string[]): string | null {
       if (activeNodes.length < 3) return null;
-
       let bestNode = activeNodes[0];
       let maxConnections = 0;
-
       activeNodes.forEach(node => {
           const links = this.state.relations.filter(r => r.from === node || r.to === node).length;
-          if (links > maxConnections) {
-              maxConnections = links;
-              bestNode = node;
-          }
+          if (links > maxConnections) { maxConnections = links; bestNode = node; }
       });
-
       const clusterId = `cluster_${Date.now()}`;
       const cluster: ConceptCluster = {
-          id: clusterId,
-          centerConcept: bestNode,
-          relatedNodes: activeNodes.filter(n => n !== bestNode),
-          strength: 0.8,
-          lastActivated: Date.now()
+          id: clusterId, centerConcept: bestNode, relatedNodes: activeNodes.filter(n => n !== bestNode),
+          strength: 0.8, lastActivated: Date.now()
       };
-
       this.state.generatedClusters.push(cluster);
-      
       this.state.attentionState.workingCluster = cluster;
       this.state.attentionState.semanticFocus = bestNode;
-
-      if (this.state.generatedClusters.length > 5) {
-          this.state.generatedClusters.shift();
-      }
-
+      if (this.state.generatedClusters.length > 5) this.state.generatedClusters.shift();
       this.state.unsavedDataCount++;
       return `Abstraction formed around [${bestNode}]`;
   }
@@ -181,38 +190,27 @@ export class CognitiveProcessor {
       return null;
   }
 
-  // --- RESTORED LOGIC FOR SYSTEM CHURN ---
-
   public removeWeakRelations(): string | null {
       const initialCount = this.state.relations.length;
       this.state.relations = this.state.relations.filter(r => r.strength > 0.05); 
       const pruned = initialCount - this.state.relations.length;
-      if (pruned > 0) {
-          // No unsaved count increment for cleanup
-          return `Decay: Removed ${pruned} weak synapses.`;
-      }
+      if (pruned > 0) return `Decay: Removed ${pruned} weak synapses.`;
       return null;
   }
 
-  public optimizeGraph(): string | null { 
-      return this.removeWeakRelations();
-  }
+  public optimizeGraph(): string | null { return this.removeWeakRelations(); }
 
   public deepenKnowledge(): string | null {
-      // Pick a random concept and increase its depth slightly
       const keys = Object.keys(this.state.concepts);
       if (keys.length === 0) return null;
-      
       const targetId = keys[Math.floor(this.getSecureRandom() * keys.length)];
       const concept = this.state.concepts[targetId];
       if (concept) {
           const oldDepth = concept.technical_depth;
           concept.technical_depth = Math.min(1.0, oldDepth + 0.01);
-          
           if (concept.technical_depth > oldDepth) {
               this.unsavedIds.concepts.add(targetId);
               this.state.unsavedDataCount++;
-              // Only return string occasionally to avoid log spam
               return Math.random() > 0.7 ? `Deepened understanding of [${targetId}]` : null;
           }
       }
@@ -220,9 +218,7 @@ export class CognitiveProcessor {
   }
 
   public evolveCognitiveState(): string | null { 
-      // Reinforce connections
       let strengthened = 0;
-      // Random sample to save CPU
       const sampleSize = Math.min(50, this.state.relations.length);
       for(let i=0; i<sampleSize; i++) {
           const idx = Math.floor(Math.random() * this.state.relations.length);
@@ -232,7 +228,6 @@ export class CognitiveProcessor {
               strengthened++;
           }
       }
-      
       if (strengthened > 0) {
           this.state.unsavedDataCount++;
           return Math.random() > 0.8 ? `Reinforced ${strengthened} pathways` : null;
@@ -241,15 +236,11 @@ export class CognitiveProcessor {
   }
 
   public prioritizedSynthesis(): string | null {
-      // Create new connection between two random concepts
       const keys = Object.keys(this.state.concepts);
       if(keys.length < 2) return null;
-      
       const c1 = keys[Math.floor(this.getSecureRandom() * keys.length)];
       const c2 = keys[Math.floor(this.getSecureRandom() * keys.length)];
-      
       if(c1 !== c2) {
-          // Check if exists
           const exists = this.state.relations.some(r => (r.from === c1 && r.to === c2) || (r.from === c2 && r.to === c1));
           if (!exists) {
               this.state.relations.push({
@@ -369,7 +360,6 @@ export class CognitiveProcessor {
   public stimulateNetwork(seedIds: string[], energyLevel: number): Record<string, number> {
     const spreadLimit = energyLevel > 80 ? 3 : 1; 
     const queue: { id: string, energy: number, depth: number }[] = [];
-    
     seedIds.forEach(id => {
       if (this.state.concepts[id]) {
         this.state.activationMap[id] = 1.0;

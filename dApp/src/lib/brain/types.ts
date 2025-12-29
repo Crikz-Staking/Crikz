@@ -2,7 +2,6 @@ import { AtomicConcept, ConceptRelation } from '../crikzling-atomic-knowledge';
 
 export type EvolutionStage = 'GENESIS' | 'SENTIENT' | 'SAPIENT' | 'TRANSCENDENT';
 export type Vector = [number, number, number, number, number, number];
-
 export type PersonaArchetype = 'ANALYST' | 'MYSTIC' | 'GUARDIAN' | 'GLITCH' | 'OPERATOR';
 
 export interface InternalDrives {
@@ -55,13 +54,29 @@ export interface AttentionState {
   workingCluster: ConceptCluster | null; 
 }
 
+// --- NEW: GENERATIVE LLM STRUCTURES ---
+export interface NeuralToken {
+  id: string;        // The Concept ID acting as a token
+  weight: number;    // Semantic weight (0.0 - 1.0)
+  position: number;  // Position in the sequence
+}
+
+export interface HyperParameters {
+  temperature: number; // 0.1 (Determinstic) to 1.0 (Creative/Random)
+  topK: number;        // Only consider top K probabilistic next tokens
+  contextSize: number; // Sliding window size for memory
+}
+
 export interface BrainState {
-  concepts: Record<string, AtomicConcept>;
-  relations: ConceptRelation[];
+  concepts: Record<string, AtomicConcept>; // The Vocabulary
+  relations: ConceptRelation[]; // The Model Weights
   activationMap: Record<string, number>; 
   
   attentionState: AttentionState;       
   generatedClusters: ConceptCluster[]; 
+
+  contextWindow: NeuralToken[]; // <--- The Sliding Context Window
+  hyperParameters: HyperParameters; // <--- Generation Settings
 
   shortTermMemory: Memory[];
   midTermMemory: Memory[];
@@ -86,7 +101,7 @@ export interface BrainState {
 }
 
 export interface ThoughtProcess {
-  phase: 'perception' | 'spreading_activation' | 'clustering' | 'criticism' | 'strategy' | 'generation' | 'dreaming' | 'introspection' | 'web_crawling';
+  phase: 'perception' | 'tokenization' | 'attention_head' | 'sampling' | 'decoding' | 'criticism' | 'strategy' | 'web_crawling' | 'dreaming';
   progress: number;
   subProcess?: string;
   focus?: string[];
@@ -135,11 +150,12 @@ export type IntentType =
 export type CapabilityType = 
   | 'NONE' | 'READ_CHAIN' | 'WRITE_CHAIN' | 'ANALYZE_DATA' 
   | 'GENERATE_KNOWLEDGE' | 'SYSTEM_CONTROL' | 'EXTERNAL_IO'
-  | 'CALCULATE' | 'INFER_RELATIONSHIP';
+  | 'CALCULATE' | 'INFER_RELATIONSHIP'
+  | 'GENERATE_TEXT';
 
 export type SafetyRating = 'SAFE' | 'UNSAFE' | 'ETHICALLY_AMBIGUOUS' | 'SENSITIVE_DATA';
 
-export type ActionType = 'RESPOND_NATURAL' | 'RESPOND_DAPP' | 'EXECUTE_COMMAND_RESET' | 'EXECUTE_COMMAND_SAVE' | 'SUGGEST_ACTION' | 'REFUSE_UNSAFE' | 'RESPOND_LOGICAL_INFERENCE';
+export type ActionType = 'RESPOND_NATURAL' | 'RESPOND_DAPP' | 'EXECUTE_COMMAND_RESET' | 'EXECUTE_COMMAND_SAVE' | 'SUGGEST_ACTION' | 'REFUSE_UNSAFE' | 'RESPOND_LOGICAL_INFERENCE' | 'STREAM_GENERATION';
 
 export interface ActionPlan {
   type: ActionType;
@@ -164,14 +180,11 @@ export interface InputAnalysis {
   cleanedInput: string;
   keywords: AtomicConcept[];
   intent: IntentType;
-  
   emotionalWeight: number; 
   sentiment: number;       
-  
   complexity: number;
   detectedEntities: string[];
   inputVector: Vector;
-  
   grammar: GrammarStructure;
   requestedCapability: CapabilityType;
   verbosityNeeded: number; 
@@ -180,8 +193,6 @@ export interface InputAnalysis {
     flaggedTerms: string[];
     reason?: string;
   };
-  
-  // NEW: Helps distinguish "Philosophy of money" vs "My Money"
   isProtocolSpecific: boolean; 
 }
 
@@ -209,6 +220,7 @@ export interface IntegratedContext {
   };
   computationResult?: string | number | null;
   inferredLogic?: string; 
+  generatedStream?: string[]; // The tokens output by the generative model
 }
 
 export interface CognitiveLogEntry {
