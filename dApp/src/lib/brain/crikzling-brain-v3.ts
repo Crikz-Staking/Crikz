@@ -206,6 +206,12 @@ export class CrikzlingBrainV3 {
           currentFocus.push(brainState.attentionFocus);
       }
 
+      // Determine if simulation needed
+      const needsSim = inputAnalysis.intent === 'FINANCIAL_ADVICE' || 
+                       inputAnalysis.intent === 'DAPP_QUERY' || 
+                       inputAnalysis.intent === 'PHILOSOPHY' || 
+                       inputAnalysis.intent === 'EXPLANATION';
+
       for (let cycle = 1; cycle <= this.MAX_THOUGHT_CYCLES; cycle++) {
           const progress = 20 + (cycle * (60 / this.MAX_THOUGHT_CYCLES));
           this.updateThought('introspection', progress, `Cycle ${cycle}: Associative walk...`);
@@ -215,7 +221,7 @@ export class CrikzlingBrainV3 {
           const newAssociations = this.cognitive.findAssociativePath(currentFocus, 2);
           
           let simResult = null;
-          if (dappContext && (inputAnalysis.intent === 'FINANCIAL_ADVICE' || inputAnalysis.intent === 'DAPP_QUERY')) {
+          if (dappContext && needsSim) {
               simResult = this.simulator.runSimulation(inputAnalysis.intent, dappContext, inputAnalysis.inputVector);
           }
 

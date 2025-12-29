@@ -1,5 +1,3 @@
-// src/lib/crikzling-atomic-knowledge.ts
-
 export type AtomicDomain = 
   | 'LINGUISTIC' | 'NUMERICAL' | 'TEMPORAL' | 'SPATIAL'
   | 'CAUSAL' | 'EMOTIONAL' | 'TECHNICAL' | 'PHILOSOPHICAL'
@@ -39,7 +37,7 @@ export interface ConceptRelation {
 
 // The "DNA" of the AI - Expanded Knowledge Base
 export const ATOMIC_PRIMITIVES: Record<string, AtomicConcept> = {
-  // --- LINGUISTIC PRIMITIVES (NEW) ---
+  // --- LINGUISTIC PRIMITIVES (CRITICAL FOR PARSER) ---
   'the': { id: 'determinism', essence: 'Specific instance identification', semanticField: ['the', 'that', 'this', 'specific'], examples: [], abstractionLevel: 0.1, technical_depth: 0.1, domain: 'LINGUISTIC' },
   'a': { id: 'potential', essence: 'General class member', semanticField: ['a', 'an', 'any', 'some'], examples: [], abstractionLevel: 0.8, technical_depth: 0.1, domain: 'LINGUISTIC' },
   'and': { id: 'connection', essence: 'Logical conjunction', semanticField: ['and', 'plus', 'also'], examples: [], abstractionLevel: 0.5, technical_depth: 0.2, domain: 'LINGUISTIC' },
@@ -122,6 +120,7 @@ export const ATOMIC_RELATIONS: ConceptRelation[] = [
   { from: 'node', to: 'consensus', type: 'validates', strength: 0.9, learned_at: 0 },
   { from: 'decentralization', to: 'security', type: 'enables', strength: 0.7, learned_at: 0 },
 
-  // Linguistic Rules (Seed)
-  { from: 'determinism', to: 'potential', type: 'antonym', strength: 0.8, learned_at: 0 }
+  // Linguistic Rules (Seed) - Enables Grammar Parser to identify structure
+  { from: 'determinism', to: 'potential', type: 'antonym', strength: 0.8, learned_at: 0 },
+  { from: 'determinism', to: 'structure', type: 'specifies', strength: 0.9, learned_at: 0 }
 ];
