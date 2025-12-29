@@ -1,8 +1,6 @@
 import { 
-  Memory, 
   BrainState, 
   DAppContext, 
-  BlockchainMemory, 
   DeepThoughtCycle, 
   ActionPlan, 
   InputAnalysis, 
@@ -46,7 +44,8 @@ export class ResultProcessor {
         evolutionStage: brainState.evolutionStage,
         unsavedCount: brainState.unsavedDataCount,
         drives: brainState.drives,
-        currentFocus: brainState.attentionFocus
+        currentFocus: brainState.attentionFocus,
+        currentArchetype: brainState.currentArchetype || 'OPERATOR' // Added missing property
       }
     };
   }
