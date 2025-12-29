@@ -12,7 +12,6 @@ export class CognitiveProcessor {
   private publicClient?: PublicClient;
   private memoryContractAddress?: `0x${string}`;
 
-  // Track specific IDs that are new/unsaved
   private unsavedIds = {
       concepts: new Set<string>(),
       memories: new Set<string>(),
@@ -157,7 +156,7 @@ export class CognitiveProcessor {
 
   // --- NETWORK OPTIMIZATION LOGIC ---
   
-  public pruneDuplicates(): string {
+  public pruneDuplicates(): string | null {
       const concepts = this.state.concepts;
       const ids = Object.keys(concepts);
       let removed = 0;
@@ -179,19 +178,19 @@ export class CognitiveProcessor {
           this.state.unsavedDataCount++;
           return `Optimized: Pruned ${removed} redundant nodes.`;
       }
-      return "Graph Integrity Verified.";
+      // Return null if nothing happened to avoid spamming logs
+      return null;
   }
 
   public optimizeGraph(): string | null {
-      if (this.state.relations.length < 50) return null; // Lowered threshold for testing
+      if (this.state.relations.length < 50) return null; 
       
       const initialCount = this.state.relations.length;
-      // Filter extremely weak connections only
       this.state.relations = this.state.relations.filter(r => r.strength > 0.05); 
       
       const pruned = initialCount - this.state.relations.length;
       if (pruned > 0) {
-          return `Pruned ${pruned} weak synaptic pathways.`;
+          return `Pruned ${pruned} weak pathways.`;
       }
       return null;
   }
@@ -272,8 +271,6 @@ export class CognitiveProcessor {
       this.unsavedIds.memories.clear();
       this.unsavedIds.relations.clear();
   }
-
-  // --- Logic Processing ---
 
   public archiveMemory(role: 'user'|'bot'|'subconscious'|'system', content: string, concepts: string[], emotionalWeight: number, dappContext: any, vector: Vector = [0,0,0,0,0,0]) {
     const memory: Memory = {
@@ -423,24 +420,27 @@ export class CognitiveProcessor {
     return [...new Set(path)];
   }
 
+  // --- REFINED: More Aggressive Returns ---
+
   public clusterConcepts(): string | null {
       const candidates = this.getPriorityNodes();
-      if (candidates.length < 3) return null;
+      // Lower threshold for activity
+      if (candidates.length < 2) return null;
+      
       const targetId = candidates[Math.floor(this.getSecureRandom() * candidates.length)];
       const target = this.state.concepts[targetId];
       if (!target || !target.domain) return null;
       
       const neighbors = this.state.relations
-          .filter(r => (r.from === targetId || r.to === targetId) && r.strength > 0.4)
-          .map(r => r.from === targetId ? r.to : r.from)
-          .filter(nid => this.state.concepts[nid]?.domain === target.domain);
+          .filter(r => (r.from === targetId || r.to === targetId))
+          .map(r => r.from === targetId ? r.to : r.from);
 
-      if (neighbors.length >= 2) {
-          const clusterId = `cluster_${target.domain}_${Date.now().toString().slice(-4)}`.toLowerCase();
+      if (neighbors.length >= 1) {
+          const clusterId = `group_${target.domain}_${Date.now().toString().slice(-4)}`.toLowerCase();
           if (!this.state.concepts[clusterId]) {
               this.state.concepts[clusterId] = {
-                  id: clusterId, essence: `Hyper-structure organizing ${target.domain} logic`,
-                  semanticField: ['paradigm', 'cluster'], examples: [], abstractionLevel: 0.95, technical_depth: 0.9, domain: target.domain
+                  id: clusterId, essence: `Logical grouping around ${targetId}`,
+                  semanticField: ['group', 'cluster'], examples: [], abstractionLevel: 0.95, technical_depth: 0.9, domain: target.domain
               };
               this.unsavedIds.concepts.add(clusterId);
               
@@ -449,7 +449,7 @@ export class CognitiveProcessor {
                   this.unsavedIds.relations.add(`${n}-${clusterId}-categorized_by`);
               });
               this.state.unsavedDataCount += (neighbors.length + 2);
-              return `Formed Paradigm: ${clusterId}`;
+              return `Formed Cluster: ${clusterId} (${neighbors.length + 1} items)`;
           }
       }
       return null;
@@ -479,34 +479,50 @@ export class CognitiveProcessor {
 
   public deepenKnowledge(): string | null {
       const pool = this.getPriorityNodes();
+      if (pool.length === 0) return null;
       const targetId = pool[Math.floor(this.getSecureRandom() * pool.length)];
       const concept = this.state.concepts[targetId];
-      if (concept && concept.technical_depth < 1.0) {
-          concept.technical_depth = Math.min(1.0, concept.technical_depth + 0.15);
+      
+      if (concept) {
+          const oldDepth = concept.technical_depth;
+          const boost = 0.05 + (this.getSecureRandom() * 0.1);
+          concept.technical_depth = Math.min(1.0, concept.technical_depth + boost);
+          
           this.unsavedIds.concepts.add(targetId);
           this.state.unsavedDataCount++;
-          return `Deepened: ${targetId}`;
+          
+          // Only return string if significant change
+          if (concept.technical_depth > oldDepth + 0.01) {
+              return `Deepened: ${targetId} (+${boost.toFixed(2)} depth)`;
+          }
       }
       return null;
   }
 
-  public evolveCognitiveState(): string { return "Optimizing neural weights"; }
+  public evolveCognitiveState(): string | null { 
+      // Actually stimulate relations based on activation
+      let strengthened = 0;
+      this.state.relations.forEach(r => {
+          if (this.state.activationMap[r.from] && this.state.activationMap[r.to]) {
+              r.strength = Math.min(1.0, r.strength + 0.01);
+              strengthened++;
+          }
+      });
+      if (strengthened > 0) {
+          this.state.unsavedDataCount++;
+          return `Reinforced ${strengthened} pathways.`;
+      }
+      return null;
+  }
   
   public dream(): string {
-      // 1. Try Long Term Memory
       let pool = this.state.longTermMemory;
+      if (pool.length === 0) pool = this.state.shortTermMemory;
       
-      // 2. Fallback to Short Term Memory
-      if (pool.length === 0) {
-          pool = this.state.shortTermMemory;
-      }
-
-      // 3. Fallback to ALL concepts (Guaranteed to have data unless genesis is broken)
       const keys = Object.keys(this.state.concepts);
       
       if (pool.length > 0) {
           const seed = pool[Math.floor(this.getSecureRandom() * pool.length)];
-          // Ensure concept exists in concepts map or use raw content text snippet
           const conceptName = seed.concepts[0] || "patterns";
           return `Dreaming of ${conceptName}...`;
       } else if (keys.length > 0) {
@@ -514,6 +530,6 @@ export class CognitiveProcessor {
           return `Analyzing recursive loop: ${randomKey}...`;
       }
       
-      return "Initializing latent space...";
+      return "Subconscious alignment...";
   }
 }

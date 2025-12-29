@@ -27,6 +27,7 @@ export class CrikzlingBrainV3 {
   private thoughtCallback?: (thought: ThoughtProcess | null) => void;
   private pendingInsight: string | null = null;
   private lastTick: number = Date.now();
+  private batchLogBuffer: string[] = []; // Stores micro-logs before flushing
 
   private history: CognitiveLogEntry[] = [];
   private readonly MAX_THOUGHT_CYCLES = 5;
@@ -68,16 +69,14 @@ export class CrikzlingBrainV3 {
     return this.cognitive.exportDiff();
   }
 
-  // --- FEATURE: Network Optimization ---
   public optimizeNeuralGraph() {
-      // Trigger deduplication and cleanup
       const result = this.cognitive.pruneDuplicates();
       const graphRes = this.cognitive.optimizeGraph();
       if (result || graphRes) {
           this.logEvent({ 
               type: 'SYSTEM', 
               input: 'NEURAL_OPTIMIZATION', 
-              output: `${result} ${graphRes || ''}`, 
+              output: `${result || ''} ${graphRes || ''}`.trim(), 
               intent: 'SYSTEM',
               activeNodes: [],
               vectors: {input:[0,0,0,0,0,0], response:[0,0,0,0,0,0]},
@@ -91,7 +90,8 @@ export class CrikzlingBrainV3 {
     const now = Date.now();
     const state = this.cognitive.getState();
     const { isConnected } = state.connectivity;
-    const tickRate = isConnected ? 50 : 8000; 
+    // Slow down tick rate slightly to allow buffer to fill more meaningfully
+    const tickRate = isConnected ? 200 : 8000; 
     
     if (now - this.lastTick < tickRate) return;
     this.lastTick = now;
@@ -100,51 +100,42 @@ export class CrikzlingBrainV3 {
         state.connectivity.stamina = 100; 
         state.connectivity.bandwidthUsage = Math.floor(this.getSecureRandom() * 20) + 80;
         
-        // Operations
-        const operations = Math.floor(state.connectivity.bandwidthUsage / 5); 
-        let logBuffer = "";
-
-        // Only run intensive tasks rarely even if connected, to avoid spamming
-        if (Math.random() < 0.2) {
+        // Execute Batch
+        const operations = 3; // Guaranteed operations per tick
+        
+        for (let i = 0; i < operations; i++) {
             const roll = this.getSecureRandom();
             let res: string | null = null;
 
-            if (roll > 0.85) {
-                // Evolve (No string return yet usually)
-                this.cognitive.evolveCognitiveState();
-            }
-            else if (roll > 0.70) {
-                res = this.cognitive.clusterConcepts();
-            }
-            else if (roll > 0.55) {
-                res = this.cognitive.optimizeGraph();
-            }
-            else if (roll > 0.30) {
-                res = this.cognitive.prioritizedSynthesis();
-            }
-            else {
-                res = this.cognitive.deepenKnowledge();
-            }
+            if (roll > 0.8) res = this.cognitive.evolveCognitiveState();
+            else if (roll > 0.6) res = this.cognitive.clusterConcepts();
+            else if (roll > 0.4) res = this.cognitive.optimizeGraph();
+            else if (roll > 0.2) res = this.cognitive.prioritizedSynthesis();
+            else res = this.cognitive.deepenKnowledge();
 
-            if (res) logBuffer = res;
+            if (res) {
+                this.batchLogBuffer.push(res);
+                state.totalInteractions++; // Increment actual tracked ops
+            }
         }
 
-        // --- NEW: Log Significant WEB_SYNC Events ---
-        if (logBuffer) {
+        // Flush Buffer if full or periodic
+        if (this.batchLogBuffer.length >= 3) {
+            const summary = this.batchLogBuffer.join("\n• ");
             this.logEvent({ 
                 type: 'WEB_SYNC', 
-                input: 'Neural Uplink Activity', 
-                output: logBuffer, 
+                input: 'Neural Uplink Stream', 
+                output: `Batch Processed:\n• ${summary}`, 
                 intent: 'SYSTEM', 
                 activeNodes: [], 
                 vectors: {input:[0,0,0,0,0,0], response:[0,0,0,0,0,0]}, 
                 thoughtCycles: [], 
-                executionTimeMs: 0 
+                executionTimeMs: tickRate 
             });
+            this.batchLogBuffer = []; // Clear
         }
 
-        state.totalInteractions += operations;
-        this.updateThought('web_crawling', 100, `Hyper-processing ${operations} nodes...`);
+        this.updateThought('web_crawling', 100, `Processing bandwidth...`);
     } else {
         state.connectivity.stamina = 100; 
         state.connectivity.bandwidthUsage = 0;
@@ -152,7 +143,7 @@ export class CrikzlingBrainV3 {
 
     if (!isConnected && state.drives.energy > 80 && this.getSecureRandom() < 0.05) {
         const dream = this.cognitive.dream();
-        if (dream && dream !== "Void state...") {
+        if (dream) {
             state.totalInteractions++;
             this.logEvent({ type: 'DREAM', input: 'Subconscious', output: dream, intent: 'DISCOURSE', emotionalShift: 0, activeNodes: [], vectors: {input:[0,0,0,0,0,0], response:[0,0,0,0,0,0]}, thoughtCycles: [], executionTimeMs: 0 });
         }
@@ -251,8 +242,6 @@ export class CrikzlingBrainV3 {
     }
   }
 
-  // --- STATE ACCESSORS & UTILS ---
-
   public setThoughtUpdateCallback(callback: (thought: ThoughtProcess | null) => void) {
     this.thoughtCallback = callback;
   }
@@ -260,6 +249,8 @@ export class CrikzlingBrainV3 {
   public toggleNeuralLink(active: boolean) {
       const state = this.cognitive.getState();
       state.connectivity.isConnected = active;
+      // Reset buffer on toggle
+      this.batchLogBuffer = [];
       if (!active) state.connectivity.bandwidthUsage = 0;
   }
 
