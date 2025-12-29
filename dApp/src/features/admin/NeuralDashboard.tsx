@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
     Brain, Activity, Wifi, Database, GitBranch, Cpu, 
-    X, ChevronRight, Sliders, 
+    X, ChevronRight, Sliders, Lock, Globe,
     Save, Zap, Battery, Download, FileText,
     Wallet, Award, Layers, ShieldCheck, AlertTriangle,
     HardDrive, Check, History, RotateCcw, RefreshCw, Upload, Calendar, ChevronLeft,
