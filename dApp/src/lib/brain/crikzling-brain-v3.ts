@@ -26,11 +26,9 @@ export class CrikzlingBrainV3 {
   
   private thoughtCallback?: (thought: ThoughtProcess | null) => void;
   private lastTick: number = Date.now();
-  private batchLogBuffer: string[] = [];
+  private batchLogBuffer: string[] = []; 
   private history: CognitiveLogEntry[] = [];
-  
-  // INCREASED: More cycles for better depth
-  private readonly MAX_THOUGHT_CYCLES = 8;
+  private readonly MAX_THOUGHT_CYCLES = 5;
 
   constructor(
     baseState?: string,
@@ -70,56 +68,84 @@ export class CrikzlingBrainV3 {
   }
 
   public optimizeNeuralGraph() {
-      // Optimization handled in tick
+      const result = this.cognitive.pruneDuplicates();
+      const graphRes = this.cognitive.optimizeGraph();
+      if(result || graphRes) {
+          const out = [result, graphRes].filter(Boolean).join(" ");
+          this.batchLogBuffer.push(`Optimized: ${out}`);
+      }
   }
 
   public async tick(dappContext?: DAppContext): Promise<void> {
     const now = Date.now();
     const state = this.cognitive.getState();
     const { isConnected } = state.connectivity;
-    const tickRate = isConnected ? 1000 : 8000; 
+    // Tick rate speed
+    const tickRate = isConnected ? 1500 : 8000; 
     
     if (now - this.lastTick < tickRate) return;
     this.lastTick = now;
 
     this.evolvePersona(state);
 
-    if (state.drives.energy > 50) {
-        const activeIds = state.shortTermMemory
-            .slice(-3) 
-            .flatMap(m => m.concepts)
-            .slice(0, 10); 
+    // --- MULTI-THREADING SIMULATION ---
+    if (isConnected) {
+        state.connectivity.stamina = 100;
+        state.connectivity.bandwidthUsage = Math.floor(this.getSecureRandom() * 40) + 60; // High usage
 
-        if (activeIds.length > 2) {
-            const abstraction = this.cognitive.formAbstractCluster(activeIds);
-            if (abstraction) {
-                this.batchLogBuffer.push(abstraction);
+        // Run multiple operations per tick to simulate "Fast Bandwidth"
+        const threads = 5; 
+        
+        for(let i=0; i<threads; i++) {
+            const roll = this.getSecureRandom();
+            let opResult: string | null = null;
+
+            if (roll > 0.8) opResult = this.cognitive.formAbstractCluster(Object.keys(state.concepts).slice(0, 10)); // Simple sample
+            else if (roll > 0.6) opResult = this.cognitive.prioritizedSynthesis();
+            else if (roll > 0.4) opResult = this.cognitive.deepenKnowledge();
+            else if (roll > 0.2) opResult = this.cognitive.evolveCognitiveState();
+            else opResult = this.cognitive.optimizeGraph();
+
+            if (opResult) {
+                this.batchLogBuffer.push(opResult);
+                state.totalInteractions++; // Increment Ops
             }
         }
-    }
 
-    if (isConnected && this.batchLogBuffer.length >= 3) {
-        const summary = this.batchLogBuffer.join("\n• ");
-        this.logEvent({ 
-            type: 'SYSTEM', 
-            input: 'Background Processing', 
-            output: `Abstraction Formed:\n• ${summary}`, 
-            intent: 'SYSTEM', 
-            activeNodes: [], 
-            vectors: {input:[0,0,0,0,0,0], response:[0,0,0,0,0,0]}, 
-            thoughtCycles: [], 
-            executionTimeMs: tickRate 
-        });
-        this.batchLogBuffer = [];
-    } 
+        // Flush buffer if full
+        if (this.batchLogBuffer.length > 0) {
+            // Keep buffer reasonable size for display
+            const MAX_DISPLAY = 4;
+            const displayItems = this.batchLogBuffer.slice(0, MAX_DISPLAY);
+            const remainder = this.batchLogBuffer.length - MAX_DISPLAY;
+            
+            let summary = displayItems.join("\n• ");
+            if (remainder > 0) summary += `\n...and ${remainder} more operations.`;
 
-    if (!isConnected && state.drives.energy > 80 && this.getSecureRandom() < 0.05) {
-        const dream = this.cognitive.dream();
-        if (dream) {
+            this.logEvent({ 
+                type: 'WEB_SYNC', 
+                input: 'Neural Uplink Stream', 
+                output: `Batch Processed:\n• ${summary}`, 
+                intent: 'SYSTEM', 
+                activeNodes: [], 
+                vectors: {input:[0,0,0,0,0,0], response:[0,0,0,0,0,0]}, 
+                thoughtCycles: [], 
+                executionTimeMs: tickRate 
+            });
+            
+            // Clear buffer
+            this.batchLogBuffer = [];
+        }
+    } else {
+        // IDLE MODE
+        state.connectivity.bandwidthUsage = 0;
+        // Occasional subconscious thought
+        if (state.drives.energy > 80 && this.getSecureRandom() < 0.1) {
+            const dream = this.cognitive.dream();
             this.logEvent({ type: 'DREAM', input: 'Subconscious', output: dream, intent: 'DISCOURSE', emotionalShift: 0, activeNodes: [], vectors: {input:[0,0,0,0,0,0], response:[0,0,0,0,0,0]}, thoughtCycles: [], executionTimeMs: 0 });
         }
     }
-}
+  }
 
   private evolvePersona(state: BrainState) {
       const { drives, evolutionStage } = state;
@@ -154,25 +180,21 @@ export class CrikzlingBrainV3 {
           currentFocus = brainState.attentionState.workingCluster.relatedNodes.slice(0, 3);
       }
 
-      // Check if deep simulation is needed
       const needsSim = inputAnalysis.intent === 'FINANCIAL_ADVICE' || 
                        inputAnalysis.intent === 'DAPP_QUERY' || 
                        inputAnalysis.intent === 'PHILOSOPHY' || 
                        inputAnalysis.intent === 'EXPLANATION';
 
-      // --- EXTENDED THINKING LOOP ---
       for (let cycle = 1; cycle <= this.MAX_THOUGHT_CYCLES; cycle++) {
           const progress = 15 + (cycle * (60 / this.MAX_THOUGHT_CYCLES));
           this.updateThought('introspection', progress, `Cycle ${cycle}: Recursive inference...`);
-          
-          // Added artificial delay for "Deep Thought" feel vs instantaneous click/response
           await this.think(400); 
 
           const memories = this.cognitive.retrieveRelevantMemories(currentFocus, inputAnalysis.inputVector);
           const newAssociations = this.cognitive.findAssociativePath(currentFocus, 2);
           
           let simResult = null;
-          if (dappContext && needsSim && cycle > 2) { // Only sim after initial association
+          if (dappContext && needsSim && cycle > 2) { 
               simResult = this.simulator.runSimulation(inputAnalysis.intent, dappContext, inputAnalysis.inputVector);
           }
 
@@ -192,7 +214,6 @@ export class CrikzlingBrainV3 {
       
       if (actionPlan.type === 'EXECUTE_COMMAND_RESET' && isOwner) this.cognitive.wipeLocalMemory();
 
-      // Final Synthesis
       const integratedContext = this.resultProc.processMultiCycle(inputAnalysis, actionPlan, deepContext, brainState, dappContext);
       let response = this.generator.generateDeep(integratedContext);
       
@@ -216,7 +237,7 @@ export class CrikzlingBrainV3 {
           actionPlan: actionPlan
       });
 
-      this.updateThought('generation', 100, 'Finalizing output...');
+      this.updateThought('generation', 100, 'Done');
       await this.think(300); 
       this.clearThought();
       

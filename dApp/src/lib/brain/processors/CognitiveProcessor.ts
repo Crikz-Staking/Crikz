@@ -107,7 +107,6 @@ export class CognitiveProcessor {
       }
 
       // 3. Force Ops Sync
-      // Check for both 'totalInteractions' and legacy 'interactions' keys
       const remoteOps = Number(remoteState.totalInteractions || remoteState.interactions || 0);
       if (remoteOps > this.state.totalInteractions) {
           this.state.totalInteractions = remoteOps;
@@ -148,6 +147,7 @@ export class CognitiveProcessor {
       };
 
       this.state.generatedClusters.push(cluster);
+      
       this.state.attentionState.workingCluster = cluster;
       this.state.attentionState.semanticFocus = bestNode;
 
@@ -155,6 +155,7 @@ export class CognitiveProcessor {
           this.state.generatedClusters.shift();
       }
 
+      this.state.unsavedDataCount++;
       return `Abstraction formed around [${bestNode}]`;
   }
 
@@ -173,11 +174,93 @@ export class CognitiveProcessor {
               }
           }
       }
-      if (removed > 0) return `Pruned ${removed} redundant nodes.`;
+      if (removed > 0) {
+          this.state.unsavedDataCount++;
+          return `Pruned ${removed} redundant nodes.`;
+      }
       return null;
   }
 
-  public optimizeGraph(): string | null { return null; }
+  // --- RESTORED LOGIC FOR SYSTEM CHURN ---
+
+  public removeWeakRelations(): string | null {
+      const initialCount = this.state.relations.length;
+      this.state.relations = this.state.relations.filter(r => r.strength > 0.05); 
+      const pruned = initialCount - this.state.relations.length;
+      if (pruned > 0) {
+          // No unsaved count increment for cleanup
+          return `Decay: Removed ${pruned} weak synapses.`;
+      }
+      return null;
+  }
+
+  public optimizeGraph(): string | null { 
+      return this.removeWeakRelations();
+  }
+
+  public deepenKnowledge(): string | null {
+      // Pick a random concept and increase its depth slightly
+      const keys = Object.keys(this.state.concepts);
+      if (keys.length === 0) return null;
+      
+      const targetId = keys[Math.floor(this.getSecureRandom() * keys.length)];
+      const concept = this.state.concepts[targetId];
+      if (concept) {
+          const oldDepth = concept.technical_depth;
+          concept.technical_depth = Math.min(1.0, oldDepth + 0.01);
+          
+          if (concept.technical_depth > oldDepth) {
+              this.unsavedIds.concepts.add(targetId);
+              this.state.unsavedDataCount++;
+              // Only return string occasionally to avoid log spam
+              return Math.random() > 0.7 ? `Deepened understanding of [${targetId}]` : null;
+          }
+      }
+      return null;
+  }
+
+  public evolveCognitiveState(): string | null { 
+      // Reinforce connections
+      let strengthened = 0;
+      // Random sample to save CPU
+      const sampleSize = Math.min(50, this.state.relations.length);
+      for(let i=0; i<sampleSize; i++) {
+          const idx = Math.floor(Math.random() * this.state.relations.length);
+          const r = this.state.relations[idx];
+          if (r && r.strength < 1.0) {
+              r.strength += 0.005;
+              strengthened++;
+          }
+      }
+      
+      if (strengthened > 0) {
+          this.state.unsavedDataCount++;
+          return Math.random() > 0.8 ? `Reinforced ${strengthened} pathways` : null;
+      }
+      return null;
+  }
+
+  public prioritizedSynthesis(): string | null {
+      // Create new connection between two random concepts
+      const keys = Object.keys(this.state.concepts);
+      if(keys.length < 2) return null;
+      
+      const c1 = keys[Math.floor(this.getSecureRandom() * keys.length)];
+      const c2 = keys[Math.floor(this.getSecureRandom() * keys.length)];
+      
+      if(c1 !== c2) {
+          // Check if exists
+          const exists = this.state.relations.some(r => (r.from === c1 && r.to === c2) || (r.from === c2 && r.to === c1));
+          if (!exists) {
+              this.state.relations.push({
+                  from: c1, to: c2, type: 'relates_to', strength: 0.1, learned_at: Date.now()
+              });
+              this.state.unsavedDataCount++;
+              return `New Synapse: ${c1} <-> ${c2}`;
+          }
+      }
+      return null;
+  }
 
   public getState(): BrainState { return this.state; }
   
@@ -341,11 +424,6 @@ export class CognitiveProcessor {
     }
     return [...new Set(path)];
   }
-
-  public clusterConcepts(): string | null { return null; }
-  public prioritizedSynthesis(): string | null { return null; }
-  public deepenKnowledge(): string | null { return null; }
-  public evolveCognitiveState(): string | null { return null; }
   
   public dream(): string {
       const keys = Object.keys(this.state.concepts);
