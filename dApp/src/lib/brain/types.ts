@@ -1,9 +1,10 @@
-// src/lib/brain/types.ts
-
-import { AtomicConcept } from '../crikzling-atomic-knowledge';
+import { AtomicConcept, ConceptRelation } from '../crikzling-atomic-knowledge';
 
 export type EvolutionStage = 'GENESIS' | 'SENTIENT' | 'SAPIENT' | 'TRANSCENDENT';
 export type Vector = [number, number, number, number, number, number];
+
+// --- NEW: Persona Definitions ---
+export type PersonaArchetype = 'ANALYST' | 'MYSTIC' | 'GUARDIAN' | 'GLITCH' | 'OPERATOR';
 
 export interface InternalDrives {
   curiosity: number;   
@@ -42,16 +43,19 @@ export interface BlockchainMemory {
 
 export interface BrainState {
   concepts: Record<string, AtomicConcept>;
-  relations: any[];
+  relations: ConceptRelation[];
   activationMap: Record<string, number>; 
   attentionFocus: string | null;        
   shortTermMemory: Memory[];
   midTermMemory: Memory[];
   longTermMemory: Memory[];
   blockchainMemories: BlockchainMemory[];
+  
   evolutionStage: EvolutionStage;
+  currentArchetype: PersonaArchetype; // NEW: Active personality
   drives: InternalDrives; 
   activeGoals: Goal[]; 
+  
   totalInteractions: number;
   unsavedDataCount: number;
   lastBlockchainSync: number;
@@ -64,6 +68,7 @@ export interface BrainState {
   };
 }
 
+// Processor Types
 export interface ThoughtProcess {
   phase: 'perception' | 'spreading_activation' | 'simulation' | 'strategy' | 'generation' | 'dreaming' | 'introspection' | 'web_crawling';
   progress: number;
@@ -97,6 +102,7 @@ export interface DeepThoughtCycle {
   simResult: SimulationResult | null;
 }
 
+// --- UPGRADED INTENT TYPES ---
 export type IntentType = 
   | 'COMMAND' | 'QUERY' | 'PHILOSOPHY' | 'CASUAL' | 'TEACHING' 
   | 'FINANCIAL_ADVICE' | 'UNKNOWN' | 'GREETING' | 'EXPLANATION' 
@@ -119,13 +125,14 @@ export interface ActionPlan {
   context?: any;
 }
 
+// --- RICH INPUT ANALYSIS ---
 export interface GrammarStructure {
   subject: string | null;
-  action: string | null; 
-  object: string | null; 
+  action: string | null; // Verb
+  object: string | null; // Direct Object
   modifiers: string[];
   isQuestion: boolean;
-  isImperative: boolean; 
+  isImperative: boolean; // Command structure
 }
 
 export interface InputAnalysis {
@@ -167,8 +174,9 @@ export interface IntegratedContext {
   brainStats: {
     evolutionStage: string;
     unsavedCount: number;
-    drives: InternalDrives; 
+    drives: InternalDrives;
     currentFocus: string | null;
+    currentArchetype: PersonaArchetype;
   };
 }
 

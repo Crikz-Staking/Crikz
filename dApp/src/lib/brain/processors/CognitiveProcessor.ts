@@ -1,7 +1,7 @@
 import { PublicClient } from 'viem';
 import { AtomicConcept, ConceptRelation, ATOMIC_PRIMITIVES, ATOMIC_RELATIONS } from '@/lib/crikzling-atomic-knowledge';
 import { loadAllKnowledgeModules, parseExternalKnowledgeFile } from '@/lib/knowledge/knowledge-loader';
-import { BrainState, Memory, Vector, InternalDrives } from '../types';
+import { BrainState, Memory, Vector, InternalDrives, PersonaArchetype } from '../types';
 
 // Helper to safely serialize BigInts
 const bigIntReplacer = (_key: string, value: any) => 
@@ -43,6 +43,7 @@ export class CognitiveProcessor {
       totalInteractions: 0,
       unsavedDataCount: 0,
       evolutionStage: 'GENESIS',
+      currentArchetype: 'OPERATOR', // Default starting persona
       drives: defaultDrives,
       activeGoals: [],
       lastBlockchainSync: 0,
@@ -86,6 +87,10 @@ export class CognitiveProcessor {
             }
             if (diff.unsavedDataCount) {
                 state.unsavedDataCount = diff.unsavedDataCount;
+            }
+            // Sync Archetype if stored
+            if (diff.currentArchetype) {
+                state.currentArchetype = diff.currentArchetype;
             }
         } catch (e) { console.error("Diff Merge Error", e); }
     }
@@ -178,7 +183,6 @@ export class CognitiveProcessor {
           this.state.unsavedDataCount++;
           return `Optimized: Pruned ${removed} redundant nodes.`;
       }
-      // Return null if nothing happened to avoid spamming logs
       return null;
   }
 
@@ -238,6 +242,7 @@ export class CognitiveProcessor {
       const diff: any = {
           totalInteractions: this.state.totalInteractions,
           unsavedDataCount: this.state.unsavedDataCount,
+          currentArchetype: this.state.currentArchetype, // Sync personality
           concepts: {},
           relations: [],
           shortTermMemory: [],
@@ -420,8 +425,6 @@ export class CognitiveProcessor {
     return [...new Set(path)];
   }
 
-  // --- REFINED: More Aggressive Returns ---
-
   public clusterConcepts(): string | null {
       const candidates = this.getPriorityNodes();
       // Lower threshold for activity
@@ -491,7 +494,6 @@ export class CognitiveProcessor {
           this.unsavedIds.concepts.add(targetId);
           this.state.unsavedDataCount++;
           
-          // Only return string if significant change
           if (concept.technical_depth > oldDepth + 0.01) {
               return `Deepened: ${targetId} (+${boost.toFixed(2)} depth)`;
           }
@@ -500,7 +502,6 @@ export class CognitiveProcessor {
   }
 
   public evolveCognitiveState(): string | null { 
-      // Actually stimulate relations based on activation
       let strengthened = 0;
       this.state.relations.forEach(r => {
           if (this.state.activationMap[r.from] && this.state.activationMap[r.to]) {

@@ -1,5 +1,3 @@
-// src/lib/brain/processors/ResponseGenerator.ts
-
 import { IntegratedContext, InternalDrives, SimulationResult } from '../types';
 import { PersonaEngine } from './PersonaEngine';
 
@@ -77,7 +75,7 @@ export class ResponseGenerator {
     if (!dapp) return "I cannot detect an active wallet connection. My financial projections require on-chain data access.";
     
     if (sim) {
-        return `Simulation Complete. Scenario: ${sim.scenario}. Outcome: ${sim.outcomeValue.toFixed(2)}. ${sim.recommendation}`;
+        return `I have run a predictive simulation. Scenario: ${sim.scenario}. Outcome: ${sim.outcomeValue.toFixed(2)} units. ${sim.recommendation}`;
     } 
     
     let advice = `The protocol is active. Your reputation stands at ${dapp.totalReputation}.`;

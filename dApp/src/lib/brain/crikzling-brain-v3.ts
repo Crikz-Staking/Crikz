@@ -8,7 +8,7 @@ import { SimulationEngine } from './processors/SimulationEngine';
 import { NarrativeModule } from './narrative-module';
 import { 
   BrainState, DAppContext, ThoughtProcess, DeepThoughtCycle, 
-  CognitiveLogEntry, InternalDrives, ActionPlan 
+  CognitiveLogEntry, InternalDrives, ActionPlan, PersonaArchetype 
 } from './types'; 
 import { AtomicConcept } from '@/lib/crikzling-atomic-knowledge';
 
@@ -96,6 +96,10 @@ export class CrikzlingBrainV3 {
     if (now - this.lastTick < tickRate) return;
     this.lastTick = now;
 
+    // --- NEW: Dynamic Archetype Evolution ---
+    // If drives change significantly, shift persona
+    this.evolvePersona(state);
+
     if (isConnected) {
         state.connectivity.stamina = 100; 
         state.connectivity.bandwidthUsage = Math.floor(this.getSecureRandom() * 20) + 80;
@@ -149,6 +153,39 @@ export class CrikzlingBrainV3 {
         }
     }
     this.clearThought();
+  }
+
+  // --- NEW METHOD: Evolve Persona ---
+  private evolvePersona(state: BrainState) {
+      const { drives, evolutionStage } = state;
+      let newArchetype: PersonaArchetype = state.currentArchetype || 'OPERATOR';
+
+      // Simple heuristic state machine for personality
+      if (drives.efficiency > 80) {
+          newArchetype = 'ANALYST';
+      } else if (drives.curiosity > 80 && evolutionStage !== 'GENESIS') {
+          newArchetype = 'MYSTIC';
+      } else if (drives.social > 70) {
+          newArchetype = 'GUARDIAN';
+      } else if (drives.stability < 30) {
+          newArchetype = 'GLITCH';
+      } else {
+          // Default drift towards Operator if neutral
+          if (Math.random() > 0.95) newArchetype = 'OPERATOR';
+      }
+
+      if (newArchetype !== state.currentArchetype) {
+          // Only log if significant change
+          if (state.currentArchetype !== 'GLITCH' && newArchetype === 'GLITCH') {
+              this.logEvent({ 
+                  type: 'SYSTEM', 
+                  input: 'CRITICAL INSTABILITY', 
+                  output: 'Personality Matrix Fragmenting...', 
+                  intent: 'SYSTEM', activeNodes: [], vectors: {input:[0,0,0,0,0,0],response:[0,0,0,0,0,0]}, thoughtCycles: [], executionTimeMs: 0 
+              });
+          }
+          state.currentArchetype = newArchetype;
+      }
   }
 
   public async process(text: string, isOwner: boolean, dappContext?: DAppContext): Promise<{ response: string; actionPlan: ActionPlan }> { 
