@@ -42,7 +42,6 @@ export class CognitiveProcessor {
       relations: [...ATOMIC_RELATIONS, ...knowledgeModules.relations],
       activationMap: {},
       attentionState: emptyAttention, 
-      // ERROR FIXED: Removed attentionFocus: null assignment
       generatedClusters: [],
       shortTermMemory: [],
       midTermMemory: [],
@@ -88,6 +87,43 @@ export class CognitiveProcessor {
     return state;
   }
 
+  public mergeExternalState(remoteState: any) {
+      if (!remoteState) return;
+
+      // 1. Merge Concepts
+      if (remoteState.concepts) {
+          Object.assign(this.state.concepts, remoteState.concepts);
+      }
+
+      // 2. Merge Relations
+      if (remoteState.relations && Array.isArray(remoteState.relations)) {
+          const currentSigs = new Set(this.state.relations.map(r => `${r.from}-${r.to}-${r.type}`));
+          remoteState.relations.forEach((r: ConceptRelation) => {
+              const sig = `${r.from}-${r.to}-${r.type}`;
+              if (!currentSigs.has(sig)) {
+                  this.state.relations.push(r);
+              }
+          });
+      }
+
+      // 3. Force Ops Sync
+      // Check for both 'totalInteractions' and legacy 'interactions' keys
+      const remoteOps = Number(remoteState.totalInteractions || remoteState.interactions || 0);
+      if (remoteOps > this.state.totalInteractions) {
+          this.state.totalInteractions = remoteOps;
+      }
+
+      // 4. Update Time
+      this.state.lastBlockchainSync = Date.now();
+      
+      // 5. Clear unsaved if clean sync
+      if (remoteOps >= this.state.totalInteractions) {
+          this.state.unsavedDataCount = 0;
+          this.unsavedIds.concepts.clear();
+          this.unsavedIds.relations.clear();
+      }
+  }
+
   public formAbstractCluster(activeNodes: string[]): string | null {
       if (activeNodes.length < 3) return null;
 
@@ -112,7 +148,6 @@ export class CognitiveProcessor {
       };
 
       this.state.generatedClusters.push(cluster);
-      
       this.state.attentionState.workingCluster = cluster;
       this.state.attentionState.semanticFocus = bestNode;
 
@@ -121,11 +156,6 @@ export class CognitiveProcessor {
       }
 
       return `Abstraction formed around [${bestNode}]`;
-  }
-
-  public mergeExternalState(remoteState: any) {
-      if (remoteState.concepts) Object.assign(this.state.concepts, remoteState.concepts);
-      this.state.lastBlockchainSync = Date.now();
   }
 
   public pruneDuplicates(): string | null {

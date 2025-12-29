@@ -57,17 +57,16 @@ export function useCrikzlingV3() {
     query: { retry: false } 
   });
 
+  // --- IMPROVED PARSER ---
   const parseSnapshot = (data: any) => {
       if (!data) return null;
-      console.log("[HOOK] Raw Blockchain Data:", data);
+      // Handle both Array (Wagmi default) and Object returns
       const cid = data.ipfsCid || data[1];
       const count = data.conceptsCount || data[2];
       const stage = data.evolutionStage || data[3];
       const trigger = data.triggerEvent || data[4];
       return { cid, count, stage, trigger };
   };
-
-  const snapshotData = useMemo(() => parseSnapshot(latestSnapshot), [latestSnapshot]);
 
   const isOwner = useMemo(() => {
     if (!address || !contractOwner) return false;
@@ -91,12 +90,15 @@ export function useCrikzlingV3() {
     setForceUpdate(prev => prev + 1); 
   }, []);
 
+  // --- BRAIN INITIALIZATION ---
   useEffect(() => {
     if (!sessionId) return;
     if (brain) return;
 
+    // Load local diff if available
     const diffStateJson = localStorage.getItem(`crikz_brain_diff_${sessionId}`) || undefined;
     
+    // Initialize Brain
     const initialBrain = new CrikzlingBrainV3(
         undefined, 
         diffStateJson, 
@@ -109,22 +111,25 @@ export function useCrikzlingV3() {
     
     setMessages([{ 
         role: 'system', 
-        content: 'Hello, I am Crikzling, an artificial intelligence built on blockchain. Please click SYNC button below to synchronize my data with the latest blockchain data saved. [SYNC_REQUIRED]', 
+        content: 'Hello, I am Crikzling. Please synchronize my neural state from the blockchain to begin.', 
         timestamp: Date.now() 
     }]);
     
   }, [sessionId, publicClient]);
 
+  // --- ROBUST SYNC FUNCTION ---
   const syncWithBlockchain = useCallback(async () => {
     if (!brain) return;
 
     try {
       setInitialLoading(true);
+      
+      // 1. Authenticate Intent (Optional but good for UX flow)
       await signMessageAsync({ 
         message: `Authenticate Neural Uplink\nTimestamp: ${Date.now()}\nRequest: Sync State` 
       });
 
-      toast.loading("Identity Verified. Syncing...", { duration: 2000, id: 'sync' });
+      toast.loading("Fetching On-Chain Data...", { duration: 2000, id: 'sync' });
       
       const { data: freshData, error } = await refetchSnapshot();
       
@@ -137,9 +142,14 @@ export function useCrikzlingV3() {
 
       const { cid, count, trigger } = parseSnapshot(freshData)!;
       
+      // 2. PARSE OPS FROM TRIGGER STRING
       let blockchainOps = 0;
-      if (trigger && typeof trigger === 'string' && trigger.includes('_')) {
-         blockchainOps = parseInt(trigger.split('_')[1]) || 0;
+      if (trigger && typeof trigger === 'string') {
+         // Looks for digits at the end of a string like "SYNC_250" or "manual_100"
+         const match = trigger.match(/(\d+)$/);
+         if (match) {
+             blockchainOps = parseInt(match[1], 10);
+         }
       }
 
       if (cid && cid.length > 5) {
@@ -150,18 +160,26 @@ export function useCrikzlingV3() {
           const remoteJson = await response.json();
 
           if (remoteJson) {
-              if (blockchainOps > 0) remoteJson.totalInteractions = blockchainOps;
+              // 3. FORCE OPS UPDATE if blockchain has higher count, or if IPFS missed it
+              if (blockchainOps > (remoteJson.totalInteractions || 0)) {
+                  remoteJson.totalInteractions = blockchainOps;
+              }
 
+              // Merge into Brain
               brain.mergeState(remoteJson);
+              
+              const stats = brain.getStats();
+              
               localStorage.removeItem(`crikz_brain_diff_${sessionId}`);
               setHasHydrated(true); 
               
-              toast.success(`Synced: ${blockchainOps} Ops`, { id: 'sync' });
+              toast.success(`Synced: ${stats.nodes} Nodes | ${stats.interactions} Ops`, { id: 'sync' });
+              
               setMessages(prev => [
                   ...prev, 
                   { 
                       role: 'system', 
-                      content: `[UPLINK ESTABLISHED]\nNodes: ${count}\nOps: ${blockchainOps}\nCID: ${cid.substring(0,8)}...`, 
+                      content: `[UPLINK ESTABLISHED]\nNeural Nodes: ${stats.nodes}\nInteractions: ${stats.interactions}\nCID: ${cid.substring(0,8)}...`, 
                       timestamp: Date.now() 
                   }
               ]);
@@ -176,14 +194,14 @@ export function useCrikzlingV3() {
       if (error.message?.includes("User rejected")) {
           toast.error("Authentication Cancelled", { id: 'sync' });
       } else {
-          toast.error("Sync Error", { id: 'sync' });
+          toast.error("Sync Error: Check Console", { id: 'sync' });
       }
     } finally {
       setInitialLoading(false);
     }
   }, [brain, signMessageAsync, refetchSnapshot, sessionId]);
 
-  // --- RESTORE SNAPSHOT (Owner Only) ---
+  // --- RESTORE SNAPSHOT ---
   const restoreMemory = async (snapshot: MemorySnapshot) => {
       if (!isOwner || !publicClient) return;
       const toastId = toast.loading("Restoring snapshot...");
@@ -204,16 +222,15 @@ export function useCrikzlingV3() {
           });
 
           await publicClient!.waitForTransactionReceipt({ hash, confirmations: 1 });
-          
           toast.success("Snapshot Restored!", { id: toastId });
-          await refetchSnapshot(); // Update local pointer
-          
+          setForceUpdate(p => p + 1);
       } catch (e) {
           console.error(e);
           toast.error("Restore Failed", { id: toastId });
       }
   };
 
+  // Auto-Save Diff locally
   useEffect(() => {
       if (brain && sessionId) {
           const diff = brain.exportDiffState();
@@ -221,9 +238,10 @@ export function useCrikzlingV3() {
       }
   }, [forceUpdate, brain, sessionId]);
 
+  // Heartbeat
   useEffect(() => {
     if (!brain) return;
-    const tickRate = 8000; 
+    const tickRate = 1000; 
     const heartbeat = setInterval(() => {
       if (!isThinking && !isTyping && !isSyncing) {
         brain.tick(dappContextRef.current).then(() => setForceUpdate(p => p + 1));
@@ -260,16 +278,19 @@ export function useCrikzlingV3() {
     const toastId = toast.loading('Building neural snapshot...');
 
     try {
+        const state = brain.getState();
         const exportStr = brain.exportFullState();
+        
+        // --- 1. IPFS Upload ---
         const blob = new Blob([exportStr], { type: 'application/json' });
-        const file = new File([blob], `crikz_mem.json`);
+        const file = new File([blob], `crikz_mem_${Date.now()}.json`);
         
         toast.loading('Uploading to IPFS...', { id: toastId });
         const cid = await uploadToIPFS(file);
         
-        const state = brain.getState();
+        // --- 2. On-Chain Commit ---
         const conceptCount = BigInt(Object.keys(state.concepts).length);
-        const trigger = `SYNC_${state.totalInteractions}`;
+        const trigger = `SYNC_${state.totalInteractions}`; // Save ops count in trigger string
 
         toast.loading('Confirming On-Chain...', { id: toastId });
         const hash = await writeContractAsync({
@@ -343,13 +364,8 @@ export function useCrikzlingV3() {
   const simpleTrain = (text: string) => {
       if (brain) { brain.simpleTrain(text); setForceUpdate(p => p + 1); }
   };
-  
   const toggleNeuralLink = (active: boolean) => {
-      if (brain) { 
-          brain.toggleNeuralLink(active); 
-          if(active) brain.optimizeNeuralGraph();
-          setForceUpdate(p => p + 1); 
-      }
+      if (brain) { brain.toggleNeuralLink(active); setForceUpdate(p => p + 1); }
   };
 
   const stats = brain ? brain.getStats() : undefined;
@@ -357,7 +373,7 @@ export function useCrikzlingV3() {
 
   return {
     messages, sendMessage, uploadFile, crystallize, resetBrain, updateDrives, trainConcept, simpleTrain, toggleNeuralLink,
-    syncWithBlockchain, initialLoading, isSynced: hasHydrated, restoreMemory, // <--- EXPORTED restoreMemory
+    syncWithBlockchain, initialLoading, isSynced: hasHydrated, restoreMemory,
     needsSave: brain?.needsCrystallization() || false, isSyncing, 
     brainStats: {
       stage: stats?.stage || 'GENESIS',
