@@ -54,29 +54,29 @@ export interface AttentionState {
   workingCluster: ConceptCluster | null; 
 }
 
-// --- NEW: GENERATIVE LLM STRUCTURES ---
+// --- GENERATIVE LLM STRUCTURES ---
 export interface NeuralToken {
-  id: string;        // The Concept ID acting as a token
-  weight: number;    // Semantic weight (0.0 - 1.0)
-  position: number;  // Position in the sequence
+  id: string;        
+  weight: number;    
+  position: number;  
 }
 
 export interface HyperParameters {
-  temperature: number; // 0.1 (Determinstic) to 1.0 (Creative/Random)
-  topK: number;        // Only consider top K probabilistic next tokens
-  contextSize: number; // Sliding window size for memory
+  temperature: number; 
+  topK: number;        
+  contextSize: number; 
 }
 
 export interface BrainState {
-  concepts: Record<string, AtomicConcept>; // The Vocabulary
-  relations: ConceptRelation[]; // The Model Weights
+  concepts: Record<string, AtomicConcept>; 
+  relations: ConceptRelation[]; 
   activationMap: Record<string, number>; 
   
   attentionState: AttentionState;       
   generatedClusters: ConceptCluster[]; 
 
-  contextWindow: NeuralToken[]; // <--- The Sliding Context Window
-  hyperParameters: HyperParameters; // <--- Generation Settings
+  contextWindow: NeuralToken[]; 
+  hyperParameters: HyperParameters; 
 
   shortTermMemory: Memory[];
   midTermMemory: Memory[];
@@ -101,7 +101,8 @@ export interface BrainState {
 }
 
 export interface ThoughtProcess {
-  phase: 'perception' | 'tokenization' | 'attention_head' | 'sampling' | 'decoding' | 'criticism' | 'strategy' | 'web_crawling' | 'dreaming';
+  // FIXED: Added missing union types used in Brain V3
+  phase: 'perception' | 'tokenization' | 'spreading_activation' | 'attention_head' | 'sampling' | 'decoding' | 'introspection' | 'generation' | 'criticism' | 'strategy' | 'web_crawling' | 'dreaming';
   progress: number;
   subProcess?: string;
   focus?: string[];
@@ -220,7 +221,7 @@ export interface IntegratedContext {
   };
   computationResult?: string | number | null;
   inferredLogic?: string; 
-  generatedStream?: string[]; // The tokens output by the generative model
+  generatedStream?: string[]; 
 }
 
 export interface CognitiveLogEntry {

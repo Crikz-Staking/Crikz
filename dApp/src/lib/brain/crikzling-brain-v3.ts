@@ -6,8 +6,8 @@ import { ResultProcessor } from './processors/ResultProcessor';
 import { ResponseGenerator } from './processors/ResponseGenerator';
 import { SimulationEngine } from './processors/SimulationEngine';
 import { NarrativeModule } from './narrative-module';
-import { NeuralTokenizer } from './processors/NeuralTokenizer'; // <--- New
-import { AttentionMechanism } from './processors/AttentionMechanism'; // <--- New
+import { NeuralTokenizer } from './processors/NeuralTokenizer'; 
+import { AttentionMechanism } from './processors/AttentionMechanism'; 
 import { 
   BrainState, DAppContext, ThoughtProcess, DeepThoughtCycle, 
   CognitiveLogEntry, InternalDrives, ActionPlan, PersonaArchetype, NeuralToken 
@@ -25,8 +25,8 @@ export class CrikzlingBrainV3 {
   private generator: ResponseGenerator;
   private simulator: SimulationEngine;
   private narrative: NarrativeModule;
-  private tokenizer: NeuralTokenizer; // <--- New
-  private attention: AttentionMechanism; // <--- New
+  private tokenizer: NeuralTokenizer; 
+  private attention: AttentionMechanism; 
   
   private thoughtCallback?: (thought: ThoughtProcess | null) => void;
   private lastTick: number = Date.now();
@@ -83,12 +83,11 @@ export class CrikzlingBrainV3 {
 
     this.evolvePersona(state);
 
-    // --- MULTI-THREADING SIMULATION ---
     if (isConnected) {
         state.connectivity.stamina = 100;
         state.connectivity.bandwidthUsage = Math.floor(this.getSecureRandom() * 40) + 60; 
 
-        // Run multiple operations per tick to simulate "Fast Bandwidth"
+        // Multi-threaded operations
         const threads = 5; 
         
         for(let i=0; i<threads; i++) {
@@ -107,7 +106,6 @@ export class CrikzlingBrainV3 {
             }
         }
 
-        // Flush buffer if full
         if (this.batchLogBuffer.length > 0) {
             const MAX_DISPLAY = 4;
             const displayItems = this.batchLogBuffer.slice(0, MAX_DISPLAY);
@@ -159,11 +157,9 @@ export class CrikzlingBrainV3 {
       const brainState = this.cognitive.getState();
       const inputAnalysis = this.inputProc.process(text, brainState.concepts, dappContext);
       
-      // --- TOKENIZATION & CONTEXT UPDATE ---
       this.updateThought('tokenization', 10, 'Encoding input vector...');
       const inputTokens = this.tokenizer.tokenize(text, brainState.concepts);
       this.cognitive.updateContextWindow(inputTokens);
-      // -------------------------------------
 
       this.updateThought('spreading_activation', 15, 'Activating neural lattice...');
       const activeIds = inputAnalysis.keywords.map((k: AtomicConcept) => k.id); 
@@ -205,7 +201,6 @@ export class CrikzlingBrainV3 {
           if (newAssociations.length > 0) currentFocus = newAssociations.slice(0, 3); 
       }
 
-      // --- GENERATIVE DECODING (Prediction) ---
       let generatedText = null;
       if (inputAnalysis.intent === 'DISCOURSE' || inputAnalysis.intent === 'PHILOSOPHY') {
           this.updateThought('decoding', 80, 'Generative prediction...');
@@ -221,7 +216,6 @@ export class CrikzlingBrainV3 {
               generatedText = `(Predicted Focus: ${predictedId}) `;
           }
       }
-      // ----------------------------------------
 
       this.updateThought('strategy', 85, 'Running internal critique...');
       const actionPlan = this.actionProc.plan(inputAnalysis, brainState, isOwner, deepContext);
@@ -295,7 +289,7 @@ export class CrikzlingBrainV3 {
                   id, essence: def, semanticField: [term], examples: [], abstractionLevel: 0.5, technical_depth: 0.5, domain: 'TECHNICAL'
               } as any;
               state.unsavedDataCount++;
-              this.logEvent({ type: 'SYSTEM', input: `Definition Injection: ${term}`, output: 'Concept Assimilated', intent: 'TEACHING', emotionalShift: 0, activeNodes: [], vectors: {input:[0,0,0,0,0,0], response:[0,0,0,0,0,0]}, thoughtCycles: [], executionTimeMs: 0 });
+              this.logEvent({ type: 'SYSTEM', input: `Definition Injection: ${term}`, output: 'Concept Assimilated', intent: 'TEACHING', activeNodes: [], vectors: {input:[0,0,0,0,0,0], response:[0,0,0,0,0,0]}, thoughtCycles: [], executionTimeMs: 0 });
               return `Defined concept: ${term}`;
           }
       }

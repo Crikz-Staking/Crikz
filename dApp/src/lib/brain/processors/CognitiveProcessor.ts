@@ -37,11 +37,10 @@ export class CognitiveProcessor {
         workingCluster: null
     };
 
-    // Default Generative Settings (The "Model Config")
     const defaultHyperParams: HyperParameters = {
-        temperature: 0.7, // Balanced creativity
-        topK: 5,          // Consider top 5 tokens
-        contextSize: 20   // Rolling window
+        temperature: 0.7,
+        topK: 5,
+        contextSize: 20
     };
 
     let state: BrainState = {
@@ -50,11 +49,8 @@ export class CognitiveProcessor {
       activationMap: {},
       attentionState: emptyAttention, 
       generatedClusters: [],
-      
-      // LLM State
       contextWindow: [],
       hyperParameters: defaultHyperParams,
-
       shortTermMemory: [],
       midTermMemory: [],
       longTermMemory: [],
@@ -74,7 +70,6 @@ export class CognitiveProcessor {
         try {
             const base = JSON.parse(baseJson);
             state = { ...state, ...base };
-            // Hydrate missing structures if they didn't exist in base JSON
             if(!state.attentionState) state.attentionState = emptyAttention;
             if(!state.generatedClusters) state.generatedClusters = [];
             if(!state.contextWindow) state.contextWindow = [];
@@ -102,17 +97,19 @@ export class CognitiveProcessor {
     return state;
   }
 
-  // --- LLM MODEL UTILS ---
-  
+  // --- CONNECTIVITY METHOD (FIX FOR TS2339) ---
+  public toggleNeuralLink(active: boolean) {
+      this.state.connectivity.isConnected = active;
+      if (!active) this.state.connectivity.bandwidthUsage = 0;
+  }
+
   public updateContextWindow(newTokens: NeuralToken[]) {
       this.state.contextWindow = [...this.state.contextWindow, ...newTokens];
-      // Maintain sliding window size
       if (this.state.contextWindow.length > this.state.hyperParameters.contextSize) {
           this.state.contextWindow = this.state.contextWindow.slice(-this.state.hyperParameters.contextSize);
       }
   }
 
-  // --- FEDERATED LEARNING MERGE ---
   public mergeExternalState(remoteState: any) {
       if (!remoteState) return;
       if (remoteState.concepts) Object.assign(this.state.concepts, remoteState.concepts);
@@ -124,8 +121,6 @@ export class CognitiveProcessor {
               if (!currentSigs.has(sig)) {
                   this.state.relations.push(r);
               } else {
-                  // FEDERATED WEIGHT UPDATE:
-                  // Average the strength between local and remote model to create consensus
                   const existing = this.state.relations.find(er => `${er.from}-${er.to}-${er.type}` === sig);
                   if (existing) {
                       existing.strength = (existing.strength + r.strength) / 2;
