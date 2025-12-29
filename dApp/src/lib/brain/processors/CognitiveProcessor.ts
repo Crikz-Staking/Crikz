@@ -41,9 +41,9 @@ export class CognitiveProcessor {
       concepts: { ...ATOMIC_PRIMITIVES, ...knowledgeModules.concepts },
       relations: [...ATOMIC_RELATIONS, ...knowledgeModules.relations],
       activationMap: {},
-      attentionState: emptyAttention, // <--- New
-      attentionFocus: null, // Legacy, kept for typing compatibility
-      generatedClusters: [], // <--- New
+      attentionState: emptyAttention, 
+      // ERROR FIXED: Removed attentionFocus: null assignment
+      generatedClusters: [],
       shortTermMemory: [],
       midTermMemory: [],
       longTermMemory: [],
@@ -63,7 +63,6 @@ export class CognitiveProcessor {
         try {
             const base = JSON.parse(baseJson);
             state = { ...state, ...base };
-            // Ensure deep merge for new structure if missing in old JSON
             if(!state.attentionState) state.attentionState = emptyAttention;
             if(!state.generatedClusters) state.generatedClusters = [];
             
@@ -89,12 +88,9 @@ export class CognitiveProcessor {
     return state;
   }
 
-  // --- NEW: SEMANTIC CLUSTERING (HIERARCHY BUILDER) ---
-  // This simulates "Abstract Thought" by grouping related active concepts into a Higher-Order Node
   public formAbstractCluster(activeNodes: string[]): string | null {
       if (activeNodes.length < 3) return null;
 
-      // 1. Find a centroid (most connected node)
       let bestNode = activeNodes[0];
       let maxConnections = 0;
 
@@ -106,7 +102,6 @@ export class CognitiveProcessor {
           }
       });
 
-      // 2. Create the Cluster
       const clusterId = `cluster_${Date.now()}`;
       const cluster: ConceptCluster = {
           id: clusterId,
@@ -118,11 +113,9 @@ export class CognitiveProcessor {
 
       this.state.generatedClusters.push(cluster);
       
-      // Update Attention
       this.state.attentionState.workingCluster = cluster;
       this.state.attentionState.semanticFocus = bestNode;
 
-      // Clean up old clusters
       if (this.state.generatedClusters.length > 5) {
           this.state.generatedClusters.shift();
       }
@@ -132,7 +125,6 @@ export class CognitiveProcessor {
 
   public mergeExternalState(remoteState: any) {
       if (remoteState.concepts) Object.assign(this.state.concepts, remoteState.concepts);
-      // Simplify merge logic for stability
       this.state.lastBlockchainSync = Date.now();
   }
 
@@ -262,10 +254,6 @@ export class CognitiveProcessor {
   public wipeLocalMemory() { this.state = this.initializeState(); }
   
   public stimulateNetwork(seedIds: string[], energyLevel: number): Record<string, number> {
-    // Advanced Activation Spreading
-    // If energy is high, activate distant relatives (creative thought)
-    // If energy is low, keep activation tight (logical thought)
-    
     const spreadLimit = energyLevel > 80 ? 3 : 1; 
     const queue: { id: string, energy: number, depth: number }[] = [];
     
@@ -287,9 +275,8 @@ export class CognitiveProcessor {
         const neighborId = rel.from === current.id ? rel.to : rel.from;
         if (!this.state.concepts[neighborId]) continue;
 
-        // Weight decay based on connection type
         let weight = rel.strength;
-        if (rel.type === 'antonym') weight *= 0.1; // Inhibitory
+        if (rel.type === 'antonym') weight *= 0.1; 
         
         const transfer = current.energy * weight * 0.8;
         const existing = this.state.activationMap[neighborId] || 0;
@@ -325,7 +312,6 @@ export class CognitiveProcessor {
     return [...new Set(path)];
   }
 
-  // Legacy kept for interface compatibility, mostly no-op now handled by formAbstractCluster
   public clusterConcepts(): string | null { return null; }
   public prioritizedSynthesis(): string | null { return null; }
   public deepenKnowledge(): string | null { return null; }

@@ -40,7 +40,7 @@ export interface BlockchainMemory {
   triggerEvent: string;
 }
 
-// --- NEW: HIERARCHICAL STRUCTURES ---
+// --- HIERARCHICAL STRUCTURES ---
 export interface ConceptCluster {
   id: string;
   centerConcept: string; // The "Topic"
@@ -49,7 +49,7 @@ export interface ConceptCluster {
   lastActivated: number;
 }
 
-// --- NEW: MULTI-HEAD ATTENTION ---
+// --- MULTI-HEAD ATTENTION ---
 export interface AttentionState {
   semanticFocus: string | null;  // What are we talking about? (e.g., "yield")
   emotionalFocus: string | null; // What do we feel? (e.g., "anxiety")
@@ -62,9 +62,9 @@ export interface BrainState {
   relations: ConceptRelation[];
   activationMap: Record<string, number>; 
   
-  // Replaced simple attentionFocus with full AttentionState
+  // NOTE: attentionFocus removed, replaced by attentionState
   attentionState: AttentionState;       
-  generatedClusters: ConceptCluster[]; // Dynamic hierarchies
+  generatedClusters: ConceptCluster[]; 
 
   shortTermMemory: Memory[];
   midTermMemory: Memory[];
@@ -201,7 +201,7 @@ export interface IntegratedContext {
     evolutionStage: string;
     unsavedCount: number;
     drives: InternalDrives;
-    attentionState: AttentionState; // <--- Upgraded
+    attentionState: AttentionState; // Corrected: Uses attentionState, not currentFocus
     currentArchetype: PersonaArchetype;
   };
   computationResult?: string | number | null;

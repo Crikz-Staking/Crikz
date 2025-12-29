@@ -43,17 +43,15 @@ export class ResultProcessor {
         computationResult = this.solveMath(input.cleanedInput);
     }
 
-    // 2. Logic Inference Processing (For "Why/Explain" queries)
+    // 2. Logic Inference Processing
     if (input.intent === 'PHILOSOPHY' || input.intent === 'EXPLANATION') {
         if (input.keywords.length > 0) {
             const startNode = input.keywords[0].id;
             const endNode = input.keywords.length > 1 ? input.keywords[1].id : null;
             
-            // Run pathfinding on the brain's relation graph
             const logicPath = this.simulator.inferRelationship(startNode, endNode, brainState.relations);
             
             if (logicPath) {
-                // Construct natural language from path
                 let thoughtChain = `I trace a connection: ${logicPath.nodes[0]}`;
                 for(let i=0; i<logicPath.relations.length; i++) {
                     const rel = logicPath.relations[i].replace(/_/g, ' ');
@@ -78,11 +76,11 @@ export class ResultProcessor {
         evolutionStage: brainState.evolutionStage,
         unsavedCount: brainState.unsavedDataCount,
         drives: brainState.drives,
-        currentFocus: brainState.attentionFocus,
+        attentionState: brainState.attentionState, // ERROR FIXED: Maps correctly to AttentionState
         currentArchetype: brainState.currentArchetype || 'OPERATOR' 
       },
       computationResult,
-      inferredLogic // <--- Attached logic path
+      inferredLogic 
     };
   }
 
@@ -90,6 +88,7 @@ export class ResultProcessor {
       try {
           let clean = text
             .replace(/what is/g, '')
+            .replace(/Calculate/g, '')
             .replace(/calculate/g, '')
             .replace(/plus/g, '+')
             .replace(/minus/g, '-')
