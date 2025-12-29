@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
     Brain, Activity, Wifi, Database, GitBranch, Cpu, 
@@ -48,9 +48,9 @@ interface NeuralDashboardProps {
     trainConcept?: (concept: AtomicConcept) => void;
     simpleTrain?: (text: string) => void;
     toggleNeuralLink?: (active: boolean) => void;
-    crystallize?: () => void; // New Prop
-    uploadFile?: (content: string) => void; // New Prop
-    isSyncing?: boolean; // New Prop
+    crystallize?: () => void;
+    uploadFile?: (content: string) => void;
+    isSyncing?: boolean;
 }
 
 export default function NeuralDashboard({ 
@@ -61,7 +61,6 @@ export default function NeuralDashboard({
     const [view, setView] = useState<'monitor' | 'synapse' | 'cortex' | 'matrix' | 'timeline'>('monitor');
     const { isConnected, stamina, bandwidthUsage } = brainStats.connectivity;
     
-    // We instantiate hook here just for restore capability on timeline
     const { restoreMemory } = useCrikzlingV3(); 
 
     if (!isOpen) return null;
@@ -195,7 +194,6 @@ function MonitorView({ stats, logs, crystallize, isSyncing }: { stats: any, logs
                         <Brain size={48} className={isConnected ? 'text-primary-500' : 'text-gray-600'} />
                     </motion.div>
 
-                    {/* NEW: Quick Action Crystallize */}
                     {crystallize && (
                         <button 
                             onClick={crystallize}
@@ -228,8 +226,6 @@ function MonitorView({ stats, logs, crystallize, isSyncing }: { stats: any, logs
 function SynapseView({ onTrain, onUpload, lastLog }: { onTrain: (txt: string) => void, onUpload?: (txt: string) => void, lastLog?: CognitiveLogEntry }) {
     const [mode, setMode] = useState<'atomic' | 'corpus' | 'upload'>('atomic');
     const [input, setInput] = useState('');
-    
-    // File Input Ref
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleTrain = () => { if (!input.trim()) return; onTrain(input); setInput(''); };
@@ -299,12 +295,10 @@ function SynapseView({ onTrain, onUpload, lastLog }: { onTrain: (txt: string) =>
     );
 }
 
-// --- NEW COMPONENT: TIMELINE VIEW ---
 function TimelineView({ isOwner, onRestore }: { isOwner: boolean, onRestore: (s: MemorySnapshot) => void }) {
     const { timeline, loading, refresh } = useMemoryTimeline();
     const [selectedDate, setSelectedDate] = useState(new Date().toDateString());
 
-    // 1. Group by Date
     const grouped = useMemo(() => {
         const groups: Record<string, MemorySnapshot[]> = {};
         timeline.forEach(snap => {
@@ -315,7 +309,6 @@ function TimelineView({ isOwner, onRestore }: { isOwner: boolean, onRestore: (s:
         return groups;
     }, [timeline]);
 
-    // 2. Navigation
     const availableDates = Object.keys(grouped).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
     const currentIndex = availableDates.indexOf(selectedDate);
     
@@ -326,6 +319,7 @@ function TimelineView({ isOwner, onRestore }: { isOwner: boolean, onRestore: (s:
         if (currentIndex > 0) setSelectedDate(availableDates[currentIndex - 1]);
     };
 
+    // If no data is loaded yet, default to today, but don't crash
     const currentSnapshots = grouped[selectedDate] || [];
 
     return (
@@ -342,7 +336,6 @@ function TimelineView({ isOwner, onRestore }: { isOwner: boolean, onRestore: (s:
                 </button>
             </div>
 
-            {/* Date Navigator */}
             <div className="flex items-center justify-between bg-black/30 p-2 rounded-xl mb-4 border border-white/5">
                 <button onClick={handlePrevDay} disabled={currentIndex >= availableDates.length - 1} className="p-2 hover:bg-white/10 rounded-lg disabled:opacity-30"><ChevronLeft size={16}/></button>
                 <div className="flex items-center gap-2 text-sm font-bold text-white">
@@ -397,8 +390,6 @@ function TimelineView({ isOwner, onRestore }: { isOwner: boolean, onRestore: (s:
         </div>
     );
 }
-
-// ... [Keep CortexView, MatrixView, NetworkTerminal, AccessDenied, Utils as they were] ...
 
 function CortexView({ logs }: { logs: CognitiveLogEntry[] }) {
     const [selected, setSelected] = useState<CognitiveLogEntry | null>(logs[0] || null);
