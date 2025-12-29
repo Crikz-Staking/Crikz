@@ -25,13 +25,14 @@ export class CrikzlingBrainV3 {
     };
   }
 
-  // No initialization needed anymore!
+  // No initialization needed for API
   public async initLLM() { return; }
   public setInitProgressCallback(cb: any) { cb({ text: "Connected to Neural Cloud", progress: 1 }); }
 
   public async process(text: string, isOwner: boolean, dappContext?: DAppContext): Promise<{ response: string; actionPlan: ActionPlan }> { 
     
     // 1. RAG: Retrieve Context (Local Vector Search)
+    // This runs locally in browser to find relevant memories before sending to API
     const relevantMemories = await this.memory.retrieve(text, 3);
     const memoryContext = relevantMemories.map(m => `[Memory]: ${m.content}`).join("\n");
 
@@ -58,6 +59,8 @@ export class CrikzlingBrainV3 {
 
     // 3. Call Groq API (Llama 3)
     try {
+        if (!GROQ_API_KEY) throw new Error("Missing API Key");
+
         const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",
             headers: {
@@ -92,7 +95,7 @@ export class CrikzlingBrainV3 {
     } catch (error) {
         console.error("Groq API Error:", error);
         return { 
-            response: "I cannot reach the neural cloud. Please check your connection.", 
+            response: "I cannot reach the neural cloud. Please check your connection or API Key.", 
             actionPlan: { type: 'RESPOND_NATURAL', requiresBlockchain: false, priority: 0, reasoning: 'Error' } 
         };
     }
