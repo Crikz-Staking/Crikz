@@ -25,18 +25,25 @@ export class CrikzlingBrainV3 {
     };
   }
 
-  // No initialization needed for API
   public async initLLM() { return; }
   public setInitProgressCallback(cb: any) { cb({ text: "Connected to Neural Cloud", progress: 1 }); }
 
   public async process(text: string, isOwner: boolean, dappContext?: DAppContext): Promise<{ response: string; actionPlan: ActionPlan }> { 
     
-    // 1. RAG: Retrieve Context (Local Vector Search)
-    // This runs locally in browser to find relevant memories before sending to API
+    // 1. Debugging: Check if Key exists (Do not log the actual key for security)
+    if (!GROQ_API_KEY) {
+        console.error("❌ VITE_GROQ_API_KEY is missing in environment variables.");
+        return { 
+            response: "System Error: Neural API Key is missing. Please check Vercel environment variables.", 
+            actionPlan: { type: 'RESPOND_NATURAL', requiresBlockchain: false, priority: 0, reasoning: 'Config Error' } 
+        };
+    }
+
+    // 2. RAG: Retrieve Context
     const relevantMemories = await this.memory.retrieve(text, 3);
     const memoryContext = relevantMemories.map(m => `[Memory]: ${m.content}`).join("\n");
 
-    // 2. Construct System Prompt
+    // 3. Construct System Prompt
     const systemPrompt = `
       You are Crikzling, an autonomous AI agent living on the BSC Blockchain.
       You are helpful, slightly cryptic, and obsessed with the Golden Ratio (Phi).
@@ -57,10 +64,8 @@ export class CrikzlingBrainV3 {
       - Keep responses under 3 sentences unless asked for detail.
     `;
 
-    // 3. Call Groq API (Llama 3)
+    // 4. Call Groq API
     try {
-        if (!GROQ_API_KEY) throw new Error("Missing API Key");
-
         const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",
             headers: {
@@ -79,23 +84,34 @@ export class CrikzlingBrainV3 {
             })
         });
 
-        const data = await response.json();
-        const content = data.choices?.[0]?.message?.content || "Neural Link Unstable.";
+        // ERROR HANDLING: Check if API returned an error (401, 400, 500)
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error("❌ Groq API Error:", errorData);
+            throw new Error(errorData.error?.message || `API Error: ${response.status}`);
+        }
 
-        // 4. Parse Action
+        const data = await response.json();
+        const content = data.choices?.[0]?.message?.content;
+
+        if (!content) {
+            throw new Error("Empty response from Neural Cloud");
+        }
+
+        // 5. Parse Action
         const actionPlan = this.parseAction(content);
         
-        // 5. Save Interaction
+        // 6. Save Interaction
         await this.memory.store('user', text, dappContext);
         await this.memory.store('bot', content, dappContext);
         this.state.unsavedDataCount++;
 
         return { response: content, actionPlan };
 
-    } catch (error) {
-        console.error("Groq API Error:", error);
+    } catch (error: any) {
+        console.error("Cognitive Failure:", error);
         return { 
-            response: "I cannot reach the neural cloud. Please check your connection or API Key.", 
+            response: `[SYSTEM ERROR]: ${error.message || "Neural Link Failed"}`, 
             actionPlan: { type: 'RESPOND_NATURAL', requiresBlockchain: false, priority: 0, reasoning: 'Error' } 
         };
     }
@@ -123,7 +139,6 @@ export class CrikzlingBrainV3 {
     return { type: 'RESPOND_NATURAL', requiresBlockchain: false, priority: 1, reasoning: 'Conversation' };
   }
 
-  // --- Utility Methods ---
   public exportFullState(): string { return JSON.stringify(this.memory.exportState()); }
   public exportDiffState(): string { return this.exportFullState(); }
   public needsCrystallization(): boolean { return this.state.unsavedDataCount > 0; }

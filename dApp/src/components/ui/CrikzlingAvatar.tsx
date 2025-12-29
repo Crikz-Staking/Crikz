@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Minimize2, Save, Brain, Loader2, Cpu } from 'lucide-react';
+import { Send, Minimize2, Save, Brain, Cpu } from 'lucide-react';
 import { useCrikzlingV3 } from '@/hooks/useCrikzlingV3';
 import { GeometricCore } from './CrikzlingVisuals';
 
@@ -11,17 +11,17 @@ export default function CrikzlingAvatar() {
   
   const { 
     messages, sendMessage, crystallize, needsSave, isSyncing, 
-    brainStats, isThinking, loadProgress, isModelReady
+    isThinking
   } = useCrikzlingV3();
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
     }
-  }, [messages, loadProgress]);
+  }, [messages]);
 
   const handleSend = async () => {
-    if (!input.trim() || isThinking || !isModelReady) return;
+    if (!input.trim() || isThinking) return;
     const text = input;
     setInput('');
     await sendMessage(text);
@@ -36,8 +36,7 @@ export default function CrikzlingAvatar() {
 
   const coreState = isSyncing ? 'crystallizing' 
                   : isThinking ? 'thinking' 
-                  : isModelReady ? 'connected'
-                  : 'idle';
+                  : 'connected';
 
   return (
     <>
@@ -77,8 +76,8 @@ export default function CrikzlingAvatar() {
                     <div className="w-8 h-8"><GeometricCore state={coreState} /></div>
                     <div>
                         <h3 className="text-white font-black text-sm">CRIKZLING AI</h3>
-                        <div className="text-[10px] text-gray-400 font-mono flex items-center gap-1">
-                            {isModelReady ? <span className="text-emerald-400">LLAMA-3 ONLINE</span> : <span className="text-amber-500">INITIALIZING...</span>}
+                        <div className="text-[10px] text-emerald-400 font-mono flex items-center gap-1">
+                            ONLINE (GROQ-LPU)
                         </div>
                     </div>
                 </div>
@@ -87,29 +86,9 @@ export default function CrikzlingAvatar() {
                 </button>
             </div>
 
-            {/* Loading Bar */}
-            {!isModelReady && (
-                <div className="px-6 py-4 bg-black/40 border-b border-white/5">
-                    <div className="flex justify-between text-[10px] text-primary-500 font-bold mb-1 uppercase">
-                        <span>Downloading Neural Weights</span>
-                        <Loader2 size={10} className="animate-spin"/>
-                    </div>
-                    <div className="text-[9px] text-gray-500 font-mono mb-2 truncate">{loadProgress}</div>
-                    <div className="h-1 bg-white/10 rounded-full overflow-hidden">
-                        <motion.div 
-                            className="h-full bg-primary-500" 
-                            layoutId="loader"
-                            // Simple animation since we don't have exact % from string easily
-                            animate={{ x: [-100, 0] }}
-                            transition={{ repeat: Infinity, duration: 1 }}
-                        />
-                    </div>
-                </div>
-            )}
-
             {/* Chat Area */}
             <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide">
-                {messages.length === 0 && isModelReady && (
+                {messages.length === 0 && (
                     <div className="text-center opacity-30 mt-20">
                         <Cpu size={40} className="mx-auto mb-2"/>
                         <p className="text-xs font-bold">SYSTEM READY</p>
@@ -141,13 +120,13 @@ export default function CrikzlingAvatar() {
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={handleKeyPress}
-                        placeholder={isModelReady ? "Ask Crikzling..." : "Loading Model..."}
-                        disabled={!isModelReady || isThinking}
+                        placeholder="Ask Crikzling..."
+                        disabled={isThinking}
                         className="flex-1 bg-transparent border-none text-white text-sm px-2 py-3 focus:outline-none placeholder-gray-600 disabled:cursor-not-allowed"
                     />
                     <button 
                         onClick={handleSend}
-                        disabled={!input.trim() || !isModelReady}
+                        disabled={!input.trim()}
                         className="p-2 bg-primary-500 text-black rounded-lg hover:bg-primary-400 disabled:opacity-50 transition-all"
                     >
                         <Send size={16} />

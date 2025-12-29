@@ -18,7 +18,7 @@ export function useCrikzlingV3() {
   const [isThinking, setIsThinking] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   
-  // Always ready now
+  // Always ready with API
   const isModelReady = true;
   const loadProgress = "";
 
