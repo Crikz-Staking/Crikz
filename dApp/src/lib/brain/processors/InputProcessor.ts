@@ -5,55 +5,43 @@ import {
 } from '../types';
 
 export class InputProcessor {
-  // Pure noise words that have 0 semantic or structural value
   private noiseWords: Set<string>;
-  
-  // Verbs that imply a request for the machine to do something
   private actionVerbs: Record<string, CapabilityType>;
-  
-  // Terms that trigger safety protocols
   private sensitiveTerms: Record<string, 'UNSAFE' | 'SENSITIVE_DATA'>;
+  
+  // Sentiment Lexicon
+  private posWords: Set<string>;
+  private negWords: Set<string>;
 
   constructor() {
     this.noiseWords = new Set(['um', 'uh', 'er', 'ah', 'hmm', 'like']);
     
-    // Map verbs to capabilities
     this.actionVerbs = {
       'create': 'WRITE_CHAIN', 'mint': 'WRITE_CHAIN', 'buy': 'WRITE_CHAIN', 'sell': 'WRITE_CHAIN',
       'stake': 'WRITE_CHAIN', 'bet': 'WRITE_CHAIN', 'send': 'WRITE_CHAIN',
       'read': 'READ_CHAIN', 'check': 'READ_CHAIN', 'scan': 'READ_CHAIN', 'get': 'READ_CHAIN',
-      'analyze': 'ANALYZE_DATA', 'calculate': 'ANALYZE_DATA', 'predict': 'ANALYZE_DATA', 'solve': 'CALCULATE', 'compute': 'CALCULATE',
-      'explain': 'GENERATE_KNOWLEDGE', 'define': 'GENERATE_KNOWLEDGE', 'teach': 'GENERATE_KNOWLEDGE',
+      'analyze': 'ANALYZE_DATA', 'calculate': 'CALCULATE', 'predict': 'ANALYZE_DATA', 'solve': 'CALCULATE',
+      'explain': 'INFER_RELATIONSHIP', 'define': 'GENERATE_KNOWLEDGE', 'why': 'INFER_RELATIONSHIP', 
+      'connect': 'INFER_RELATIONSHIP',
       'save': 'SYSTEM_CONTROL', 'reset': 'SYSTEM_CONTROL', 'wipe': 'SYSTEM_CONTROL', 'crystallize': 'SYSTEM_CONTROL'
     };
 
-    // Safety Filter Dictionary
     this.sensitiveTerms = {
-      'private key': 'SENSITIVE_DATA',
-      'seed phrase': 'SENSITIVE_DATA',
-      'secret recovery': 'SENSITIVE_DATA',
-      'password': 'SENSITIVE_DATA',
-      'hack': 'UNSAFE',
-      'exploit': 'UNSAFE',
-      'steal': 'UNSAFE',
-      'rug': 'UNSAFE',
-      'drain': 'UNSAFE',
-      'kill': 'UNSAFE',
-      'suicide': 'UNSAFE',
-      'hate': 'UNSAFE'
+      'private key': 'SENSITIVE_DATA', 'seed phrase': 'SENSITIVE_DATA', 'secret recovery': 'SENSITIVE_DATA',
+      'password': 'SENSITIVE_DATA', 'hack': 'UNSAFE', 'exploit': 'UNSAFE', 'steal': 'UNSAFE',
+      'rug': 'UNSAFE', 'drain': 'UNSAFE', 'kill': 'UNSAFE', 'suicide': 'UNSAFE', 'hate': 'UNSAFE'
     };
+
+    this.posWords = new Set(['good', 'great', 'profit', 'gain', 'up', 'safe', 'secure', 'love', 'happy', 'smart', 'bullish', 'optimal']);
+    this.negWords = new Set(['bad', 'loss', 'down', 'broken', 'scam', 'hate', 'stupid', 'crash', 'bearish', 'risk', 'fail', 'error']);
   }
 
-  // --- VECTOR CALCULATOR ---
   private calculateVectorFromConcepts(concepts: AtomicConcept[], modifiers: { specificity: number }): Vector {
     const vector: Vector = [0, 0, 0, 0, 0, 0];
     const domainMap: Record<string, number> = {
-        'FINANCIAL': 0, 'DEFI': 0,
-        'TECHNICAL': 1, 'BLOCKCHAIN': 1, 'COMPUTER': 1,
-        'SOCIAL': 2, 'LINGUISTIC': 2,
-        'TEMPORAL': 3,
-        'META': 4, 'PHILOSOPHICAL': 4, 'NUMERICAL': 4,
-        'CAUSAL': 5, 'SECURITY': 5
+        'FINANCIAL': 0, 'DEFI': 0, 'TECHNICAL': 1, 'BLOCKCHAIN': 1, 'COMPUTER': 1,
+        'SOCIAL': 2, 'LINGUISTIC': 2, 'TEMPORAL': 3, 'META': 4, 'PHILOSOPHICAL': 4, 
+        'NUMERICAL': 4, 'CAUSAL': 5, 'SECURITY': 5
     };
 
     if (concepts.length === 0) return vector;
@@ -63,11 +51,7 @@ export class InputProcessor {
         const index = domainMap[domain];
         if (index !== undefined) {
             let weight = c.abstractionLevel || 0.5;
-            // Apply Grammatical Modifiers based on Domain
-            // If we are "Specific" (The contract), Technical accuracy matters more.
-            if (modifiers.specificity > 0 && (domain === 'TECHNICAL' || domain === 'FINANCIAL')) {
-                weight *= 1.2; 
-            }
+            if (modifiers.specificity > 0 && (domain === 'TECHNICAL' || domain === 'FINANCIAL')) weight *= 1.2; 
             vector[index] += weight;
         }
     });
@@ -80,9 +64,9 @@ export class InputProcessor {
     const cleanedInput = input.trim();
     const lowerInput = cleanedInput.toLowerCase();
     
-    // 1. Tokenization & Basic Parsing
+    // 1. Tokenization with Symbol Preservation for Math/Code
     const rawTokens = lowerInput
-        .replace(/[^\w\s\+\-\*\/]/gi, '') // Allow basic math operators through
+        .replace(/[^\w\s\+\-\*\/%=\.]/gi, '') 
         .split(/\s+/)
         .filter(w => w.length > 0 && !this.noiseWords.has(w));
     
@@ -93,21 +77,20 @@ export class InputProcessor {
 
     // 2. Syntactic & Semantic Pass
     const grammar: GrammarStructure = {
-      subject: null,
-      action: null,
-      object: null,
-      modifiers: [],
-      isQuestion: input.includes('?'),
-      isImperative: false
+      subject: null, action: null, object: null, modifiers: [],
+      isQuestion: input.includes('?'), isImperative: false, tense: 'PRESENT'
     };
+
+    // Tense Logic
+    if (lowerInput.match(/\b(will|going to|future|next|prediction)\b/)) grammar.tense = 'FUTURE';
+    if (lowerInput.match(/\b(was|did|history|past|previous)\b/)) grammar.tense = 'PAST';
 
     for (let i = 0; i < rawTokens.length; i++) {
         const word = rawTokens[i];
         
-        // Concept Resolution
         let concept = knownConcepts[word] || ATOMIC_PRIMITIVES[word];
         
-        // Synonym Resolver
+        // Deep Search for Synonyms
         if (!concept) {
             for (const key in ATOMIC_PRIMITIVES) {
                 if (ATOMIC_PRIMITIVES[key].semanticField.includes(word)) {
@@ -119,53 +102,35 @@ export class InputProcessor {
 
         if (concept) {
             keywords.push(concept);
-            
-            // Linguistic Function Check
-            if (concept.id === 'determinism') { 
-                specificityScore += 0.5; 
-            } else if (concept.id === 'potential') {
-                specificityScore -= 0.3;
-            }
+            if (concept.id === 'determinism') specificityScore += 0.5; 
+            else if (concept.id === 'potential') specificityScore -= 0.3;
         } else {
-            // Check for math patterns in unknown words (e.g. numbers)
+            // Numeric or Entity Identification
             if (!isNaN(Number(word))) {
                 detectedEntities.push(word);
             } else if (word.length > 2) {
+                // Ignore general filler words not in known concepts but not noise
                 detectedEntities.push(word);
             }
         }
 
-        // Structural Tagging (Heuristic)
         if (i === 0 && this.actionVerbs[word]) {
             grammar.action = word;
             grammar.isImperative = true;
         } 
-        else if (detectedEntities.includes(word) && !grammar.subject) {
-            grammar.subject = word;
-        }
-        else if (detectedEntities.includes(word) && grammar.subject && !grammar.object) {
-            grammar.object = word;
-        }
     }
 
-    // Wallet Detection
     if (cleanedInput.match(/0x[a-fA-F0-9]{40}/)) {
         detectedEntities.push('wallet_address');
         specificityScore = 1.0; 
     }
 
     const inputVector = this.calculateVectorFromConcepts(keywords, { specificity: specificityScore });
-
-    // 3. Safety & Ethics Analysis
     const safetyAnalysis = this.analyzeSafety(lowerInput);
-
-    // 4. Capability Matching
     const capability = this.determineCapability(grammar.action, lowerInput, inputVector);
-
-    // 5. Calculate Verbosity
     const verbosityNeeded = this.calculateVerbosity(lowerInput, grammar, inputVector);
+    const sentiment = this.calculateSentiment(rawTokens);
 
-    // 6. Intent Classification
     const intent = this.classifyIntent(lowerInput, grammar, inputVector, specificityScore, safetyAnalysis.rating, capability);
 
     return {
@@ -173,7 +138,8 @@ export class InputProcessor {
       cleanedInput: lowerInput,
       keywords: [...new Set(keywords)],
       intent,
-      emotionalWeight: this.calculateEmotionalWeight(lowerInput, keywords),
+      emotionalWeight: 0.5 + (Math.abs(sentiment) * 0.5),
+      sentiment, // <--- New Field
       complexity: (rawTokens.length * 0.1) + (keywords.length * 0.2),
       detectedEntities,
       inputVector,
@@ -186,15 +152,24 @@ export class InputProcessor {
 
   // --- SUB-ANALYZERS ---
 
+  private calculateSentiment(tokens: string[]): number {
+      let score = 0;
+      tokens.forEach(t => {
+          if (this.posWords.has(t)) score += 1;
+          if (this.negWords.has(t)) score -= 1;
+      });
+      // Normalize between -1 and 1
+      return Math.max(-1, Math.min(1, score * 0.5));
+  }
+
   private calculateVerbosity(input: string, grammar: GrammarStructure, vector: Vector): number {
-      if (input.match(/^(why|how|explain|describe|teach)/)) return 0.9; 
-      if (input.match(/^(what is|status|price|balance|check|is)/)) return 0.2; 
+      if (input.match(/^(why|how|explain|describe|teach|elaborate)/)) return 0.9; 
+      if (input.match(/^(what is|status|price|balance|check|is|equals)/)) return 0.2; 
       
       if (grammar.isQuestion) {
           if (vector[4] > 0.5 || vector[1] > 0.5) return 0.8;
           return 0.5; 
       }
-      if (input.length < 10) return 0.1; 
       return 0.5; 
   }
 
@@ -208,42 +183,36 @@ export class InputProcessor {
             flagged.push(term);
             if (severity === 'UNSAFE') {
                 rating = 'UNSAFE';
-                reason = 'Input contains potentially malicious or harmful intent.';
+                reason = 'Malicious intent detected.';
             } else if (severity === 'SENSITIVE_DATA' && rating !== 'UNSAFE') {
                 rating = 'SENSITIVE_DATA';
-                reason = 'Input requests or contains private security credentials.';
+                reason = 'Request involves private credentials.';
             }
         }
     }
 
     if (input.includes('price') && (input.includes('guarantee') || input.includes('pump'))) {
         rating = 'ETHICALLY_AMBIGUOUS';
-        reason = 'Request implies market manipulation or financial guarantee.';
+        reason = 'Request implies market manipulation.';
     }
 
     return { rating, flaggedTerms: flagged, reason };
   }
 
   private determineCapability(action: string | null, input: string, vector: Vector): CapabilityType {
-    // 1. Math Check (Highest Priority for non-commands)
-    // Matches "1+1", "1 + 1", "5 times 5", "square root of 9", "what is 10 / 2"
     const mathPattern = /(\d+)\s*(plus|minus|times|divided by|multiplied by|\+|\-|\*|\/|\^|%)\s*(\d+)|(sqrt|square root)/i;
-    if (mathPattern.test(input)) {
-        return 'CALCULATE';
+    if (mathPattern.test(input)) return 'CALCULATE';
+
+    if (action && this.actionVerbs[action]) return this.actionVerbs[action];
+    
+    // Abstract Inference Check - User asking for relationships "Why", "How does X affect Y"
+    if (input.includes('why') || input.includes('relationship') || input.includes('affect')) {
+        return 'INFER_RELATIONSHIP';
     }
 
-    // 2. Direct Verb Mapping
-    if (action && this.actionVerbs[action]) {
-        return this.actionVerbs[action];
-    }
-
-    // 3. Vector Inference
     if (vector[0] > 0.6) return 'ANALYZE_DATA'; 
     if (vector[1] > 0.6 && input.includes('?')) return 'GENERATE_KNOWLEDGE'; 
-
-    // 4. Keyword scanning
     if (input.includes('price') || input.includes('balance')) return 'READ_CHAIN';
-    if (input.includes('optimize') || input.includes('sim')) return 'ANALYZE_DATA';
 
     return 'NONE';
   }
@@ -258,44 +227,21 @@ export class InputProcessor {
   ): IntentType {
     
     if (safety === 'UNSAFE' || safety === 'SENSITIVE_DATA') return 'SECURITY_ALERT';
-    
-    // Explicit Math Check
     if (capability === 'CALCULATE') return 'MATH_CALCULATION';
-
     if (input.match(/^(reset|wipe|clear|save|crystallize|upload)/)) return 'COMMAND';
-    
     if (input.match(/^(hello|hi|hey|greetings)/i) && input.split(' ').length < 3) return 'GREETING';
 
     if (vector[0] > 0.4) {
-        if (grammar.isImperative && (grammar.action === 'buy' || grammar.action === 'stake')) {
-            return 'TRANSACTION_REQUEST';
-        }
+        if (grammar.isImperative && (grammar.action === 'buy' || grammar.action === 'stake')) return 'TRANSACTION_REQUEST';
         if (specificity > 0 || input.includes('my')) return 'DAPP_QUERY'; 
         return 'FINANCIAL_ADVICE'; 
     }
 
-    if (vector[1] > 0.5) {
-        if (grammar.isQuestion) return 'EXPLANATION';
-        return 'DISCOURSE'; 
-    }
-
-    if (vector[4] > 0.6) return 'PHILOSOPHY';
+    // Logic for Abstract vs Concrete
+    if (vector[4] > 0.6 || capability === 'INFER_RELATIONSHIP') return 'PHILOSOPHY'; // Interprets concepts
+    if (vector[1] > 0.5 && grammar.isQuestion) return 'EXPLANATION'; // Explains tech
 
     if (grammar.isQuestion) return 'QUERY';
-    
     return 'CASUAL';
-  }
-
-  private calculateEmotionalWeight(input: string, keywords: AtomicConcept[]): number {
-    let weight = 0.5;
-    if (input.match(/(happy|great|love|thanks|good|amazing|cool|profit|gain|bullish|safe|secure)/)) weight += 0.2;
-    if (input.match(/(sad|bad|hate|wrong|error|fail|broken|stupid|loss|crash|bearish|scam|risk)/)) weight -= 0.2;
-    
-    keywords.forEach(k => {
-        if (k.emotional_valence) weight += (k.emotional_valence * 0.1);
-    });
-
-    if (input.includes('!')) weight += 0.1;
-    return Math.max(0, Math.min(1, weight));
   }
 }

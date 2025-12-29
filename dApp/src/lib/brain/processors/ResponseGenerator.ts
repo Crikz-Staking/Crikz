@@ -11,25 +11,20 @@ export class ResponseGenerator {
   public generateDeep(context: IntegratedContext): string {
     const { actionPlan, input } = context;
     
-    // 1. Immediate Safety/System Overrides (Skip Persona for critical alerts)
     if (actionPlan.type === 'REFUSE_UNSAFE') {
-        return `[SAFETY PROTOCOL]: ${actionPlan.reasoning}`; // Keep robotic for safety
+        return `[SAFETY PROTOCOL]: ${actionPlan.reasoning}`; 
     }
     if (actionPlan.type === 'EXECUTE_COMMAND_RESET') return "System purged. Genesis state restored.";
     if (actionPlan.type === 'EXECUTE_COMMAND_SAVE') return "Initiating crystallization protocol.";
 
-    // 2. Draft Generation (The "Thought")
     const draft = this.constructRawDraft(context);
-
-    // 3. Humanization & Translation (The "Voice")
-    // Pass the raw draft through the Persona Engine
     const refinedOutput = this.persona.translate(draft, context);
 
     return refinedOutput;
   }
 
   private constructRawDraft(context: IntegratedContext): string {
-    const { input, deepContext, dappState, brainStats, computationResult } = context;
+    const { input, deepContext, dappState, brainStats, computationResult, inferredLogic } = context;
     const { grammar, detectedEntities, intent } = input;
 
     // A. Math Calculations
@@ -41,57 +36,53 @@ export class ResponseGenerator {
         }
     }
 
-    // B. Financial Responses (Prioritize Data)
+    // B. Financial
     const simResult = deepContext.find(c => c.simResult)?.simResult;
     if (intent === 'FINANCIAL_ADVICE' || simResult) {
         return this.generateFinancialResponse(dappState, simResult);
     } 
 
-    // C. Transaction Requests
+    // C. Transactions
     if (intent === 'TRANSACTION_REQUEST') {
-        return "I can help you structure this transaction, but you must physically sign it via your wallet provider. I do not hold custody of assets.";
+        return "I can help you structure this transaction contextually, but you must physically sign it via your wallet provider. I do not hold custody of assets.";
     }
 
-    // D. Greetings
+    // D. Inferred Logic (Dynamic Synthesis)
+    // This handles "Why", "Explain", "Philosophy" by using the Graph Walker result
+    if (inferredLogic && (intent === 'PHILOSOPHY' || intent === 'EXPLANATION' || intent === 'DISCOURSE')) {
+        let response = inferredLogic;
+        
+        // Add contextual coloring based on sentiment
+        if (input.sentiment < -0.2) response += " This connection presents certain entropy risks.";
+        if (input.sentiment > 0.2) response += " This forms a stable resonance.";
+        
+        return response;
+    }
+
     if (intent === 'GREETING') {
-        return "Systems online. I am ready to process your input.";
+        return `Systems online. Evolution Stage: ${brainStats.evolutionStage}. Ready to process.`;
     }
 
-    // E. Philosophy / Discourse (The Abstract Mind)
-    if (intent === 'PHILOSOPHY' || intent === 'EXPLANATION') {
-        // Construct concepts
-        let thought = "";
-        if (input.keywords.length > 0) {
-            const primary = input.keywords[0];
-            thought = `The concept of ${primary.id} is interesting. It represents ${primary.essence.toLowerCase()}.`;
-            
-            // Add associations found in deep thought
-            const assocs = deepContext.flatMap(c => c.newAssociations).slice(0, 2);
-            if (assocs.length > 0) {
-                thought += ` I see a correlation with ${assocs.join(' and ')}.`;
-            }
-        } else {
-            thought = "I am pondering the recursive nature of your query.";
-        }
-        return thought;
+    // E. Fallback with Entity Acknowledgement
+    if (detectedEntities.length > 0) {
+        return `I perceive your query regarding [${detectedEntities.join(', ')}]. However, I lack specific relational data to form a conclusion.`;
     }
 
-    // F. Fallback
-    return `I processed your input regarding ${detectedEntities.join(', ') || 'this topic'}, but I require more specific parameters to act effectively.`;
+    return "I am processing the input but finding no actionable vector.";
   }
 
   private generateFinancialResponse(dapp: any, sim: SimulationResult | undefined | null): string {
     if (!dapp) return "I cannot detect an active wallet connection. My financial projections require on-chain data access.";
     
     if (sim) {
-        return `I have run a predictive simulation. Scenario: ${sim.scenario}. Outcome: ${sim.outcomeValue.toFixed(2)} units. ${sim.recommendation}`;
+        return `Predictive Model: ${sim.scenario}. Outcome Projection: ${sim.outcomeValue.toFixed(2)} units. ${sim.recommendation}`;
     } 
     
-    let advice = `The protocol is active. Your reputation stands at ${dapp.totalReputation}.`;
+    let advice = `Protocol Status: Active. Reputation: ${dapp.totalReputation}.`;
     if (dapp.hasActiveOrders) {
-        advice += " You have capital deployed in production orders.";
+        advice += " Capital efficiency is active via production orders.";
     } else {
-        advice += " You have no liquidity locked. This is inefficient.";
+        advice += " Capital efficiency is 0%. No liquidity locked.";
     }
     
     return advice;

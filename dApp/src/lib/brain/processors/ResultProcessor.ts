@@ -7,8 +7,14 @@ import {
   IntegratedContext, 
   DAppIntegratedState 
 } from '../types';
+import { SimulationEngine } from './SimulationEngine';
 
 export class ResultProcessor {
+  private simulator: SimulationEngine;
+
+  constructor() {
+      this.simulator = new SimulationEngine();
+  }
   
   public processMultiCycle(
     input: InputAnalysis,
@@ -20,8 +26,8 @@ export class ResultProcessor {
     
     let integratedDApp: DAppIntegratedState | null = null;
     let computationResult: string | number | null = null;
+    let inferredLogic: string = "";
     
-    // 1. DApp State Integration
     if (dappContext) {
       integratedDApp = {
         hasActiveOrders: (dappContext.active_orders_count || 0) > 0,
@@ -32,18 +38,39 @@ export class ResultProcessor {
       };
     }
 
-    // 2. Math Processing Engine
+    // 1. Math Processing
     if (input.intent === 'MATH_CALCULATION') {
         computationResult = this.solveMath(input.cleanedInput);
     }
 
-    // Flatten memories from all cycles for reference
+    // 2. Logic Inference Processing (For "Why/Explain" queries)
+    if (input.intent === 'PHILOSOPHY' || input.intent === 'EXPLANATION') {
+        if (input.keywords.length > 0) {
+            const startNode = input.keywords[0].id;
+            const endNode = input.keywords.length > 1 ? input.keywords[1].id : null;
+            
+            // Run pathfinding on the brain's relation graph
+            const logicPath = this.simulator.inferRelationship(startNode, endNode, brainState.relations);
+            
+            if (logicPath) {
+                // Construct natural language from path
+                let thoughtChain = `I trace a connection: ${logicPath.nodes[0]}`;
+                for(let i=0; i<logicPath.relations.length; i++) {
+                    const rel = logicPath.relations[i].replace(/_/g, ' ');
+                    const nextNode = logicPath.nodes[i+1];
+                    thoughtChain += ` which ${rel} ${nextNode}`;
+                }
+                inferredLogic = thoughtChain + ".";
+            }
+        }
+    }
+
     const allMemories = deepContext.flatMap(c => c.retrievedMemories);
 
     return {
       input,
       actionPlan: plan,
-      memories: [...new Set(allMemories)], // Unique memories
+      memories: [...new Set(allMemories)],
       blockchainHistory: brainState.blockchainMemories,
       dappState: integratedDApp,
       deepContext: deepContext,
@@ -54,17 +81,13 @@ export class ResultProcessor {
         currentFocus: brainState.attentionFocus,
         currentArchetype: brainState.currentArchetype || 'OPERATOR' 
       },
-      computationResult // Attach result
+      computationResult,
+      inferredLogic // <--- Attached logic path
     };
   }
 
-  /**
-   * Safe Math Evaluator
-   * Parses natural language math into executable values without using eval()
-   */
   private solveMath(text: string): string | null {
       try {
-          // Normalize text to standard operators
           let clean = text
             .replace(/what is/g, '')
             .replace(/calculate/g, '')
@@ -73,10 +96,9 @@ export class ResultProcessor {
             .replace(/times/g, '*')
             .replace(/divided by/g, '/')
             .replace(/multiplied by/g, '*')
-            .replace(/x/g, '*') // Common multiplication char
-            .replace(/[^-+*/0-9.()^]/g, ''); // Strip everything else
+            .replace(/x/g, '*') 
+            .replace(/[^-+*/0-9.()^]/g, ''); 
 
-          // Handle special functions before parsing
           if (text.includes('sqrt') || text.includes('square root')) {
               const numMatch = text.match(/\d+(\.\d+)?/);
               if (numMatch) {
@@ -84,19 +106,13 @@ export class ResultProcessor {
               }
           }
 
-          // Basic Parser for Arithmetic
-          // We use Function constructor here but sanitized inputs only contain numbers/operators
-          // This is generally safe if regex filtered strict characters.
           if (!/^[-+*/0-9.()^]+$/.test(clean)) return null;
 
-          // Safe execution wrapper
           const result = new Function(`return ${clean}`)();
-          
           if (isNaN(result) || !isFinite(result)) return "undefined";
           
-          // Format based on precision
           if (Number.isInteger(result)) return result.toString();
-          return result.toFixed(4).replace(/\.?0+$/, ''); // Trim trailing zeros
+          return result.toFixed(4).replace(/\.?0+$/, ''); 
 
       } catch (e) {
           console.error("Math Error:", e);

@@ -1,9 +1,8 @@
-import { AtomicConcept } from '../crikzling-atomic-knowledge';
+import { AtomicConcept, ConceptRelation } from '../crikzling-atomic-knowledge';
 
 export type EvolutionStage = 'GENESIS' | 'SENTIENT' | 'SAPIENT' | 'TRANSCENDENT';
 export type Vector = [number, number, number, number, number, number];
 
-// --- NEW: Persona Definitions ---
 export type PersonaArchetype = 'ANALYST' | 'MYSTIC' | 'GUARDIAN' | 'GLITCH' | 'OPERATOR';
 
 export interface InternalDrives {
@@ -43,7 +42,7 @@ export interface BlockchainMemory {
 
 export interface BrainState {
   concepts: Record<string, AtomicConcept>;
-  relations: any[];
+  relations: ConceptRelation[];
   activationMap: Record<string, number>; 
   attentionFocus: string | null;        
   shortTermMemory: Memory[];
@@ -68,7 +67,6 @@ export interface BrainState {
   };
 }
 
-// Processor Types
 export interface ThoughtProcess {
   phase: 'perception' | 'spreading_activation' | 'simulation' | 'strategy' | 'generation' | 'dreaming' | 'introspection' | 'web_crawling';
   progress: number;
@@ -87,11 +85,19 @@ export interface DAppContext {
   current_block?: bigint;
 }
 
+// --- UPGRADED SIMULATION LOGIC ---
+export interface LogicPath {
+  nodes: string[];      // The concepts traversed (e.g., ["blockchain", "trust", "security"])
+  relations: string[];  // The edges types (e.g., ["enables", "requires"])
+  strength: number;     // How strong is this logical connection?
+}
+
 export interface SimulationResult {
   scenario: string;
   outcomeValue: number;
   riskLevel: number;
   recommendation: string;
+  logicPath?: LogicPath; // <--- NEW: The "Reasoning" Chain
 }
 
 export interface DeepThoughtCycle {
@@ -102,22 +108,21 @@ export interface DeepThoughtCycle {
   simResult: SimulationResult | null;
 }
 
-// --- UPGRADED INTENT TYPES ---
 export type IntentType = 
   | 'COMMAND' | 'QUERY' | 'PHILOSOPHY' | 'CASUAL' | 'TEACHING' 
   | 'FINANCIAL_ADVICE' | 'UNKNOWN' | 'GREETING' | 'EXPLANATION' 
   | 'DAPP_QUERY' | 'DISCOURSE' | 'NARRATIVE_ANALYSIS' | 'SYSTEM' 
   | 'WEB_SYNC' | 'TRANSACTION_REQUEST' | 'SECURITY_ALERT'
-  | 'MATH_CALCULATION'; // <--- NEW
+  | 'MATH_CALCULATION';
 
 export type CapabilityType = 
   | 'NONE' | 'READ_CHAIN' | 'WRITE_CHAIN' | 'ANALYZE_DATA' 
   | 'GENERATE_KNOWLEDGE' | 'SYSTEM_CONTROL' | 'EXTERNAL_IO'
-  | 'CALCULATE'; // <--- NEW
+  | 'CALCULATE' | 'INFER_RELATIONSHIP'; // <--- NEW
 
 export type SafetyRating = 'SAFE' | 'UNSAFE' | 'ETHICALLY_AMBIGUOUS' | 'SENSITIVE_DATA';
 
-export type ActionType = 'RESPOND_NATURAL' | 'RESPOND_DAPP' | 'EXECUTE_COMMAND_RESET' | 'EXECUTE_COMMAND_SAVE' | 'SUGGEST_ACTION' | 'REFUSE_UNSAFE';
+export type ActionType = 'RESPOND_NATURAL' | 'RESPOND_DAPP' | 'EXECUTE_COMMAND_RESET' | 'EXECUTE_COMMAND_SAVE' | 'SUGGEST_ACTION' | 'REFUSE_UNSAFE' | 'RESPOND_LOGICAL_INFERENCE';
 
 export interface ActionPlan {
   type: ActionType;
@@ -127,14 +132,14 @@ export interface ActionPlan {
   context?: any;
 }
 
-// --- RICH INPUT ANALYSIS ---
 export interface GrammarStructure {
   subject: string | null;
-  action: string | null; // Verb
-  object: string | null; // Direct Object
+  action: string | null; 
+  object: string | null; 
   modifiers: string[];
   isQuestion: boolean;
-  isImperative: boolean; // Command structure
+  isImperative: boolean; 
+  tense: 'PAST' | 'PRESENT' | 'FUTURE'; // <--- NEW
 }
 
 export interface InputAnalysis {
@@ -142,15 +147,18 @@ export interface InputAnalysis {
   cleanedInput: string;
   keywords: AtomicConcept[];
   intent: IntentType;
-  emotionalWeight: number;
+  
+  // Advanced Linguistics
+  emotionalWeight: number; // 0-1 Magnitude
+  sentiment: number;       // -1 (Neg) to 1 (Pos) <--- NEW
+  
   complexity: number;
   detectedEntities: string[];
   inputVector: Vector;
   
-  // Advanced Linguistics
   grammar: GrammarStructure;
   requestedCapability: CapabilityType;
-  verbosityNeeded: number; // 0.0 (One word) to 1.0 (Essay)
+  verbosityNeeded: number; 
   safety: {
     rating: SafetyRating;
     flaggedTerms: string[];
@@ -180,7 +188,8 @@ export interface IntegratedContext {
     currentFocus: string | null;
     currentArchetype: PersonaArchetype;
   };
-  computationResult?: string | number | null; // <--- NEW
+  computationResult?: string | number | null;
+  inferredLogic?: string; // <--- NEW: Storing dynamic sentence generation
 }
 
 export interface CognitiveLogEntry {
