@@ -170,7 +170,117 @@ export default function NeuralDashboard({
     );
 }
 
-// --- VIEW COMPONENTS ---
+// --- UPDATED TIMELINE VIEW ---
+function TimelineView({ isOwner, onRestore }: { isOwner: boolean, onRestore: (s: MemorySnapshot) => void }) {
+    const { timeline, loading, refresh } = useMemoryTimeline();
+    const [selectedDate, setSelectedDate] = useState<string>('');
+
+    // 1. Group by Date
+    const { grouped, availableDates } = useMemo(() => {
+        const groups: Record<string, MemorySnapshot[]> = {};
+        timeline.forEach(snap => {
+            const dateStr = new Date(snap.timestamp * 1000).toDateString();
+            if (!groups[dateStr]) groups[dateStr] = [];
+            groups[dateStr].push(snap);
+        });
+        const dates = Object.keys(groups).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+        return { grouped: groups, availableDates: dates };
+    }, [timeline]);
+
+    // 2. Auto-Select latest available date
+    useEffect(() => {
+        if (availableDates.length > 0 && !availableDates.includes(selectedDate)) {
+            setSelectedDate(availableDates[0]);
+        }
+    }, [availableDates]);
+
+    const currentIndex = availableDates.indexOf(selectedDate);
+    
+    const handlePrevDay = () => {
+        if (currentIndex < availableDates.length - 1) setSelectedDate(availableDates[currentIndex + 1]);
+    };
+    const handleNextDay = () => {
+        if (currentIndex > 0) setSelectedDate(availableDates[currentIndex - 1]);
+    };
+
+    const currentSnapshots = grouped[selectedDate] || [];
+
+    return (
+        <div className="glass-card p-6 rounded-3xl border border-white/10 bg-background-elevated h-full flex flex-col">
+            <div className="flex justify-between items-center mb-6">
+                <div>
+                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                        <History className="text-purple-500" /> Neural Timeline
+                    </h3>
+                    <p className="text-xs text-gray-500">
+                        {timeline.length} total snapshots stored on-chain.
+                    </p>
+                </div>
+                <button onClick={refresh} className="p-2 bg-white/5 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors">
+                    <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+                </button>
+            </div>
+
+            {/* Date Navigator */}
+            {availableDates.length > 0 ? (
+                <div className="flex items-center justify-between bg-black/30 p-2 rounded-xl mb-4 border border-white/5">
+                    <button onClick={handlePrevDay} disabled={currentIndex >= availableDates.length - 1} className="p-2 hover:bg-white/10 rounded-lg disabled:opacity-30"><ChevronLeft size={16}/></button>
+                    <div className="flex items-center gap-2 text-sm font-bold text-white">
+                        <Calendar size={14} className="text-purple-500"/> 
+                        {selectedDate === new Date().toDateString() ? 'Today' : selectedDate}
+                    </div>
+                    <button onClick={handleNextDay} disabled={currentIndex <= 0} className="p-2 hover:bg-white/10 rounded-lg disabled:opacity-30"><ChevronRight size={16}/></button>
+                </div>
+            ) : (
+                <div className="bg-black/30 p-4 rounded-xl mb-4 border border-white/5 text-center text-xs text-gray-500">
+                    No history found. Create a snapshot to begin.
+                </div>
+            )}
+
+            <div className="flex-1 overflow-y-auto custom-scrollbar">
+                <table className="w-full text-left border-collapse">
+                    <thead className="sticky top-0 bg-[#12121A] z-10">
+                        <tr className="text-[10px] font-bold text-gray-500 uppercase border-b border-white/10">
+                            <th className="py-3 pl-4">ID</th>
+                            <th className="py-3">Time</th>
+                            <th className="py-3">Nodes</th>
+                            <th className="py-3">Ops</th>
+                            <th className="py-3">CID</th>
+                            <th className="py-3 pr-4 text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                        {currentSnapshots.map((snap) => (
+                            <tr key={snap.id} className="hover:bg-white/5 transition-colors group">
+                                <td className="py-3 pl-4 text-sm font-mono text-gray-400">#{snap.id}</td>
+                                <td className="py-3 text-xs text-white">{new Date(snap.timestamp * 1000).toLocaleTimeString()}</td>
+                                <td className="py-3">
+                                    <span className="bg-blue-500/10 text-blue-400 px-2 py-1 rounded text-xs font-bold">{snap.conceptsCount.toString()}</span>
+                                </td>
+                                <td className="py-3">
+                                    <span className="bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded text-xs font-bold">{snap.opsCount}</span>
+                                </td>
+                                <td className="py-3 text-xs font-mono text-gray-500 truncate max-w-[100px]">{snap.ipfsCid.substring(0, 10)}...</td>
+                                <td className="py-3 pr-4 text-right">
+                                    {isOwner && (
+                                        <button 
+                                            onClick={() => { if(confirm(`Restore state #${snap.id}?`)) onRestore(snap); }}
+                                            className="px-3 py-1 bg-white/5 hover:bg-purple-500 hover:text-white text-gray-400 rounded text-xs font-bold transition-all flex items-center gap-1 ml-auto"
+                                        >
+                                            <RotateCcw size={12} /> Restore
+                                        </button>
+                                    )}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+}
+
+// ... [Keep MonitorView, SynapseView, CortexView, MatrixView, NetworkTerminal, AccessDenied, Utils as they were] ...
 
 function MonitorView({ stats, logs, crystallize, isSyncing }: { stats: any, logs: CognitiveLogEntry[], crystallize?: () => void, isSyncing?: boolean }) {
     const { isConnected, bandwidthUsage } = stats.connectivity;
@@ -291,102 +401,6 @@ function SynapseView({ onTrain, onUpload, lastLog }: { onTrain: (txt: string) =>
                     <p className="text-sm text-emerald-200 font-mono">{lastLog.output}</p>
                 </div>
             )}
-        </div>
-    );
-}
-
-function TimelineView({ isOwner, onRestore }: { isOwner: boolean, onRestore: (s: MemorySnapshot) => void }) {
-    const { timeline, loading, refresh } = useMemoryTimeline();
-    const [selectedDate, setSelectedDate] = useState(new Date().toDateString());
-
-    const grouped = useMemo(() => {
-        const groups: Record<string, MemorySnapshot[]> = {};
-        timeline.forEach(snap => {
-            const dateStr = new Date(snap.timestamp * 1000).toDateString();
-            if (!groups[dateStr]) groups[dateStr] = [];
-            groups[dateStr].push(snap);
-        });
-        return groups;
-    }, [timeline]);
-
-    const availableDates = Object.keys(grouped).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
-    const currentIndex = availableDates.indexOf(selectedDate);
-    
-    const handlePrevDay = () => {
-        if (currentIndex < availableDates.length - 1) setSelectedDate(availableDates[currentIndex + 1]);
-    };
-    const handleNextDay = () => {
-        if (currentIndex > 0) setSelectedDate(availableDates[currentIndex - 1]);
-    };
-
-    // If no data is loaded yet, default to today, but don't crash
-    const currentSnapshots = grouped[selectedDate] || [];
-
-    return (
-        <div className="glass-card p-6 rounded-3xl border border-white/10 bg-background-elevated h-full flex flex-col">
-            <div className="flex justify-between items-center mb-6">
-                <div>
-                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                        <History className="text-purple-500" /> Neural Timeline
-                    </h3>
-                    <p className="text-xs text-gray-500">Immutable blockchain snapshots.</p>
-                </div>
-                <button onClick={refresh} className="p-2 bg-white/5 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors">
-                    <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-                </button>
-            </div>
-
-            <div className="flex items-center justify-between bg-black/30 p-2 rounded-xl mb-4 border border-white/5">
-                <button onClick={handlePrevDay} disabled={currentIndex >= availableDates.length - 1} className="p-2 hover:bg-white/10 rounded-lg disabled:opacity-30"><ChevronLeft size={16}/></button>
-                <div className="flex items-center gap-2 text-sm font-bold text-white">
-                    <Calendar size={14} className="text-purple-500"/> 
-                    {selectedDate === new Date().toDateString() ? 'Today' : selectedDate}
-                </div>
-                <button onClick={handleNextDay} disabled={currentIndex <= 0} className="p-2 hover:bg-white/10 rounded-lg disabled:opacity-30"><ChevronRight size={16}/></button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto custom-scrollbar">
-                <table className="w-full text-left border-collapse">
-                    <thead className="sticky top-0 bg-[#12121A] z-10">
-                        <tr className="text-[10px] font-bold text-gray-500 uppercase border-b border-white/10">
-                            <th className="py-3 pl-4">ID</th>
-                            <th className="py-3">Time</th>
-                            <th className="py-3">Nodes</th>
-                            <th className="py-3">Ops</th>
-                            <th className="py-3">CID</th>
-                            <th className="py-3 pr-4 text-right">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5">
-                        {currentSnapshots.map((snap) => (
-                            <tr key={snap.id} className="hover:bg-white/5 transition-colors group">
-                                <td className="py-3 pl-4 text-sm font-mono text-gray-400">#{snap.id}</td>
-                                <td className="py-3 text-xs text-white">{new Date(snap.timestamp * 1000).toLocaleTimeString()}</td>
-                                <td className="py-3">
-                                    <span className="bg-blue-500/10 text-blue-400 px-2 py-1 rounded text-xs font-bold">{snap.conceptsCount.toString()}</span>
-                                </td>
-                                <td className="py-3">
-                                    <span className="bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded text-xs font-bold">{snap.opsCount}</span>
-                                </td>
-                                <td className="py-3 text-xs font-mono text-gray-500 truncate max-w-[100px]">{snap.ipfsCid.substring(0, 10)}...</td>
-                                <td className="py-3 pr-4 text-right">
-                                    {isOwner && (
-                                        <button 
-                                            onClick={() => { if(confirm(`Restore state #${snap.id}?`)) onRestore(snap); }}
-                                            className="px-3 py-1 bg-white/5 hover:bg-purple-500 hover:text-white text-gray-400 rounded text-xs font-bold transition-all flex items-center gap-1 ml-auto"
-                                        >
-                                            <RotateCcw size={12} /> Restore
-                                        </button>
-                                    )}
-                                </td>
-                            </tr>
-                        ))}
-                        {currentSnapshots.length === 0 && !loading && (
-                            <tr><td colSpan={6} className="text-center py-8 text-gray-500">No snapshots for this date.</td></tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
         </div>
     );
 }

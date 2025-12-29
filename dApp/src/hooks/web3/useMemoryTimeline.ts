@@ -24,33 +24,28 @@ export function useMemoryTimeline() {
     const snapshots: MemorySnapshot[] = [];
     let index = 0;
     let keepFetching = true;
-
-    // Safety limit to prevent infinite loops if something goes wrong, 
-    // though realistically it stops on the first error.
     const MAX_FETCH = 100; 
 
     try {
         while (keepFetching && index < MAX_FETCH) {
             try {
-                // Try to read the specific index
                 const data = await publicClient.readContract({
                     address: CRIKZLING_MEMORY_ADDRESS as `0x${string}`,
                     abi: CRIKZLING_MEMORY_ABI,
                     functionName: 'memoryTimeline',
                     args: [BigInt(index)]
-                });
+                }) as any;
 
                 if (data) {
-                    // Parse result (Solidity generated getter returns array/tuple)
-                    // Order: [timestamp, ipfsCid, conceptsCount, evolutionStage, triggerEvent]
-                    const timestamp = Number(data[0]);
-                    const ipfsCid = data[1];
-                    const conceptsCount = data[2];
-                    const evolutionStage = data[3];
-                    const triggerEvent = data[4];
+                    // Handle Array vs Object return from Wagmi
+                    const timestamp = Number(data.timestamp || data[0]);
+                    const ipfsCid = data.ipfsCid || data[1];
+                    const conceptsCount = data.conceptsCount || data[2];
+                    const evolutionStage = data.evolutionStage || data[3];
+                    const triggerEvent = data.triggerEvent || data[4];
                     
                     let opsCount = 0;
-                    if (triggerEvent && triggerEvent.includes('_')) {
+                    if (triggerEvent && typeof triggerEvent === 'string' && triggerEvent.includes('_')) {
                         opsCount = parseInt(triggerEvent.split('_')[1]) || 0;
                     }
 
@@ -69,16 +64,16 @@ export function useMemoryTimeline() {
                     keepFetching = false;
                 }
             } catch (error) {
-                // Contract reverted (Index out of bounds), so we reached the end of the array
+                // Revert means we hit the end of the array
                 keepFetching = false;
             }
         }
 
-        // Sort by ID descending (newest first)
+        // Sort: Newest ID first
         setTimeline(snapshots.sort((a, b) => b.id - a.id));
 
     } catch (e) {
-        console.error("Timeline Fetch Critical Error:", e);
+        console.error("Timeline Fetch Error:", e);
     } finally {
         setLoading(false);
     }
