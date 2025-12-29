@@ -2,6 +2,7 @@ import { PublicClient } from 'viem';
 import { MemoryConsolidationEngine } from './memory-consolidation';
 import { BrainState, DAppContext, ActionPlan } from './types';
 
+// Access the key directly
 const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
 
 export class CrikzlingBrainV3 { 
@@ -30,11 +31,11 @@ export class CrikzlingBrainV3 {
 
   public async process(text: string, isOwner: boolean, dappContext?: DAppContext): Promise<{ response: string; actionPlan: ActionPlan }> { 
     
-    // 1. Debugging: Check if Key exists (Do not log the actual key for security)
+    // 1. DEBUG: Check if Key exists
     if (!GROQ_API_KEY) {
-        console.error("❌ VITE_GROQ_API_KEY is missing in environment variables.");
+        console.error("❌ VITE_GROQ_API_KEY is missing.");
         return { 
-            response: "System Error: Neural API Key is missing. Please check Vercel environment variables.", 
+            response: "SYSTEM ERROR: API Key missing. Please Redeploy Vercel to bake in the new variable.", 
             actionPlan: { type: 'RESPOND_NATURAL', requiresBlockchain: false, priority: 0, reasoning: 'Config Error' } 
         };
     }
@@ -84,19 +85,16 @@ export class CrikzlingBrainV3 {
             })
         });
 
-        // ERROR HANDLING: Check if API returned an error (401, 400, 500)
         if (!response.ok) {
-            const errorData = await response.json();
-            console.error("❌ Groq API Error:", errorData);
-            throw new Error(errorData.error?.message || `API Error: ${response.status}`);
+            const err = await response.json();
+            console.error("Groq Error:", err);
+            throw new Error(err.error?.message || `API Error ${response.status}`);
         }
 
         const data = await response.json();
         const content = data.choices?.[0]?.message?.content;
 
-        if (!content) {
-            throw new Error("Empty response from Neural Cloud");
-        }
+        if (!content) throw new Error("Empty response from API");
 
         // 5. Parse Action
         const actionPlan = this.parseAction(content);
@@ -111,7 +109,8 @@ export class CrikzlingBrainV3 {
     } catch (error: any) {
         console.error("Cognitive Failure:", error);
         return { 
-            response: `[SYSTEM ERROR]: ${error.message || "Neural Link Failed"}`, 
+            // This ensures you see the REAL error in the chat bubble
+            response: `[SYSTEM ERROR]: ${error.message}`, 
             actionPlan: { type: 'RESPOND_NATURAL', requiresBlockchain: false, priority: 0, reasoning: 'Error' } 
         };
     }
