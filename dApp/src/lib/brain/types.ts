@@ -42,7 +42,7 @@ export interface BlockchainMemory {
 
 export interface BrainState {
   concepts: Record<string, AtomicConcept>;
-  relations: any[]; // Simplified for import
+  relations: any[];
   activationMap: Record<string, number>; 
   attentionFocus: string | null;        
   shortTermMemory: Memory[];
@@ -64,7 +64,6 @@ export interface BrainState {
   };
 }
 
-// Processor Types
 export interface ThoughtProcess {
   phase: 'perception' | 'spreading_activation' | 'simulation' | 'strategy' | 'generation' | 'dreaming' | 'introspection' | 'web_crawling';
   progress: number;
@@ -98,7 +97,6 @@ export interface DeepThoughtCycle {
   simResult: SimulationResult | null;
 }
 
-// --- UPGRADED INTENT TYPES ---
 export type IntentType = 
   | 'COMMAND' | 'QUERY' | 'PHILOSOPHY' | 'CASUAL' | 'TEACHING' 
   | 'FINANCIAL_ADVICE' | 'UNKNOWN' | 'GREETING' | 'EXPLANATION' 
@@ -121,14 +119,13 @@ export interface ActionPlan {
   context?: any;
 }
 
-// --- RICH INPUT ANALYSIS ---
 export interface GrammarStructure {
   subject: string | null;
-  action: string | null; // Verb
-  object: string | null; // Direct Object
+  action: string | null; 
+  object: string | null; 
   modifiers: string[];
   isQuestion: boolean;
-  isImperative: boolean; // Command structure
+  isImperative: boolean; 
 }
 
 export interface InputAnalysis {
@@ -141,9 +138,10 @@ export interface InputAnalysis {
   detectedEntities: string[];
   inputVector: Vector;
   
-  // New Fields
+  // Advanced Linguistics
   grammar: GrammarStructure;
   requestedCapability: CapabilityType;
+  verbosityNeeded: number; // 0.0 (One word) to 1.0 (Essay)
   safety: {
     rating: SafetyRating;
     flaggedTerms: string[];
@@ -169,7 +167,7 @@ export interface IntegratedContext {
   brainStats: {
     evolutionStage: string;
     unsavedCount: number;
-    drives: any; 
+    drives: InternalDrives; 
     currentFocus: string | null;
   };
 }
