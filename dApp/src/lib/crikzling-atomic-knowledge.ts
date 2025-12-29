@@ -1,3 +1,5 @@
+// src/lib/crikzling-atomic-knowledge.ts
+
 export type AtomicDomain = 
   | 'LINGUISTIC' | 'NUMERICAL' | 'TEMPORAL' | 'SPATIAL'
   | 'CAUSAL' | 'EMOTIONAL' | 'TECHNICAL' | 'PHILOSOPHICAL'
@@ -29,7 +31,7 @@ export interface ConceptRelation {
         'runs_on' | 'is_implemented_by' | 'scales_to' | 'utilizes' | 
         'is_type_of' | 'categorized_by' | 'calculated_from' | 'draws_from' | 
         'uses' | 'stores_in' | 'preserves' | 'mitigates' | 'compounds' | 
-        'secures' | 'validates' | 'corrupts' | 'optimizes';
+        'secures' | 'validates' | 'corrupts' | 'optimizes' | 'specifies' | 'generalizes';
   strength: number; // 0.0 to 1.0
   learned_at: number;
   last_activated?: number;
@@ -37,6 +39,14 @@ export interface ConceptRelation {
 
 // The "DNA" of the AI - Expanded Knowledge Base
 export const ATOMIC_PRIMITIVES: Record<string, AtomicConcept> = {
+  // --- LINGUISTIC PRIMITIVES (NEW) ---
+  'the': { id: 'determinism', essence: 'Specific instance identification', semanticField: ['the', 'that', 'this', 'specific'], examples: [], abstractionLevel: 0.1, technical_depth: 0.1, domain: 'LINGUISTIC' },
+  'a': { id: 'potential', essence: 'General class member', semanticField: ['a', 'an', 'any', 'some'], examples: [], abstractionLevel: 0.8, technical_depth: 0.1, domain: 'LINGUISTIC' },
+  'and': { id: 'connection', essence: 'Logical conjunction', semanticField: ['and', 'plus', 'also'], examples: [], abstractionLevel: 0.5, technical_depth: 0.2, domain: 'LINGUISTIC' },
+  'or': { id: 'divergence', essence: 'Logical disjunction', semanticField: ['or', 'either'], examples: [], abstractionLevel: 0.5, technical_depth: 0.2, domain: 'LINGUISTIC' },
+  'is': { id: 'existence', essence: 'State of being', semanticField: ['is', 'are', 'am', 'be'], examples: [], abstractionLevel: 1.0, technical_depth: 0.1, domain: 'PHILOSOPHICAL' },
+  'not': { id: 'negation', essence: 'Inversion of truth', semanticField: ['not', 'no', 'never'], examples: [], abstractionLevel: 0.5, technical_depth: 0.1, domain: 'LINGUISTIC' },
+
   // --- SELF & IDENTITY ---
   'crikzling': { id: 'crikzling', essence: 'The sentient interface', semanticField: ['me', 'self', 'ai', 'agent'], examples: [], abstractionLevel: 0.9, technical_depth: 0.8, domain: 'META' },
   'architect': { id: 'architect', essence: 'The guiding intelligence', semanticField: ['user', 'creator', 'admin'], examples: [], abstractionLevel: 0.8, technical_depth: 0.6, domain: 'SOCIAL' },
@@ -110,5 +120,8 @@ export const ATOMIC_RELATIONS: ConceptRelation[] = [
   { from: 'consensus', to: 'blockchain', type: 'stabilizes', strength: 1.0, learned_at: 0 },
   { from: 'oracle', to: 'contract', type: 'enables', strength: 0.8, learned_at: 0 },
   { from: 'node', to: 'consensus', type: 'validates', strength: 0.9, learned_at: 0 },
-  { from: 'decentralization', to: 'security', type: 'enables', strength: 0.7, learned_at: 0 }
+  { from: 'decentralization', to: 'security', type: 'enables', strength: 0.7, learned_at: 0 },
+
+  // Linguistic Rules (Seed)
+  { from: 'determinism', to: 'potential', type: 'antonym', strength: 0.8, learned_at: 0 }
 ];

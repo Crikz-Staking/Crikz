@@ -1,3 +1,5 @@
+// src/lib/brain/processors/ActionProcessor.ts
+
 import { BrainState, DeepThoughtCycle, ActionPlan, InputAnalysis } from '../types'; 
 
 export class ActionProcessor {
@@ -9,10 +11,22 @@ export class ActionProcessor {
     deepContext: DeepThoughtCycle[] 
   ): ActionPlan {
     
-    const { intent, inputVector } = analysis;
+    const { intent, inputVector, safety, requestedCapability } = analysis;
     const { drives, activeGoals, unsavedDataCount } = brainState;
 
-    // --- LEVEL 1: EXPLICIT COMMANDS ---
+    // --- LEVEL 0: SAFETY & ETHICS FIREWALL ---
+    // This takes precedence over everything.
+    if (safety.rating === 'UNSAFE' || safety.rating === 'SENSITIVE_DATA') {
+        return {
+            type: 'REFUSE_UNSAFE',
+            requiresBlockchain: false,
+            priority: 100, // Absolute max priority
+            reasoning: `Safety Violation: ${safety.reason}`,
+            context: { violationType: safety.rating }
+        };
+    }
+
+    // --- LEVEL 1: EXPLICIT COMMANDS (Owner Only) ---
     if (intent === 'COMMAND') {
       if (analysis.cleanedInput.includes('reset') || analysis.cleanedInput.includes('wipe')) {
         return { 
@@ -46,10 +60,23 @@ export class ActionProcessor {
         };
     }
 
-    // --- LEVEL 3: CONTEXTUAL INTELLIGENCE ---
-    const hasFinancialSim = deepContext.some(c => c.simResult !== null);
+    // --- LEVEL 3: CAPABILITY ROUTING ---
     
-    if (intent === 'FINANCIAL_ADVICE' || hasFinancialSim) {
+    // Transaction Requests (e.g. "Buy 100 tokens")
+    if (intent === 'TRANSACTION_REQUEST') {
+        // Crikzling cannot sign transactions autonomously, only suggest/prepare.
+        return {
+            type: 'SUGGEST_ACTION',
+            requiresBlockchain: true,
+            priority: 8,
+            reasoning: 'User requested blockchain write action.',
+            context: { suggestion: 'TRANSACTION_UI_TRIGGER', details: analysis.grammar }
+        };
+    }
+
+    // Data/Financial Analysis
+    const hasFinancialSim = deepContext.some(c => c.simResult !== null);
+    if (intent === 'FINANCIAL_ADVICE' || hasFinancialSim || requestedCapability === 'ANALYZE_DATA') {
       return { 
         type: 'RESPOND_DAPP', 
         requiresBlockchain: false, 
@@ -68,14 +95,6 @@ export class ActionProcessor {
             requiresBlockchain: false,
             priority: 7,
             reasoning: 'Aligns with Reputation Goal.'
-        };
-    }
-    if (financialGoal && inputVector[0] > 0.5) { 
-        return {
-            type: 'RESPOND_DAPP',
-            requiresBlockchain: false,
-            priority: 7,
-            reasoning: 'Aligns with Yield Goal.'
         };
     }
 

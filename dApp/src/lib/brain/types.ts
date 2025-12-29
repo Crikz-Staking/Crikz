@@ -1,4 +1,6 @@
-import { AtomicConcept, ConceptRelation } from '../crikzling-atomic-knowledge';
+// src/lib/brain/types.ts
+
+import { AtomicConcept } from '../crikzling-atomic-knowledge';
 
 export type EvolutionStage = 'GENESIS' | 'SENTIENT' | 'SAPIENT' | 'TRANSCENDENT';
 export type Vector = [number, number, number, number, number, number];
@@ -40,7 +42,7 @@ export interface BlockchainMemory {
 
 export interface BrainState {
   concepts: Record<string, AtomicConcept>;
-  relations: ConceptRelation[];
+  relations: any[]; // Simplified for import
   activationMap: Record<string, number>; 
   attentionFocus: string | null;        
   shortTermMemory: Memory[];
@@ -96,9 +98,20 @@ export interface DeepThoughtCycle {
   simResult: SimulationResult | null;
 }
 
-export type IntentType = 'COMMAND' | 'QUERY' | 'PHILOSOPHY' | 'CASUAL' | 'TEACHING' | 'FINANCIAL_ADVICE' | 'UNKNOWN' | 'GREETING' | 'EXPLANATION' | 'DAPP_QUERY' | 'DISCOURSE' | 'NARRATIVE_ANALYSIS' | 'SYSTEM' | 'WEB_SYNC';
+// --- UPGRADED INTENT TYPES ---
+export type IntentType = 
+  | 'COMMAND' | 'QUERY' | 'PHILOSOPHY' | 'CASUAL' | 'TEACHING' 
+  | 'FINANCIAL_ADVICE' | 'UNKNOWN' | 'GREETING' | 'EXPLANATION' 
+  | 'DAPP_QUERY' | 'DISCOURSE' | 'NARRATIVE_ANALYSIS' | 'SYSTEM' 
+  | 'WEB_SYNC' | 'TRANSACTION_REQUEST' | 'SECURITY_ALERT';
 
-export type ActionType = 'RESPOND_NATURAL' | 'RESPOND_DAPP' | 'EXECUTE_COMMAND_RESET' | 'EXECUTE_COMMAND_SAVE' | 'SUGGEST_ACTION';
+export type CapabilityType = 
+  | 'NONE' | 'READ_CHAIN' | 'WRITE_CHAIN' | 'ANALYZE_DATA' 
+  | 'GENERATE_KNOWLEDGE' | 'SYSTEM_CONTROL' | 'EXTERNAL_IO';
+
+export type SafetyRating = 'SAFE' | 'UNSAFE' | 'ETHICALLY_AMBIGUOUS' | 'SENSITIVE_DATA';
+
+export type ActionType = 'RESPOND_NATURAL' | 'RESPOND_DAPP' | 'EXECUTE_COMMAND_RESET' | 'EXECUTE_COMMAND_SAVE' | 'SUGGEST_ACTION' | 'REFUSE_UNSAFE';
 
 export interface ActionPlan {
   type: ActionType;
@@ -106,6 +119,16 @@ export interface ActionPlan {
   priority: number;
   reasoning: string;
   context?: any;
+}
+
+// --- RICH INPUT ANALYSIS ---
+export interface GrammarStructure {
+  subject: string | null;
+  action: string | null; // Verb
+  object: string | null; // Direct Object
+  modifiers: string[];
+  isQuestion: boolean;
+  isImperative: boolean; // Command structure
 }
 
 export interface InputAnalysis {
@@ -117,9 +140,16 @@ export interface InputAnalysis {
   complexity: number;
   detectedEntities: string[];
   inputVector: Vector;
+  
+  // New Fields
+  grammar: GrammarStructure;
+  requestedCapability: CapabilityType;
+  safety: {
+    rating: SafetyRating;
+    flaggedTerms: string[];
+    reason?: string;
+  };
 }
-
-// --- NEWLY ADDED TYPES ---
 
 export interface DAppIntegratedState {
   hasActiveOrders: boolean;
@@ -139,7 +169,7 @@ export interface IntegratedContext {
   brainStats: {
     evolutionStage: string;
     unsavedCount: number;
-    drives: any; // InternalDrives
+    drives: any; 
     currentFocus: string | null;
   };
 }
