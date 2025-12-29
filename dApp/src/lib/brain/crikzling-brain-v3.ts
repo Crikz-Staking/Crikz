@@ -5,6 +5,9 @@ import { BrainState, DAppContext, ActionPlan } from './types';
 // Access the key directly
 const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
 
+// UPDATED MODEL ID: Llama 3.3 70B (Smart & Fast)
+const SELECTED_MODEL = "llama-3.3-70b-versatile";
+
 export class CrikzlingBrainV3 { 
   private memory: MemoryConsolidationEngine;
   private state: BrainState;
@@ -79,7 +82,7 @@ export class CrikzlingBrainV3 {
                     { role: "system", content: `RELEVANT MEMORIES:\n${memoryContext}` },
                     { role: "user", content: text }
                 ],
-                model: "llama3-8b-8192",
+                model: SELECTED_MODEL, // <--- UPDATED HERE
                 temperature: 0.7,
                 max_tokens: 256
             })
@@ -109,7 +112,6 @@ export class CrikzlingBrainV3 {
     } catch (error: any) {
         console.error("Cognitive Failure:", error);
         return { 
-            // This ensures you see the REAL error in the chat bubble
             response: `[SYSTEM ERROR]: ${error.message}`, 
             actionPlan: { type: 'RESPOND_NATURAL', requiresBlockchain: false, priority: 0, reasoning: 'Error' } 
         };
