@@ -1,6 +1,6 @@
 {
   "name": "crikz-protocol-dapp",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,7 +10,6 @@
     "deploy:all": "hardhat run scripts/deploy-all.cjs"
   },
   "dependencies": {
-    "@mlc-ai/web-llm": "^0.2.46",
     "@openzeppelin/contracts": "^5.4.0",
     "@rainbow-me/rainbowkit": "^2.1.2",
     "@tailwindcss/postcss": "4.1.18",

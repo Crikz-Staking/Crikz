@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAccount, usePublicClient } from 'wagmi';
 import { toast } from 'react-hot-toast';
-import { InitProgressReport } from "@mlc-ai/web-llm";
 
 import { CrikzlingBrainV3 } from '@/lib/brain/crikzling-brain-v3';
 import { uploadToIPFS } from '@/lib/ipfs-service';
@@ -19,8 +18,9 @@ export function useCrikzlingV3() {
   const [isThinking, setIsThinking] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   
-  const [loadProgress, setLoadProgress] = useState<string>('');
-  const [isModelReady, setIsModelReady] = useState(false);
+  // Always ready now
+  const isModelReady = true;
+  const loadProgress = "";
 
   const { balance, activeOrders, totalReputation, globalFund } = useContractData();
   const dappContextRef = useRef<any>(undefined);
@@ -44,21 +44,7 @@ export function useCrikzlingV3() {
         CRIKZLING_MEMORY_ADDRESS as `0x${string}`
     );
     
-    initialBrain.setInitProgressCallback((report: InitProgressReport) => {
-        setLoadProgress(report.text);
-        if (report.progress === 1) {
-            setIsModelReady(true);
-            setLoadProgress('');
-        }
-    });
-
     setBrain(initialBrain);
-    
-    initialBrain.initLLM().catch(e => {
-        console.error(e);
-        setLoadProgress("Error: WebGPU not supported or Model failed.");
-    });
-
   }, [publicClient]);
 
   const sendMessage = async (text: string) => {
@@ -105,29 +91,18 @@ export function useCrikzlingV3() {
     }
   };
 
-  // Stub for compatibility
-  const restoreMemory = async (snapshot: MemorySnapshot) => {
-      console.log("Restore requested for", snapshot.id);
-      toast.success("Restore functionality coming in v2.1");
-  };
-
-  // Stub for compatibility
-  const updateDrives = (drives: any) => {
-      console.log("Drives updated", drives);
-  };
-
-  // Stub for compatibility
-  const toggleNeuralLink = (active: boolean) => {
-      console.log("Neural link toggled", active);
-  };
+  // Stubs
+  const restoreMemory = async (snapshot: MemorySnapshot) => {};
+  const updateDrives = (drives: any) => {};
+  const toggleNeuralLink = (active: boolean) => {};
 
   return {
     messages, 
     sendMessage, 
     crystallize,
-    restoreMemory, // Added back
-    updateDrives, // Added back
-    toggleNeuralLink, // Added back
+    restoreMemory,
+    updateDrives,
+    toggleNeuralLink,
     isThinking, 
     isSyncing,
     loadProgress, 
@@ -135,12 +110,11 @@ export function useCrikzlingV3() {
     brainStats: brain ? brain.getStats() : null,
     needsSave: brain ? brain.needsCrystallization() : false,
     isOwner: !!address,
-    // Legacy props to prevent crashes if accessed
     uploadFile: () => {},
     resetBrain: () => {},
     trainConcept: () => {},
     simpleTrain: () => {},
-    logs: [], // Logs are now internal to brain state if needed, or can be exposed later
+    logs: [],
     syncWithBlockchain: async () => {},
     initialLoading: false,
     isSynced: true
