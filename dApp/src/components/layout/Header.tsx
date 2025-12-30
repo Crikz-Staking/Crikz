@@ -3,7 +3,7 @@ import { useChainId, useSwitchChain } from 'wagmi';
 import { bscTestnet } from 'wagmi/chains';
 import CustomConnectButton from '@/components/ui/CustomConnectButton';
 import BrandLogo from './BrandLogo';
-import PriceTicker from '@/components/ui/PriceTicker';
+// PriceTicker import removed
 import { Language } from '@/types';
 
 interface HeaderProps {
@@ -20,7 +20,7 @@ export default function Header({ lang, setLang, setViewMode }: HeaderProps) {
 
   return (
     <>
-      <PriceTicker />
+      {/* PriceTicker component removed from here */}
       
       {isWrongNetwork && (
         <div className="bg-red-500/90 backdrop-blur-sm text-white text-center text-xs font-bold py-1 z-[100] relative">
