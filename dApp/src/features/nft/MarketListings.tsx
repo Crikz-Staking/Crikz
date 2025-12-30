@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, ShoppingBag, LayoutGrid, List as ListIcon, SlidersHorizontal, X, Gavel, Clock, Loader2 } from 'lucide-react';
+import { Search, ShoppingBag, LayoutGrid, List as ListIcon, SlidersHorizontal, X, Gavel, Clock, Loader2, Terminal, AlertCircle } from 'lucide-react';
 import { formatTokenAmount, shortenAddress, formatTimeRemaining } from '@/lib/utils';
 import { Listing } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -21,7 +21,7 @@ type ViewMode = 'grid' | 'list';
 type MarketType = 'fixed' | 'auction';
 
 export default function MarketListings({ onBuy, isPending: isParentPending }: MarketListingsProps) {
-  const { listings, auctions, isLoading } = useMarketListings();
+  const { listings, auctions, isLoading, error, debugLogs, refresh } = useMarketListings();
   const { address } = useAccount();
   const publicClient = usePublicClient();
 
@@ -30,6 +30,7 @@ export default function MarketListings({ onBuy, isPending: isParentPending }: Ma
   const [sort, setSort] = useState<SortOption>('newest');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [showFilters, setShowFilters] = useState(false);
+  const [showDebug, setShowDebug] = useState(false);
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
   
@@ -39,11 +40,9 @@ export default function MarketListings({ onBuy, isPending: isParentPending }: Ma
   const [pendingBid, setPendingBid] = useState<{ amount: bigint } | null>(null);
 
   // --- CONTRACT WRITES ---
-  // 1. Approve
   const { writeContract: approve, data: approveHash, isPending: isApproving } = useWriteContract();
   const { isLoading: isApprovingConfirm, isSuccess: isApproved } = useWaitForTransactionReceipt({ hash: approveHash });
 
-  // 2. Bid
   const { writeContract: placeBid, data: bidHash, isPending: isBidding } = useWriteContract();
   const { isLoading: isBiddingConfirm, isSuccess: bidSuccess } = useWaitForTransactionReceipt({ hash: bidHash });
 
@@ -55,6 +54,7 @@ export default function MarketListings({ onBuy, isPending: isParentPending }: Ma
           toast.success("Bid Placed Successfully!");
           setSelectedAuction(null);
           setBidAmount('');
+          refresh();
       }
   }, [bidSuccess]);
 
@@ -169,6 +169,15 @@ export default function MarketListings({ onBuy, isPending: isParentPending }: Ma
 
   return (
     <div className="space-y-6">
+        {/* Error Banner */}
+        {error && (
+            <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl flex items-center gap-3 text-red-400">
+                <AlertCircle size={20} />
+                <div className="flex-1 text-sm font-bold">{error}</div>
+                <button onClick={refresh} className="px-3 py-1 bg-red-500/20 rounded hover:bg-red-500/30 text-xs">Retry</button>
+            </div>
+        )}
+
         {/* --- CONTROL BAR --- */}
         <div className="flex flex-col gap-4">
             {/* Market Type Tabs */}
@@ -199,6 +208,14 @@ export default function MarketListings({ onBuy, isPending: isParentPending }: Ma
                 {/* Right Actions */}
                 <div className="flex gap-2">
                     <button 
+                        onClick={() => setShowDebug(!showDebug)}
+                        className={`p-2.5 rounded-xl border transition-all ${showDebug ? 'bg-amber-500/10 border-amber-500 text-amber-500' : 'bg-black/40 border-white/10 text-gray-500'}`}
+                        title="Debug Mode"
+                    >
+                        <Terminal size={16} />
+                    </button>
+
+                    <button 
                         onClick={() => setShowFilters(!showFilters)}
                         className={`flex items-center gap-2 px-4 py-2.5 border rounded-xl text-sm font-bold transition-all ${showFilters ? 'bg-primary-500 text-black border-primary-500' : 'bg-black/40 border-white/10 text-gray-300 hover:text-white'}`}
                     >
@@ -211,6 +228,26 @@ export default function MarketListings({ onBuy, isPending: isParentPending }: Ma
                     </div>
                 </div>
             </div>
+
+            {/* --- DEBUG PANEL --- */}
+            <AnimatePresence>
+                {showDebug && (
+                    <motion.div 
+                        initial={{ height: 0, opacity: 0 }} 
+                        animate={{ height: 'auto', opacity: 1 }} 
+                        exit={{ height: 0, opacity: 0 }}
+                        className="overflow-hidden"
+                    >
+                        <div className="bg-black/80 border border-white/10 rounded-xl p-4 font-mono text-[10px] text-green-400 h-40 overflow-y-auto">
+                            <div className="font-bold text-white mb-2 border-b border-white/10 pb-1">INDEXER LOGS</div>
+                            {debugLogs.map((log, i) => (
+                                <div key={i}>{`> ${log}`}</div>
+                            ))}
+                            {debugLogs.length === 0 && <div className="text-gray-500">Waiting for logs...</div>}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {/* --- EXPANDABLE FILTER PANEL --- */}
             <AnimatePresence>
@@ -254,7 +291,7 @@ export default function MarketListings({ onBuy, isPending: isParentPending }: Ma
                 <div className="glass-card p-20 rounded-3xl border border-white/10 text-center border-dashed">
                     <ShoppingBag size={40} className="mx-auto mb-4 text-gray-700" />
                     <h3 className="text-xl font-bold text-white mb-2">No listings found</h3>
-                    <p className="text-gray-500 text-sm">Try adjusting your filters.</p>
+                    <p className="text-gray-500 text-sm">Try adjusting your filters or check Debug Mode.</p>
                 </div>
             ) : (
                 <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" : "flex flex-col gap-3"}>

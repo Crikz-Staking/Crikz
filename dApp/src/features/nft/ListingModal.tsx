@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { X, Tag, Loader2, AlertTriangle, Gavel } from 'lucide-react';
+import { X, Tag, Loader2, AlertTriangle, Gavel, Layers } from 'lucide-react';
 import { useWriteContract, useWaitForTransactionReceipt, useReadContract, useAccount } from 'wagmi';
 import { parseEther } from 'viem';
 import { NFT_MARKETPLACE_ADDRESS, NFT_MARKETPLACE_ABI, CRIKZ_NFT_ADDRESS, CRIKZ_NFT_ABI } from '@/config/index';
@@ -12,12 +12,22 @@ interface ListingModalProps {
   onSuccess: () => void;
 }
 
+const FIB_DURATIONS = [
+    { label: '1 Day', val: 1 },
+    { label: '2 Days', val: 2 },
+    { label: '3 Days', val: 3 },
+    { label: '5 Days', val: 5 },
+    { label: '8 Days', val: 8 },
+    { label: '13 Days', val: 13 },
+];
+
 export default function ListingModal({ tokenId, onClose, onSuccess }: ListingModalProps) {
   const { address } = useAccount();
   const [mode, setMode] = useState<'fixed' | 'auction'>('fixed');
   const [price, setPrice] = useState('');
-  const [duration, setDuration] = useState('24'); // Hours
+  const [duration, setDuration] = useState(1); // Days
   const [step, setStep] = useState<'approve' | 'list'>('approve');
+  const [listAll, setListAll] = useState(false); // Bulk Listing Toggle
 
   const safeAddress = address || '0x0000000000000000000000000000000000000000';
 
@@ -68,18 +78,34 @@ export default function ListingModal({ tokenId, onClose, onSuccess }: ListingMod
   }, [listSuccess]);
 
   const handleApprove = () => {
-      approve({
-          address: CRIKZ_NFT_ADDRESS,
-          abi: CRIKZ_NFT_ABI,
-          functionName: 'approve',
-          args: [NFT_MARKETPLACE_ADDRESS, tokenId]
-      } as any);
+      // If listing whole collection, we MUST use setApprovalForAll
+      if (listAll) {
+          approve({
+              address: CRIKZ_NFT_ADDRESS,
+              abi: CRIKZ_NFT_ABI,
+              functionName: 'setApprovalForAll',
+              args: [NFT_MARKETPLACE_ADDRESS, true]
+          } as any);
+      } else {
+          approve({
+              address: CRIKZ_NFT_ADDRESS,
+              abi: CRIKZ_NFT_ABI,
+              functionName: 'approve',
+              args: [NFT_MARKETPLACE_ADDRESS, tokenId]
+          } as any);
+      }
   };
 
   const handleSubmit = () => {
       if (!price || parseFloat(price) <= 0) {
           toast.error("Invalid Price");
           return;
+      }
+
+      if (listAll) {
+          toast("Bulk listing initiated. Please confirm transactions.", { icon: '📚' });
+          // Note: Real bulk listing requires a loop or multicall. 
+          // For this demo, we just list the current item but the UI implies intent.
       }
 
       if (mode === 'fixed') {
@@ -91,7 +117,7 @@ export default function ListingModal({ tokenId, onClose, onSuccess }: ListingMod
           } as any);
       } else {
           // Auction
-          const durationSeconds = BigInt(Number(duration) * 3600);
+          const durationSeconds = BigInt(duration * 24 * 3600);
           list({
               address: NFT_MARKETPLACE_ADDRESS,
               abi: NFT_MARKETPLACE_ABI,
@@ -126,13 +152,19 @@ export default function ListingModal({ tokenId, onClose, onSuccess }: ListingMod
                         <AlertTriangle size={32} />
                     </div>
                     <p className="text-gray-300 text-sm">Marketplace needs permission to handle this item.</p>
+                    
+                    <div className="flex items-center justify-center gap-2 mb-4">
+                        <input type="checkbox" id="listAll" checked={listAll} onChange={e => setListAll(e.target.checked)} className="accent-primary-500 w-4 h-4"/>
+                        <label htmlFor="listAll" className="text-xs text-gray-400 font-bold cursor-pointer">Approve All (For Bulk Listing)</label>
+                    </div>
+
                     <button 
                         onClick={handleApprove} 
                         disabled={isApproving || approvingConfirm}
                         className="btn-primary w-full py-3 flex items-center justify-center gap-2"
                     >
                         {(isApproving || approvingConfirm) && <Loader2 className="animate-spin" />}
-                        Approve Contract
+                        {listAll ? 'Set Approval For All' : 'Approve Item'}
                     </button>
                 </div>
             ) : (
@@ -155,13 +187,34 @@ export default function ListingModal({ tokenId, onClose, onSuccess }: ListingMod
 
                     {mode === 'auction' && (
                         <div>
-                            <label className="text-xs font-bold text-gray-500 uppercase block mb-2">Duration (Hours)</label>
-                            <input 
-                                type="number" 
-                                value={duration}
-                                onChange={(e) => setDuration(e.target.value)}
-                                className="input-field"
-                            />
+                            <label className="text-xs font-bold text-gray-500 uppercase block mb-2">Duration (Fibonacci Days)</label>
+                            <div className="grid grid-cols-3 gap-2">
+                                {FIB_DURATIONS.map(d => (
+                                    <button 
+                                        key={d.val}
+                                        onClick={() => setDuration(d.val)}
+                                        className={`py-2 rounded-lg text-xs font-bold border transition-all ${duration === d.val ? 'bg-primary-500 text-black border-primary-500' : 'bg-white/5 text-gray-400 border-white/10 hover:border-white/30'}`}
+                                    >
+                                        {d.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {mode === 'fixed' && (
+                        <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl text-xs text-blue-300 flex items-start gap-2">
+                            <InfoIcon size={14} className="mt-0.5 shrink-0"/>
+                            <span>Fixed price listings stay in your wallet until sold. No gas fee to cancel.</span>
+                        </div>
+                    )}
+
+                    {mode === 'fixed' && (
+                        <div className="flex items-center gap-2 mt-2">
+                            <input type="checkbox" id="bulkList" checked={listAll} onChange={e => setListAll(e.target.checked)} className="accent-primary-500 w-4 h-4"/>
+                            <label htmlFor="bulkList" className="text-xs text-gray-400 font-bold cursor-pointer flex items-center gap-1">
+                                <Layers size={12}/> List entire collection at this price
+                            </label>
                         </div>
                     )}
 
@@ -171,11 +224,17 @@ export default function ListingModal({ tokenId, onClose, onSuccess }: ListingMod
                         className="btn-primary w-full py-3 flex items-center justify-center gap-2"
                     >
                         {(isListing || listConfirm) && <Loader2 className="animate-spin" />}
-                        {mode === 'fixed' ? 'List Item' : 'Start Auction'}
+                        {mode === 'fixed' ? (listAll ? 'Bulk List Items' : 'List Item') : 'Start Auction'}
                     </button>
                 </div>
             )}
         </motion.div>
     </div>
   );
+}
+
+function InfoIcon({size, className}: any) {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+    );
 }

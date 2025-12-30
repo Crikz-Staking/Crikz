@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Upload, Sparkles, FolderPlus, X, Plus, Trash2, Check, Lock, Info, Image as ImageIcon } from 'lucide-react';
-import { useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
-import { parseEther } from 'viem';
+import { useWriteContract, useWaitForTransactionReceipt, usePublicClient } from 'wagmi';
+import { parseEther, decodeEventLog } from 'viem';
 import { toast } from 'react-hot-toast';
 import { CRIKZ_NFT_ADDRESS, CRIKZ_NFT_ABI } from '@/config/index';
 import { uploadToIPFS } from '@/lib/ipfs-service';
@@ -15,9 +15,9 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [selectedCollectionId, setSelectedCollectionId] = useState('default');
   
-  // New Collection State
+  // Collection State
+  const [selectedCollectionId, setSelectedCollectionId] = useState<string>('');
   const [isNewColl, setIsNewColl] = useState(false);
   const [newCollName, setNewCollName] = useState('');
   const [newCollDesc, setNewCollDesc] = useState('');
@@ -26,26 +26,59 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
   const [attributes, setAttributes] = useState<{ trait_type: string, value: string }[]>([]);
   const [unlockableContent, setUnlockableContent] = useState('');
   const [hasUnlockable, setHasUnlockable] = useState(false);
-  const [royalty, setRoyalty] = useState('5'); // Default 5%
+  const [royalty, setRoyalty] = useState('0.618'); // Default Crikz Fee
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Get next Token ID for local mapping (Prediction)
-  const { data: totalSupply } = useReadContract({
-      address: CRIKZ_NFT_ADDRESS,
-      abi: CRIKZ_NFT_ABI,
-      functionName: 'balanceOf', // Using balance as proxy for ID in this simple contract, ideally use totalSupply
-      args: ['0x0000000000000000000000000000000000000000'] // Dummy call to just trigger read if needed, or rely on logs
-  });
+  // Set default collection on load
+  useEffect(() => {
+      if (collections.length > 0 && !selectedCollectionId) {
+          setSelectedCollectionId(collections[0].id);
+      }
+  }, [collections]);
 
   // Contract Write
   const { writeContract, data: hash, isPending } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { isLoading: isConfirming, isSuccess, data: receipt } = useWaitForTransactionReceipt({ hash });
 
+  // Handle Success & Token ID Extraction
   useEffect(() => {
-      if (isSuccess) {
+      if (isSuccess && receipt) {
           toast.success("Minted Successfully!");
-          // Reset Form
+          
+          // 1. Find Token ID from logs
+          let mintedId = null;
+          for (const log of receipt.logs) {
+              try {
+                  const decoded = decodeEventLog({
+                      abi: CRIKZ_NFT_ABI,
+                      data: log.data,
+                      topics: log.topics,
+                  });
+                  if (decoded.eventName === 'Transfer' && decoded.args.from === '0x0000000000000000000000000000000000000000') {
+                      mintedId = decoded.args.tokenId?.toString();
+                      break;
+                  }
+              } catch (e) {}
+          }
+
+          // 2. Assign to Collection
+          if (mintedId) {
+              // Check if we need to create a new collection first
+              let targetColId = selectedCollectionId;
+              
+              // If user selected "New Collection" but we handled it in handleMint, 
+              // we need to retrieve that ID. 
+              // We use a temp storage approach or re-find it by name.
+              if (isNewColl && newCollName) {
+                  const existing = collections.find(c => c.name === newCollName);
+                  if (existing) targetColId = existing.id;
+              }
+              
+              assignMintedItem(mintedId, targetColId);
+          }
+
+          // 3. Reset Form
           setFile(null);
           setPreviewUrl(null);
           setName('');
@@ -56,7 +89,7 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
           setIsNewColl(false);
           setNewCollName('');
       }
-  }, [isSuccess]);
+  }, [isSuccess, receipt]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files?.[0]) {
@@ -72,24 +105,25 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
       return;
     }
 
-    let targetColId = selectedCollectionId;
-    
-    // Handle New Collection Creation on the fly
+    // 1. Handle Collection Logic First
+    let finalCollectionId = selectedCollectionId;
     if (isNewColl) {
-        if(!newCollName) {
-            toast.error("Collection name required");
+        if (!newCollName) {
+            toast.error("Collection Name Required");
             return;
         }
-        targetColId = createCollection(newCollName, newCollDesc);
+        // Create immediately in local storage
+        finalCollectionId = createCollection(newCollName, newCollDesc);
+        setSelectedCollectionId(finalCollectionId); // Update state
     }
 
     try {
-      // 1. Upload Media Asset
+      // 2. Upload Media
       toast.loading("Uploading image to IPFS...", { id: 'mint' });
       const mediaCid = await uploadToIPFS(file);
       const mediaUrl = `ipfs://${mediaCid}`;
       
-      // 2. Construct Metadata (OpenSea Standard)
+      // 3. Construct Metadata
       const metadataObj: any = {
         name: name,
         description: description,
@@ -97,19 +131,18 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
         external_url: "https://crikz.protocol",
         attributes: [
             ...attributes,
-            { trait_type: "Collection", value: isNewColl ? newCollName : collections.find(c => c.id === selectedCollectionId)?.name || "General" }
+            { trait_type: "Collection", value: isNewColl ? newCollName : collections.find(c => c.id === finalCollectionId)?.name || "General" }
         ],
-        // OpenSea Royalty Standard (Metadata level)
-        seller_fee_basis_points: Number(royalty) * 100, 
-        fee_recipient: "0x...", // In real app, put user address here
+        // OpenSea Standard for Earnings
+        seller_fee_basis_points: Math.floor(Number(royalty) * 100), 
+        fee_recipient: "0x...", // In prod, inject user address
       };
 
-      // Add unlockable content (Soft Lock)
       if (hasUnlockable && unlockableContent) {
           metadataObj.unlockable_content = unlockableContent;
       }
 
-      // 3. Upload Metadata to IPFS
+      // 4. Upload Metadata
       toast.loading("Uploading metadata...", { id: 'mint' });
       const metadataString = JSON.stringify(metadataObj);
       const metadataBlob = new Blob([metadataString], { type: 'application/json' });
@@ -118,7 +151,7 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
       const metaCid = await uploadToIPFS(metadataFile);
       const tokenUri = `ipfs://${metaCid}`;
 
-      // 4. Write to Contract
+      // 5. Write to Contract
       toast.loading("Confirming Transaction...", { id: 'mint' });
 
       writeContract({
@@ -126,12 +159,8 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
         abi: CRIKZ_NFT_ABI,
         functionName: 'mint',
         args: [tokenUri],
-        value: parseEther('0.01') // Mint Fee
+        value: parseEther('0.01')
       });
-      
-      // Optimistically assign to collection (In prod, use event listener for exact ID)
-      // For demo, we rely on the indexer picking it up, but we save the mapping preference
-      // We can't know the ID for sure until tx confirms, but we can map the collection logic
       
       toast.dismiss('mint');
     } catch (e: any) {
@@ -212,6 +241,7 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
                         value={selectedCollectionId}
                         onChange={e => setSelectedCollectionId(e.target.value)}
                     >
+                        {collections.length === 0 && <option value="">No Collections Found</option>}
                         {collections.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                 ) : (
@@ -271,13 +301,14 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
                     <input 
                         type="number" 
                         min="0" 
-                        max="10" 
+                        max="10"
+                        step="0.1" 
                         value={royalty} 
                         onChange={e => setRoyalty(e.target.value)} 
                         className="input-field w-24 text-center font-bold"
                     />
                     <p className="text-xs text-gray-500 flex-1">
-                        You will receive {royalty}% of every secondary sale price.
+                        You will receive {royalty}% of every secondary sale price. (Default: 0.618%)
                     </p>
                 </div>
             </div>
