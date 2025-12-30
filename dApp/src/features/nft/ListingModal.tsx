@@ -104,8 +104,6 @@ export default function ListingModal({ tokenId, onClose, onSuccess }: ListingMod
 
       if (listAll) {
           toast("Bulk listing initiated. Please confirm transactions.", { icon: '📚' });
-          // Note: Real bulk listing requires a loop or multicall. 
-          // For this demo, we just list the current item but the UI implies intent.
       }
 
       if (mode === 'fixed') {

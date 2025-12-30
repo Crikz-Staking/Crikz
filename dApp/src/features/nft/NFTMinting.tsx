@@ -9,6 +9,7 @@ import { useCollectionManager } from '@/hooks/web3/useCollectionManager';
 
 export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
   const { collections, createCollection, assignMintedItem } = useCollectionManager();
+  const publicClient = usePublicClient();
   
   // Form State
   const [file, setFile] = useState<File | null>(null);
@@ -55,8 +56,12 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
                       data: log.data,
                       topics: log.topics,
                   });
-                  if (decoded.eventName === 'Transfer' && decoded.args.from === '0x0000000000000000000000000000000000000000') {
-                      mintedId = decoded.args.tokenId?.toString();
+                  
+                  // TS FIX: Cast args to any to avoid build error
+                  const args = decoded.args as any;
+
+                  if (decoded.eventName === 'Transfer' && args.from === '0x0000000000000000000000000000000000000000') {
+                      mintedId = args.tokenId?.toString();
                       break;
                   }
               } catch (e) {}
@@ -64,12 +69,10 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
 
           // 2. Assign to Collection
           if (mintedId) {
-              // Check if we need to create a new collection first
               let targetColId = selectedCollectionId;
               
               // If user selected "New Collection" but we handled it in handleMint, 
               // we need to retrieve that ID. 
-              // We use a temp storage approach or re-find it by name.
               if (isNewColl && newCollName) {
                   const existing = collections.find(c => c.name === newCollName);
                   if (existing) targetColId = existing.id;

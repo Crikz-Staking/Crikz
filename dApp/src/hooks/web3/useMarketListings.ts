@@ -58,18 +58,18 @@ export function useMarketListings() {
             const activeAuctions = new Map<string, AuctionItem>();
 
             auctionCreatedLogs.forEach(log => {
-                const { seller, nftContract, tokenId, minPrice, endTime } = log.args;
-                if (seller && nftContract && tokenId) {
-                    const key = `${nftContract.toLowerCase()}-${tokenId.toString()}`;
+                const args = log.args as any; // TS Fix
+                if (args.seller && args.nftContract && args.tokenId) {
+                    const key = `${args.nftContract.toLowerCase()}-${args.tokenId.toString()}`;
                     activeAuctions.set(key, {
                         id: key,
-                        nftContract: nftContract,
-                        tokenId: tokenId,
-                        seller: seller,
-                        minPrice: minPrice || 0n,
+                        nftContract: args.nftContract,
+                        tokenId: args.tokenId,
+                        seller: args.seller,
+                        minPrice: args.minPrice || 0n,
                         highestBid: 0n,
                         highestBidder: '0x0000000000000000000000000000000000000000',
-                        endTime: endTime || 0n,
+                        endTime: args.endTime || 0n,
                         isActive: true
                     });
                 }
@@ -77,22 +77,22 @@ export function useMarketListings() {
 
             // Update Bids
             bidLogs.forEach(log => {
-                const { nftContract, tokenId, amount, bidder } = log.args;
-                if (nftContract && tokenId) {
-                    const key = `${nftContract.toLowerCase()}-${tokenId.toString()}`;
+                const args = log.args as any; // TS Fix
+                if (args.nftContract && args.tokenId) {
+                    const key = `${args.nftContract.toLowerCase()}-${args.tokenId.toString()}`;
                     const auction = activeAuctions.get(key);
                     if (auction) {
-                        auction.highestBid = amount || 0n;
-                        auction.highestBidder = bidder || auction.highestBidder;
+                        auction.highestBid = args.amount || 0n;
+                        auction.highestBidder = args.bidder || auction.highestBidder;
                     }
                 }
             });
 
             // Remove Ended Auctions
             auctionEndedLogs.forEach(log => {
-                const { nftContract, tokenId } = log.args;
-                if (nftContract && tokenId) {
-                    const key = `${nftContract.toLowerCase()}-${tokenId.toString()}`;
+                const args = log.args as any; // TS Fix
+                if (args.nftContract && args.tokenId) {
+                    const key = `${args.nftContract.toLowerCase()}-${args.tokenId.toString()}`;
                     activeAuctions.delete(key);
                 }
             });
@@ -101,9 +101,9 @@ export function useMarketListings() {
             const activeListings = new Map<string, Listing>();
 
             listedLogs.forEach(log => {
-                const { seller, nftContract, tokenId, price } = log.args;
-                if (seller && nftContract && tokenId) {
-                    const key = `${nftContract.toLowerCase()}-${tokenId.toString()}`;
+                const args = log.args as any; // TS Fix
+                if (args.seller && args.nftContract && args.tokenId) {
+                    const key = `${args.nftContract.toLowerCase()}-${args.tokenId.toString()}`;
                     
                     // CONFLICT RESOLUTION: If item is in auction, ignore fixed listing
                     if (activeAuctions.has(key)) {
@@ -112,27 +112,23 @@ export function useMarketListings() {
                     }
 
                     activeListings.set(key, {
-                        seller: seller as `0x${string}`,
-                        nftContract: nftContract as `0x${string}`,
-                        tokenId: tokenId,
-                        price: price || 0n
+                        seller: args.seller,
+                        nftContract: args.nftContract,
+                        tokenId: args.tokenId,
+                        price: args.price || 0n
                     });
                 }
             });
 
             // Remove Sold or Canceled
             [...soldLogs, ...canceledLogs].forEach(log => {
-                const { nftContract, tokenId } = log.args;
-                if (nftContract && tokenId) {
-                    const key = `${nftContract.toLowerCase()}-${tokenId.toString()}`;
+                const args = log.args as any; // TS Fix
+                if (args.nftContract && args.tokenId) {
+                    const key = `${args.nftContract.toLowerCase()}-${args.tokenId.toString()}`;
                     activeListings.delete(key);
                 }
             });
 
-            // --- FINAL VERIFICATION (Optional but recommended for consistency) ---
-            // We trust the event log reconstruction for speed, but in production, 
-            // you might want to multicall check `listings(contract, id)` to be 100% sure.
-            
             setListings(Array.from(activeListings.values()));
             setAuctions(Array.from(activeAuctions.values()));
             addLog(`State Updated: ${activeListings.size} Active Listings, ${activeAuctions.size} Active Auctions`);
