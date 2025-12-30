@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Sparkles, FolderPlus, X, Plus, Trash2, Check, Lock, Info, Image as ImageIcon } from 'lucide-react';
-import { useWriteContract, useWaitForTransactionReceipt, usePublicClient } from 'wagmi';
+import { Upload, Sparkles, X, Plus, Trash2, Check, Lock, Info, Image as ImageIcon, Link as LinkIcon, FileText, Package } from 'lucide-react';
+import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseEther, decodeEventLog } from 'viem';
 import { toast } from 'react-hot-toast';
 import { CRIKZ_NFT_ADDRESS, CRIKZ_NFT_ABI } from '@/config/index';
@@ -9,16 +9,25 @@ import { useCollectionManager } from '@/hooks/web3/useCollectionManager';
 
 export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
   const { collections, createCollection, assignMintedItem } = useCollectionManager();
-  const publicClient = usePublicClient();
   
-  // Form State
-  const [file, setFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  // Minting Mode
+  const [mintType, setMintType] = useState<'file' | 'link'>('file');
+
+  // Files
+  const [mainFile, setMainFile] = useState<File | null>(null);
+  const [coverFile, setCoverFile] = useState<File | null>(null); // For preview
+  const [externalLink, setExternalLink] = useState('');
+  
+  // Previews
+  const [mainPreview, setMainPreview] = useState<string | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
+
+  // Metadata
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  
-  // Collection State
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>('');
+  
+  // New Collection Logic
   const [isNewColl, setIsNewColl] = useState(false);
   const [newCollName, setNewCollName] = useState('');
   const [newCollDesc, setNewCollDesc] = useState('');
@@ -27,11 +36,12 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
   const [attributes, setAttributes] = useState<{ trait_type: string, value: string }[]>([]);
   const [unlockableContent, setUnlockableContent] = useState('');
   const [hasUnlockable, setHasUnlockable] = useState(false);
-  const [royalty, setRoyalty] = useState('0.618'); // Default Crikz Fee
-  
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [royalty, setRoyalty] = useState('5'); // Default 5%
 
-  // Set default collection on load
+  const mainInputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
+
+  // Set default collection
   useEffect(() => {
       if (collections.length > 0 && !selectedCollectionId) {
           setSelectedCollectionId(collections[0].id);
@@ -42,12 +52,12 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
   const { writeContract, data: hash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess, data: receipt } = useWaitForTransactionReceipt({ hash });
 
-  // Handle Success & Token ID Extraction
+  // Success Handler
   useEffect(() => {
       if (isSuccess && receipt) {
           toast.success("Minted Successfully!");
           
-          // 1. Find Token ID from logs
+          // Extract Token ID
           let mintedId = null;
           for (const log of receipt.logs) {
               try {
@@ -56,10 +66,7 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
                       data: log.data,
                       topics: log.topics,
                   });
-                  
-                  // TS FIX: Cast args to any to avoid build error
                   const args = decoded.args as any;
-
                   if (decoded.eventName === 'Transfer' && args.from === '0x0000000000000000000000000000000000000000') {
                       mintedId = args.tokenId?.toString();
                       break;
@@ -67,102 +74,134 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
               } catch (e) {}
           }
 
-          // 2. Assign to Collection
           if (mintedId) {
               let targetColId = selectedCollectionId;
-              
-              // If user selected "New Collection" but we handled it in handleMint, 
-              // we need to retrieve that ID. 
               if (isNewColl && newCollName) {
                   const existing = collections.find(c => c.name === newCollName);
                   if (existing) targetColId = existing.id;
               }
-              
               assignMintedItem(mintedId, targetColId);
           }
 
-          // 3. Reset Form
-          setFile(null);
-          setPreviewUrl(null);
-          setName('');
-          setDescription('');
-          setAttributes([]);
-          setUnlockableContent('');
-          setHasUnlockable(false);
-          setIsNewColl(false);
-          setNewCollName('');
+          // Reset Form
+          setMainFile(null); setCoverFile(null); setExternalLink('');
+          setMainPreview(null); setCoverPreview(null);
+          setName(''); setDescription(''); setAttributes([]);
+          setUnlockableContent(''); setHasUnlockable(false);
       }
   }, [isSuccess, receipt]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // File Handlers
+  const handleMainFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files?.[0]) {
           const f = e.target.files[0];
-          setFile(f);
-          setPreviewUrl(URL.createObjectURL(f));
+          
+          // Size Check (100MB soft limit for browser reliability)
+          if (f.size > 100 * 1024 * 1024) {
+              toast.error("File too large. Please use files under 100MB.");
+              return;
+          }
+
+          setMainFile(f);
+          
+          // If image, auto-set as cover
+          if (f.type.startsWith('image/')) {
+              const url = URL.createObjectURL(f);
+              setMainPreview(url);
+              setCoverFile(f);
+              setCoverPreview(url);
+          } else {
+              setMainPreview(null); // Non-image preview logic handled by icon
+          }
+      }
+  };
+
+  const handleCoverFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files?.[0]) {
+          const f = e.target.files[0];
+          if (!f.type.startsWith('image/')) {
+              toast.error("Cover must be an image (JPG, PNG, GIF)");
+              return;
+          }
+          setCoverFile(f);
+          setCoverPreview(URL.createObjectURL(f));
       }
   };
 
   const handleMint = async () => {
-    if (!name || !file) {
-      toast.error("Name and File required");
-      return;
+    if (!name) return toast.error("Name is required");
+    if (mintType === 'file' && !mainFile) return toast.error("Main file is required");
+    if (mintType === 'link' && !externalLink) return toast.error("External link is required");
+    if (!coverFile && mintType === 'file' && !mainFile?.type.startsWith('image/')) {
+        return toast.error("Cover image required for non-image files");
     }
 
-    // 1. Handle Collection Logic First
+    // Collection Logic
     let finalCollectionId = selectedCollectionId;
     if (isNewColl) {
-        if (!newCollName) {
-            toast.error("Collection Name Required");
-            return;
-        }
-        // Create immediately in local storage
+        if (!newCollName) return toast.error("Collection Name Required");
         finalCollectionId = createCollection(newCollName, newCollDesc);
-        setSelectedCollectionId(finalCollectionId); // Update state
+        setSelectedCollectionId(finalCollectionId);
     }
 
     try {
-      // 2. Upload Media
-      toast.loading("Uploading image to IPFS...", { id: 'mint' });
-      const mediaCid = await uploadToIPFS(file);
-      const mediaUrl = `ipfs://${mediaCid}`;
-      
-      // 3. Construct Metadata
-      const metadataObj: any = {
+      let mainContentUri = '';
+      let coverImageUri = '';
+
+      // 1. Upload Main Content
+      if (mintType === 'file' && mainFile) {
+          toast.loading("Uploading main file...", { id: 'mint' });
+          const cid = await uploadToIPFS(mainFile);
+          mainContentUri = `ipfs://${cid}`;
+      } else {
+          mainContentUri = externalLink;
+      }
+
+      // 2. Upload Cover Image (if different or explicit)
+      if (coverFile) {
+          // Avoid re-uploading if cover is same as main
+          if (mintType === 'file' && mainFile === coverFile) {
+              coverImageUri = mainContentUri;
+          } else {
+              toast.loading("Uploading cover image...", { id: 'mint' });
+              const cid = await uploadToIPFS(coverFile);
+              coverImageUri = `ipfs://${cid}`;
+          }
+      }
+
+      // 3. Metadata
+      const metadataObj = {
         name: name,
         description: description,
-        image: mediaUrl,
+        image: coverImageUri, // Standard display image
+        animation_url: mainContentUri, // The actual content (video/audio/html/etc)
         external_url: "https://crikz.protocol",
         attributes: [
             ...attributes,
+            { trait_type: "Type", value: mintType === 'link' ? 'External Link' : mainFile?.type || 'Unknown' },
             { trait_type: "Collection", value: isNewColl ? newCollName : collections.find(c => c.id === finalCollectionId)?.name || "General" }
         ],
-        // OpenSea Standard for Earnings
-        seller_fee_basis_points: Math.floor(Number(royalty) * 100), 
-        fee_recipient: "0x...", // In prod, inject user address
+        seller_fee_basis_points: Math.floor(Number(royalty) * 100),
       };
 
       if (hasUnlockable && unlockableContent) {
-          metadataObj.unlockable_content = unlockableContent;
+          (metadataObj as any).unlockable_content = unlockableContent;
       }
 
       // 4. Upload Metadata
-      toast.loading("Uploading metadata...", { id: 'mint' });
-      const metadataString = JSON.stringify(metadataObj);
-      const metadataBlob = new Blob([metadataString], { type: 'application/json' });
-      const metadataFile = new File([metadataBlob], "metadata.json");
+      toast.loading("Finalizing metadata...", { id: 'mint' });
+      const metaBlob = new Blob([JSON.stringify(metadataObj)], { type: 'application/json' });
+      const metaFile = new File([metaBlob], "metadata.json");
+      const metaCid = await uploadToIPFS(metaFile);
       
-      const metaCid = await uploadToIPFS(metadataFile);
-      const tokenUri = `ipfs://${metaCid}`;
-
-      // 5. Write to Contract
-      toast.loading("Confirming Transaction...", { id: 'mint' });
-
+      // 5. Mint
+      toast.loading("Confirming in Wallet...", { id: 'mint' });
       writeContract({
         address: CRIKZ_NFT_ADDRESS as `0x${string}`,
         abi: CRIKZ_NFT_ABI,
         functionName: 'mint',
-        args: [tokenUri],
-        value: parseEther('0.01')
+        args: [`ipfs://${metaCid}`],
+        value: parseEther('0.001') // Small fee
       });
       
       toast.dismiss('mint');
@@ -185,139 +224,176 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
       
       {/* LEFT: Form */}
       <div className="lg:col-span-7 space-y-6">
+        
+        {/* Info Banner */}
+        <div className="bg-blue-500/10 border border-blue-500/20 p-4 rounded-2xl flex gap-3">
+            <Info className="text-blue-400 shrink-0" size={20} />
+            <div className="text-xs text-gray-300 space-y-1">
+                <p className="font-bold text-blue-400">Minting Guidelines</p>
+                <p>• Supported: Images (JPG, PNG, GIF), Video (MP4), Audio (MP3), 3D (GLB), PDFs, ZIP Archives.</p>
+                <p>• Max File Size: 100MB (Browser Limit). For larger files, host externally and use "Link Mode".</p>
+                <p>• Cover Image: Required for non-image files to display correctly in the marketplace.</p>
+            </div>
+        </div>
+
         <div className="glass-card p-8 rounded-3xl border border-white/10 bg-background-elevated">
-            <h2 className="text-2xl font-black text-white mb-6 flex items-center gap-2">
-                <Sparkles className="text-primary-500" /> Create New Artifact
-            </h2>
+            <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-black text-white flex items-center gap-2">
+                    <Sparkles className="text-primary-500" /> Create Artifact
+                </h2>
+                <div className="flex bg-black/40 p-1 rounded-lg border border-white/10">
+                    <button onClick={() => setMintType('file')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${mintType === 'file' ? 'bg-white/10 text-white' : 'text-gray-500'}`}>Upload File</button>
+                    <button onClick={() => setMintType('link')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${mintType === 'link' ? 'bg-white/10 text-white' : 'text-gray-500'}`}>External Link</button>
+                </div>
+            </div>
 
-            {/* File Upload */}
+            {/* Main Asset Upload */}
             <div className="mb-6">
-                <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Media File</label>
-                <div 
-                    onClick={() => fileInputRef.current?.click()} 
-                    className="border-2 border-dashed border-white/10 hover:border-primary-500/50 rounded-2xl h-48 flex flex-col items-center justify-center cursor-pointer bg-black/20 transition-colors group"
-                >
-                    <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} accept="image/*,video/*,audio/*" />
-                    {file ? (
-                        <div className="text-center">
-                            <Check size={32} className="text-emerald-500 mx-auto mb-2"/>
-                            <span className="font-bold text-white text-sm">{file.name}</span>
-                            <p className="text-xs text-gray-500 mt-1">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
-                        </div>
-                    ) : (
-                        <>
-                            <Upload size={32} className="text-gray-500 group-hover:text-primary-500 mb-3 transition-colors"/>
-                            <span className="text-gray-400 font-bold text-sm">Click to Upload</span>
-                            <span className="text-xs text-gray-600 mt-1">JPG, PNG, GIF, MP4, MP3 (Max 100MB)</span>
-                        </>
-                    )}
-                </div>
-            </div>
-
-            {/* Basic Info */}
-            <div className="space-y-4 mb-6">
-                <div>
-                    <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Name</label>
-                    <input type="text" placeholder="e.g. Cosmic Cube #001" className="input-field" value={name} onChange={e => setName(e.target.value)} />
-                </div>
-                <div>
-                    <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Description</label>
-                    <textarea placeholder="Describe your artifact..." className="input-field h-32" value={description} onChange={e => setDescription(e.target.value)} />
-                </div>
-            </div>
-
-            {/* Collection Selection */}
-            <div className="mb-6 bg-black/20 p-4 rounded-xl border border-white/5">
-                <div className="flex justify-between items-center mb-2">
-                    <label className="text-xs font-bold text-gray-500 uppercase">Collection</label>
-                    <button 
-                        onClick={() => setIsNewColl(!isNewColl)} 
-                        className="text-xs font-bold text-primary-500 flex items-center gap-1 hover:text-white transition-colors"
-                    >
-                        {isNewColl ? <X size={12}/> : <Plus size={12}/>} {isNewColl ? 'Cancel' : 'Create New'}
-                    </button>
-                </div>
+                <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">
+                    {mintType === 'file' ? 'Main Asset' : 'Asset Link'}
+                </label>
                 
-                {!isNewColl ? (
-                    <select 
-                        className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-primary-500"
-                        value={selectedCollectionId}
-                        onChange={e => setSelectedCollectionId(e.target.value)}
+                {mintType === 'file' ? (
+                    <div 
+                        onClick={() => mainInputRef.current?.click()} 
+                        className="border-2 border-dashed border-white/10 hover:border-primary-500/50 rounded-2xl h-32 flex flex-col items-center justify-center cursor-pointer bg-black/20 transition-colors group"
                     >
-                        {collections.length === 0 && <option value="">No Collections Found</option>}
-                        {collections.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
+                        <input type="file" ref={mainInputRef} className="hidden" onChange={handleMainFileChange} />
+                        {mainFile ? (
+                            <div className="text-center">
+                                <Check size={24} className="text-emerald-500 mx-auto mb-2"/>
+                                <span className="font-bold text-white text-sm">{mainFile.name}</span>
+                                <p className="text-xs text-gray-500 mt-1">{(mainFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                            </div>
+                        ) : (
+                            <>
+                                <Upload size={24} className="text-gray-500 group-hover:text-primary-500 mb-2 transition-colors"/>
+                                <span className="text-gray-400 font-bold text-xs">Click to Upload File</span>
+                            </>
+                        )}
+                    </div>
                 ) : (
-                    <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
-                        <input type="text" placeholder="New Collection Name" value={newCollName} onChange={e => setNewCollName(e.target.value)} className="input-field" autoFocus />
-                        <input type="text" placeholder="Collection Description (Optional)" value={newCollDesc} onChange={e => setNewCollDesc(e.target.value)} className="input-field text-sm" />
+                    <div className="flex items-center gap-2 bg-black/40 border border-white/10 rounded-xl px-3 py-3">
+                        <LinkIcon size={16} className="text-gray-500"/>
+                        <input 
+                            type="text" 
+                            placeholder="https://..." 
+                            value={externalLink} 
+                            onChange={e => setExternalLink(e.target.value)}
+                            className="bg-transparent w-full text-sm text-white outline-none"
+                        />
                     </div>
                 )}
             </div>
 
-            {/* Attributes */}
-            <div className="mb-6">
-                <div className="flex justify-between items-center mb-2">
-                    <label className="text-xs font-bold text-gray-500 uppercase">Properties</label>
-                    <button onClick={addAttribute} className="text-xs font-bold text-primary-500 flex items-center gap-1 hover:text-white transition-colors bg-primary-500/10 px-2 py-1 rounded"><Plus size={12}/> Add Trait</button>
+            {/* Cover Image (Conditional) */}
+            {(!mainFile?.type.startsWith('image/') || mintType === 'link') && (
+                <div className="mb-6 animate-in fade-in slide-in-from-top-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase mb-2 block flex items-center gap-2">
+                        Cover Image <span className="text-red-500">*</span>
+                        <span className="text-[9px] normal-case font-normal bg-white/5 px-2 rounded text-gray-400">Required for preview</span>
+                    </label>
+                    <div 
+                        onClick={() => coverInputRef.current?.click()} 
+                        className="border-2 border-dashed border-white/10 hover:border-primary-500/50 rounded-2xl h-24 flex flex-col items-center justify-center cursor-pointer bg-black/20 transition-colors group"
+                    >
+                        <input type="file" ref={coverInputRef} className="hidden" onChange={handleCoverFileChange} accept="image/*" />
+                        {coverFile ? (
+                            <div className="flex items-center gap-2">
+                                <ImageIcon size={16} className="text-emerald-500"/>
+                                <span className="font-bold text-white text-xs">{coverFile.name}</span>
+                            </div>
+                        ) : (
+                            <span className="text-gray-400 font-bold text-xs flex items-center gap-2">
+                                <ImageIcon size={16}/> Upload Cover (JPG/PNG)
+                            </span>
+                        )}
+                    </div>
                 </div>
-                <div className="space-y-2">
-                    {attributes.map((attr, i) => (
-                        <div key={i} className="flex gap-2">
-                            <input placeholder="Type (e.g. Color)" className="input-field py-2 text-xs" value={attr.trait_type} onChange={e => updateAttribute(i, 'trait_type', e.target.value)} />
-                            <input placeholder="Value (e.g. Gold)" className="input-field py-2 text-xs" value={attr.value} onChange={e => updateAttribute(i, 'value', e.target.value)} />
-                            <button onClick={() => removeAttribute(i)} className="p-2 text-red-500 hover:bg-red-500/10 rounded"><Trash2 size={14}/></button>
-                        </div>
-                    ))}
-                    {attributes.length === 0 && <div className="text-xs text-gray-600 italic text-center py-2">No properties added</div>}
+            )}
+
+            {/* Basic Info */}
+            <div className="grid grid-cols-1 gap-4 mb-6">
+                <div>
+                    <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Name</label>
+                    <input type="text" placeholder="Item Name" className="input-field" value={name} onChange={e => setName(e.target.value)} />
+                </div>
+                <div>
+                    <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Description</label>
+                    <textarea placeholder="Describe your artifact..." className="input-field h-24" value={description} onChange={e => setDescription(e.target.value)} />
+                </div>
+            </div>
+
+            {/* Collection & Attributes */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div>
+                    <div className="flex justify-between items-center mb-2">
+                        <label className="text-xs font-bold text-gray-500 uppercase">Collection</label>
+                        <button onClick={() => setIsNewColl(!isNewColl)} className="text-[10px] font-bold text-primary-500 hover:text-white transition-colors">
+                            {isNewColl ? 'Cancel' : '+ New'}
+                        </button>
+                    </div>
+                    {!isNewColl ? (
+                        <select className="input-field" value={selectedCollectionId} onChange={e => setSelectedCollectionId(e.target.value)}>
+                            {collections.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                    ) : (
+                        <input type="text" placeholder="New Collection Name" value={newCollName} onChange={e => setNewCollName(e.target.value)} className="input-field" />
+                    )}
+                </div>
+                
+                <div>
+                    <div className="flex justify-between items-center mb-2">
+                        <label className="text-xs font-bold text-gray-500 uppercase">Attributes</label>
+                        <button onClick={addAttribute} className="text-[10px] font-bold text-primary-500 hover:text-white transition-colors">+ Add</button>
+                    </div>
+                    <div className="space-y-2 max-h-32 overflow-y-auto custom-scrollbar pr-1">
+                        {attributes.map((attr, i) => (
+                            <div key={i} className="flex gap-1">
+                                <input placeholder="Type" className="input-field py-1 text-[10px]" value={attr.trait_type} onChange={e => updateAttribute(i, 'trait_type', e.target.value)} />
+                                <input placeholder="Value" className="input-field py-1 text-[10px]" value={attr.value} onChange={e => updateAttribute(i, 'value', e.target.value)} />
+                                <button onClick={() => removeAttribute(i)} className="text-red-500 hover:text-red-400"><Trash2 size={12}/></button>
+                            </div>
+                        ))}
+                        {attributes.length === 0 && <div className="text-[10px] text-gray-600 italic">No attributes</div>}
+                    </div>
                 </div>
             </div>
 
             {/* Unlockable Content */}
-            <div className="mb-6 bg-black/20 p-4 rounded-xl border border-white/5">
-                <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                        <Lock size={16} className={hasUnlockable ? "text-primary-500" : "text-gray-500"} />
-                        <span className="text-sm font-bold text-white">Unlockable Content</span>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" className="sr-only peer" checked={hasUnlockable} onChange={e => setHasUnlockable(e.target.checked)} />
-                        <div className="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary-500"></div>
-                    </label>
-                </div>
-                <p className="text-[10px] text-gray-500 mb-3">Include access keys, codes, or links that only the owner can reveal.</p>
-                
+            <div className="mb-6">
+                <label className="flex items-center gap-2 cursor-pointer mb-2">
+                    <input type="checkbox" checked={hasUnlockable} onChange={e => setHasUnlockable(e.target.checked)} className="accent-primary-500" />
+                    <span className="text-xs font-bold text-white flex items-center gap-1"><Lock size={12}/> Unlockable Content</span>
+                </label>
                 {hasUnlockable && (
                     <textarea 
-                        placeholder="Enter content here (Access Key, Secret Link, etc)..." 
-                        className="input-field h-24 font-mono text-xs text-emerald-400"
+                        placeholder="Access keys, links, or hidden data..." 
+                        className="input-field h-20 font-mono text-xs text-emerald-400"
                         value={unlockableContent}
                         onChange={e => setUnlockableContent(e.target.value)}
                     />
                 )}
             </div>
 
-            {/* Earnings / Royalties */}
-            <div className="mb-8">
-                <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Creator Earnings (%)</label>
-                <div className="flex items-center gap-4">
+            {/* Compact Earnings */}
+            <div className="mb-8 bg-black/20 p-3 rounded-xl border border-white/5 flex items-center justify-between">
+                <div>
+                    <label className="text-xs font-bold text-gray-400 block">Creator Royalties</label>
+                    <p className="text-[9px] text-gray-600">Protocol Fee: 0.618% (Fixed)</p>
+                </div>
+                <div className="flex items-center gap-2">
                     <input 
-                        type="number" 
-                        min="0" 
-                        max="10"
-                        step="0.1" 
-                        value={royalty} 
-                        onChange={e => setRoyalty(e.target.value)} 
-                        className="input-field w-24 text-center font-bold"
+                        type="number" min="0" max="20" step="0.1" 
+                        value={royalty} onChange={e => setRoyalty(e.target.value)} 
+                        className="w-16 bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-right text-sm font-bold text-white outline-none focus:border-primary-500"
                     />
-                    <p className="text-xs text-gray-500 flex-1">
-                        You will receive {royalty}% of every secondary sale price. (Default: 0.618%)
-                    </p>
+                    <span className="text-xs font-bold text-gray-500">%</span>
                 </div>
             </div>
 
             <button onClick={handleMint} disabled={isPending || isConfirming} className="btn-primary w-full py-4 text-lg shadow-glow-sm">
-                {isPending ? 'Confirming...' : isConfirming ? 'Minting...' : 'Mint Artifact (0.01 BNB)'}
+                {isPending ? 'Confirming...' : isConfirming ? 'Minting...' : 'Mint Artifact'}
             </button>
         </div>
       </div>
@@ -329,14 +405,23 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
               
               <div className="glass-card p-4 rounded-3xl border border-white/10 bg-black/40 overflow-hidden group">
                   <div className="aspect-square bg-black/60 rounded-2xl mb-4 flex items-center justify-center border border-white/5 overflow-hidden relative">
-                      {previewUrl ? (
-                          <img src={previewUrl} className="w-full h-full object-cover" />
+                      {coverPreview ? (
+                          <img src={coverPreview} className="w-full h-full object-cover" />
+                      ) : mainPreview ? (
+                          <img src={mainPreview} className="w-full h-full object-cover" />
                       ) : (
-                          <div className="text-gray-700 font-black text-6xl opacity-20">?</div>
+                          <div className="flex flex-col items-center gap-2 opacity-30">
+                              {mintType === 'file' && mainFile ? (
+                                  mainFile.type.includes('pdf') ? <FileText size={48}/> : <Package size={48}/>
+                              ) : (
+                                  <ImageIcon size={48}/>
+                              )}
+                              <span className="text-xs font-bold">No Preview</span>
+                          </div>
                       )}
                       
                       {hasUnlockable && (
-                          <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-md text-primary-500 p-2 rounded-lg border border-primary-500/30" title="Has Unlockable Content">
+                          <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-md text-primary-500 p-2 rounded-lg border border-primary-500/30">
                               <Lock size={16} />
                           </div>
                       )}
@@ -345,12 +430,8 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
                   <div className="space-y-2">
                       <div className="flex justify-between items-start">
                           <div>
-                              <h3 className="text-xl font-black text-white leading-tight">{name || "Untitled Artifact"}</h3>
+                              <h3 className="text-xl font-black text-white leading-tight line-clamp-1">{name || "Untitled"}</h3>
                               <p className="text-xs text-gray-500 mt-1">{isNewColl ? newCollName : collections.find(c => c.id === selectedCollectionId)?.name}</p>
-                          </div>
-                          <div className="text-right">
-                              <div className="text-[10px] text-gray-500 uppercase font-bold">Price</div>
-                              <div className="text-sm font-bold text-white">-- CRKZ</div>
                           </div>
                       </div>
                       

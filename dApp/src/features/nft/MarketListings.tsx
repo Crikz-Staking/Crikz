@@ -1,15 +1,15 @@
-// src/features/nft/MarketListings.tsx
 import React, { useState, useMemo } from 'react';
-import { Search, ShoppingBag, LayoutGrid, List as ListIcon, SlidersHorizontal, X, Gavel, Clock, Loader2, Tag, Filter } from 'lucide-react';
-import { formatTokenAmount, shortenAddress, formatTimeRemaining } from '@/lib/utils';
+import { Search, LayoutGrid, List as ListIcon, Gavel, Tag, Loader2, Eye } from 'lucide-react';
+import { formatTokenAmount, shortenAddress } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMarketListings, AuctionItem, FixedItem } from '@/hooks/web3/useMarketListings';
+import NFTDetailModal from './NFTDetailModal'; // New Component
 
 interface MarketListingsProps {
-  onBuy: (listingId: bigint, price: bigint) => void; // Updated signature
+  onBuy: (listingId: bigint, price: bigint) => void;
   isPending: boolean;
   isLoading: boolean;
-  listings: any[]; // Legacy prop ignored
+  listings: any[]; // Legacy prop
 }
 
 export default function MarketListings({ onBuy, isPending }: MarketListingsProps) {
@@ -19,25 +19,21 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState('newest');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [selectedItem, setSelectedItem] = useState<any>(null);
   
-  // Pagination
+  // Pagination Logic
   const [page, setPage] = useState(1);
-  const ITEMS_PER_PAGE = 9;
+  const itemsPerPage = viewMode === 'grid' ? 9 : 27; // Dynamic limit
 
   const filteredItems = useMemo(() => {
       let result = items;
-      
-      if (marketType !== 'all') {
-          result = result.filter(i => i.type === marketType);
-      }
-
+      if (marketType !== 'all') result = result.filter(i => i.type === marketType);
       if (search) {
           result = result.filter(i => 
               i.tokenId.toString().includes(search) || 
               i.seller.toLowerCase().includes(search.toLowerCase())
           );
       }
-
       if (sort === 'price_asc') {
           result.sort((a, b) => {
               const pA = a.type === 'fixed' ? a.price : (a as AuctionItem).highestBid || (a as AuctionItem).minPrice;
@@ -51,19 +47,15 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
               return Number(pB - pA);
           });
       } else {
-          // Newest (ID desc)
           result.sort((a, b) => Number(b.tokenId - a.tokenId));
       }
-
       return result;
   }, [items, marketType, search, sort]);
 
-  const paginatedItems = filteredItems.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
-  const totalPages = Math.ceil(filteredItems.length / ITEMS_PER_PAGE);
+  const paginatedItems = filteredItems.slice((page - 1) * itemsPerPage, page * itemsPerPage);
+  const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
 
-  if (isLoading) {
-      return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary-500" size={40}/></div>;
-  }
+  if (isLoading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary-500" size={40}/></div>;
 
   return (
     <div className="space-y-6">
@@ -86,7 +78,7 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
                     <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"/>
                     <input 
                         value={search} onChange={e => setSearch(e.target.value)}
-                        placeholder="Search ID..." 
+                        placeholder="Search ID or Seller..." 
                         className="w-full bg-black/40 border border-white/10 rounded-xl pl-9 pr-4 py-2 text-xs text-white focus:border-primary-500 outline-none"
                     />
                 </div>
@@ -99,13 +91,13 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
                     <option value="price_desc">Price: High to Low</option>
                 </select>
                 <div className="flex bg-black/40 rounded-xl p-1 border border-white/10">
-                    <button onClick={() => setViewMode('grid')} className={`p-2 rounded-lg ${viewMode === 'grid' ? 'bg-white/10 text-white' : 'text-gray-500'}`}><LayoutGrid size={14}/></button>
-                    <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg ${viewMode === 'list' ? 'bg-white/10 text-white' : 'text-gray-500'}`}><ListIcon size={14}/></button>
+                    <button onClick={() => { setViewMode('grid'); setPage(1); }} className={`p-2 rounded-lg ${viewMode === 'grid' ? 'bg-white/10 text-white' : 'text-gray-500'}`}><LayoutGrid size={14}/></button>
+                    <button onClick={() => { setViewMode('list'); setPage(1); }} className={`p-2 rounded-lg ${viewMode === 'list' ? 'bg-white/10 text-white' : 'text-gray-500'}`}><ListIcon size={14}/></button>
                 </div>
             </div>
         </div>
 
-        {/* Grid */}
+        {/* Grid/List */}
         {paginatedItems.length === 0 ? (
             <div className="text-center py-20 text-gray-500">No items found.</div>
         ) : (
@@ -117,7 +109,8 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className={`glass-card rounded-2xl border border-white/10 hover:border-primary-500/30 transition-all group bg-background-elevated ${viewMode === 'list' ? 'flex flex-row items-center p-4 gap-4' : 'p-4'}`}
+                            onClick={() => setSelectedItem(item)}
+                            className={`glass-card rounded-2xl border border-white/10 hover:border-primary-500/30 transition-all group bg-background-elevated cursor-pointer ${viewMode === 'list' ? 'flex flex-row items-center p-4 gap-4' : 'p-4'}`}
                         >
                             {/* Image Placeholder */}
                             <div className={`bg-black/40 rounded-xl flex items-center justify-center relative overflow-hidden ${viewMode === 'list' ? 'w-16 h-16' : 'aspect-square mb-4'}`}>
@@ -125,6 +118,9 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
                                 <div className={`absolute top-2 left-2 px-2 py-1 rounded text-[9px] font-bold flex items-center gap-1 ${item.type === 'auction' ? 'bg-purple-500/20 text-purple-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
                                     {item.type === 'auction' ? <Gavel size={10}/> : <Tag size={10}/>}
                                     {item.type === 'auction' ? 'AUCTION' : 'FIXED'}
+                                </div>
+                                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                    <Eye className="text-white" size={24} />
                                 </div>
                             </div>
 
@@ -142,7 +138,7 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
                                     
                                     {item.type === 'fixed' ? (
                                         <button 
-                                            onClick={() => onBuy((item as FixedItem).listingId, (item as FixedItem).price)}
+                                            onClick={(e) => { e.stopPropagation(); onBuy((item as FixedItem).listingId, (item as FixedItem).price); }}
                                             disabled={isPending}
                                             className="px-4 py-2 bg-white/10 hover:bg-primary-500 hover:text-black text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50"
                                         >
@@ -174,6 +170,16 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
                     </button>
                 ))}
             </div>
+        )}
+
+        {/* Detail Modal */}
+        {selectedItem && (
+            <NFTDetailModal 
+                item={selectedItem} 
+                onClose={() => setSelectedItem(null)} 
+                onBuy={onBuy}
+                isPending={isPending}
+            />
         )}
     </div>
   );

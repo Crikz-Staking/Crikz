@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingBag, PlusCircle, LayoutGrid } from 'lucide-react';
+import { ShoppingBag, PlusCircle, LayoutGrid, Info } from 'lucide-react';
 import NFTMinting from './NFTMinting';
 import UserCollection from './UserCollection';
 import MarketListings from './MarketListings';
@@ -20,15 +20,12 @@ export default function NFTMarket({ dynamicColor, lang }: NFTMarketProps) {
   const publicClient = usePublicClient();
 
   // --- STATE FOR PURCHASE FLOW ---
-  // Fixed: Now tracking listingId instead of contract/token
   const [pendingBuy, setPendingBuy] = useState<{ listingId: bigint, price: bigint } | null>(null);
 
   // --- CONTRACT WRITES ---
-  // 1. Approve Token
   const { writeContract: approve, data: approveHash, isPending: isApproving } = useWriteContract();
   const { isLoading: isApprovingConfirm, isSuccess: isApproved } = useWaitForTransactionReceipt({ hash: approveHash });
 
-  // 2. Buy Item
   const { writeContract: buy, data: buyHash, isPending: isBuying } = useWriteContract();
   const { isLoading: isBuyingConfirm, isSuccess: isBought } = useWaitForTransactionReceipt({ hash: buyHash });
 
@@ -36,12 +33,11 @@ export default function NFTMarket({ dynamicColor, lang }: NFTMarketProps) {
   useEffect(() => {
     if (isApproved && pendingBuy) {
       toast.success("Token Approved! Processing purchase...");
-      // Trigger buy immediately after approval confirms
       buy({
         address: NFT_MARKETPLACE_ADDRESS,
         abi: NFT_MARKETPLACE_ABI,
         functionName: 'buyItem',
-        args: [pendingBuy.listingId] // Fixed: Passing listingId
+        args: [pendingBuy.listingId]
       });
       setPendingBuy(null);
     }
@@ -54,7 +50,6 @@ export default function NFTMarket({ dynamicColor, lang }: NFTMarketProps) {
   }, [isBought]);
 
   // --- HANDLERS ---
-  // Fixed: Signature now accepts listingId
   const handleBuy = async (listingId: bigint, price: bigint) => {
       if (!address || !publicClient) {
         toast.error("Wallet not connected");
@@ -62,7 +57,6 @@ export default function NFTMarket({ dynamicColor, lang }: NFTMarketProps) {
       }
 
       try {
-        // 1. Check Allowance
         const allowance = await publicClient.readContract({
           address: CRIKZ_TOKEN_ADDRESS,
           abi: CRIKZ_TOKEN_ABI,
@@ -73,20 +67,18 @@ export default function NFTMarket({ dynamicColor, lang }: NFTMarketProps) {
         if (allowance < price) {
           toast('Approval required. Check wallet.', { icon: '🔐' });
           setPendingBuy({ listingId, price });
-          
           approve({
             address: CRIKZ_TOKEN_ADDRESS,
             abi: CRIKZ_TOKEN_ABI,
             functionName: 'approve',
-            args: [NFT_MARKETPLACE_ADDRESS, price * 100n] // Approve plenty
+            args: [NFT_MARKETPLACE_ADDRESS, price * 100n]
           });
         } else {
-          // Allowance is good, buy directly
           buy({
             address: NFT_MARKETPLACE_ADDRESS,
             abi: NFT_MARKETPLACE_ABI,
             functionName: 'buyItem',
-            args: [listingId] // Fixed: Passing listingId
+            args: [listingId]
           });
         }
       } catch (e: any) {
@@ -115,6 +107,28 @@ export default function NFTMarket({ dynamicColor, lang }: NFTMarketProps) {
             <tab.icon size={16} /> {tab.label}
           </button>
         ))}
+      </div>
+
+      {/* Info Banner for New Users */}
+      <div className="max-w-3xl mx-auto mb-6">
+          {view === 'market' && (
+              <div className="bg-white/5 border border-white/10 p-3 rounded-xl flex items-center gap-3 text-xs text-gray-400">
+                  <Info size={16} className="text-primary-500 shrink-0"/>
+                  <span>Browse listed artifacts. Click an item to view details or make a private offer to the owner.</span>
+              </div>
+          )}
+          {view === 'mint' && (
+              <div className="bg-white/5 border border-white/10 p-3 rounded-xl flex items-center gap-3 text-xs text-gray-400">
+                  <Info size={16} className="text-primary-500 shrink-0"/>
+                  <span>Create new NFTs. You can upload files (Images, Docs, Zips) or link to external content.</span>
+              </div>
+          )}
+          {view === 'collection' && (
+              <div className="bg-white/5 border border-white/10 p-3 rounded-xl flex items-center gap-3 text-xs text-gray-400">
+                  <Info size={16} className="text-primary-500 shrink-0"/>
+                  <span>Manage your assets. List items for sale, create auctions, or organize them into collections.</span>
+              </div>
+          )}
       </div>
 
       <AnimatePresence mode="wait">
