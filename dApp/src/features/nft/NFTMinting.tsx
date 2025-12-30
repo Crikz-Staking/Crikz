@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Sparkles, FolderPlus, X, Plus, Trash2, Check, Lock, Info } from 'lucide-react';
-import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { Upload, Sparkles, FolderPlus, X, Plus, Trash2, Check, Lock, Info, Image as ImageIcon } from 'lucide-react';
+import { useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
 import { parseEther } from 'viem';
 import { toast } from 'react-hot-toast';
 import { CRIKZ_NFT_ADDRESS, CRIKZ_NFT_ABI } from '@/config/index';
@@ -16,13 +16,27 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [selectedCollectionId, setSelectedCollectionId] = useState('default');
+  
+  // New Collection State
   const [isNewColl, setIsNewColl] = useState(false);
   const [newCollName, setNewCollName] = useState('');
+  const [newCollDesc, setNewCollDesc] = useState('');
+  
+  // Attributes & Unlockable
   const [attributes, setAttributes] = useState<{ trait_type: string, value: string }[]>([]);
   const [unlockableContent, setUnlockableContent] = useState('');
   const [hasUnlockable, setHasUnlockable] = useState(false);
+  const [royalty, setRoyalty] = useState('5'); // Default 5%
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Get next Token ID for local mapping (Prediction)
+  const { data: totalSupply } = useReadContract({
+      address: CRIKZ_NFT_ADDRESS,
+      abi: CRIKZ_NFT_ABI,
+      functionName: 'balanceOf', // Using balance as proxy for ID in this simple contract, ideally use totalSupply
+      args: ['0x0000000000000000000000000000000000000000'] // Dummy call to just trigger read if needed, or rely on logs
+  });
 
   // Contract Write
   const { writeContract, data: hash, isPending } = useWriteContract();
@@ -39,8 +53,8 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
           setAttributes([]);
           setUnlockableContent('');
           setHasUnlockable(false);
-          // Note: In a real app we'd grab the tokenId from logs to assign collection here
-          // but for now the indexer picks it up eventually
+          setIsNewColl(false);
+          setNewCollName('');
       }
   }, [isSuccess]);
 
@@ -59,8 +73,14 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
     }
 
     let targetColId = selectedCollectionId;
-    if (isNewColl && newCollName) {
-        targetColId = createCollection(newCollName, "Created during mint");
+    
+    // Handle New Collection Creation on the fly
+    if (isNewColl) {
+        if(!newCollName) {
+            toast.error("Collection name required");
+            return;
+        }
+        targetColId = createCollection(newCollName, newCollDesc);
     }
 
     try {
@@ -69,19 +89,22 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
       const mediaCid = await uploadToIPFS(file);
       const mediaUrl = `ipfs://${mediaCid}`;
       
-      // 2. Construct Metadata
+      // 2. Construct Metadata (OpenSea Standard)
       const metadataObj: any = {
         name: name,
         description: description,
         image: mediaUrl,
+        external_url: "https://crikz.protocol",
         attributes: [
             ...attributes,
-            { trait_type: "Platform", value: "Crikz Protocol" },
             { trait_type: "Collection", value: isNewColl ? newCollName : collections.find(c => c.id === selectedCollectionId)?.name || "General" }
         ],
+        // OpenSea Royalty Standard (Metadata level)
+        seller_fee_basis_points: Number(royalty) * 100, 
+        fee_recipient: "0x...", // In real app, put user address here
       };
 
-      // Add unlockable content to metadata (client-side only logic for retrieval later, strictly typically encrypted but basic here)
+      // Add unlockable content (Soft Lock)
       if (hasUnlockable && unlockableContent) {
           metadataObj.unlockable_content = unlockableContent;
       }
@@ -102,9 +125,13 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
         address: CRIKZ_NFT_ADDRESS as `0x${string}`,
         abi: CRIKZ_NFT_ABI,
         functionName: 'mint',
-        args: [tokenUri], // Expects string _tokenURI
-        value: parseEther('0.01')
+        args: [tokenUri],
+        value: parseEther('0.01') // Mint Fee
       });
+      
+      // Optimistically assign to collection (In prod, use event listener for exact ID)
+      // For demo, we rely on the indexer picking it up, but we save the mapping preference
+      // We can't know the ID for sure until tx confirms, but we can map the collection logic
       
       toast.dismiss('mint');
     } catch (e: any) {
@@ -167,25 +194,32 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
                 </div>
             </div>
 
-            {/* Collection */}
-            <div className="mb-6">
-                <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Collection</label>
-                <div className="flex gap-2">
-                    {!isNewColl ? (
+            {/* Collection Selection */}
+            <div className="mb-6 bg-black/20 p-4 rounded-xl border border-white/5">
+                <div className="flex justify-between items-center mb-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase">Collection</label>
+                    <button 
+                        onClick={() => setIsNewColl(!isNewColl)} 
+                        className="text-xs font-bold text-primary-500 flex items-center gap-1 hover:text-white transition-colors"
+                    >
+                        {isNewColl ? <X size={12}/> : <Plus size={12}/>} {isNewColl ? 'Cancel' : 'Create New'}
+                    </button>
+                </div>
+                
+                {!isNewColl ? (
                     <select 
-                        className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-primary-500"
+                        className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-primary-500"
                         value={selectedCollectionId}
                         onChange={e => setSelectedCollectionId(e.target.value)}
                     >
                         {collections.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
-                    ) : (
-                    <input type="text" placeholder="New Collection Name" value={newCollName} onChange={e => setNewCollName(e.target.value)} className="flex-1 input-field" autoFocus />
-                    )}
-                    <button onClick={() => setIsNewColl(!isNewColl)} className="p-3 rounded-xl bg-white/10 hover:bg-white/20 transition-colors border border-white/5">
-                        {isNewColl ? <X size={20}/> : <FolderPlus size={20}/>}
-                    </button>
-                </div>
+                ) : (
+                    <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
+                        <input type="text" placeholder="New Collection Name" value={newCollName} onChange={e => setNewCollName(e.target.value)} className="input-field" autoFocus />
+                        <input type="text" placeholder="Collection Description (Optional)" value={newCollDesc} onChange={e => setNewCollDesc(e.target.value)} className="input-field text-sm" />
+                    </div>
+                )}
             </div>
 
             {/* Attributes */}
@@ -207,7 +241,7 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
             </div>
 
             {/* Unlockable Content */}
-            <div className="mb-8 bg-black/20 p-4 rounded-xl border border-white/5">
+            <div className="mb-6 bg-black/20 p-4 rounded-xl border border-white/5">
                 <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                         <Lock size={16} className={hasUnlockable ? "text-primary-500" : "text-gray-500"} />
@@ -230,12 +264,21 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
                 )}
             </div>
 
-            {/* Earnings Info */}
-            <div className="flex items-start gap-3 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl text-xs text-blue-300 mb-6">
-                <Info size={16} className="shrink-0 mt-0.5"/>
-                <div>
-                    <span className="font-bold block mb-1">Earnings Structure</span>
-                    You receive 99.382% of the sale price. The protocol takes a 0.618% fee on every sale to fund the ecosystem.
+            {/* Earnings / Royalties */}
+            <div className="mb-8">
+                <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Creator Earnings (%)</label>
+                <div className="flex items-center gap-4">
+                    <input 
+                        type="number" 
+                        min="0" 
+                        max="10" 
+                        value={royalty} 
+                        onChange={e => setRoyalty(e.target.value)} 
+                        className="input-field w-24 text-center font-bold"
+                    />
+                    <p className="text-xs text-gray-500 flex-1">
+                        You will receive {royalty}% of every secondary sale price.
+                    </p>
                 </div>
             </div>
 

@@ -7,9 +7,9 @@ export interface Collection {
   id: string;
   name: string;
   description: string;
+  coverImage?: string; // Added cover image support
   isDefault?: boolean;
-  contractAddress?: string; // If specific to a contract
-  hasSales?: boolean; // Locked if true
+  hasSales?: boolean;
 }
 
 // Key format: "contractAddress-tokenId"
@@ -47,8 +47,7 @@ export function useCollectionManager() {
         setCollections(JSON.parse(storedCols));
     } else {
         const defaults = [
-            { id: 'default', name: 'General', description: 'Unsorted items', isDefault: true },
-            { id: 'favs', name: 'Favorites', description: 'My top picks' }
+            { id: 'default', name: 'General Collection', description: 'Items not assigned to a specific collection.', isDefault: true },
         ];
         setCollections(defaults);
         localStorage.setItem(`crikz_cols_${safeAddr}`, JSON.stringify(defaults));
@@ -65,7 +64,7 @@ export function useCollectionManager() {
     
     const checkSales = async () => {
         try {
-            // Fetch past sales events
+            // Fetch past sales events to lock collections if needed
             const logs = await publicClient.getContractEvents({
                 address: NFT_MARKETPLACE_ADDRESS,
                 abi: NFT_MARKETPLACE_ABI,
@@ -83,7 +82,6 @@ export function useCollectionManager() {
                     const key = `${contract}-${id}`;
                     soldSet.add(key);
                     
-                    // Identify which local collection this item belonged to
                     const colId = itemMapping[key];
                     if(colId) collectionSales.add(colId);
                 }
@@ -91,7 +89,6 @@ export function useCollectionManager() {
 
             setSoldItems(soldSet);
 
-            // Update collection lock status
             setCollections(prev => prev.map(c => ({
                 ...c,
                 hasSales: c.hasSales || collectionSales.has(c.id)
@@ -120,26 +117,21 @@ export function useCollectionManager() {
       localStorage.setItem(`crikz_imports_${safeAddr}`, JSON.stringify(imports));
   };
 
-  const createCollection = (name: string, description: string) => {
-      const newCol = { id: `col_${Date.now()}`, name, description };
+  const createCollection = (name: string, description: string, coverImage?: string) => {
+      const newCol = { id: `col_${Date.now()}`, name, description, coverImage };
       save([...collections, newCol], itemMapping, importedItems);
       return newCol.id;
   };
 
-  const editCollection = (id: string, name: string, description: string) => {
-      const col = collections.find(c => c.id === id);
-      if (col?.hasSales) {
-          throw new Error("Cannot edit collection with trade history");
-      }
-      const newCols = collections.map(c => c.id === id ? { ...c, name, description } : c);
+  const editCollection = (id: string, name: string, description: string, coverImage?: string) => {
+      const newCols = collections.map(c => c.id === id ? { ...c, name, description, coverImage } : c);
       save(newCols, itemMapping, importedItems);
   };
 
   const deleteCollection = (id: string) => {
       const col = collections.find(c => c.id === id);
       if (col?.isDefault) return;
-      if (col?.hasSales) throw new Error("Cannot delete collection with trade history");
-
+      
       // Move items to default
       const newMap = { ...itemMapping };
       Object.keys(newMap).forEach(key => {
@@ -152,11 +144,6 @@ export function useCollectionManager() {
 
   const moveItem = (contract: string, tokenId: string, targetColId: string) => {
       const key = `${contract.toLowerCase()}-${tokenId}`;
-      
-      if (soldItems.has(key)) {
-          throw new Error("Item has been traded. It is now locked to its collection.");
-      }
-
       const newMap = { ...itemMapping, [key]: targetColId };
       save(collections, newMap, importedItems);
   };
@@ -164,7 +151,6 @@ export function useCollectionManager() {
   const importNFT = async (contract: string, tokenId: string) => {
       if (!publicClient || !address) return;
       
-      // 1. Verify Ownership
       try {
           const owner = await publicClient.readContract({
               address: contract as `0x${string}`,
@@ -177,16 +163,12 @@ export function useCollectionManager() {
               throw new Error("You do not own this NFT");
           }
 
-          // 2. Add to imports
           const newImport = { contract: contract.toLowerCase(), tokenId: tokenId.toString() };
-          // Prevent dupes
           if (importedItems.some(i => i.contract === newImport.contract && i.tokenId === newImport.tokenId)) {
               throw new Error("Already imported");
           }
 
           const newImports = [...importedItems, newImport];
-          
-          // 3. Assign to default collection
           const key = `${newImport.contract}-${newImport.tokenId}`;
           const newMap = { ...itemMapping, [key]: 'default' };
 
@@ -198,7 +180,8 @@ export function useCollectionManager() {
       }
   };
 
-  // Helper for Minting Page
+  // Helper for Minting Page to auto-assign the next ID
+  // Note: In a real app, we'd wait for the event, but for UX we predict the ID or assign on confirm
   const assignMintedItem = (tokenId: string, colId: string) => {
       const key = `${CRIKZ_NFT_ADDRESS.toLowerCase()}-${tokenId}`;
       const newMap = { ...itemMapping, [key]: colId };

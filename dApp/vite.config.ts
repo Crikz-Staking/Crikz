@@ -23,3 +23,7 @@ export default defineConfig({
     chunkSizeWarningLimit: 2000, // Increased for AI models
     target: 'esnext' // Required for Top-level await
   },
+  optimizeDeps: {
+    exclude: ['@mlc-ai/web-llm', '@xenova/transformers']
+  }
+})

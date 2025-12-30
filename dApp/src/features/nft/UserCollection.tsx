@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { FolderPlus, Settings, Trash2, Tag, Image as ImageIcon, X, Edit3, Download, Lock, Gavel, Clock } from 'lucide-react';
+import { FolderPlus, Settings, Trash2, Tag, Image as ImageIcon, X, Edit3, Download, Lock, Gavel, Clock, Eye } from 'lucide-react';
 import { useRealNFTIndexer, RichNFT } from '@/hooks/web3/useRealNFTIndexer';
 import { useCollectionManager, Collection } from '@/hooks/web3/useCollectionManager';
 import { useMarketListings } from '@/hooks/web3/useMarketListings';
@@ -169,13 +169,13 @@ export default function UserCollection({ dynamicColor }: { dynamicColor: string 
                                             {nft.image ? <img src={nft.image} className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="opacity-20"/></div>}
                                             {locked && <div className="absolute top-2 right-2 bg-black/60 text-amber-500 text-[10px] font-bold px-2 py-1 rounded flex items-center gap-1"><Tag size={10}/> TRADED</div>}
                                             {nft.isImported && <div className="absolute top-2 left-2 bg-blue-500 text-white text-[10px] font-bold px-2 py-1 rounded">EXTERNAL</div>}
-                                            {hasUnlockable && <div className="absolute bottom-2 right-2 bg-black/60 text-primary-500 p-1 rounded"><Lock size={12}/></div>}
+                                            {hasUnlockable && <div className="absolute bottom-2 right-2 bg-black/60 text-primary-500 p-1 rounded border border-primary-500/30"><Lock size={12}/></div>}
                                             
                                             <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-center items-center gap-2 p-2">
                                                 <button onClick={() => setShowListModal(nft)} className="w-full py-2 bg-primary-500 text-black text-xs font-bold rounded">List / Auction</button>
                                                 <div className="flex gap-2 w-full">
                                                     <button onClick={() => setShowMoveModal(nft)} disabled={locked} className={`flex-1 py-2 text-xs font-bold rounded ${locked ? 'bg-white/5 text-gray-600' : 'bg-white/10 text-white hover:bg-white/20'}`}>Move</button>
-                                                    {hasUnlockable && <button onClick={() => setViewUnlockable(nft)} className="flex-1 py-2 bg-emerald-500/10 text-emerald-500 text-xs font-bold rounded hover:bg-emerald-500/20">Reveal</button>}
+                                                    {hasUnlockable && <button onClick={() => setViewUnlockable(nft)} className="flex-1 py-2 bg-emerald-500/10 text-emerald-500 text-xs font-bold rounded hover:bg-emerald-500/20 flex items-center justify-center gap-1"><Eye size={12}/> Reveal</button>}
                                                 </div>
                                                 {!nft.isImported && <button onClick={() => handleBurn(nft.id)} className="w-full py-2 bg-red-500/10 text-red-500 text-xs font-bold rounded hover:bg-red-500/20">Burn</button>}
                                             </div>
