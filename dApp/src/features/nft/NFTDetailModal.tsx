@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { X, Tag, User, Clock, ShieldCheck, MessageSquare, Send, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, Tag, User, Send, MessageSquare, Loader2 } from 'lucide-react';
 import { formatTokenAmount, shortenAddress } from '@/lib/utils';
 import { toast } from 'react-hot-toast';
 
@@ -21,6 +21,8 @@ export default function NFTDetailModal({ item, onClose, onBuy, isPending }: NFTD
         // Simulation of off-chain offer
         toast.success("Offer sent to owner!", { icon: '📩' });
         setShowOffer(false);
+        setOfferPrice('');
+        setOfferMsg('');
     };
 
     return (
@@ -34,8 +36,13 @@ export default function NFTDetailModal({ item, onClose, onBuy, isPending }: NFTD
 
                 {/* Left: Image */}
                 <div className="w-full md:w-1/2 bg-black/40 flex items-center justify-center p-8 border-b md:border-b-0 md:border-r border-white/5">
-                    <div className="aspect-square w-full max-w-sm bg-white/5 rounded-2xl flex items-center justify-center text-6xl">
-                        💠
+                    <div className="aspect-square w-full max-w-sm bg-white/5 rounded-2xl flex items-center justify-center text-6xl overflow-hidden relative">
+                        {/* Display Image if available in metadata, else placeholder */}
+                        {item.image ? (
+                             <img src={item.image} alt="NFT" className="w-full h-full object-cover" />
+                        ) : (
+                             <span>💠</span>
+                        )}
                     </div>
                 </div>
 
@@ -67,9 +74,9 @@ export default function NFTDetailModal({ item, onClose, onBuy, isPending }: NFTD
                                 <button 
                                     onClick={() => onBuy(item.listingId, item.price)}
                                     disabled={isPending}
-                                    className="flex-1 py-3 bg-primary-500 text-black font-bold rounded-xl hover:bg-primary-400 transition-all flex items-center justify-center gap-2"
+                                    className="flex-1 py-3 bg-primary-500 text-black font-bold rounded-xl hover:bg-primary-400 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                                 >
-                                    {isPending ? <Loader2 className="animate-spin"/> : 'Buy Now'}
+                                    {isPending ? <Loader2 className="animate-spin" size={18}/> : 'Buy Now'}
                                 </button>
                             ) : (
                                 <button className="flex-1 py-3 bg-purple-500 text-white font-bold rounded-xl hover:bg-purple-400">Place Bid</button>
@@ -79,6 +86,7 @@ export default function NFTDetailModal({ item, onClose, onBuy, isPending }: NFTD
                                 <button 
                                     onClick={() => setShowOffer(!showOffer)}
                                     className="px-4 py-3 bg-white/10 text-white font-bold rounded-xl hover:bg-white/20 border border-white/10"
+                                    title="Make Offer"
                                 >
                                     <MessageSquare size={20}/>
                                 </button>
@@ -130,6 +138,13 @@ export default function NFTDetailModal({ item, onClose, onBuy, isPending }: NFTD
                                 <div className="text-[10px] text-gray-500 uppercase">Chain</div>
                                 <div className="text-sm font-bold text-white">BSC Testnet</div>
                             </div>
+                            {/* Render actual attributes if available in item.metadata */}
+                            {item.metadata?.attributes?.map((attr: any, i: number) => (
+                                <div key={i} className="bg-white/5 p-3 rounded-xl border border-white/5">
+                                    <div className="text-[10px] text-gray-500 uppercase">{attr.trait_type}</div>
+                                    <div className="text-sm font-bold text-white">{attr.value}</div>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 </div>

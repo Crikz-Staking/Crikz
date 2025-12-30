@@ -3,7 +3,7 @@ import { Search, LayoutGrid, List as ListIcon, Gavel, Tag, Loader2, Eye } from '
 import { formatTokenAmount, shortenAddress } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMarketListings, AuctionItem, FixedItem } from '@/hooks/web3/useMarketListings';
-import NFTDetailModal from './NFTDetailModal'; // New Component
+import NFTDetailModal from './NFTDetailModal';
 
 interface MarketListingsProps {
   onBuy: (listingId: bigint, price: bigint) => void;
@@ -13,7 +13,7 @@ interface MarketListingsProps {
 }
 
 export default function MarketListings({ onBuy, isPending }: MarketListingsProps) {
-  const { items, isLoading, refresh } = useMarketListings();
+  const { items, isLoading } = useMarketListings();
   
   const [marketType, setMarketType] = useState<'all' | 'fixed' | 'auction'>('all');
   const [search, setSearch] = useState('');

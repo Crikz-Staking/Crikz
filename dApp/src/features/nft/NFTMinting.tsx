@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Sparkles, X, Plus, Trash2, Check, Lock, Info, Image as ImageIcon, Link as LinkIcon, FileText, Package } from 'lucide-react';
+import { Upload, Sparkles, Check, Lock, Info, Image as ImageIcon, Link as LinkIcon, FileText, Package, Trash2 } from 'lucide-react';
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseEther, decodeEventLog } from 'viem';
 import { toast } from 'react-hot-toast';
@@ -71,7 +71,9 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
                       mintedId = args.tokenId?.toString();
                       break;
                   }
-              } catch (e) {}
+              } catch (e) {
+                  // Ignore decoding errors for non-relevant logs
+              }
           }
 
           if (mintedId) {
@@ -392,7 +394,7 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
                 </div>
             </div>
 
-            <button onClick={handleMint} disabled={isPending || isConfirming} className="btn-primary w-full py-4 text-lg shadow-glow-sm">
+            <button onClick={handleMint} disabled={isPending || isConfirming} className="btn-primary w-full py-4 text-lg shadow-glow-sm" style={{ backgroundColor: dynamicColor }}>
                 {isPending ? 'Confirming...' : isConfirming ? 'Minting...' : 'Mint Artifact'}
             </button>
         </div>
@@ -406,9 +408,9 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
               <div className="glass-card p-4 rounded-3xl border border-white/10 bg-black/40 overflow-hidden group">
                   <div className="aspect-square bg-black/60 rounded-2xl mb-4 flex items-center justify-center border border-white/5 overflow-hidden relative">
                       {coverPreview ? (
-                          <img src={coverPreview} className="w-full h-full object-cover" />
+                          <img src={coverPreview} className="w-full h-full object-cover" alt="Preview" />
                       ) : mainPreview ? (
-                          <img src={mainPreview} className="w-full h-full object-cover" />
+                          <img src={mainPreview} className="w-full h-full object-cover" alt="Preview" />
                       ) : (
                           <div className="flex flex-col items-center gap-2 opacity-30">
                               {mintType === 'file' && mainFile ? (
