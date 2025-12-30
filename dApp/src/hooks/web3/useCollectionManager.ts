@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAccount, usePublicClient } from 'wagmi';
+import { useAccount, usePublicClient, useBlockNumber } from 'wagmi';
 import { NFT_MARKETPLACE_ADDRESS, NFT_MARKETPLACE_ABI, CRIKZ_NFT_ADDRESS } from '@/config/index';
 import { getAddress } from 'viem';
 
@@ -7,14 +7,13 @@ export interface Collection {
   id: string;
   name: string;
   description: string;
-  coverImage?: string; // Added cover image support
+  coverImage?: string;
   isDefault?: boolean;
   hasSales?: boolean;
 }
 
-// Key format: "contractAddress-tokenId"
 export interface ItemMapping {
-  [key: string]: string; // Maps to collectionId
+  [key: string]: string; // "contract-tokenId" -> collectionId
 }
 
 export interface ImportedNFT {
@@ -22,16 +21,19 @@ export interface ImportedNFT {
   tokenId: string;
 }
 
+const CHUNK_SIZE = 2000n;
+
 export function useCollectionManager() {
   const { address } = useAccount();
   const publicClient = usePublicClient();
+  const { data: currentBlock } = useBlockNumber();
   
   const [collections, setCollections] = useState<Collection[]>([]);
   const [itemMapping, setItemMapping] = useState<ItemMapping>({});
   const [importedItems, setImportedItems] = useState<ImportedNFT[]>([]);
   const [soldItems, setSoldItems] = useState<Set<string>>(new Set());
 
-  // 1. Load State
+  // 1. Load Local State
   useEffect(() => {
     if (!address) {
         setCollections([]);
@@ -58,26 +60,43 @@ export function useCollectionManager() {
 
   }, [address]);
 
-  // 2. Index Sales History to Enforce Locks
+  // 2. Index Sales History (Chunked)
   useEffect(() => {
-    if (!publicClient) return;
+    if (!publicClient || !currentBlock) return;
     
     const checkSales = async () => {
         try {
-            // Fetch past sales events to lock collections if needed
-            const logs = await publicClient.getContractEvents({
-                address: NFT_MARKETPLACE_ADDRESS,
-                abi: NFT_MARKETPLACE_ABI,
-                eventName: 'ItemSold',
-                fromBlock: 0n,
-            });
+            const endBlock = currentBlock;
+            // Scan last 100k blocks for sales history
+            const startBlock = endBlock - 100000n > 0n ? endBlock - 100000n : 0n;
+            
+            let allLogs: any[] = [];
+            let cursor = startBlock;
+
+            while (cursor < endBlock) {
+                const end = (cursor + CHUNK_SIZE) > endBlock ? endBlock : (cursor + CHUNK_SIZE);
+                try {
+                    const logs = await publicClient.getContractEvents({
+                        address: NFT_MARKETPLACE_ADDRESS,
+                        abi: NFT_MARKETPLACE_ABI,
+                        eventName: 'ItemSold',
+                        fromBlock: cursor,
+                        toBlock: end
+                    });
+                    allLogs = [...allLogs, ...logs];
+                } catch (e) {
+                    // Ignore chunk errors for sales history to prevent UI crash
+                }
+                cursor = end + 1n;
+            }
 
             const soldSet = new Set<string>();
             const collectionSales = new Set<string>();
 
-            logs.forEach(log => {
-                const contract = log.args.nftContract?.toLowerCase();
-                const id = log.args.tokenId?.toString();
+            allLogs.forEach(log => {
+                const args = log.args as any;
+                const contract = args.nftContract?.toLowerCase();
+                const id = args.tokenId?.toString();
                 if(contract && id) {
                     const key = `${contract}-${id}`;
                     soldSet.add(key);
@@ -102,7 +121,7 @@ export function useCollectionManager() {
     if (Object.keys(itemMapping).length > 0) {
         checkSales();
     }
-  }, [publicClient, itemMapping]);
+  }, [publicClient, currentBlock, itemMapping]);
 
   // --- ACTIONS ---
 
@@ -119,7 +138,8 @@ export function useCollectionManager() {
 
   const createCollection = (name: string, description: string, coverImage?: string) => {
       const newCol = { id: `col_${Date.now()}`, name, description, coverImage };
-      save([...collections, newCol], itemMapping, importedItems);
+      const newCols = [...collections, newCol];
+      save(newCols, itemMapping, importedItems);
       return newCol.id;
   };
 
@@ -132,7 +152,6 @@ export function useCollectionManager() {
       const col = collections.find(c => c.id === id);
       if (col?.isDefault) return;
       
-      // Move items to default
       const newMap = { ...itemMapping };
       Object.keys(newMap).forEach(key => {
           if (newMap[key] === id) newMap[key] = 'default';
@@ -180,8 +199,6 @@ export function useCollectionManager() {
       }
   };
 
-  // Helper for Minting Page to auto-assign the next ID
-  // Note: In a real app, we'd wait for the event, but for UX we predict the ID or assign on confirm
   const assignMintedItem = (tokenId: string, colId: string) => {
       const key = `${CRIKZ_NFT_ADDRESS.toLowerCase()}-${tokenId}`;
       const newMap = { ...itemMapping, [key]: colId };

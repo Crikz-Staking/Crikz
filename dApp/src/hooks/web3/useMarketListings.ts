@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { usePublicClient, useBlockNumber } from 'wagmi';
 import { NFT_MARKETPLACE_ABI, NFT_MARKETPLACE_ADDRESS } from '@/config/index';
 import type { Listing } from '@/types';
@@ -15,6 +15,10 @@ export interface AuctionItem {
     isActive: boolean;
 }
 
+// BSC Testnet RPCs are strict. We must fetch in small chunks.
+const CHUNK_SIZE = 2000n; 
+const MAX_HISTORY_BLOCKS = 200000n; // Approx 7 days of history
+
 export function useMarketListings() {
     const [listings, setListings] = useState<Listing[]>([]);
     const [auctions, setAuctions] = useState<AuctionItem[]>([]);
@@ -24,41 +28,82 @@ export function useMarketListings() {
     
     const publicClient = usePublicClient();
     const { data: currentBlock } = useBlockNumber();
+    const isFetching = useRef(false);
 
     const addLog = (msg: string) => setDebugLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 50));
 
+    // Helper to fetch events in chunks to avoid "Limit Exceeded"
+    const fetchEventsInChunks = async (eventName: string, fromBlock: bigint, toBlock: bigint) => {
+        let allLogs: any[] = [];
+        let cursor = fromBlock;
+
+        while (cursor < toBlock) {
+            const end = (cursor + CHUNK_SIZE) > toBlock ? toBlock : (cursor + CHUNK_SIZE);
+            try {
+                const logs = await publicClient!.getContractEvents({
+                    address: NFT_MARKETPLACE_ADDRESS,
+                    abi: NFT_MARKETPLACE_ABI,
+                    eventName: eventName as any,
+                    fromBlock: cursor,
+                    toBlock: end
+                });
+                allLogs = [...allLogs, ...logs];
+                // Small delay to be nice to the RPC
+                await new Promise(r => setTimeout(r, 50)); 
+            } catch (e) {
+                console.warn(`Chunk failed ${cursor}-${end}, retrying...`);
+                // Simple retry once
+                try {
+                    const logs = await publicClient!.getContractEvents({
+                        address: NFT_MARKETPLACE_ADDRESS,
+                        abi: NFT_MARKETPLACE_ABI,
+                        eventName: eventName as any,
+                        fromBlock: cursor,
+                        toBlock: end
+                    });
+                    allLogs = [...allLogs, ...logs];
+                } catch (e2) {
+                    addLog(`Failed to fetch ${eventName} chunk ${cursor}-${end}`);
+                }
+            }
+            cursor = end + 1n;
+        }
+        return allLogs;
+    };
+
     const fetchMarketData = useCallback(async () => {
-        if (!publicClient) return;
+        if (!publicClient || !currentBlock || isFetching.current) return;
+        
+        isFetching.current = true;
         setIsLoading(true);
         setError(null);
         
         try {
-            // 1. Determine Block Range (Scan last 49k blocks to be safe on BSC Testnet)
-            const endBlock = currentBlock || await publicClient.getBlockNumber();
-            const startBlock = endBlock - 49000n > 0n ? endBlock - 49000n : 0n;
+            const endBlock = currentBlock;
+            const startBlock = endBlock - MAX_HISTORY_BLOCKS > 0n ? endBlock - MAX_HISTORY_BLOCKS : 0n;
 
-            addLog(`Scanning blocks ${startBlock} to ${endBlock}...`);
+            addLog(`Starting Deep Scan: Block ${startBlock} to ${endBlock}`);
 
-            // 2. Fetch Events in Parallel
+            // Fetch all relevant events in parallel but chunked internally
             const [
                 listedLogs, soldLogs, canceledLogs,
                 auctionCreatedLogs, bidLogs, auctionEndedLogs
             ] = await Promise.all([
-                publicClient.getContractEvents({ address: NFT_MARKETPLACE_ADDRESS, abi: NFT_MARKETPLACE_ABI, eventName: 'ItemListed', fromBlock: startBlock }),
-                publicClient.getContractEvents({ address: NFT_MARKETPLACE_ADDRESS, abi: NFT_MARKETPLACE_ABI, eventName: 'ItemSold', fromBlock: startBlock }),
-                publicClient.getContractEvents({ address: NFT_MARKETPLACE_ADDRESS, abi: NFT_MARKETPLACE_ABI, eventName: 'ItemCanceled', fromBlock: startBlock }),
-                publicClient.getContractEvents({ address: NFT_MARKETPLACE_ADDRESS, abi: NFT_MARKETPLACE_ABI, eventName: 'AuctionCreated', fromBlock: startBlock }),
-                publicClient.getContractEvents({ address: NFT_MARKETPLACE_ADDRESS, abi: NFT_MARKETPLACE_ABI, eventName: 'NewBid', fromBlock: startBlock }),
-                publicClient.getContractEvents({ address: NFT_MARKETPLACE_ADDRESS, abi: NFT_MARKETPLACE_ABI, eventName: 'AuctionEnded', fromBlock: startBlock }),
+                fetchEventsInChunks('ItemListed', startBlock, endBlock),
+                fetchEventsInChunks('ItemSold', startBlock, endBlock),
+                fetchEventsInChunks('ItemCanceled', startBlock, endBlock),
+                fetchEventsInChunks('AuctionCreated', startBlock, endBlock),
+                fetchEventsInChunks('NewBid', startBlock, endBlock),
+                fetchEventsInChunks('AuctionEnded', startBlock, endBlock),
             ]);
 
-            addLog(`Events Found: ${listedLogs.length} Listings, ${auctionCreatedLogs.length} Auctions`);
+            addLog(`Scan Complete. Processing ${listedLogs.length} Listings, ${auctionCreatedLogs.length} Auctions...`);
 
-            // --- PROCESS AUCTIONS FIRST (Priority) ---
+            // --- 1. PROCESS AUCTIONS (Priority) ---
             const activeAuctions = new Map<string, AuctionItem>();
 
             auctionCreatedLogs.forEach(log => {
-                const args = log.args as any; // TS Fix
+                const args = log.args as any;
                 if (args.seller && args.nftContract && args.tokenId) {
                     const key = `${args.nftContract.toLowerCase()}-${args.tokenId.toString()}`;
                     activeAuctions.set(key, {
@@ -75,39 +120,41 @@ export function useMarketListings() {
                 }
             });
 
-            // Update Bids
+            // Apply Bids
             bidLogs.forEach(log => {
-                const args = log.args as any; // TS Fix
+                const args = log.args as any;
                 if (args.nftContract && args.tokenId) {
                     const key = `${args.nftContract.toLowerCase()}-${args.tokenId.toString()}`;
                     const auction = activeAuctions.get(key);
                     if (auction) {
-                        auction.highestBid = args.amount || 0n;
-                        auction.highestBidder = args.bidder || auction.highestBidder;
+                        // Only update if bid is higher (logs are chronological usually, but good to check)
+                        if ((args.amount || 0n) > auction.highestBid) {
+                            auction.highestBid = args.amount || 0n;
+                            auction.highestBidder = args.bidder || auction.highestBidder;
+                        }
                     }
                 }
             });
 
             // Remove Ended Auctions
             auctionEndedLogs.forEach(log => {
-                const args = log.args as any; // TS Fix
+                const args = log.args as any;
                 if (args.nftContract && args.tokenId) {
                     const key = `${args.nftContract.toLowerCase()}-${args.tokenId.toString()}`;
                     activeAuctions.delete(key);
                 }
             });
 
-            // --- PROCESS FIXED LISTINGS ---
+            // --- 2. PROCESS FIXED LISTINGS ---
             const activeListings = new Map<string, Listing>();
 
             listedLogs.forEach(log => {
-                const args = log.args as any; // TS Fix
+                const args = log.args as any;
                 if (args.seller && args.nftContract && args.tokenId) {
                     const key = `${args.nftContract.toLowerCase()}-${args.tokenId.toString()}`;
                     
-                    // CONFLICT RESOLUTION: If item is in auction, ignore fixed listing
+                    // CONFLICT CHECK: If item is currently in an active auction, ignore the fixed listing
                     if (activeAuctions.has(key)) {
-                        addLog(`Skipping fixed listing for ${key} (Active Auction detected)`);
                         return;
                     }
 
@@ -122,7 +169,7 @@ export function useMarketListings() {
 
             // Remove Sold or Canceled
             [...soldLogs, ...canceledLogs].forEach(log => {
-                const args = log.args as any; // TS Fix
+                const args = log.args as any;
                 if (args.nftContract && args.tokenId) {
                     const key = `${args.nftContract.toLowerCase()}-${args.tokenId.toString()}`;
                     activeListings.delete(key);
@@ -131,7 +178,7 @@ export function useMarketListings() {
 
             setListings(Array.from(activeListings.values()));
             setAuctions(Array.from(activeAuctions.values()));
-            addLog(`State Updated: ${activeListings.size} Active Listings, ${activeAuctions.size} Active Auctions`);
+            addLog(`Success: ${activeListings.size} Listings, ${activeAuctions.size} Auctions active.`);
 
         } catch (e: any) {
             console.error("Market Data Fetch Error:", e);
@@ -139,6 +186,7 @@ export function useMarketListings() {
             addLog(`CRITICAL ERROR: ${e.message}`);
         } finally {
             setIsLoading(false);
+            isFetching.current = false;
         }
     }, [publicClient, currentBlock]);
 

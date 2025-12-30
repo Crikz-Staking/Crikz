@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAccount, usePublicClient, useReadContract } from 'wagmi';
-import { CRIKZ_NFT_ADDRESS, CRIKZ_NFT_ABI, NFT_MARKETPLACE_ADDRESS, NFT_MARKETPLACE_ABI } from '@/config/index';
+import { CRIKZ_NFT_ADDRESS, CRIKZ_NFT_ABI } from '@/config/index';
 import { useCollectionManager } from './useCollectionManager';
+import { useMarketListings } from './useMarketListings';
 
 export interface RichNFT {
   uniqueKey: string; // contract-id
@@ -19,6 +20,7 @@ export function useRealNFTIndexer() {
   const { address } = useAccount();
   const publicClient = usePublicClient();
   const { itemMapping, importedItems } = useCollectionManager();
+  const { listings } = useMarketListings(); // Get active listings to check status
   
   const [nfts, setNfts] = useState<RichNFT[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -98,7 +100,7 @@ export function useRealNFTIndexer() {
     } finally {
         setIsLoading(false);
     }
-  }, [address, balance, publicClient, importedItems]);
+  }, [address, balance, publicClient, importedItems, listings]);
 
   const processNFTData = async (contract: string, id: bigint, uri: string, isImported: boolean): Promise<RichNFT> => {
       let meta = { name: `Item #${id}`, image: '', attributes: [] };
@@ -112,6 +114,12 @@ export function useRealNFTIndexer() {
       // Map to collection from LocalStorage, default to 'default'
       const colId = itemMapping[key] || 'default';
 
+      // Check if listed in Fixed Price Market
+      const isListed = listings.some(l => 
+          l.nftContract.toLowerCase() === contract.toLowerCase() && 
+          l.tokenId === id
+      );
+
       return {
           uniqueKey: key,
           id,
@@ -119,7 +127,7 @@ export function useRealNFTIndexer() {
           name: meta.name || `Item #${id}`,
           image: meta.image?.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/') || '',
           collectionId: colId,
-          isListed: false, // Indexer focuses on wallet items
+          isListed,
           isImported,
           metadata: meta
       };

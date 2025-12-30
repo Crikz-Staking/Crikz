@@ -168,6 +168,7 @@ export default function UserCollection({ dynamicColor }: { dynamicColor: string 
                                         <div className="aspect-square bg-white/5 relative">
                                             {nft.image ? <img src={nft.image} className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="opacity-20"/></div>}
                                             {locked && <div className="absolute top-2 right-2 bg-black/60 text-amber-500 text-[10px] font-bold px-2 py-1 rounded flex items-center gap-1"><Tag size={10}/> TRADED</div>}
+                                            {nft.isListed && <div className="absolute top-2 left-2 bg-primary-500 text-black text-[10px] font-bold px-2 py-1 rounded">LISTED</div>}
                                             {nft.isImported && <div className="absolute top-2 left-2 bg-blue-500 text-white text-[10px] font-bold px-2 py-1 rounded">EXTERNAL</div>}
                                             {hasUnlockable && <div className="absolute bottom-2 right-2 bg-black/60 text-primary-500 p-1 rounded border border-primary-500/30"><Lock size={12}/></div>}
                                             
