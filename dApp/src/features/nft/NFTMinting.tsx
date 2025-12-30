@@ -203,7 +203,7 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
         abi: CRIKZ_NFT_ABI,
         functionName: 'mint',
         args: [`ipfs://${metaCid}`],
-        value: parseEther('0.001') // Small fee
+        value: parseEther('0.01') // FIX: Increased to 0.01 BNB to match contract requirement
       });
       
       toast.dismiss('mint');
