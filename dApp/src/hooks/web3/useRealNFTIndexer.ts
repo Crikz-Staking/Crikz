@@ -1,3 +1,4 @@
+// src/hooks/web3/useRealNFTIndexer.ts
 import { useState, useEffect, useCallback } from 'react';
 import { useAccount, usePublicClient, useReadContract } from 'wagmi';
 import { CRIKZ_NFT_ADDRESS, CRIKZ_NFT_ABI } from '@/config/index';
@@ -5,14 +6,13 @@ import { useCollectionManager } from './useCollectionManager';
 import { useMarketListings } from './useMarketListings';
 
 export interface RichNFT {
-  uniqueKey: string; // contract-id
+  uniqueKey: string;
   id: bigint;
   contract: string;
   name: string;
   image: string;
   collectionId: string;
-  isListed: boolean;
-  isImported: boolean;
+  status: 'wallet' | 'listed' | 'auction';
   metadata: any;
 }
 
@@ -20,7 +20,7 @@ export function useRealNFTIndexer() {
   const { address } = useAccount();
   const publicClient = usePublicClient();
   const { itemMapping, importedItems } = useCollectionManager();
-  const { listings } = useMarketListings(); // Get active listings to check status
+  const { listings, auctions } = useMarketListings(); 
   
   const [nfts, setNfts] = useState<RichNFT[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -38,10 +38,11 @@ export function useRealNFTIndexer() {
 
     setIsLoading(true);
     try {
-        const nativeCount = Number(balance || 0n);
         const tasks = [];
+        const processedKeys = new Set<string>();
 
-        // A. Fetch Native NFTs
+        // A. Fetch Native NFTs in Wallet
+        const nativeCount = Number(balance || 0n);
         for (let i = 0; i < nativeCount; i++) {
             tasks.push(async () => {
                 try {
@@ -51,32 +52,24 @@ export function useRealNFTIndexer() {
                         functionName: 'tokenOfOwnerByIndex',
                         args: [address, BigInt(i)]
                     });
-                    
-                    const uri = await publicClient.readContract({
-                        address: CRIKZ_NFT_ADDRESS,
-                        abi: CRIKZ_NFT_ABI,
-                        functionName: 'tokenURI',
-                        args: [id]
-                    });
-
-                    return processNFTData(CRIKZ_NFT_ADDRESS, id, uri, false);
+                    return processNFTData(CRIKZ_NFT_ADDRESS, id, 'wallet');
                 } catch { return null; }
             });
         }
 
-        // B. Fetch Imported NFTs
+        // B. Fetch Items in Auction (Escrowed)
+        // Filter auctions where seller == user
+        const myAuctions = auctions.filter(a => a.seller.toLowerCase() === address.toLowerCase() && a.isActive);
+        myAuctions.forEach(auction => {
+            tasks.push(async () => {
+                return processNFTData(auction.nftContract, auction.tokenId, 'auction');
+            });
+        });
+
+        // C. Fetch Imported NFTs
         importedItems.forEach(item => {
             tasks.push(async () => {
                 try {
-                    // Generic ERC721 URI Check
-                    const uri = await publicClient.readContract({
-                        address: item.contract as `0x${string}`,
-                        abi: [{name:'tokenURI',type:'function',inputs:[{name:'tokenId',type:'uint256'}],outputs:[{name:'',type:'string'}],stateMutability:'view'}],
-                        functionName: 'tokenURI',
-                        args: [BigInt(item.tokenId)]
-                    }) as string;
-                    
-                    // Verify ownership again to filter sold items
                     const owner = await publicClient.readContract({
                         address: item.contract as `0x${string}`,
                         abi: [{name:'ownerOf',type:'function',inputs:[{name:'tokenId',type:'uint256'}],outputs:[{name:'',type:'address'}],stateMutability:'view'}],
@@ -84,41 +77,64 @@ export function useRealNFTIndexer() {
                         args: [BigInt(item.tokenId)]
                     }) as string;
 
-                    if (owner.toLowerCase() !== address.toLowerCase()) return null;
-
-                    return processNFTData(item.contract, BigInt(item.tokenId), uri, true);
+                    if (owner.toLowerCase() === address.toLowerCase()) {
+                        return processNFTData(item.contract, BigInt(item.tokenId), 'wallet');
+                    }
+                    return null;
                 } catch { return null; }
             });
         });
 
         // Resolve all
         const results = await Promise.all(tasks.map(t => t()));
-        setNfts(results.filter(n => n !== null) as RichNFT[]);
+        const validResults = results.filter(n => n !== null) as RichNFT[];
+        
+        // Deduplicate (in case logic overlaps)
+        const uniqueResults = validResults.filter(item => {
+            if (processedKeys.has(item.uniqueKey)) return false;
+            processedKeys.add(item.uniqueKey);
+            return true;
+        });
+
+        setNfts(uniqueResults);
 
     } catch (e) {
         console.error("Indexer Error", e);
     } finally {
         setIsLoading(false);
     }
-  }, [address, balance, publicClient, importedItems, listings]);
+  }, [address, balance, publicClient, importedItems, listings, auctions]);
 
-  const processNFTData = async (contract: string, id: bigint, uri: string, isImported: boolean): Promise<RichNFT> => {
+  const processNFTData = async (contract: string, id: bigint, status: 'wallet' | 'auction'): Promise<RichNFT> => {
       let meta = { name: `Item #${id}`, image: '', attributes: [] };
+      let uri = '';
+      
       try {
+          uri = await publicClient.readContract({
+            address: contract as `0x${string}`,
+            abi: CRIKZ_NFT_ABI,
+            functionName: 'tokenURI',
+            args: [id]
+          }) as string;
+
           const httpUrl = uri.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
           const res = await fetch(httpUrl);
           meta = await res.json();
       } catch (e) {}
 
       const key = `${contract.toLowerCase()}-${id.toString()}`;
-      // Map to collection from LocalStorage, default to 'default'
       const colId = itemMapping[key] || 'default';
 
-      // Check if listed in Fixed Price Market
-      const isListed = listings.some(l => 
-          l.nftContract.toLowerCase() === contract.toLowerCase() && 
-          l.tokenId === id
-      );
+      // Check if listed in Fixed Price Market (Status override)
+      let finalStatus = status;
+      if (status === 'wallet') {
+          const isListed = listings.some(l => 
+              l.nftContract.toLowerCase() === contract.toLowerCase() && 
+              l.tokenId === id && 
+              l.seller.toLowerCase() === address?.toLowerCase()
+          );
+          if (isListed) finalStatus = 'listed';
+      }
 
       return {
           uniqueKey: key,
@@ -127,8 +143,7 @@ export function useRealNFTIndexer() {
           name: meta.name || `Item #${id}`,
           image: meta.image?.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/') || '',
           collectionId: colId,
-          isListed,
-          isImported,
+          status: finalStatus,
           metadata: meta
       };
   };

@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract NFTMarketplace is ReentrancyGuard, Ownable {
     struct Listing {
+        uint256 listingId;
         address seller;
         address nftContract;
         uint256 tokenId;
@@ -16,6 +17,7 @@ contract NFTMarketplace is ReentrancyGuard, Ownable {
     }
 
     struct Auction {
+        uint256 auctionId;
         address seller;
         address nftContract;
         uint256 tokenId;
@@ -27,22 +29,25 @@ contract NFTMarketplace is ReentrancyGuard, Ownable {
     }
 
     IERC20 public crikzToken;
-    uint256 public constant FEE_BPS = 618; // 0.618% (Basis points: 100,000 = 100%)
+    uint256 public constant FEE_BPS = 618; // 0.618%
     uint256 public constant BPS_DENOMINATOR = 100000;
 
-    // Fixed Price Listings
-    mapping(address => mapping(uint256 => Listing)) public listings;
-    
-    // Auctions
-    mapping(address => mapping(uint256 => Auction)) public auctions;
+    // Storage
+    Listing[] public allListings;
+    Auction[] public allAuctions;
 
-    event ItemListed(address indexed seller, address indexed nftContract, uint256 indexed tokenId, uint256 price);
+    // Mappings for quick lookup
+    mapping(address => mapping(uint256 => uint256)) public activeListingMap; // contract -> tokenId -> listingIndex
+    mapping(address => mapping(uint256 => uint256)) public activeAuctionMap; // contract -> tokenId -> auctionIndex
+
+    // EVENTS (Fixed: Max 3 indexed arguments)
+    event ItemListed(uint256 listingId, address indexed seller, address indexed nftContract, uint256 indexed tokenId, uint256 price);
     event ItemSold(address indexed buyer, address indexed nftContract, uint256 indexed tokenId, uint256 price, uint256 fee);
     event ItemCanceled(address indexed seller, address indexed nftContract, uint256 indexed tokenId);
     
-    event AuctionCreated(address indexed seller, address indexed nftContract, uint256 indexed tokenId, uint256 minPrice, uint256 endTime);
-    event NewBid(address indexed bidder, address indexed nftContract, uint256 indexed tokenId, uint256 amount);
-    event AuctionEnded(address indexed winner, address indexed nftContract, uint256 indexed tokenId, uint256 amount, uint256 fee);
+    event AuctionCreated(uint256 auctionId, address indexed seller, address indexed nftContract, uint256 indexed tokenId, uint256 minPrice, uint256 endTime);
+    event NewBid(uint256 indexed auctionId, address indexed bidder, uint256 amount);
+    event AuctionEnded(uint256 indexed auctionId, address indexed winner, uint256 amount, uint256 fee);
 
     constructor(address _crikzToken) Ownable(msg.sender) {
         crikzToken = IERC20(_crikzToken);
@@ -57,34 +62,47 @@ contract NFTMarketplace is ReentrancyGuard, Ownable {
         require(nft.ownerOf(tokenId) == msg.sender, "Not the owner");
         require(nft.isApprovedForAll(msg.sender, address(this)) || nft.getApproved(tokenId) == address(this), "Marketplace not approved");
 
-        listings[nftContract][tokenId] = Listing(msg.sender, nftContract, tokenId, price, true);
-        emit ItemListed(msg.sender, nftContract, tokenId, price);
+        // Check if already listed
+        require(activeListingMap[nftContract][tokenId] == 0, "Already listed");
+
+        uint256 newId = allListings.length;
+        allListings.push(Listing(newId, msg.sender, nftContract, tokenId, price, true));
+        
+        // Store index + 1 so 0 means "not found"
+        activeListingMap[nftContract][tokenId] = newId + 1;
+
+        emit ItemListed(newId, msg.sender, nftContract, tokenId, price);
     }
 
-    function buyItem(address nftContract, uint256 tokenId) external nonReentrant {
-        Listing memory listing = listings[nftContract][tokenId];
-        require(listing.isActive, "Item not listed");
+    function buyItem(uint256 listingId) external nonReentrant {
+        require(listingId < allListings.length, "Invalid ID");
+        Listing storage listing = allListings[listingId];
+        require(listing.isActive, "Item not active");
 
-        delete listings[nftContract][tokenId];
+        listing.isActive = false;
+        delete activeListingMap[listing.nftContract][listing.tokenId];
 
         uint256 fee = (listing.price * FEE_BPS) / BPS_DENOMINATOR;
         uint256 sellerAmount = listing.price - fee;
 
-        // Transfer Fee to Owner (Protocol)
         require(crikzToken.transferFrom(msg.sender, owner(), fee), "Fee transfer failed");
-        // Transfer Remainder to Seller
         require(crikzToken.transferFrom(msg.sender, listing.seller, sellerAmount), "Seller transfer failed");
         
-        IERC721(nftContract).safeTransferFrom(listing.seller, msg.sender, tokenId);
+        IERC721(listing.nftContract).safeTransferFrom(listing.seller, msg.sender, listing.tokenId);
         
-        emit ItemSold(msg.sender, nftContract, tokenId, listing.price, fee);
+        emit ItemSold(msg.sender, listing.nftContract, listing.tokenId, listing.price, fee);
     }
 
-    function cancelListing(address nftContract, uint256 tokenId) external nonReentrant {
-        Listing memory listing = listings[nftContract][tokenId];
+    function cancelListing(uint256 listingId) external nonReentrant {
+        require(listingId < allListings.length, "Invalid ID");
+        Listing storage listing = allListings[listingId];
         require(listing.seller == msg.sender, "Not seller");
-        delete listings[nftContract][tokenId];
-        emit ItemCanceled(msg.sender, nftContract, tokenId);
+        require(listing.isActive, "Not active");
+
+        listing.isActive = false;
+        delete activeListingMap[listing.nftContract][listing.tokenId];
+        
+        emit ItemCanceled(msg.sender, listing.nftContract, listing.tokenId);
     }
 
     // --- AUCTIONS ---
@@ -99,7 +117,9 @@ contract NFTMarketplace is ReentrancyGuard, Ownable {
         // Escrow the NFT
         nft.transferFrom(msg.sender, address(this), tokenId);
 
-        auctions[nftContract][tokenId] = Auction({
+        uint256 newId = allAuctions.length;
+        allAuctions.push(Auction({
+            auctionId: newId,
             seller: msg.sender,
             nftContract: nftContract,
             tokenId: tokenId,
@@ -108,13 +128,17 @@ contract NFTMarketplace is ReentrancyGuard, Ownable {
             highestBidder: address(0),
             highestBid: 0,
             isActive: true
-        });
+        }));
 
-        emit AuctionCreated(msg.sender, nftContract, tokenId, minPrice, block.timestamp + duration);
+        activeAuctionMap[nftContract][tokenId] = newId + 1;
+
+        emit AuctionCreated(newId, msg.sender, nftContract, tokenId, minPrice, block.timestamp + duration);
     }
 
-    function bid(address nftContract, uint256 tokenId, uint256 amount) external nonReentrant {
-        Auction storage auction = auctions[nftContract][tokenId];
+    function bid(uint256 auctionId, uint256 amount) external nonReentrant {
+        require(auctionId < allAuctions.length, "Invalid ID");
+        Auction storage auction = allAuctions[auctionId];
+        
         require(auction.isActive, "Auction not active");
         require(block.timestamp < auction.endTime, "Auction ended");
         require(amount >= auction.minPrice, "Below min price");
@@ -131,32 +155,79 @@ contract NFTMarketplace is ReentrancyGuard, Ownable {
         auction.highestBidder = msg.sender;
         auction.highestBid = amount;
 
-        emit NewBid(msg.sender, nftContract, tokenId, amount);
+        emit NewBid(auctionId, msg.sender, amount);
     }
 
-    function endAuction(address nftContract, uint256 tokenId) external nonReentrant {
-        Auction storage auction = auctions[nftContract][tokenId];
+    function endAuction(uint256 auctionId) external nonReentrant {
+        require(auctionId < allAuctions.length, "Invalid ID");
+        Auction storage auction = allAuctions[auctionId];
+        
         require(auction.isActive, "Not active");
         require(block.timestamp >= auction.endTime, "Not ended yet");
 
         auction.isActive = false;
+        delete activeAuctionMap[auction.nftContract][auction.tokenId];
 
         if (auction.highestBidder != address(0)) {
             uint256 fee = (auction.highestBid * FEE_BPS) / BPS_DENOMINATOR;
             uint256 sellerAmount = auction.highestBid - fee;
 
             // Transfer NFT to winner
-            IERC721(nftContract).transferFrom(address(this), auction.highestBidder, tokenId);
+            IERC721(auction.nftContract).transferFrom(address(this), auction.highestBidder, auction.tokenId);
             
             // Distribute Funds
             crikzToken.transfer(owner(), fee);
             crikzToken.transfer(auction.seller, sellerAmount);
             
-            emit AuctionEnded(auction.highestBidder, nftContract, tokenId, auction.highestBid, fee);
+            emit AuctionEnded(auctionId, auction.highestBidder, auction.highestBid, fee);
         } else {
             // No bids, return NFT to seller
-            IERC721(nftContract).transferFrom(address(this), auction.seller, tokenId);
-            emit AuctionEnded(address(0), nftContract, tokenId, 0, 0);
+            IERC721(auction.nftContract).transferFrom(address(this), auction.seller, auction.tokenId);
+            emit AuctionEnded(auctionId, address(0), 0, 0);
         }
+    }
+
+    // --- VIEW FUNCTIONS ---
+
+    function getAllListings() external view returns (Listing[] memory) {
+        return allListings;
+    }
+
+    function getAllAuctions() external view returns (Auction[] memory) {
+        return allAuctions;
+    }
+    
+    function getActiveListings() external view returns (Listing[] memory) {
+        uint256 count = 0;
+        for(uint i=0; i<allListings.length; i++) {
+            if(allListings[i].isActive) count++;
+        }
+        
+        Listing[] memory active = new Listing[](count);
+        uint256 index = 0;
+        for(uint i=0; i<allListings.length; i++) {
+            if(allListings[i].isActive) {
+                active[index] = allListings[i];
+                index++;
+            }
+        }
+        return active;
+    }
+
+    function getActiveAuctions() external view returns (Auction[] memory) {
+        uint256 count = 0;
+        for(uint i=0; i<allAuctions.length; i++) {
+            if(allAuctions[i].isActive) count++;
+        }
+        
+        Auction[] memory active = new Auction[](count);
+        uint256 index = 0;
+        for(uint i=0; i<allAuctions.length; i++) {
+            if(allAuctions[i].isActive) {
+                active[index] = allAuctions[i];
+                index++;
+            }
+        }
+        return active;
     }
 }
