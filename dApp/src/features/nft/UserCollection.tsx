@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { FolderPlus, Settings, Trash2, Tag, Image as ImageIcon, X, Edit3, Download, Lock, Gavel, Clock, Eye } from 'lucide-react';
+import { FolderPlus, Settings, Trash2, Tag, Image as ImageIcon, X, Edit3, Download, Lock, Gavel, Clock, Eye, RefreshCw } from 'lucide-react';
 import { useRealNFTIndexer, RichNFT } from '@/hooks/web3/useRealNFTIndexer';
 import { useCollectionManager } from '@/hooks/web3/useCollectionManager';
 import { useMarketListings } from '@/hooks/web3/useMarketListings';
@@ -35,11 +35,15 @@ export default function UserCollection({ dynamicColor }: { dynamicColor: string 
   const { writeContract: burn, data: burnHash } = useWriteContract();
   const { isSuccess: burnSuccess } = useWaitForTransactionReceipt({ hash: burnHash });
   
+  const { writeContract: cancelListing, data: cancelHash } = useWriteContract();
+  const { isSuccess: cancelSuccess } = useWaitForTransactionReceipt({ hash: cancelHash });
+
   const { writeContract: endAuction, data: endHash } = useWriteContract();
   const { isSuccess: endSuccess } = useWaitForTransactionReceipt({ hash: endHash });
 
   React.useEffect(() => { if(burnSuccess) { toast.success("Burned"); refetch(); } }, [burnSuccess]);
   React.useEffect(() => { if(endSuccess) { toast.success("Auction Finalized"); refreshMarket(); } }, [endSuccess]);
+  React.useEffect(() => { if(cancelSuccess) { toast.success("Listing Cancelled"); refreshMarket(); refetch(); } }, [cancelSuccess]);
 
   // Filter Data
   const currentCollection = collections.find(c => c.id === activeCollectionId);
@@ -80,14 +84,21 @@ export default function UserCollection({ dynamicColor }: { dynamicColor: string 
       } as any);
   };
 
-  // Fixed: Now accepts auctionId
-  const handleEndAuction = (auctionId: bigint) => {
-      endAuction({
+  const handleCancelListing = (listingId: bigint) => {
+      cancelListing({
           address: NFT_MARKETPLACE_ADDRESS,
           abi: NFT_MARKETPLACE_ABI,
-          functionName: 'endAuction',
-          args: [auctionId]
+          functionName: 'cancelListing',
+          args: [listingId]
       });
+  };
+
+  // Shortcut: Cancel then re-open list modal (simulated edit)
+  const handleEditPrice = (listingId: bigint) => {
+      if(!confirm("To edit price, we must cancel the current listing first. Proceed?")) return;
+      handleCancelListing(listingId);
+      // Note: User must wait for TX then re-list. 
+      // A more complex flow would wait for receipt then open modal, but for now manual re-list is safer.
   };
 
   return (
@@ -118,7 +129,6 @@ export default function UserCollection({ dynamicColor }: { dynamicColor: string 
         {/* --- WALLET VIEW --- */}
         {viewMode === 'wallet' && (
             <>
-                {/* Collection Tabs */}
                 <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
                     {collections.map(col => {
                         const isActive = activeCollectionId === col.id;
@@ -181,7 +191,9 @@ export default function UserCollection({ dynamicColor }: { dynamicColor: string 
                                                     <button onClick={() => setShowMoveModal(nft)} disabled={locked} className={`flex-1 py-2 text-xs font-bold rounded ${locked ? 'bg-white/5 text-gray-600' : 'bg-white/10 text-white hover:bg-white/20'}`}>Move</button>
                                                     {hasUnlockable && <button onClick={() => setViewUnlockable(nft)} className="flex-1 py-2 bg-emerald-500/10 text-emerald-500 text-xs font-bold rounded hover:bg-emerald-500/20 flex items-center justify-center gap-1"><Eye size={12}/> Reveal</button>}
                                                 </div>
-                                                {!nft.contract.toLowerCase().includes('crikz') && <div className="text-[9px] text-gray-500">External</div>}
+                                                {!locked && (
+                                                    <button onClick={() => handleBurn(nft.id)} className="w-full py-2 bg-red-500/10 text-red-500 text-xs font-bold rounded hover:bg-red-500/20">Burn</button>
+                                                )}
                                             </div>
                                         </div>
                                         <div className="p-3">
@@ -206,13 +218,17 @@ export default function UserCollection({ dynamicColor }: { dynamicColor: string 
                 ) : (
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         {myListings.map(item => (
-                            <div key={item.id} className="bg-[#0A0A0F] rounded-2xl border border-white/5 p-4">
+                            <div key={item.id} className="bg-[#0A0A0F] rounded-2xl border border-white/5 p-4 relative group">
                                 <div className="aspect-square bg-white/5 rounded-xl mb-3 flex items-center justify-center">
                                     <span className="text-4xl">💠</span>
                                 </div>
                                 <div className="font-bold text-white text-sm">Token #{item.tokenId.toString()}</div>
                                 <div className="text-primary-500 font-bold text-xs mb-3">{formatTokenAmount(item.price)} CRKZ</div>
-                                <div className="text-[10px] text-gray-500 text-center">Listed on Market</div>
+                                
+                                <div className="flex gap-2">
+                                    <button onClick={() => handleEditPrice(item.listingId)} className="flex-1 py-2 bg-white/10 text-white text-xs font-bold rounded hover:bg-white/20">Edit Price</button>
+                                    <button onClick={() => handleCancelListing(item.listingId)} className="flex-1 py-2 bg-red-500/10 text-red-500 text-xs font-bold rounded hover:bg-red-500/20">Cancel</button>
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -255,7 +271,7 @@ export default function UserCollection({ dynamicColor }: { dynamicColor: string 
 
                                     {isEnded && (
                                         <button 
-                                            onClick={() => handleEndAuction(auction.auctionId)} // Fixed: Passing auctionId
+                                            onClick={() => handleEndAuction(auction.auctionId)}
                                             className="w-full py-2 bg-primary-500 text-black font-bold rounded-lg text-xs hover:bg-primary-400"
                                         >
                                             Finalize & Claim
@@ -270,21 +286,10 @@ export default function UserCollection({ dynamicColor }: { dynamicColor: string 
         )}
 
         {/* --- MODALS --- */}
-        
         <SimpleModal isOpen={showImportModal} onClose={() => setShowImportModal(false)} title="Import External NFT">
             <ImportForm onImport={(c: string, i: string) => { 
                 importNFT(c, i).then(() => { toast.success("Imported!"); setShowImportModal(false); refetch(); }).catch((e: any) => toast.error(e.message)); 
             }} />
-        </SimpleModal>
-
-        <SimpleModal isOpen={!!showMoveModal} onClose={() => setShowMoveModal(null)} title="Move to Collection">
-            <div className="space-y-2">
-                {collections.map(c => (
-                    <button key={c.id} onClick={() => handleMove(c.id)} disabled={c.id === activeCollectionId} className="w-full text-left px-4 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-sm font-bold transition-colors disabled:opacity-50">
-                        {c.name}
-                    </button>
-                ))}
-            </div>
         </SimpleModal>
 
         <SimpleModal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} title="New Collection">
@@ -299,7 +304,6 @@ export default function UserCollection({ dynamicColor }: { dynamicColor: string 
             />
         </SimpleModal>
 
-        {/* Unlockable Content Modal */}
         <SimpleModal isOpen={!!viewUnlockable} onClose={() => setViewUnlockable(null)} title="Unlockable Content">
             <div className="bg-black/40 p-4 rounded-xl border border-white/10 font-mono text-sm text-emerald-400 break-all">
                 {viewUnlockable?.metadata?.unlockable_content}
@@ -309,11 +313,10 @@ export default function UserCollection({ dynamicColor }: { dynamicColor: string 
             </p>
         </SimpleModal>
 
-        {/* Fixed: Passing nftContract to ListingModal */}
         {showListModal && (
             <ListingModal 
                 tokenId={showListModal.id} 
-                nftContract={showListModal.contract} // New Prop
+                nftContract={showListModal.contract} 
                 onClose={() => setShowListModal(null)} 
                 onSuccess={() => { refetch(); refreshMarket(); }} 
             />
@@ -321,8 +324,6 @@ export default function UserCollection({ dynamicColor }: { dynamicColor: string 
     </div>
   );
 }
-
-// --- SUB COMPONENTS ---
 
 function SimpleModal({ isOpen, onClose, title, children }: any) {
     if(!isOpen) return null;
