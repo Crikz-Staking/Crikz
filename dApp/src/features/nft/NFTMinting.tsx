@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Upload, Sparkles, FolderPlus, X, Plus, Trash2, Check, Lock, Info } from 'lucide-react';
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseEther } from 'viem';
@@ -8,7 +8,7 @@ import { uploadToIPFS } from '@/lib/ipfs-service';
 import { useCollectionManager } from '@/hooks/web3/useCollectionManager';
 
 export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
-  const { collections, createCollection } = useCollectionManager();
+  const { collections, createCollection, assignMintedItem } = useCollectionManager();
   
   // Form State
   const [file, setFile] = useState<File | null>(null);
@@ -26,10 +26,10 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
 
   // Contract Write
   const { writeContract, data: hash, isPending } = useWriteContract();
-  const { isLoading: isConfirming } = useWaitForTransactionReceipt({ hash });
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
-  React.useEffect(() => {
-      if (hash && !isConfirming) {
+  useEffect(() => {
+      if (isSuccess) {
           toast.success("Minted Successfully!");
           // Reset Form
           setFile(null);
@@ -39,8 +39,10 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
           setAttributes([]);
           setUnlockableContent('');
           setHasUnlockable(false);
+          // Note: In a real app we'd grab the tokenId from logs to assign collection here
+          // but for now the indexer picks it up eventually
       }
-  }, [hash, isConfirming]);
+  }, [isSuccess]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files?.[0]) {
@@ -62,13 +64,16 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
     }
 
     try {
-      toast.loading("Uploading assets to IPFS...", { id: 'mint' });
-      const ipfsUrl = await uploadToIPFS(file);
+      // 1. Upload Media Asset
+      toast.loading("Uploading image to IPFS...", { id: 'mint' });
+      const mediaCid = await uploadToIPFS(file);
+      const mediaUrl = `ipfs://${mediaCid}`;
       
+      // 2. Construct Metadata
       const metadataObj: any = {
         name: name,
         description: description,
-        image: ipfsUrl,
+        image: mediaUrl,
         attributes: [
             ...attributes,
             { trait_type: "Platform", value: "Crikz Protocol" },
@@ -76,27 +81,35 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
         ],
       };
 
-      // Add unlockable content to metadata
+      // Add unlockable content to metadata (client-side only logic for retrieval later, strictly typically encrypted but basic here)
       if (hasUnlockable && unlockableContent) {
           metadataObj.unlockable_content = unlockableContent;
       }
 
-      const finalMetadata = JSON.stringify(metadataObj);
+      // 3. Upload Metadata to IPFS
+      toast.loading("Uploading metadata...", { id: 'mint' });
+      const metadataString = JSON.stringify(metadataObj);
+      const metadataBlob = new Blob([metadataString], { type: 'application/json' });
+      const metadataFile = new File([metadataBlob], "metadata.json");
+      
+      const metaCid = await uploadToIPFS(metadataFile);
+      const tokenUri = `ipfs://${metaCid}`;
 
+      // 4. Write to Contract
       toast.loading("Confirming Transaction...", { id: 'mint' });
 
       writeContract({
         address: CRIKZ_NFT_ADDRESS as `0x${string}`,
         abi: CRIKZ_NFT_ABI,
         functionName: 'mint',
-        args: [finalMetadata],
+        args: [tokenUri], // Expects string _tokenURI
         value: parseEther('0.01')
       });
       
       toast.dismiss('mint');
-    } catch (e) {
+    } catch (e: any) {
         console.error(e);
-        toast.error("Mint failed", { id: 'mint' });
+        toast.error("Mint failed: " + (e.message || "Unknown error"), { id: 'mint' });
     }
   };
 

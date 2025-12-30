@@ -1,16 +1,16 @@
-import React, { useState, useMemo } from 'react';
-import { Search, ShoppingBag, LayoutGrid, List as ListIcon, SlidersHorizontal, X, Gavel, Clock } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Search, ShoppingBag, LayoutGrid, List as ListIcon, SlidersHorizontal, X, Gavel, Clock, Loader2 } from 'lucide-react';
 import { formatTokenAmount, shortenAddress, formatTimeRemaining } from '@/lib/utils';
 import { Listing } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { NFT_MARKETPLACE_ADDRESS, NFT_MARKETPLACE_ABI } from '@/config/index';
+import { useWriteContract, useWaitForTransactionReceipt, usePublicClient, useAccount } from 'wagmi';
+import { NFT_MARKETPLACE_ADDRESS, NFT_MARKETPLACE_ABI, CRIKZ_TOKEN_ADDRESS, CRIKZ_TOKEN_ABI } from '@/config/index';
 import { parseEther } from 'viem';
 import { toast } from 'react-hot-toast';
 import { useMarketListings, AuctionItem } from '@/hooks/web3/useMarketListings';
 
 interface MarketListingsProps {
-  listings?: Listing[]; // Made optional as we fetch internally
+  listings?: Listing[]; 
   onBuy: (nftContract: string, tokenId: bigint, price: bigint) => void;
   isPending: boolean;
   isLoading: boolean;
@@ -20,9 +20,10 @@ type SortOption = 'newest' | 'price_asc' | 'price_desc';
 type ViewMode = 'grid' | 'list';
 type MarketType = 'fixed' | 'auction';
 
-export default function MarketListings({ onBuy, isPending }: MarketListingsProps) {
-  // Use the hook directly here to get both auctions and listings
+export default function MarketListings({ onBuy, isPending: isParentPending }: MarketListingsProps) {
   const { listings, auctions, isLoading } = useMarketListings();
+  const { address } = useAccount();
+  const publicClient = usePublicClient();
 
   const [marketType, setMarketType] = useState<MarketType>('fixed');
   const [search, setSearch] = useState('');
@@ -35,12 +36,21 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
   // Auction Interaction State
   const [bidAmount, setBidAmount] = useState('');
   const [selectedAuction, setSelectedAuction] = useState<AuctionItem | null>(null);
+  const [pendingBid, setPendingBid] = useState<{ amount: bigint } | null>(null);
 
-  // Contract Write for Bidding
-  const { writeContract: placeBid, data: bidHash, isPending: bidPending } = useWriteContract();
-  const { isSuccess: bidSuccess } = useWaitForTransactionReceipt({ hash: bidHash });
+  // --- CONTRACT WRITES ---
+  // 1. Approve
+  const { writeContract: approve, data: approveHash, isPending: isApproving } = useWriteContract();
+  const { isLoading: isApprovingConfirm, isSuccess: isApproved } = useWaitForTransactionReceipt({ hash: approveHash });
 
-  React.useEffect(() => {
+  // 2. Bid
+  const { writeContract: placeBid, data: bidHash, isPending: isBidding } = useWriteContract();
+  const { isLoading: isBiddingConfirm, isSuccess: bidSuccess } = useWaitForTransactionReceipt({ hash: bidHash });
+
+  const isActionPending = isParentPending || isApproving || isApprovingConfirm || isBidding || isBiddingConfirm;
+
+  // --- EFFECTS ---
+  useEffect(() => {
       if(bidSuccess) {
           toast.success("Bid Placed Successfully!");
           setSelectedAuction(null);
@@ -48,21 +58,60 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
       }
   }, [bidSuccess]);
 
-  const handleBid = () => {
-      if(!selectedAuction || !bidAmount) return;
-      placeBid({
-          address: NFT_MARKETPLACE_ADDRESS,
-          abi: NFT_MARKETPLACE_ABI,
-          functionName: 'bid',
-          args: [selectedAuction.nftContract as `0x${string}`, selectedAuction.tokenId, parseEther(bidAmount)]
-      });
+  useEffect(() => {
+      if (isApproved && pendingBid && selectedAuction) {
+          toast.success("Approved! Placing bid...");
+          placeBid({
+              address: NFT_MARKETPLACE_ADDRESS,
+              abi: NFT_MARKETPLACE_ABI,
+              functionName: 'bid',
+              args: [selectedAuction.nftContract as `0x${string}`, selectedAuction.tokenId, pendingBid.amount]
+          });
+          setPendingBid(null);
+      }
+  }, [isApproved]);
+
+  // --- HANDLERS ---
+  const handleBid = async () => {
+      if(!selectedAuction || !bidAmount || !address || !publicClient) return;
+      
+      const amountWei = parseEther(bidAmount);
+
+      try {
+          const allowance = await publicClient.readContract({
+              address: CRIKZ_TOKEN_ADDRESS,
+              abi: CRIKZ_TOKEN_ABI,
+              functionName: 'allowance',
+              args: [address, NFT_MARKETPLACE_ADDRESS]
+          }) as bigint;
+
+          if (allowance < amountWei) {
+              toast('Approval required for bidding.', { icon: '🔐' });
+              setPendingBid({ amount: amountWei });
+              
+              approve({
+                  address: CRIKZ_TOKEN_ADDRESS,
+                  abi: CRIKZ_TOKEN_ABI,
+                  functionName: 'approve',
+                  args: [NFT_MARKETPLACE_ADDRESS, amountWei * 10n]
+              });
+          } else {
+              placeBid({
+                  address: NFT_MARKETPLACE_ADDRESS,
+                  abi: NFT_MARKETPLACE_ABI,
+                  functionName: 'bid',
+                  args: [selectedAuction.nftContract as `0x${string}`, selectedAuction.tokenId, amountWei]
+              });
+          }
+      } catch (e: any) {
+          toast.error("Bid Failed: " + e.message);
+      }
   };
 
   // Filter Logic
   const filteredItems = useMemo(() => {
     let result: any[] = marketType === 'fixed' ? [...listings] : [...auctions];
 
-    // Search
     if (search) {
         const q = search.toLowerCase();
         result = result.filter(item => 
@@ -71,7 +120,6 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
         );
     }
 
-    // Price Filter
     if (minPrice) {
         const minWei = Number(minPrice) * 1e18;
         result = result.filter(item => {
@@ -87,7 +135,6 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
         });
     }
 
-    // Sort
     switch (sort) {
         case 'price_asc': 
             result.sort((a, b) => {
@@ -248,10 +295,10 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
                                         </div>
                                         <button 
                                             onClick={() => onBuy(listingItem.nftContract, listingItem.tokenId, listingItem.price)}
-                                            disabled={isPending}
-                                            className="px-4 py-2 bg-white/10 text-white rounded-lg font-bold text-xs hover:bg-primary-500 hover:text-black transition-all disabled:opacity-50"
+                                            disabled={isActionPending}
+                                            className="px-4 py-2 bg-white/10 text-white rounded-lg font-bold text-xs hover:bg-primary-500 hover:text-black transition-all disabled:opacity-50 flex items-center gap-2"
                                         >
-                                            {isPending ? '...' : 'Buy'}
+                                            {isActionPending ? <Loader2 size={12} className="animate-spin" /> : 'Buy'}
                                         </button>
                                     </div>
                                 </motion.div>
@@ -321,7 +368,7 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
                                         
                                         <button 
                                             onClick={() => setSelectedAuction(auctionItem)}
-                                            disabled={isEnded}
+                                            disabled={isEnded || isActionPending}
                                             className="px-4 py-2 bg-primary-500 text-black rounded-lg font-bold text-xs hover:bg-primary-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
                                             {isEnded ? 'Closed' : 'Bid'}
@@ -370,8 +417,8 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
                                 placeholder={(Number(formatTokenAmount(selectedAuction.highestBid)) + 1).toString()}
                             />
                         </div>
-                        <button onClick={handleBid} disabled={bidPending} className="btn-primary w-full py-3">
-                            {bidPending ? 'Confirming...' : 'Place Bid'}
+                        <button onClick={handleBid} disabled={isActionPending} className="btn-primary w-full py-3 flex items-center justify-center gap-2">
+                            {isActionPending ? <Loader2 className="animate-spin" /> : 'Place Bid'}
                         </button>
                     </div>
                 </div>

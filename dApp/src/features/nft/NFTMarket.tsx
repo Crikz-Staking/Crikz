@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingBag, PlusCircle, LayoutGrid } from 'lucide-react';
 import NFTMinting from './NFTMinting';
 import UserCollection from './UserCollection';
 import MarketListings from './MarketListings';
-import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { NFT_MARKETPLACE_ADDRESS, NFT_MARKETPLACE_ABI } from '@/config/index';
+import { useWriteContract, useWaitForTransactionReceipt, useAccount, usePublicClient } from 'wagmi';
+import { NFT_MARKETPLACE_ADDRESS, NFT_MARKETPLACE_ABI, CRIKZ_TOKEN_ADDRESS, CRIKZ_TOKEN_ABI } from '@/config/index';
 import { Language } from '@/types';
 import { toast } from 'react-hot-toast';
 
@@ -16,26 +16,81 @@ interface NFTMarketProps {
 
 export default function NFTMarket({ dynamicColor, lang }: NFTMarketProps) {
   const [view, setView] = useState<'market' | 'mint' | 'collection'>('market');
-  
-  // Buy Logic
-  const { writeContract, data: buyHash, isPending: isBuyPending } = useWriteContract();
-  const { isLoading: isConfirming } = useWaitForTransactionReceipt({ hash: buyHash });
+  const { address } = useAccount();
+  const publicClient = usePublicClient();
 
-  React.useEffect(() => {
-    if (isConfirming === false && buyHash) {
+  // --- STATE FOR PURCHASE FLOW ---
+  const [pendingBuy, setPendingBuy] = useState<{ contract: string, id: bigint, price: bigint } | null>(null);
+
+  // --- CONTRACT WRITES ---
+  // 1. Approve Token
+  const { writeContract: approve, data: approveHash, isPending: isApproving } = useWriteContract();
+  const { isLoading: isApprovingConfirm, isSuccess: isApproved } = useWaitForTransactionReceipt({ hash: approveHash });
+
+  // 2. Buy Item
+  const { writeContract: buy, data: buyHash, isPending: isBuying } = useWriteContract();
+  const { isLoading: isBuyingConfirm, isSuccess: isBought } = useWaitForTransactionReceipt({ hash: buyHash });
+
+  // --- EFFECTS ---
+  useEffect(() => {
+    if (isApproved && pendingBuy) {
+      toast.success("Token Approved! Processing purchase...");
+      // Trigger buy immediately after approval confirms
+      buy({
+        address: NFT_MARKETPLACE_ADDRESS,
+        abi: NFT_MARKETPLACE_ABI,
+        functionName: 'buyItem',
+        args: [pendingBuy.contract as `0x${string}`, pendingBuy.id]
+      });
+      setPendingBuy(null);
+    }
+  }, [isApproved]);
+
+  useEffect(() => {
+    if (isBought) {
       toast.success("Purchase Successful!");
     }
-  }, [isConfirming, buyHash]);
+  }, [isBought]);
 
-  const handleBuy = (nftContract: string, tokenId: bigint, price: bigint) => {
-      // Note: User must have approved Crikz Token for Marketplace before this works.
-      // A robust implementation would check allowance here.
-      writeContract({
-          address: NFT_MARKETPLACE_ADDRESS,
-          abi: NFT_MARKETPLACE_ABI,
-          functionName: 'buyItem',
-          args: [nftContract as `0x${string}`, tokenId]
-      });
+  // --- HANDLERS ---
+  const handleBuy = async (nftContract: string, tokenId: bigint, price: bigint) => {
+      if (!address || !publicClient) {
+        toast.error("Wallet not connected");
+        return;
+      }
+
+      try {
+        // 1. Check Allowance
+        const allowance = await publicClient.readContract({
+          address: CRIKZ_TOKEN_ADDRESS,
+          abi: CRIKZ_TOKEN_ABI,
+          functionName: 'allowance',
+          args: [address, NFT_MARKETPLACE_ADDRESS]
+        }) as bigint;
+
+        if (allowance < price) {
+          toast('Approval required. Check wallet.', { icon: '🔐' });
+          setPendingBuy({ contract: nftContract, id: tokenId, price });
+          
+          approve({
+            address: CRIKZ_TOKEN_ADDRESS,
+            abi: CRIKZ_TOKEN_ABI,
+            functionName: 'approve',
+            args: [NFT_MARKETPLACE_ADDRESS, price * 100n] // Approve plenty
+          });
+        } else {
+          // Allowance is good, buy directly
+          buy({
+            address: NFT_MARKETPLACE_ADDRESS,
+            abi: NFT_MARKETPLACE_ABI,
+            functionName: 'buyItem',
+            args: [nftContract as `0x${string}`, tokenId]
+          });
+        }
+      } catch (e: any) {
+        console.error(e);
+        toast.error("Transaction Error: " + e.message);
+      }
   };
 
   const tabs = [
@@ -69,9 +124,8 @@ export default function NFTMarket({ dynamicColor, lang }: NFTMarketProps) {
         >
           {view === 'market' && (
              <MarketListings 
-               // Pass empty array as component fetches its own data internally
-               listings={[]} 
-               isPending={isBuyPending || isConfirming} 
+               listings={[]} // Component fetches data internally
+               isPending={isBuying || isBuyingConfirm || isApproving || isApprovingConfirm} 
                isLoading={false} 
                onBuy={handleBuy} 
              />
