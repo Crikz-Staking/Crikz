@@ -10,18 +10,18 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
-  // REQUIRED for WebLLM / Transformers.js
   server: {
     headers: {
+      // FIX: Changed to allow-popups to fix Wallet SDK errors
       "Cross-Origin-Embedder-Policy": "require-corp",
-      "Cross-Origin-Opener-Policy": "same-origin",
+      "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
     },
   },
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
-    chunkSizeWarningLimit: 2000, // Increased for AI models
-    target: 'esnext' // Required for Top-level await
+    chunkSizeWarningLimit: 2000,
+    target: 'esnext'
   },
   optimizeDeps: {
     exclude: ['@mlc-ai/web-llm', '@xenova/transformers']

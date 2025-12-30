@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, ShoppingBag, LayoutGrid, List as ListIcon, SlidersHorizontal, X, Gavel, Clock, Loader2, Terminal, AlertCircle } from 'lucide-react';
+import { Search, ShoppingBag, LayoutGrid, List as ListIcon, SlidersHorizontal, X, Gavel, Clock, Loader2, Terminal, AlertCircle, RefreshCw } from 'lucide-react';
 import { formatTokenAmount, shortenAddress, formatTimeRemaining } from '@/lib/utils';
 import { Listing } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -33,6 +33,10 @@ export default function MarketListings({ onBuy, isPending: isParentPending }: Ma
   const [showDebug, setShowDebug] = useState(false);
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
+  
+  // --- 9 ITEMS / 9 SECONDS LOGIC ---
+  const [displayItems, setDisplayItems] = useState<any[]>([]);
+  const [timerProgress, setTimerProgress] = useState(0);
   
   // Auction Interaction State
   const [bidAmount, setBidAmount] = useState('');
@@ -108,8 +112,8 @@ export default function MarketListings({ onBuy, isPending: isParentPending }: Ma
       }
   };
 
-  // Filter Logic
-  const filteredItems = useMemo(() => {
+  // --- FILTERING ---
+  const allFilteredItems = useMemo(() => {
     let result: any[] = marketType === 'fixed' ? [...listings] : [...auctions];
 
     if (search) {
@@ -135,6 +139,7 @@ export default function MarketListings({ onBuy, isPending: isParentPending }: Ma
         });
     }
 
+    // Sort
     switch (sort) {
         case 'price_asc': 
             result.sort((a, b) => {
@@ -157,6 +162,43 @@ export default function MarketListings({ onBuy, isPending: isParentPending }: Ma
     }
     return result;
   }, [listings, auctions, marketType, search, sort, minPrice, maxPrice]);
+
+  // --- ROTATION LOGIC (9 Items / 9 Seconds) ---
+  useEffect(() => {
+      // Initial Load
+      if (allFilteredItems.length > 0 && displayItems.length === 0) {
+          const shuffled = [...allFilteredItems].sort(() => 0.5 - Math.random());
+          setDisplayItems(shuffled.slice(0, 9));
+      }
+
+      // Timer
+      const interval = setInterval(() => {
+          if (allFilteredItems.length > 0) {
+              // Shuffle and pick 9
+              const shuffled = [...allFilteredItems].sort(() => 0.5 - Math.random());
+              setDisplayItems(shuffled.slice(0, 9));
+              setTimerProgress(0); // Reset bar
+          }
+      }, 9000);
+
+      // Progress Bar Animation
+      const progressInterval = setInterval(() => {
+          setTimerProgress(prev => Math.min(prev + (100 / 90), 100)); // 100% over 90 ticks (approx 9s)
+      }, 100);
+
+      return () => {
+          clearInterval(interval);
+          clearInterval(progressInterval);
+      };
+  }, [allFilteredItems]);
+
+  // Force update display if filter changes drastically
+  useEffect(() => {
+      const shuffled = [...allFilteredItems].sort(() => 0.5 - Math.random());
+      setDisplayItems(shuffled.slice(0, 9));
+      setTimerProgress(0);
+  }, [marketType, search, sort]);
+
 
   if (isLoading) {
     return (
@@ -285,24 +327,41 @@ export default function MarketListings({ onBuy, isPending: isParentPending }: Ma
             </AnimatePresence>
         </div>
 
+        {/* --- REFRESH TIMER BAR --- */}
+        {allFilteredItems.length > 9 && (
+            <div className="flex items-center gap-3">
+                <div className="flex-1 h-1 bg-white/5 rounded-full overflow-hidden">
+                    <motion.div 
+                        className="h-full bg-primary-500"
+                        animate={{ width: `${timerProgress}%` }}
+                        transition={{ ease: "linear", duration: 0.1 }}
+                    />
+                </div>
+                <div className="text-[10px] font-bold text-primary-500 flex items-center gap-1">
+                    <RefreshCw size={10} className="animate-spin" /> Live Feed
+                </div>
+            </div>
+        )}
+
         {/* --- LISTING GRID / LIST --- */}
         {marketType === 'fixed' ? (
-            filteredItems.length === 0 ? (
+            displayItems.length === 0 ? (
                 <div className="glass-card p-20 rounded-3xl border border-white/10 text-center border-dashed">
                     <ShoppingBag size={40} className="mx-auto mb-4 text-gray-700" />
                     <h3 className="text-xl font-bold text-white mb-2">No listings found</h3>
                     <p className="text-gray-500 text-sm">Try adjusting your filters or check Debug Mode.</p>
                 </div>
             ) : (
-                <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" : "flex flex-col gap-3"}>
-                    <AnimatePresence>
-                        {filteredItems.map((item) => {
+                <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6" : "flex flex-col gap-3"}>
+                    <AnimatePresence mode="popLayout">
+                        {displayItems.map((item) => {
                             const listingItem = item as Listing;
                             return (
                                 <motion.div 
                                     key={`${listingItem.nftContract}-${listingItem.tokenId}`}
-                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    initial={{ opacity: 0, scale: 0.9 }}
                                     animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.9 }}
                                     layout
                                     className={`glass-card rounded-2xl border border-white/10 hover:border-primary-500/30 transition-all group bg-background-elevated ${viewMode === 'list' ? 'flex flex-row items-center p-4 gap-4' : 'p-4'}`}
                                 >
@@ -346,7 +405,7 @@ export default function MarketListings({ onBuy, isPending: isParentPending }: Ma
             )
         ) : (
             // --- AUCTION VIEW ---
-            filteredItems.length === 0 ? (
+            displayItems.length === 0 ? (
                 <div className="text-center py-20">
                     <Gavel size={48} className="mx-auto mb-4 text-gray-700" />
                     <h3 className="text-xl font-bold text-white mb-2">No Active Auctions</h3>
@@ -355,9 +414,9 @@ export default function MarketListings({ onBuy, isPending: isParentPending }: Ma
                     </p>
                 </div>
             ) : (
-                <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" : "flex flex-col gap-3"}>
-                    <AnimatePresence>
-                        {filteredItems.map((item) => {
+                <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6" : "flex flex-col gap-3"}>
+                    <AnimatePresence mode="popLayout">
+                        {displayItems.map((item) => {
                             const auctionItem = item as AuctionItem;
                             const now = Math.floor(Date.now() / 1000);
                             const timeLeft = Number(auctionItem.endTime) - now;
@@ -366,8 +425,9 @@ export default function MarketListings({ onBuy, isPending: isParentPending }: Ma
                             return (
                                 <motion.div 
                                     key={`${auctionItem.nftContract}-${auctionItem.tokenId}`}
-                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    initial={{ opacity: 0, scale: 0.9 }}
                                     animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.9 }}
                                     layout
                                     className={`glass-card rounded-2xl border border-white/10 hover:border-primary-500/30 transition-all group bg-background-elevated ${viewMode === 'list' ? 'flex flex-row items-center p-4 gap-4' : 'p-4'}`}
                                 >

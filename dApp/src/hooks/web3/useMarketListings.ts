@@ -15,9 +15,9 @@ export interface AuctionItem {
     isActive: boolean;
 }
 
-// BSC Testnet RPCs are strict. We must fetch in small chunks.
-const CHUNK_SIZE = 2000n; 
-const MAX_HISTORY_BLOCKS = 200000n; // Approx 7 days of history
+// REDUCED CHUNK SIZE FOR STABILITY
+const CHUNK_SIZE = 1000n; 
+const MAX_HISTORY_BLOCKS = 50000n; // Reduced scan range for speed
 
 export function useMarketListings() {
     const [listings, setListings] = useState<Listing[]>([]);
@@ -32,12 +32,19 @@ export function useMarketListings() {
 
     const addLog = (msg: string) => setDebugLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 50));
 
-    // Helper to fetch events in chunks to avoid "Limit Exceeded"
+    // Helper to fetch events in chunks
     const fetchEventsInChunks = async (eventName: string, fromBlock: bigint, toBlock: bigint) => {
         let allLogs: any[] = [];
         let cursor = fromBlock;
+        let errors = 0;
 
         while (cursor < toBlock) {
+            // Safety break if too many errors
+            if (errors > 3) {
+                addLog(`Aborting ${eventName} scan due to RPC errors.`);
+                break;
+            }
+
             const end = (cursor + CHUNK_SIZE) > toBlock ? toBlock : (cursor + CHUNK_SIZE);
             try {
                 const logs = await publicClient!.getContractEvents({
@@ -49,22 +56,11 @@ export function useMarketListings() {
                 });
                 allLogs = [...allLogs, ...logs];
                 // Small delay to be nice to the RPC
-                await new Promise(r => setTimeout(r, 50)); 
+                await new Promise(r => setTimeout(r, 20)); 
             } catch (e) {
-                console.warn(`Chunk failed ${cursor}-${end}, retrying...`);
-                // Simple retry once
-                try {
-                    const logs = await publicClient!.getContractEvents({
-                        address: NFT_MARKETPLACE_ADDRESS,
-                        abi: NFT_MARKETPLACE_ABI,
-                        eventName: eventName as any,
-                        fromBlock: cursor,
-                        toBlock: end
-                    });
-                    allLogs = [...allLogs, ...logs];
-                } catch (e2) {
-                    addLog(`Failed to fetch ${eventName} chunk ${cursor}-${end}`);
-                }
+                console.warn(`Chunk failed ${cursor}-${end}`);
+                errors++;
+                // Skip this chunk and continue, don't crash the whole app
             }
             cursor = end + 1n;
         }
@@ -82,9 +78,9 @@ export function useMarketListings() {
             const endBlock = currentBlock;
             const startBlock = endBlock - MAX_HISTORY_BLOCKS > 0n ? endBlock - MAX_HISTORY_BLOCKS : 0n;
 
-            addLog(`Starting Deep Scan: Block ${startBlock} to ${endBlock}`);
+            addLog(`Scanning ${startBlock} -> ${endBlock} (Chain: ${publicClient.chain.id})`);
 
-            // Fetch all relevant events in parallel but chunked internally
+            // Fetch all relevant events in parallel
             const [
                 listedLogs, soldLogs, canceledLogs,
                 auctionCreatedLogs, bidLogs, auctionEndedLogs
@@ -97,7 +93,7 @@ export function useMarketListings() {
                 fetchEventsInChunks('AuctionEnded', startBlock, endBlock),
             ]);
 
-            addLog(`Scan Complete. Processing ${listedLogs.length} Listings, ${auctionCreatedLogs.length} Auctions...`);
+            addLog(`Processing ${listedLogs.length} Listings, ${auctionCreatedLogs.length} Auctions...`);
 
             // --- 1. PROCESS AUCTIONS (Priority) ---
             const activeAuctions = new Map<string, AuctionItem>();
@@ -127,7 +123,6 @@ export function useMarketListings() {
                     const key = `${args.nftContract.toLowerCase()}-${args.tokenId.toString()}`;
                     const auction = activeAuctions.get(key);
                     if (auction) {
-                        // Only update if bid is higher (logs are chronological usually, but good to check)
                         if ((args.amount || 0n) > auction.highestBid) {
                             auction.highestBid = args.amount || 0n;
                             auction.highestBidder = args.bidder || auction.highestBidder;
@@ -178,7 +173,7 @@ export function useMarketListings() {
 
             setListings(Array.from(activeListings.values()));
             setAuctions(Array.from(activeAuctions.values()));
-            addLog(`Success: ${activeListings.size} Listings, ${activeAuctions.size} Auctions active.`);
+            addLog(`Success: ${activeListings.size} Listings, ${activeAuctions.size} Auctions.`);
 
         } catch (e: any) {
             console.error("Market Data Fetch Error:", e);
