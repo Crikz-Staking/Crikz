@@ -1,26 +1,16 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Filter, ShoppingBag, LayoutGrid, List as ListIcon, SlidersHorizontal, X, Gavel } from 'lucide-react';
-import { formatTokenAmount, shortenAddress } from '@/lib/utils';
+import { Search, ShoppingBag, LayoutGrid, List as ListIcon, SlidersHorizontal, X, Gavel, Clock, User } from 'lucide-react';
+import { formatTokenAmount, shortenAddress, formatTimeRemaining } from '@/lib/utils';
 import { Listing } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { NFT_MARKETPLACE_ADDRESS, NFT_MARKETPLACE_ABI } from '@/config/index';
 import { parseEther } from 'viem';
 import { toast } from 'react-hot-toast';
-
-// Mock Auction Data (In prod, fetch from contract events)
-interface AuctionItem {
-    id: bigint;
-    nftContract: string;
-    tokenId: bigint;
-    minPrice: bigint;
-    highestBid: bigint;
-    endTime: number;
-    seller: string;
-}
+import { useMarketListings, AuctionItem } from '@/hooks/web3/useMarketListings';
 
 interface MarketListingsProps {
-  listings: Listing[];
+  listings: Listing[]; // Passed from parent, but we might ignore if we use hook directly here
   onBuy: (nftContract: string, tokenId: bigint, price: bigint) => void;
   isPending: boolean;
   isLoading: boolean;
@@ -30,7 +20,10 @@ type SortOption = 'newest' | 'price_asc' | 'price_desc';
 type ViewMode = 'grid' | 'list';
 type MarketType = 'fixed' | 'auction';
 
-export default function MarketListings({ listings, onBuy, isPending, isLoading }: MarketListingsProps) {
+export default function MarketListings({ onBuy, isPending }: MarketListingsProps) {
+  // Use the hook directly here to get both auctions and listings
+  const { listings, auctions, isLoading } = useMarketListings();
+
   const [marketType, setMarketType] = useState<MarketType>('fixed');
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<SortOption>('newest');
@@ -39,7 +32,7 @@ export default function MarketListings({ listings, onBuy, isPending, isLoading }
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
   
-  // Auction State
+  // Auction Interaction State
   const [bidAmount, setBidAmount] = useState('');
   const [selectedAuction, setSelectedAuction] = useState<AuctionItem | null>(null);
 
@@ -49,7 +42,7 @@ export default function MarketListings({ listings, onBuy, isPending, isLoading }
 
   React.useEffect(() => {
       if(bidSuccess) {
-          toast.success("Bid Placed!");
+          toast.success("Bid Placed Successfully!");
           setSelectedAuction(null);
           setBidAmount('');
       }
@@ -66,33 +59,63 @@ export default function MarketListings({ listings, onBuy, isPending, isLoading }
   };
 
   // Filter Logic
-  const filteredListings = useMemo(() => {
-    let result = [...listings];
+  const filteredItems = useMemo(() => {
+    let result: any[] = marketType === 'fixed' ? [...listings] : [...auctions];
+
+    // Search
     if (search) {
         const q = search.toLowerCase();
-        result = result.filter(item => item.tokenId.toString().includes(q) || item.seller.toLowerCase().includes(q));
+        result = result.filter(item => 
+            item.tokenId.toString().includes(q) || 
+            item.seller.toLowerCase().includes(q)
+        );
     }
+
+    // Price Filter
     if (minPrice) {
         const minWei = Number(minPrice) * 1e18;
-        result = result.filter(item => Number(item.price) >= minWei);
+        result = result.filter(item => {
+            const val = marketType === 'fixed' ? (item as Listing).price : (item as AuctionItem).highestBid || (item as AuctionItem).minPrice;
+            return Number(val) >= minWei;
+        });
     }
     if (maxPrice) {
         const maxWei = Number(maxPrice) * 1e18;
-        result = result.filter(item => Number(item.price) <= maxWei);
+        result = result.filter(item => {
+            const val = marketType === 'fixed' ? (item as Listing).price : (item as AuctionItem).highestBid || (item as AuctionItem).minPrice;
+            return Number(val) <= maxWei;
+        });
     }
+
+    // Sort
     switch (sort) {
-        case 'price_asc': result.sort((a, b) => Number(a.price) - Number(b.price)); break;
-        case 'price_desc': result.sort((a, b) => Number(b.price) - Number(a.price)); break;
-        case 'newest': default: result.sort((a, b) => Number(b.tokenId) - Number(a.tokenId)); break;
+        case 'price_asc': 
+            result.sort((a, b) => {
+                const valA = marketType === 'fixed' ? (a as Listing).price : (a as AuctionItem).highestBid;
+                const valB = marketType === 'fixed' ? (b as Listing).price : (b as AuctionItem).highestBid;
+                return Number(valA) - Number(valB);
+            });
+            break;
+        case 'price_desc': 
+            result.sort((a, b) => {
+                const valA = marketType === 'fixed' ? (a as Listing).price : (a as AuctionItem).highestBid;
+                const valB = marketType === 'fixed' ? (b as Listing).price : (b as AuctionItem).highestBid;
+                return Number(valB) - Number(valA);
+            });
+            break;
+        case 'newest': 
+        default: 
+            result.sort((a, b) => Number(b.tokenId) - Number(a.tokenId)); 
+            break;
     }
     return result;
-  }, [listings, search, sort, minPrice, maxPrice]);
+  }, [listings, auctions, marketType, search, sort, minPrice, maxPrice]);
 
   if (isLoading) {
     return (
       <div className="text-center py-20">
         <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-        <p className="text-gray-400">Syncing ledger...</p>
+        <p className="text-gray-400">Syncing blockchain data...</p>
       </div>
     );
   }
@@ -105,10 +128,10 @@ export default function MarketListings({ listings, onBuy, isPending, isLoading }
             <div className="flex justify-center">
                 <div className="bg-black/40 p-1 rounded-xl border border-white/10 flex gap-1">
                     <button onClick={() => setMarketType('fixed')} className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${marketType === 'fixed' ? 'bg-white/10 text-white' : 'text-gray-500 hover:text-white'}`}>
-                        Fixed Price
+                        Fixed Price ({listings.length})
                     </button>
                     <button onClick={() => setMarketType('auction')} className={`px-6 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${marketType === 'auction' ? 'bg-primary-500 text-black' : 'text-gray-500 hover:text-white'}`}>
-                        <Gavel size={14}/> Auctions
+                        <Gavel size={14}/> Auctions ({auctions.length})
                     </button>
                 </div>
             </div>
@@ -179,17 +202,26 @@ export default function MarketListings({ listings, onBuy, isPending, isLoading }
         </div>
 
         {/* --- LISTING GRID / LIST --- */}
-        {marketType === 'fixed' ? (
-            filteredListings.length === 0 ? (
-                <div className="glass-card p-20 rounded-3xl border border-white/10 text-center border-dashed">
-                    <ShoppingBag size={40} className="mx-auto mb-4 text-gray-700" />
-                    <h3 className="text-xl font-bold text-white mb-2">No listings found</h3>
-                    <p className="text-gray-500 text-sm">Try adjusting your filters.</p>
-                </div>
-            ) : (
-                <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" : "flex flex-col gap-3"}>
-                    <AnimatePresence>
-                        {filteredListings.map((item) => (
+        {filteredItems.length === 0 ? (
+            <div className="glass-card p-20 rounded-3xl border border-white/10 text-center border-dashed">
+                <ShoppingBag size={40} className="mx-auto mb-4 text-gray-700" />
+                <h3 className="text-xl font-bold text-white mb-2">No items found</h3>
+                <p className="text-gray-500 text-sm">Try adjusting your filters or check back later.</p>
+            </div>
+        ) : (
+            <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" : "flex flex-col gap-3"}>
+                <AnimatePresence>
+                    {filteredItems.map((item) => {
+                        const isAuction = marketType === 'auction';
+                        const auctionItem = item as AuctionItem;
+                        const listingItem = item as Listing;
+                        
+                        // Calculate time remaining for auction
+                        const now = Math.floor(Date.now() / 1000);
+                        const timeLeft = isAuction ? Number(auctionItem.endTime) - now : 0;
+                        const isEnded = isAuction && timeLeft <= 0;
+
+                        return (
                             <motion.div 
                                 key={`${item.nftContract}-${item.tokenId}`}
                                 initial={{ opacity: 0, scale: 0.95 }}
@@ -205,6 +237,13 @@ export default function MarketListings({ listings, onBuy, isPending, isLoading }
                                             #{item.tokenId.toString()}
                                         </div>
                                     )}
+                                    {isAuction && (
+                                        <div className="absolute bottom-0 left-0 right-0 bg-black/80 backdrop-blur-sm p-2 text-center">
+                                            <div className={`text-[10px] font-bold flex items-center justify-center gap-1 ${isEnded ? 'text-red-500' : 'text-emerald-400'}`}>
+                                                <Clock size={10} /> {isEnded ? 'Ended' : formatTimeRemaining(timeLeft)}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                                 
                                 <div className={viewMode === 'list' ? 'flex-1' : 'mb-4'}>
@@ -218,30 +257,37 @@ export default function MarketListings({ listings, onBuy, isPending, isLoading }
 
                                 <div className={`flex items-center ${viewMode === 'list' ? 'gap-6' : 'justify-between bg-black/20 p-2 rounded-lg border border-white/5'}`}>
                                     <div className="flex flex-col">
-                                        {viewMode === 'grid' && <span className="text-[10px] text-gray-500 uppercase font-bold">Price</span>}
-                                        <span className="text-primary-500 font-black text-sm">{formatTokenAmount(item.price)} CRKZ</span>
+                                        {viewMode === 'grid' && <span className="text-[10px] text-gray-500 uppercase font-bold">{isAuction ? 'Current Bid' : 'Price'}</span>}
+                                        <span className="text-primary-500 font-black text-sm">
+                                            {isAuction 
+                                                ? formatTokenAmount(auctionItem.highestBid > 0n ? auctionItem.highestBid : auctionItem.minPrice) 
+                                                : formatTokenAmount(listingItem.price)
+                                            } CRKZ
+                                        </span>
                                     </div>
-                                    <button 
-                                        onClick={() => onBuy(item.nftContract, item.tokenId, item.price)}
-                                        disabled={isPending}
-                                        className="px-4 py-2 bg-white/10 text-white rounded-lg font-bold text-xs hover:bg-primary-500 hover:text-black transition-all disabled:opacity-50"
-                                    >
-                                        {isPending ? '...' : 'Buy'}
-                                    </button>
+                                    
+                                    {isAuction ? (
+                                        <button 
+                                            onClick={() => setSelectedAuction(auctionItem)}
+                                            disabled={isEnded}
+                                            className="px-4 py-2 bg-primary-500 text-black rounded-lg font-bold text-xs hover:bg-primary-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            {isEnded ? 'Closed' : 'Bid'}
+                                        </button>
+                                    ) : (
+                                        <button 
+                                            onClick={() => onBuy(listingItem.nftContract, listingItem.tokenId, listingItem.price)}
+                                            disabled={isPending}
+                                            className="px-4 py-2 bg-white/10 text-white rounded-lg font-bold text-xs hover:bg-primary-500 hover:text-black transition-all disabled:opacity-50"
+                                        >
+                                            {isPending ? '...' : 'Buy'}
+                                        </button>
+                                    )}
                                 </div>
                             </motion.div>
-                        ))}
-                    </AnimatePresence>
-                </div>
-            )
-        ) : (
-            // --- AUCTION VIEW (Placeholder UI as we don't have live auction data in this demo state) ---
-            <div className="text-center py-20">
-                <Gavel size={48} className="mx-auto mb-4 text-gray-700" />
-                <h3 className="text-xl font-bold text-white mb-2">Live Auctions</h3>
-                <p className="text-gray-500 text-sm max-w-md mx-auto">
-                    Auctions are live on the smart contract. Create an auction from your collection to see it appear here.
-                </p>
+                        );
+                    })}
+                </AnimatePresence>
             </div>
         )}
 
@@ -250,19 +296,36 @@ export default function MarketListings({ listings, onBuy, isPending, isLoading }
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
                 <div className="glass-card w-full max-w-md p-6 rounded-3xl border border-white/10 bg-[#12121A] relative">
                     <button onClick={() => setSelectedAuction(null)} className="absolute top-4 right-4 text-gray-500 hover:text-white"><X size={20}/></button>
-                    <h3 className="text-xl font-bold text-white mb-6">Place Bid</h3>
-                    <div className="space-y-4">
+                    <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                        <Gavel className="text-primary-500"/> Place Bid
+                    </h3>
+                    
+                    <div className="bg-black/40 p-4 rounded-xl border border-white/5 mb-6 space-y-2">
                         <div className="flex justify-between text-sm">
-                            <span className="text-gray-500">Current Highest</span>
-                            <span className="text-white font-bold">{formatTokenAmount(selectedAuction.highestBid)} CRKZ</span>
+                            <span className="text-gray-500">Min Price</span>
+                            <span className="text-gray-300 font-mono">{formatTokenAmount(selectedAuction.minPrice)} CRKZ</span>
                         </div>
-                        <input 
-                            type="number" 
-                            value={bidAmount} 
-                            onChange={e => setBidAmount(e.target.value)} 
-                            className="input-field text-xl font-bold" 
-                            placeholder="Bid Amount"
-                        />
+                        <div className="flex justify-between text-sm">
+                            <span className="text-gray-500">Highest Bid</span>
+                            <span className="text-primary-500 font-bold font-mono">{formatTokenAmount(selectedAuction.highestBid)} CRKZ</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                            <span className="text-gray-500">Highest Bidder</span>
+                            <span className="text-gray-300 font-mono text-xs">{shortenAddress(selectedAuction.highestBidder)}</span>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div>
+                            <label className="text-xs font-bold text-gray-500 uppercase block mb-2">Your Bid (CRKZ)</label>
+                            <input 
+                                type="number" 
+                                value={bidAmount} 
+                                onChange={e => setBidAmount(e.target.value)} 
+                                className="input-field text-xl font-bold text-white" 
+                                placeholder={(Number(formatTokenAmount(selectedAuction.highestBid)) + 1).toString()}
+                            />
+                        </div>
                         <button onClick={handleBid} disabled={bidPending} className="btn-primary w-full py-3">
                             {bidPending ? 'Confirming...' : 'Place Bid'}
                         </button>
