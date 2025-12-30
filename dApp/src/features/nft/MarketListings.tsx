@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Search, ShoppingBag, LayoutGrid, List as ListIcon, SlidersHorizontal, X, Gavel, Clock, User } from 'lucide-react';
+import { Search, ShoppingBag, LayoutGrid, List as ListIcon, SlidersHorizontal, X, Gavel, Clock } from 'lucide-react';
 import { formatTokenAmount, shortenAddress, formatTimeRemaining } from '@/lib/utils';
 import { Listing } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -10,7 +10,7 @@ import { toast } from 'react-hot-toast';
 import { useMarketListings, AuctionItem } from '@/hooks/web3/useMarketListings';
 
 interface MarketListingsProps {
-  listings: Listing[]; // Passed from parent, but we might ignore if we use hook directly here
+  listings?: Listing[]; // Made optional as we fetch internally
   onBuy: (nftContract: string, tokenId: bigint, price: bigint) => void;
   isPending: boolean;
   isLoading: boolean;
@@ -202,79 +202,50 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
         </div>
 
         {/* --- LISTING GRID / LIST --- */}
-        {filteredItems.length === 0 ? (
-            <div className="glass-card p-20 rounded-3xl border border-white/10 text-center border-dashed">
-                <ShoppingBag size={40} className="mx-auto mb-4 text-gray-700" />
-                <h3 className="text-xl font-bold text-white mb-2">No items found</h3>
-                <p className="text-gray-500 text-sm">Try adjusting your filters or check back later.</p>
-            </div>
-        ) : (
-            <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" : "flex flex-col gap-3"}>
-                <AnimatePresence>
-                    {filteredItems.map((item) => {
-                        const isAuction = marketType === 'auction';
-                        const auctionItem = item as AuctionItem;
-                        const listingItem = item as Listing;
-                        
-                        // Calculate time remaining for auction
-                        const now = Math.floor(Date.now() / 1000);
-                        const timeLeft = isAuction ? Number(auctionItem.endTime) - now : 0;
-                        const isEnded = isAuction && timeLeft <= 0;
-
-                        return (
-                            <motion.div 
-                                key={`${item.nftContract}-${item.tokenId}`}
-                                initial={{ opacity: 0, scale: 0.95 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                layout
-                                className={`glass-card rounded-2xl border border-white/10 hover:border-primary-500/30 transition-all group bg-background-elevated ${viewMode === 'list' ? 'flex flex-row items-center p-4 gap-4' : 'p-4'}`}
-                            >
-                                <div className={`bg-black/40 rounded-xl flex items-center justify-center relative overflow-hidden ${viewMode === 'list' ? 'w-16 h-16 text-xl' : 'aspect-square mb-4 text-4xl'}`}>
-                                    <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-50" />
-                                    <span className="relative z-10 group-hover:scale-110 transition-transform duration-300">💠</span>
-                                    {viewMode === 'grid' && (
-                                        <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm px-2 py-1 rounded text-[10px] font-mono text-gray-400 border border-white/5">
-                                            #{item.tokenId.toString()}
-                                        </div>
-                                    )}
-                                    {isAuction && (
-                                        <div className="absolute bottom-0 left-0 right-0 bg-black/80 backdrop-blur-sm p-2 text-center">
-                                            <div className={`text-[10px] font-bold flex items-center justify-center gap-1 ${isEnded ? 'text-red-500' : 'text-emerald-400'}`}>
-                                                <Clock size={10} /> {isEnded ? 'Ended' : formatTimeRemaining(timeLeft)}
+        {marketType === 'fixed' ? (
+            filteredItems.length === 0 ? (
+                <div className="glass-card p-20 rounded-3xl border border-white/10 text-center border-dashed">
+                    <ShoppingBag size={40} className="mx-auto mb-4 text-gray-700" />
+                    <h3 className="text-xl font-bold text-white mb-2">No listings found</h3>
+                    <p className="text-gray-500 text-sm">Try adjusting your filters.</p>
+                </div>
+            ) : (
+                <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" : "flex flex-col gap-3"}>
+                    <AnimatePresence>
+                        {filteredItems.map((item) => {
+                            const listingItem = item as Listing;
+                            return (
+                                <motion.div 
+                                    key={`${listingItem.nftContract}-${listingItem.tokenId}`}
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    layout
+                                    className={`glass-card rounded-2xl border border-white/10 hover:border-primary-500/30 transition-all group bg-background-elevated ${viewMode === 'list' ? 'flex flex-row items-center p-4 gap-4' : 'p-4'}`}
+                                >
+                                    <div className={`bg-black/40 rounded-xl flex items-center justify-center relative overflow-hidden ${viewMode === 'list' ? 'w-16 h-16 text-xl' : 'aspect-square mb-4 text-4xl'}`}>
+                                        <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-50" />
+                                        <span className="relative z-10 group-hover:scale-110 transition-transform duration-300">💠</span>
+                                        {viewMode === 'grid' && (
+                                            <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm px-2 py-1 rounded text-[10px] font-mono text-gray-400 border border-white/5">
+                                                #{listingItem.tokenId.toString()}
                                             </div>
-                                        </div>
-                                    )}
-                                </div>
-                                
-                                <div className={viewMode === 'list' ? 'flex-1' : 'mb-4'}>
-                                    <h3 className="font-bold text-white text-sm mb-1">
-                                        Crikz Artifact {viewMode === 'list' && <span className="text-gray-500 font-mono text-xs">#{item.tokenId.toString()}</span>}
-                                    </h3>
-                                    <p className="text-[10px] text-gray-500 font-mono flex items-center gap-1">
-                                        Seller: <span className="text-gray-400">{shortenAddress(item.seller)}</span>
-                                    </p>
-                                </div>
-
-                                <div className={`flex items-center ${viewMode === 'list' ? 'gap-6' : 'justify-between bg-black/20 p-2 rounded-lg border border-white/5'}`}>
-                                    <div className="flex flex-col">
-                                        {viewMode === 'grid' && <span className="text-[10px] text-gray-500 uppercase font-bold">{isAuction ? 'Current Bid' : 'Price'}</span>}
-                                        <span className="text-primary-500 font-black text-sm">
-                                            {isAuction 
-                                                ? formatTokenAmount(auctionItem.highestBid > 0n ? auctionItem.highestBid : auctionItem.minPrice) 
-                                                : formatTokenAmount(listingItem.price)
-                                            } CRKZ
-                                        </span>
+                                        )}
                                     </div>
                                     
-                                    {isAuction ? (
-                                        <button 
-                                            onClick={() => setSelectedAuction(auctionItem)}
-                                            disabled={isEnded}
-                                            className="px-4 py-2 bg-primary-500 text-black rounded-lg font-bold text-xs hover:bg-primary-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            {isEnded ? 'Closed' : 'Bid'}
-                                        </button>
-                                    ) : (
+                                    <div className={viewMode === 'list' ? 'flex-1' : 'mb-4'}>
+                                        <h3 className="font-bold text-white text-sm mb-1">
+                                            Crikz Artifact {viewMode === 'list' && <span className="text-gray-500 font-mono text-xs">#{listingItem.tokenId.toString()}</span>}
+                                        </h3>
+                                        <p className="text-[10px] text-gray-500 font-mono flex items-center gap-1">
+                                            Seller: <span className="text-gray-400">{shortenAddress(listingItem.seller)}</span>
+                                        </p>
+                                    </div>
+
+                                    <div className={`flex items-center ${viewMode === 'list' ? 'gap-6' : 'justify-between bg-black/20 p-2 rounded-lg border border-white/5'}`}>
+                                        <div className="flex flex-col">
+                                            {viewMode === 'grid' && <span className="text-[10px] text-gray-500 uppercase font-bold">Price</span>}
+                                            <span className="text-primary-500 font-black text-sm">{formatTokenAmount(listingItem.price)} CRKZ</span>
+                                        </div>
                                         <button 
                                             onClick={() => onBuy(listingItem.nftContract, listingItem.tokenId, listingItem.price)}
                                             disabled={isPending}
@@ -282,13 +253,86 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
                                         >
                                             {isPending ? '...' : 'Buy'}
                                         </button>
-                                    )}
-                                </div>
-                            </motion.div>
-                        );
-                    })}
-                </AnimatePresence>
-            </div>
+                                    </div>
+                                </motion.div>
+                            );
+                        })}
+                    </AnimatePresence>
+                </div>
+            )
+        ) : (
+            // --- AUCTION VIEW ---
+            filteredItems.length === 0 ? (
+                <div className="text-center py-20">
+                    <Gavel size={48} className="mx-auto mb-4 text-gray-700" />
+                    <h3 className="text-xl font-bold text-white mb-2">No Active Auctions</h3>
+                    <p className="text-gray-500 text-sm max-w-md mx-auto">
+                        Check back later or start your own auction from the collection.
+                    </p>
+                </div>
+            ) : (
+                <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" : "flex flex-col gap-3"}>
+                    <AnimatePresence>
+                        {filteredItems.map((item) => {
+                            const auctionItem = item as AuctionItem;
+                            const now = Math.floor(Date.now() / 1000);
+                            const timeLeft = Number(auctionItem.endTime) - now;
+                            const isEnded = timeLeft <= 0;
+
+                            return (
+                                <motion.div 
+                                    key={`${auctionItem.nftContract}-${auctionItem.tokenId}`}
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    layout
+                                    className={`glass-card rounded-2xl border border-white/10 hover:border-primary-500/30 transition-all group bg-background-elevated ${viewMode === 'list' ? 'flex flex-row items-center p-4 gap-4' : 'p-4'}`}
+                                >
+                                    <div className={`bg-black/40 rounded-xl flex items-center justify-center relative overflow-hidden ${viewMode === 'list' ? 'w-16 h-16 text-xl' : 'aspect-square mb-4 text-4xl'}`}>
+                                        <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-50" />
+                                        <span className="relative z-10 group-hover:scale-110 transition-transform duration-300">💠</span>
+                                        {viewMode === 'grid' && (
+                                            <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm px-2 py-1 rounded text-[10px] font-mono text-gray-400 border border-white/5">
+                                                #{auctionItem.tokenId.toString()}
+                                            </div>
+                                        )}
+                                        <div className="absolute bottom-0 left-0 right-0 bg-black/80 backdrop-blur-sm p-2 text-center">
+                                            <div className={`text-[10px] font-bold flex items-center justify-center gap-1 ${isEnded ? 'text-red-500' : 'text-emerald-400'}`}>
+                                                <Clock size={10} /> {isEnded ? 'Ended' : formatTimeRemaining(timeLeft)}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className={viewMode === 'list' ? 'flex-1' : 'mb-4'}>
+                                        <h3 className="font-bold text-white text-sm mb-1">
+                                            Crikz Artifact {viewMode === 'list' && <span className="text-gray-500 font-mono text-xs">#{auctionItem.tokenId.toString()}</span>}
+                                        </h3>
+                                        <p className="text-[10px] text-gray-500 font-mono flex items-center gap-1">
+                                            Seller: <span className="text-gray-400">{shortenAddress(auctionItem.seller)}</span>
+                                        </p>
+                                    </div>
+
+                                    <div className={`flex items-center ${viewMode === 'list' ? 'gap-6' : 'justify-between bg-black/20 p-2 rounded-lg border border-white/5'}`}>
+                                        <div className="flex flex-col">
+                                            {viewMode === 'grid' && <span className="text-[10px] text-gray-500 uppercase font-bold">Current Bid</span>}
+                                            <span className="text-primary-500 font-black text-sm">
+                                                {formatTokenAmount(auctionItem.highestBid > 0n ? auctionItem.highestBid : auctionItem.minPrice)} CRKZ
+                                            </span>
+                                        </div>
+                                        
+                                        <button 
+                                            onClick={() => setSelectedAuction(auctionItem)}
+                                            disabled={isEnded}
+                                            className="px-4 py-2 bg-primary-500 text-black rounded-lg font-bold text-xs hover:bg-primary-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            {isEnded ? 'Closed' : 'Bid'}
+                                        </button>
+                                    </div>
+                                </motion.div>
+                            );
+                        })}
+                    </AnimatePresence>
+                </div>
+            )
         )}
 
         {/* Bid Modal */}

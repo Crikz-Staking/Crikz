@@ -4,9 +4,10 @@ import { ShoppingBag, PlusCircle, LayoutGrid } from 'lucide-react';
 import NFTMinting from './NFTMinting';
 import UserCollection from './UserCollection';
 import MarketListings from './MarketListings';
-import { useMarketListings } from '@/hooks/web3/useMarketListings';
-import { useContractWrite } from '@/hooks/web3/useContractWrite';
-import { Language, Listing } from '@/types';
+import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { NFT_MARKETPLACE_ADDRESS, NFT_MARKETPLACE_ABI } from '@/config/index';
+import { Language } from '@/types';
+import { toast } from 'react-hot-toast';
 
 interface NFTMarketProps {
   dynamicColor: string;
@@ -15,22 +16,33 @@ interface NFTMarketProps {
 
 export default function NFTMarket({ dynamicColor, lang }: NFTMarketProps) {
   const [view, setView] = useState<'market' | 'mint' | 'collection'>('market');
-  const { listings, isLoading, refresh } = useMarketListings();
-  const { isPending } = useContractWrite();
+  
+  // Buy Logic
+  const { writeContract, data: buyHash, isPending: isBuyPending } = useWriteContract();
+  const { isLoading: isConfirming } = useWaitForTransactionReceipt({ hash: buyHash });
+
+  React.useEffect(() => {
+    if (isConfirming === false && buyHash) {
+      toast.success("Purchase Successful!");
+    }
+  }, [isConfirming, buyHash]);
+
+  const handleBuy = (nftContract: string, tokenId: bigint, price: bigint) => {
+      // Note: User must have approved Crikz Token for Marketplace before this works.
+      // A robust implementation would check allowance here.
+      writeContract({
+          address: NFT_MARKETPLACE_ADDRESS,
+          abi: NFT_MARKETPLACE_ABI,
+          functionName: 'buyItem',
+          args: [nftContract as `0x${string}`, tokenId]
+      });
+  };
 
   const tabs = [
     { id: 'market', label: 'Marketplace', icon: ShoppingBag },
     { id: 'mint', label: 'Mint Artifact', icon: PlusCircle },
     { id: 'collection', label: 'My Collection', icon: LayoutGrid },
   ];
-
-  // Convert MarketItem[] to Listing[]
-  const convertedListings: Listing[] = listings.map(item => ({
-    seller: item.seller as `0x${string}`,
-    nftContract: item.nftContract as `0x${string}`,
-    tokenId: item.id,
-    price: item.price
-  }));
 
   return (
     <div className="space-y-6">
@@ -57,10 +69,11 @@ export default function NFTMarket({ dynamicColor, lang }: NFTMarketProps) {
         >
           {view === 'market' && (
              <MarketListings 
-               listings={convertedListings} 
-               isPending={isPending} 
-               isLoading={isLoading} 
-               onBuy={() => {}} 
+               // Pass empty array as component fetches its own data internally
+               listings={[]} 
+               isPending={isBuyPending || isConfirming} 
+               isLoading={false} 
+               onBuy={handleBuy} 
              />
           )}
           {view === 'mint' && <NFTMinting dynamicColor={dynamicColor} />}
