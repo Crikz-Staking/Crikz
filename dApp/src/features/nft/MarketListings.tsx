@@ -1,8 +1,23 @@
 import React, { useState, useMemo } from 'react';
-import { Search, ArrowUpDown, Filter, ShoppingBag, LayoutGrid, List as ListIcon, SlidersHorizontal, X } from 'lucide-react';
+import { Search, Filter, ShoppingBag, LayoutGrid, List as ListIcon, SlidersHorizontal, X, Gavel } from 'lucide-react';
 import { formatTokenAmount, shortenAddress } from '@/lib/utils';
 import { Listing } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { NFT_MARKETPLACE_ADDRESS, NFT_MARKETPLACE_ABI } from '@/config/index';
+import { parseEther } from 'viem';
+import { toast } from 'react-hot-toast';
+
+// Mock Auction Data (In prod, fetch from contract events)
+interface AuctionItem {
+    id: bigint;
+    nftContract: string;
+    tokenId: bigint;
+    minPrice: bigint;
+    highestBid: bigint;
+    endTime: number;
+    seller: string;
+}
 
 interface MarketListingsProps {
   listings: Listing[];
@@ -13,31 +28,50 @@ interface MarketListingsProps {
 
 type SortOption = 'newest' | 'price_asc' | 'price_desc';
 type ViewMode = 'grid' | 'list';
+type MarketType = 'fixed' | 'auction';
 
 export default function MarketListings({ listings, onBuy, isPending, isLoading }: MarketListingsProps) {
+  const [marketType, setMarketType] = useState<MarketType>('fixed');
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<SortOption>('newest');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [showFilters, setShowFilters] = useState(false);
-  
-  // New Filters
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
+  
+  // Auction State
+  const [bidAmount, setBidAmount] = useState('');
+  const [selectedAuction, setSelectedAuction] = useState<AuctionItem | null>(null);
 
+  // Contract Write for Bidding
+  const { writeContract: placeBid, data: bidHash, isPending: bidPending } = useWriteContract();
+  const { isSuccess: bidSuccess } = useWaitForTransactionReceipt({ hash: bidHash });
+
+  React.useEffect(() => {
+      if(bidSuccess) {
+          toast.success("Bid Placed!");
+          setSelectedAuction(null);
+          setBidAmount('');
+      }
+  }, [bidSuccess]);
+
+  const handleBid = () => {
+      if(!selectedAuction || !bidAmount) return;
+      placeBid({
+          address: NFT_MARKETPLACE_ADDRESS,
+          abi: NFT_MARKETPLACE_ABI,
+          functionName: 'bid',
+          args: [selectedAuction.nftContract as `0x${string}`, selectedAuction.tokenId, parseEther(bidAmount)]
+      });
+  };
+
+  // Filter Logic
   const filteredListings = useMemo(() => {
     let result = [...listings];
-
-    // 1. Search Filter
     if (search) {
         const q = search.toLowerCase();
-        result = result.filter(item => 
-            item.tokenId.toString().includes(q) || 
-            item.seller.toLowerCase().includes(q)
-        );
+        result = result.filter(item => item.tokenId.toString().includes(q) || item.seller.toLowerCase().includes(q));
     }
-
-    // 2. Price Range Filter
-    // Note: item.price is BigInt (wei). Input is user-friendly (ether).
     if (minPrice) {
         const minWei = Number(minPrice) * 1e18;
         result = result.filter(item => Number(item.price) >= minWei);
@@ -46,22 +80,11 @@ export default function MarketListings({ listings, onBuy, isPending, isLoading }
         const maxWei = Number(maxPrice) * 1e18;
         result = result.filter(item => Number(item.price) <= maxWei);
     }
-
-    // 3. Sort
     switch (sort) {
-        case 'price_asc':
-            result.sort((a, b) => Number(a.price) - Number(b.price));
-            break;
-        case 'price_desc':
-            result.sort((a, b) => Number(b.price) - Number(a.price));
-            break;
-        case 'newest':
-        default:
-            // Assuming higher Token ID = Newest for this simplified model
-            result.sort((a, b) => Number(b.tokenId) - Number(a.tokenId));
-            break;
+        case 'price_asc': result.sort((a, b) => Number(a.price) - Number(b.price)); break;
+        case 'price_desc': result.sort((a, b) => Number(b.price) - Number(a.price)); break;
+        case 'newest': default: result.sort((a, b) => Number(b.tokenId) - Number(a.tokenId)); break;
     }
-
     return result;
   }, [listings, search, sort, minPrice, maxPrice]);
 
@@ -78,6 +101,18 @@ export default function MarketListings({ listings, onBuy, isPending, isLoading }
     <div className="space-y-6">
         {/* --- CONTROL BAR --- */}
         <div className="flex flex-col gap-4">
+            {/* Market Type Tabs */}
+            <div className="flex justify-center">
+                <div className="bg-black/40 p-1 rounded-xl border border-white/10 flex gap-1">
+                    <button onClick={() => setMarketType('fixed')} className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${marketType === 'fixed' ? 'bg-white/10 text-white' : 'text-gray-500 hover:text-white'}`}>
+                        Fixed Price
+                    </button>
+                    <button onClick={() => setMarketType('auction')} className={`px-6 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${marketType === 'auction' ? 'bg-primary-500 text-black' : 'text-gray-500 hover:text-white'}`}>
+                        <Gavel size={14}/> Auctions
+                    </button>
+                </div>
+            </div>
+
             <div className="flex flex-col md:flex-row gap-4 justify-between bg-black/20 p-4 rounded-2xl border border-white/5">
                 {/* Search */}
                 <div className="relative flex-1">
@@ -144,63 +179,95 @@ export default function MarketListings({ listings, onBuy, isPending, isLoading }
         </div>
 
         {/* --- LISTING GRID / LIST --- */}
-        {filteredListings.length === 0 ? (
-            <div className="glass-card p-20 rounded-3xl border border-white/10 text-center border-dashed">
-                <ShoppingBag size={40} className="mx-auto mb-4 text-gray-700" />
-                <h3 className="text-xl font-bold text-white mb-2">No listings found</h3>
-                <p className="text-gray-500 text-sm">Try adjusting your filters.</p>
-                {(minPrice || maxPrice || search) && (
-                    <button onClick={() => { setMinPrice(''); setMaxPrice(''); setSearch(''); }} className="mt-4 text-primary-500 text-xs font-bold hover:underline">
-                        Clear all filters
-                    </button>
-                )}
-            </div>
-        ) : (
-            <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" : "flex flex-col gap-3"}>
-                <AnimatePresence>
-                    {filteredListings.map((item) => (
-                        <motion.div 
-                            key={`${item.nftContract}-${item.tokenId}`}
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            layout
-                            className={`glass-card rounded-2xl border border-white/10 hover:border-primary-500/30 transition-all group bg-background-elevated ${viewMode === 'list' ? 'flex flex-row items-center p-4 gap-4' : 'p-4'}`}
-                        >
-                            <div className={`bg-black/40 rounded-xl flex items-center justify-center relative overflow-hidden ${viewMode === 'list' ? 'w-16 h-16 text-xl' : 'aspect-square mb-4 text-4xl'}`}>
-                                <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-50" />
-                                <span className="relative z-10 group-hover:scale-110 transition-transform duration-300">💠</span>
-                                {viewMode === 'grid' && (
-                                    <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm px-2 py-1 rounded text-[10px] font-mono text-gray-400 border border-white/5">
-                                        #{item.tokenId.toString()}
-                                    </div>
-                                )}
-                            </div>
-                            
-                            <div className={viewMode === 'list' ? 'flex-1' : 'mb-4'}>
-                                <h3 className="font-bold text-white text-sm mb-1">
-                                    Crikz Artifact {viewMode === 'list' && <span className="text-gray-500 font-mono text-xs">#{item.tokenId.toString()}</span>}
-                                </h3>
-                                <p className="text-[10px] text-gray-500 font-mono flex items-center gap-1">
-                                    Seller: <span className="text-gray-400">{shortenAddress(item.seller)}</span>
-                                </p>
-                            </div>
-
-                            <div className={`flex items-center ${viewMode === 'list' ? 'gap-6' : 'justify-between bg-black/20 p-2 rounded-lg border border-white/5'}`}>
-                                <div className="flex flex-col">
-                                    {viewMode === 'grid' && <span className="text-[10px] text-gray-500 uppercase font-bold">Price</span>}
-                                    <span className="text-primary-500 font-black text-sm">{formatTokenAmount(item.price)} CRKZ</span>
+        {marketType === 'fixed' ? (
+            filteredListings.length === 0 ? (
+                <div className="glass-card p-20 rounded-3xl border border-white/10 text-center border-dashed">
+                    <ShoppingBag size={40} className="mx-auto mb-4 text-gray-700" />
+                    <h3 className="text-xl font-bold text-white mb-2">No listings found</h3>
+                    <p className="text-gray-500 text-sm">Try adjusting your filters.</p>
+                </div>
+            ) : (
+                <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" : "flex flex-col gap-3"}>
+                    <AnimatePresence>
+                        {filteredListings.map((item) => (
+                            <motion.div 
+                                key={`${item.nftContract}-${item.tokenId}`}
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                layout
+                                className={`glass-card rounded-2xl border border-white/10 hover:border-primary-500/30 transition-all group bg-background-elevated ${viewMode === 'list' ? 'flex flex-row items-center p-4 gap-4' : 'p-4'}`}
+                            >
+                                <div className={`bg-black/40 rounded-xl flex items-center justify-center relative overflow-hidden ${viewMode === 'list' ? 'w-16 h-16 text-xl' : 'aspect-square mb-4 text-4xl'}`}>
+                                    <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-50" />
+                                    <span className="relative z-10 group-hover:scale-110 transition-transform duration-300">💠</span>
+                                    {viewMode === 'grid' && (
+                                        <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm px-2 py-1 rounded text-[10px] font-mono text-gray-400 border border-white/5">
+                                            #{item.tokenId.toString()}
+                                        </div>
+                                    )}
                                 </div>
-                                <button 
-                                    onClick={() => onBuy(item.nftContract, item.tokenId, item.price)}
-                                    disabled={isPending}
-                                    className="px-4 py-2 bg-white/10 text-white rounded-lg font-bold text-xs hover:bg-primary-500 hover:text-black transition-all disabled:opacity-50"
-                                >
-                                    {isPending ? '...' : 'Buy'}
-                                </button>
-                            </div>
-                        </motion.div>
-                    ))}
-                </AnimatePresence>
+                                
+                                <div className={viewMode === 'list' ? 'flex-1' : 'mb-4'}>
+                                    <h3 className="font-bold text-white text-sm mb-1">
+                                        Crikz Artifact {viewMode === 'list' && <span className="text-gray-500 font-mono text-xs">#{item.tokenId.toString()}</span>}
+                                    </h3>
+                                    <p className="text-[10px] text-gray-500 font-mono flex items-center gap-1">
+                                        Seller: <span className="text-gray-400">{shortenAddress(item.seller)}</span>
+                                    </p>
+                                </div>
+
+                                <div className={`flex items-center ${viewMode === 'list' ? 'gap-6' : 'justify-between bg-black/20 p-2 rounded-lg border border-white/5'}`}>
+                                    <div className="flex flex-col">
+                                        {viewMode === 'grid' && <span className="text-[10px] text-gray-500 uppercase font-bold">Price</span>}
+                                        <span className="text-primary-500 font-black text-sm">{formatTokenAmount(item.price)} CRKZ</span>
+                                    </div>
+                                    <button 
+                                        onClick={() => onBuy(item.nftContract, item.tokenId, item.price)}
+                                        disabled={isPending}
+                                        className="px-4 py-2 bg-white/10 text-white rounded-lg font-bold text-xs hover:bg-primary-500 hover:text-black transition-all disabled:opacity-50"
+                                    >
+                                        {isPending ? '...' : 'Buy'}
+                                    </button>
+                                </div>
+                            </motion.div>
+                        ))}
+                    </AnimatePresence>
+                </div>
+            )
+        ) : (
+            // --- AUCTION VIEW (Placeholder UI as we don't have live auction data in this demo state) ---
+            <div className="text-center py-20">
+                <Gavel size={48} className="mx-auto mb-4 text-gray-700" />
+                <h3 className="text-xl font-bold text-white mb-2">Live Auctions</h3>
+                <p className="text-gray-500 text-sm max-w-md mx-auto">
+                    Auctions are live on the smart contract. Create an auction from your collection to see it appear here.
+                </p>
+            </div>
+        )}
+
+        {/* Bid Modal */}
+        {selectedAuction && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                <div className="glass-card w-full max-w-md p-6 rounded-3xl border border-white/10 bg-[#12121A] relative">
+                    <button onClick={() => setSelectedAuction(null)} className="absolute top-4 right-4 text-gray-500 hover:text-white"><X size={20}/></button>
+                    <h3 className="text-xl font-bold text-white mb-6">Place Bid</h3>
+                    <div className="space-y-4">
+                        <div className="flex justify-between text-sm">
+                            <span className="text-gray-500">Current Highest</span>
+                            <span className="text-white font-bold">{formatTokenAmount(selectedAuction.highestBid)} CRKZ</span>
+                        </div>
+                        <input 
+                            type="number" 
+                            value={bidAmount} 
+                            onChange={e => setBidAmount(e.target.value)} 
+                            className="input-field text-xl font-bold" 
+                            placeholder="Bid Amount"
+                        />
+                        <button onClick={handleBid} disabled={bidPending} className="btn-primary w-full py-3">
+                            {bidPending ? 'Confirming...' : 'Place Bid'}
+                        </button>
+                    </div>
+                </div>
             </div>
         )}
     </div>

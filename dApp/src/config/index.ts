@@ -13,11 +13,15 @@ export const ORDER_TYPES = [
   { index: 6, days: 1597, multiplier: 2.618, name: "Monopoly" }
 ];
 
-// REPLACE THESE ADDRESSES AFTER RUNNING: npx hardhat run scripts/deploy-full.cjs
+// --- ADDRESSES ---
 export const CRIKZ_TOKEN_ADDRESS = "0xaDe2E0A0cFC3415f4ec1E1F827c31861b6fdfaE9"; 
-export const CRIKZLING_MEMORY_ADDRESS = "0x7862Cdd1549cbb631576385258F469b58aA9fa1F";
 export const CRIKZ_NFT_ADDRESS = "0x5B6da09c4E38A321e13aB81c2Cc6F578DFCc3FB1";
-export const NFT_MARKETPLACE_ADDRESS = "0xB9Bec3827931177336c0dbB611680d63BD5f154F";
+// NOTE: Update this after deploying the new NFTMarketplace contract
+export const NFT_MARKETPLACE_ADDRESS = "0xB9Bec3827931177336c0dbB611680d63BD5f154F"; 
+export const CRIKZLING_MEMORY_ADDRESS = "0x7862Cdd1549cbb631576385258F469b58aA9fa1F";
+export const CRIKZ_MEDIA_ADDRESS = "0xc9BCd9bC3abF27739B67CAa50C7dD7258dc409de"; 
+
+// --- ABIS ---
 
 export const CRIKZ_TOKEN_ABI = [
   { "inputs": [{"name": "_owner", "type": "address"}], "name": "balanceOf", "outputs": [{"name": "balance", "type": "uint256"}], "stateMutability": "view", "type": "function" },
@@ -71,10 +75,9 @@ export const CRIKZLING_MEMORY_ABI = [
       { "internalType": "string", "name": "evolutionStage", "type": "string" },
       { "internalType": "string", "name": "triggerEvent", "type": "string" }
     ],
-    "stateMutability": "view",
+    "stateMutability": "view", 
     "type": "function"
   },
-  // Added Event Definition
   {
     "anonymous": false,
     "inputs": [
@@ -95,18 +98,24 @@ export const CRIKZ_NFT_ABI = [
   { "inputs": [{"name": "tokenId", "type": "uint256"}], "name": "getApproved", "outputs": [{"name": "", "type": "address"}], "stateMutability": "view", "type": "function" },
   { "inputs": [{"name": "owner", "type": "address"}, {"name": "operator", "type": "address"}], "name": "isApprovedForAll", "outputs": [{"name": "", "type": "bool"}], "stateMutability": "view", "type": "function" },
   { "inputs": [{"name": "to", "type": "address"}, {"name": "tokenId", "type": "uint256"}], "name": "approve", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
-  { "inputs": [{"name": "from", "type": "address"}, {"name": "to", "type": "address"}, {"name": "tokenId", "type": "uint256"}], "name": "transferFrom", "outputs": [], "stateMutability": "nonpayable", "type": "function" }
+  { "inputs": [{"name": "from", "type": "address"}, {"name": "to", "type": "address"}, {"name": "tokenId", "type": "uint256"}], "name": "transferFrom", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+  { "inputs": [{"name": "tokenId", "type": "uint256"}], "name": "ownerOf", "outputs": [{"name": "", "type": "address"}], "stateMutability": "view", "type": "function" }
 ] as const;
 
 export const NFT_MARKETPLACE_ABI = [
   { "anonymous": false, "inputs": [{"indexed": true, "name": "seller", "type": "address"}, {"indexed": true, "name": "nftContract", "type": "address"}, {"indexed": true, "name": "tokenId", "type": "uint256"}, {"indexed": false, "name": "price", "type": "uint256"}], "name": "ItemListed", "type": "event" },
-  { "anonymous": false, "inputs": [{"indexed": true, "name": "buyer", "type": "address"}, {"indexed": true, "name": "nftContract", "type": "address"}, {"indexed": true, "name": "tokenId", "type": "uint256"}, {"indexed": false, "name": "price", "type": "uint256"}], "name": "ItemSold", "type": "event" },
+  { "anonymous": false, "inputs": [{"indexed": true, "name": "buyer", "type": "address"}, {"indexed": true, "name": "nftContract", "type": "address"}, {"indexed": true, "name": "tokenId", "type": "uint256"}, {"indexed": false, "name": "price", "type": "uint256"}, {"indexed": false, "name": "fee", "type": "uint256"}], "name": "ItemSold", "type": "event" },
   { "anonymous": false, "inputs": [{"indexed": true, "name": "seller", "type": "address"}, {"indexed": true, "name": "nftContract", "type": "address"}, {"indexed": true, "name": "tokenId", "type": "uint256"}], "name": "ItemCanceled", "type": "event" },
+  { "anonymous": false, "inputs": [{"indexed": true, "name": "seller", "type": "address"}, {"indexed": true, "name": "nftContract", "type": "address"}, {"indexed": true, "name": "tokenId", "type": "uint256"}, {"indexed": false, "name": "minPrice", "type": "uint256"}, {"indexed": false, "name": "endTime", "type": "uint256"}], "name": "AuctionCreated", "type": "event" },
+  { "anonymous": false, "inputs": [{"indexed": true, "name": "bidder", "type": "address"}, {"indexed": true, "name": "nftContract", "type": "address"}, {"indexed": true, "name": "tokenId", "type": "uint256"}, {"indexed": false, "name": "amount", "type": "uint256"}], "name": "NewBid", "type": "event" },
+  { "anonymous": false, "inputs": [{"indexed": true, "name": "winner", "type": "address"}, {"indexed": true, "name": "nftContract", "type": "address"}, {"indexed": true, "name": "tokenId", "type": "uint256"}, {"indexed": false, "name": "amount", "type": "uint256"}, {"indexed": false, "name": "fee", "type": "uint256"}], "name": "AuctionEnded", "type": "event" },
   { "inputs": [{"name": "nftContract", "type": "address"}, {"name": "tokenId", "type": "uint256"}, {"name": "price", "type": "uint256"}], "name": "listModel", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
-  { "inputs": [{"name": "nftContract", "type": "address"}, {"name": "tokenId", "type": "uint256"}], "name": "buyItem", "outputs": [], "stateMutability": "nonpayable", "type": "function" }
+  { "inputs": [{"name": "nftContract", "type": "address"}, {"name": "tokenId", "type": "uint256"}], "name": "buyItem", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+  { "inputs": [{"name": "nftContract", "type": "address"}, {"name": "tokenId", "type": "uint256"}], "name": "cancelListing", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+  { "inputs": [{"name": "nftContract", "type": "address"}, {"name": "tokenId", "type": "uint256"}, {"name": "minPrice", "type": "uint256"}, {"name": "duration", "type": "uint256"}], "name": "createAuction", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+  { "inputs": [{"name": "nftContract", "type": "address"}, {"name": "tokenId", "type": "uint256"}, {"name": "amount", "type": "uint256"}], "name": "bid", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+  { "inputs": [{"name": "nftContract", "type": "address"}, {"name": "tokenId", "type": "uint256"}], "name": "endAuction", "outputs": [], "stateMutability": "nonpayable", "type": "function" }
 ] as const;
-
-export const CRIKZ_MEDIA_ADDRESS = "0xc9BCd9bC3abF27739B67CAa50C7dD7258dc409de"; 
 
 export const CRIKZ_MEDIA_ABI = [
   {

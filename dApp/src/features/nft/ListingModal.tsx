@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { X, Tag, Loader2, AlertTriangle } from 'lucide-react';
+import { X, Tag, Loader2, AlertTriangle, Gavel } from 'lucide-react';
 import { useWriteContract, useWaitForTransactionReceipt, useReadContract, useAccount } from 'wagmi';
 import { parseEther } from 'viem';
 import { NFT_MARKETPLACE_ADDRESS, NFT_MARKETPLACE_ABI, CRIKZ_NFT_ADDRESS, CRIKZ_NFT_ABI } from '@/config/index';
@@ -14,7 +14,9 @@ interface ListingModalProps {
 
 export default function ListingModal({ tokenId, onClose, onSuccess }: ListingModalProps) {
   const { address } = useAccount();
+  const [mode, setMode] = useState<'fixed' | 'auction'>('fixed');
   const [price, setPrice] = useState('');
+  const [duration, setDuration] = useState('24'); // Hours
   const [step, setStep] = useState<'approve' | 'list'>('approve');
 
   const safeAddress = address || '0x0000000000000000000000000000000000000000';
@@ -32,9 +34,7 @@ export default function ListingModal({ tokenId, onClose, onSuccess }: ListingMod
     abi: CRIKZ_NFT_ABI,
     functionName: 'isApprovedForAll',
     args: [safeAddress, NFT_MARKETPLACE_ADDRESS],
-    query: {
-        enabled: !!address 
-    }
+    query: { enabled: !!address }
   });
 
   useEffect(() => {
@@ -76,17 +76,29 @@ export default function ListingModal({ tokenId, onClose, onSuccess }: ListingMod
       } as any);
   };
 
-  const handleList = () => {
+  const handleSubmit = () => {
       if (!price || parseFloat(price) <= 0) {
           toast.error("Invalid Price");
           return;
       }
-      list({
-          address: NFT_MARKETPLACE_ADDRESS,
-          abi: NFT_MARKETPLACE_ABI,
-          functionName: 'listModel',
-          args: [CRIKZ_NFT_ADDRESS, tokenId, parseEther(price)]
-      } as any);
+
+      if (mode === 'fixed') {
+          list({
+              address: NFT_MARKETPLACE_ADDRESS,
+              abi: NFT_MARKETPLACE_ABI,
+              functionName: 'listModel',
+              args: [CRIKZ_NFT_ADDRESS, tokenId, parseEther(price)]
+          } as any);
+      } else {
+          // Auction
+          const durationSeconds = BigInt(Number(duration) * 3600);
+          list({
+              address: NFT_MARKETPLACE_ADDRESS,
+              abi: NFT_MARKETPLACE_ABI,
+              functionName: 'createAuction',
+              args: [CRIKZ_NFT_ADDRESS, tokenId, parseEther(price), durationSeconds]
+          } as any);
+      }
   };
 
   return (
@@ -125,8 +137,13 @@ export default function ListingModal({ tokenId, onClose, onSuccess }: ListingMod
                 </div>
             ) : (
                 <div className="space-y-4">
+                    <div className="flex bg-black/40 p-1 rounded-xl border border-white/10 mb-4">
+                        <button onClick={() => setMode('fixed')} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${mode === 'fixed' ? 'bg-white/10 text-white' : 'text-gray-500'}`}>Fixed Price</button>
+                        <button onClick={() => setMode('auction')} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${mode === 'auction' ? 'bg-primary-500 text-black' : 'text-gray-500'}`}>Auction</button>
+                    </div>
+
                     <div>
-                        <label className="text-xs font-bold text-gray-500 uppercase block mb-2">Price (CRKZ)</label>
+                        <label className="text-xs font-bold text-gray-500 uppercase block mb-2">{mode === 'fixed' ? 'Price' : 'Starting Bid'} (CRKZ)</label>
                         <input 
                             type="number" 
                             value={price}
@@ -135,13 +152,26 @@ export default function ListingModal({ tokenId, onClose, onSuccess }: ListingMod
                             className="input-field text-xl font-bold text-white"
                         />
                     </div>
+
+                    {mode === 'auction' && (
+                        <div>
+                            <label className="text-xs font-bold text-gray-500 uppercase block mb-2">Duration (Hours)</label>
+                            <input 
+                                type="number" 
+                                value={duration}
+                                onChange={(e) => setDuration(e.target.value)}
+                                className="input-field"
+                            />
+                        </div>
+                    )}
+
                     <button 
-                        onClick={handleList} 
+                        onClick={handleSubmit} 
                         disabled={isListing || listConfirm}
                         className="btn-primary w-full py-3 flex items-center justify-center gap-2"
                     >
                         {(isListing || listConfirm) && <Loader2 className="animate-spin" />}
-                        Confirm Listing
+                        {mode === 'fixed' ? 'List Item' : 'Start Auction'}
                     </button>
                 </div>
             )}
