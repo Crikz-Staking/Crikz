@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FolderPlus, Settings, Trash2, Tag, Image as ImageIcon, X, Edit3, Download, Lock, Gavel, Clock, Eye, RefreshCw } from 'lucide-react';
 import { useRealNFTIndexer, RichNFT } from '@/hooks/web3/useRealNFTIndexer';
@@ -41,9 +41,9 @@ export default function UserCollection({ dynamicColor }: { dynamicColor: string 
   const { writeContract: endAuction, data: endHash } = useWriteContract();
   const { isSuccess: endSuccess } = useWaitForTransactionReceipt({ hash: endHash });
 
-  React.useEffect(() => { if(burnSuccess) { toast.success("Burned"); refetch(); } }, [burnSuccess]);
-  React.useEffect(() => { if(endSuccess) { toast.success("Auction Finalized"); refreshMarket(); } }, [endSuccess]);
-  React.useEffect(() => { if(cancelSuccess) { toast.success("Listing Cancelled"); refreshMarket(); refetch(); } }, [cancelSuccess]);
+  useEffect(() => { if(burnSuccess) { toast.success("Burned"); refetch(); } }, [burnSuccess]);
+  useEffect(() => { if(endSuccess) { toast.success("Auction Finalized"); refreshMarket(); } }, [endSuccess]);
+  useEffect(() => { if(cancelSuccess) { toast.success("Listing Cancelled"); refreshMarket(); refetch(); } }, [cancelSuccess]);
 
   // Filter Data
   const currentCollection = collections.find(c => c.id === activeCollectionId);
@@ -97,8 +97,16 @@ export default function UserCollection({ dynamicColor }: { dynamicColor: string 
   const handleEditPrice = (listingId: bigint) => {
       if(!confirm("To edit price, we must cancel the current listing first. Proceed?")) return;
       handleCancelListing(listingId);
-      // Note: User must wait for TX then re-list. 
-      // A more complex flow would wait for receipt then open modal, but for now manual re-list is safer.
+  };
+
+  // FIX: Added missing function definition
+  const handleEndAuction = (auctionId: bigint) => {
+      endAuction({
+          address: NFT_MARKETPLACE_ADDRESS,
+          abi: NFT_MARKETPLACE_ABI,
+          functionName: 'endAuction',
+          args: [auctionId]
+      });
   };
 
   return (
