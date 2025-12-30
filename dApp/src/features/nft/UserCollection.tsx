@@ -13,7 +13,7 @@ import { formatTokenAmount, formatTimeRemaining } from '@/lib/utils';
 export default function UserCollection({ dynamicColor }: { dynamicColor: string }) {
   const { address } = useAccount();
   const { nfts, isLoading, refetch } = useRealNFTIndexer();
-  const { listings, auctions, refresh: refreshMarket } = useMarketListings();
+  const { auctions, listings, refresh: refreshMarket } = useMarketListings(); // Updated hook usage
   
   const { 
       collections, createCollection, editCollection, 
