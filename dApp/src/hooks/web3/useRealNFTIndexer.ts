@@ -106,6 +106,9 @@ export function useRealNFTIndexer() {
   }, [address, balance, publicClient, importedItems, listings, auctions]);
 
   const processNFTData = async (contract: string, id: bigint, status: 'wallet' | 'auction'): Promise<RichNFT> => {
+      // FIX 1: Ensure publicClient is defined before usage
+      if (!publicClient) throw new Error("Public client not initialized");
+
       let meta = { name: `Item #${id}`, image: '', attributes: [] };
       let uri = '';
       
@@ -126,7 +129,9 @@ export function useRealNFTIndexer() {
       const colId = itemMapping[key] || 'default';
 
       // Check if listed in Fixed Price Market (Status override)
-      let finalStatus = status;
+      // FIX 2: Explicitly type finalStatus to allow 'listed' assignment
+      let finalStatus: 'wallet' | 'listed' | 'auction' = status;
+      
       if (status === 'wallet') {
           const isListed = listings.some(l => 
               l.nftContract.toLowerCase() === contract.toLowerCase() && 
