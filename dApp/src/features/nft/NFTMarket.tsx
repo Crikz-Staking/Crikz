@@ -20,7 +20,8 @@ export default function NFTMarket({ dynamicColor, lang }: NFTMarketProps) {
   const publicClient = usePublicClient();
 
   // --- STATE FOR PURCHASE FLOW ---
-  const [pendingBuy, setPendingBuy] = useState<{ contract: string, id: bigint, price: bigint } | null>(null);
+  // Fixed: Now tracking listingId instead of contract/token
+  const [pendingBuy, setPendingBuy] = useState<{ listingId: bigint, price: bigint } | null>(null);
 
   // --- CONTRACT WRITES ---
   // 1. Approve Token
@@ -40,7 +41,7 @@ export default function NFTMarket({ dynamicColor, lang }: NFTMarketProps) {
         address: NFT_MARKETPLACE_ADDRESS,
         abi: NFT_MARKETPLACE_ABI,
         functionName: 'buyItem',
-        args: [pendingBuy.contract as `0x${string}`, pendingBuy.id]
+        args: [pendingBuy.listingId] // Fixed: Passing listingId
       });
       setPendingBuy(null);
     }
@@ -53,7 +54,8 @@ export default function NFTMarket({ dynamicColor, lang }: NFTMarketProps) {
   }, [isBought]);
 
   // --- HANDLERS ---
-  const handleBuy = async (nftContract: string, tokenId: bigint, price: bigint) => {
+  // Fixed: Signature now accepts listingId
+  const handleBuy = async (listingId: bigint, price: bigint) => {
       if (!address || !publicClient) {
         toast.error("Wallet not connected");
         return;
@@ -70,7 +72,7 @@ export default function NFTMarket({ dynamicColor, lang }: NFTMarketProps) {
 
         if (allowance < price) {
           toast('Approval required. Check wallet.', { icon: '🔐' });
-          setPendingBuy({ contract: nftContract, id: tokenId, price });
+          setPendingBuy({ listingId, price });
           
           approve({
             address: CRIKZ_TOKEN_ADDRESS,
@@ -84,7 +86,7 @@ export default function NFTMarket({ dynamicColor, lang }: NFTMarketProps) {
             address: NFT_MARKETPLACE_ADDRESS,
             abi: NFT_MARKETPLACE_ABI,
             functionName: 'buyItem',
-            args: [nftContract as `0x${string}`, tokenId]
+            args: [listingId] // Fixed: Passing listingId
           });
         }
       } catch (e: any) {
@@ -124,7 +126,7 @@ export default function NFTMarket({ dynamicColor, lang }: NFTMarketProps) {
         >
           {view === 'market' && (
              <MarketListings 
-               listings={[]} // Component fetches data internally
+               listings={[]} 
                isPending={isBuying || isBuyingConfirm || isApproving || isApprovingConfirm} 
                isLoading={false} 
                onBuy={handleBuy} 

@@ -3,11 +3,12 @@ import { motion } from 'framer-motion';
 import { X, Tag, Loader2, AlertTriangle, Gavel, Layers } from 'lucide-react';
 import { useWriteContract, useWaitForTransactionReceipt, useReadContract, useAccount } from 'wagmi';
 import { parseEther } from 'viem';
-import { NFT_MARKETPLACE_ADDRESS, NFT_MARKETPLACE_ABI, CRIKZ_NFT_ADDRESS, CRIKZ_NFT_ABI } from '@/config/index';
+import { NFT_MARKETPLACE_ADDRESS, NFT_MARKETPLACE_ABI, CRIKZ_NFT_ABI } from '@/config/index';
 import { toast } from 'react-hot-toast';
 
 interface ListingModalProps {
   tokenId: bigint;
+  nftContract: string; // New Prop
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -21,7 +22,7 @@ const FIB_DURATIONS = [
     { label: '13 Days', val: 13 },
 ];
 
-export default function ListingModal({ tokenId, onClose, onSuccess }: ListingModalProps) {
+export default function ListingModal({ tokenId, nftContract, onClose, onSuccess }: ListingModalProps) {
   const { address } = useAccount();
   const [mode, setMode] = useState<'fixed' | 'auction'>('fixed');
   const [price, setPrice] = useState('');
@@ -31,16 +32,16 @@ export default function ListingModal({ tokenId, onClose, onSuccess }: ListingMod
 
   const safeAddress = address || '0x0000000000000000000000000000000000000000';
 
-  // 1. Check Approval
+  // 1. Check Approval (Using dynamic nftContract)
   const { data: approvedAddress, refetch: refetchApproval } = useReadContract({
-    address: CRIKZ_NFT_ADDRESS,
-    abi: CRIKZ_NFT_ABI,
+    address: nftContract as `0x${string}`,
+    abi: CRIKZ_NFT_ABI, // Assuming standard ERC721 ABI
     functionName: 'getApproved',
     args: [tokenId],
   });
 
   const { data: isApprovedForAll, refetch: refetchAll } = useReadContract({
-    address: CRIKZ_NFT_ADDRESS,
+    address: nftContract as `0x${string}`,
     abi: CRIKZ_NFT_ABI,
     functionName: 'isApprovedForAll',
     args: [safeAddress, NFT_MARKETPLACE_ADDRESS],
@@ -78,17 +79,16 @@ export default function ListingModal({ tokenId, onClose, onSuccess }: ListingMod
   }, [listSuccess]);
 
   const handleApprove = () => {
-      // If listing whole collection, we MUST use setApprovalForAll
       if (listAll) {
           approve({
-              address: CRIKZ_NFT_ADDRESS,
+              address: nftContract as `0x${string}`,
               abi: CRIKZ_NFT_ABI,
               functionName: 'setApprovalForAll',
               args: [NFT_MARKETPLACE_ADDRESS, true]
           } as any);
       } else {
           approve({
-              address: CRIKZ_NFT_ADDRESS,
+              address: nftContract as `0x${string}`,
               abi: CRIKZ_NFT_ABI,
               functionName: 'approve',
               args: [NFT_MARKETPLACE_ADDRESS, tokenId]
@@ -111,7 +111,7 @@ export default function ListingModal({ tokenId, onClose, onSuccess }: ListingMod
               address: NFT_MARKETPLACE_ADDRESS,
               abi: NFT_MARKETPLACE_ABI,
               functionName: 'listModel',
-              args: [CRIKZ_NFT_ADDRESS, tokenId, parseEther(price)]
+              args: [nftContract as `0x${string}`, tokenId, parseEther(price)]
           } as any);
       } else {
           // Auction
@@ -120,7 +120,7 @@ export default function ListingModal({ tokenId, onClose, onSuccess }: ListingMod
               address: NFT_MARKETPLACE_ADDRESS,
               abi: NFT_MARKETPLACE_ABI,
               functionName: 'createAuction',
-              args: [CRIKZ_NFT_ADDRESS, tokenId, parseEther(price), durationSeconds]
+              args: [nftContract as `0x${string}`, tokenId, parseEther(price), durationSeconds]
           } as any);
       }
   };
