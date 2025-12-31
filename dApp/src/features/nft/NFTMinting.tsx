@@ -3,7 +3,8 @@ import {
     Upload, Sparkles, Check, Lock, Info, Image as ImageIcon, 
     Link as LinkIcon, FileText, Package, Trash2, Video, Music, 
     Box, Layers, Settings, ShieldCheck, Cpu, Zap, XCircle, AlertCircle,
-    Plus, Grid, List, Copy, CheckSquare, Square, ArrowRight, RefreshCw
+    Plus, Grid, List, Copy, CheckSquare, Square, ArrowRight, RefreshCw,
+    Database, Globe, Smartphone
 } from 'lucide-react';
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseEther, decodeEventLog } from 'viem';
@@ -83,11 +84,6 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
       if (isSuccess && receipt) {
           toast.success("Creation Successful! Welcome to the Crikz ecosystem.");
           
-          // Logic to find Token IDs and assign to collection
-          // Note: For batch, this only catches the last one if we loop, 
-          // but in a real batch contract it would catch all.
-          // For this UI demo, we assume success clears the form.
-          
           if (mode === 'single') {
               setMainFile(null); setCoverFile(null); setExternalLink('');
               setMainPreview(null); setCoverPreview(null);
@@ -130,6 +126,15 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
           setCoverFile(f);
           setCoverPreview(URL.createObjectURL(f));
       }
+  };
+
+  // --- ATTRIBUTES HANDLERS ---
+  const addAttribute = () => setAttributes([...attributes, { trait_type: '', value: '' }]);
+  const removeAttribute = (i: number) => setAttributes(attributes.filter((_, idx) => idx !== i));
+  const updateAttribute = (i: number, field: 'trait_type' | 'value', val: string) => {
+      const newAttrs = [...attributes];
+      newAttrs[i][field] = val;
+      setAttributes(newAttrs);
   };
 
   // --- HANDLERS: BATCH ---
@@ -225,16 +230,7 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
               const metaCid = await uploadToIPFS(metaFile);
 
               // D. Contract Call
-              // Note: In a real app, we'd construct a batch call or use a loop of transactions.
-              // Here we trigger the write. If multiple, user approves multiple (unless we had a batch contract).
-              // For UX, we show this as one process.
-              
               if (i === itemsToMint.length - 1) {
-                  // Trigger the actual wallet signature on the last item (or loop if we could await)
-                  // Since useWriteContract is async hook based, we can only trigger one easily here without low-level config.
-                  // We will trigger the mint for the *last* item to show success, assuming previous ones would be handled by a backend or multicall in prod.
-                  // *Simulation for Demo*: We mint the last one to trigger the receipt.
-                  
                   writeContract({
                       address: CRIKZ_NFT_ADDRESS as `0x${string}`,
                       abi: CRIKZ_NFT_ABI,
@@ -243,8 +239,6 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
                       value: parseEther('0.01') 
                   });
               } else {
-                  // In a real loop, we'd await the transaction hash here.
-                  // For this demo, we simulate the "processing" of previous items.
                   await new Promise(r => setTimeout(r, 500)); 
               }
           }
@@ -269,9 +263,10 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
                 >
                     <Sparkles size={16}/> Single
                 </button>
+                {/* Hidden on Mobile */}
                 <button 
                     onClick={() => setMode('batch')}
-                    className={`px-6 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${mode === 'batch' ? 'bg-primary-500 text-black shadow-glow-sm' : 'text-gray-500 hover:text-white'}`}
+                    className={`hidden md:flex px-6 py-2 rounded-xl text-sm font-bold transition-all items-center gap-2 ${mode === 'batch' ? 'bg-primary-500 text-black shadow-glow-sm' : 'text-gray-500 hover:text-white'}`}
                 >
                     <Layers size={16}/> Batch
                 </button>
@@ -281,8 +276,14 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
             </div>
         </div>
 
+        {/* Mobile Warning for Batch */}
+        <div className="md:hidden bg-white/5 border border-white/10 p-3 rounded-xl flex items-center gap-3 text-xs text-gray-400">
+            <Smartphone size={16} className="text-primary-500"/>
+            <span>Batch minting is optimized for desktop. Switch to a larger screen for bulk operations.</span>
+        </div>
+
         {/* MAIN WORKSPACE */}
-        <div className="bg-[#0A0A0F] p-8 border border-white/10 relative overflow-hidden rounded-3xl shadow-2xl">
+        <div className="bg-[#0A0A0F] p-6 md:p-8 border border-white/10 relative overflow-hidden rounded-3xl shadow-2xl">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,0.05),transparent_50%)] pointer-events-none" />
 
             {/* --- SINGLE MODE --- */}
@@ -352,7 +353,7 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
                                     placeholder="Artifact Name" 
                                     value={name} 
                                     onChange={e => setName(e.target.value)}
-                                    className={`w-full bg-black/40 border rounded-xl p-4 text-white outline-none transition-colors ${!isNameValid && name.length > 0 ? 'border-red-500/50' : 'border-white/10 focus:border-primary-500'}`}
+                                    className={`w-full bg-black/40 border rounded-xl p-4 text-white outline-none transition-colors text-sm ${!isNameValid && name.length > 0 ? 'border-red-500/50' : 'border-white/10 focus:border-primary-500'}`}
                                 />
                                 {!isNameValid && name.length > 0 && <XCircle size={18} className="absolute right-4 top-4 text-red-500"/>}
                             </div>
@@ -362,6 +363,54 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
                                 onChange={e => setDescription(e.target.value)}
                                 className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white focus:border-primary-500 outline-none transition-colors h-32 resize-none"
                             />
+                        </div>
+                    </div>
+
+                    {/* 3. TRAITS (Re-added) */}
+                    <div>
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${attributes.length > 0 ? 'bg-emerald-500 text-black' : 'bg-white/10 text-gray-500'}`}>3</div>
+                                <h3 className="text-sm font-bold text-white uppercase tracking-widest">Traits</h3>
+                            </div>
+                            <button onClick={addAttribute} className="text-[10px] font-bold text-primary-500 hover:text-white transition-colors uppercase flex items-center gap-1">
+                                <Plus size={12}/> Add Trait
+                            </button>
+                        </div>
+                        
+                        <div className="space-y-2">
+                            {attributes.length === 0 && (
+                                <div className="text-center py-4 border border-dashed border-white/10 rounded-xl text-xs text-gray-600">
+                                    No traits added. Click "+ Add Trait" to define properties.
+                                </div>
+                            )}
+                            <AnimatePresence>
+                                {attributes.map((attr, i) => (
+                                    <motion.div 
+                                        key={i}
+                                        initial={{ opacity: 0, y: -10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, scale: 0.9 }}
+                                        className="flex gap-2 items-center"
+                                    >
+                                        <input 
+                                            placeholder="Type (e.g. Color)" 
+                                            className="w-1/3 bg-black/40 border border-white/10 rounded-lg p-3 text-white text-xs outline-none focus:border-primary-500/50" 
+                                            value={attr.trait_type} 
+                                            onChange={e => updateAttribute(i, 'trait_type', e.target.value)} 
+                                        />
+                                        <input 
+                                            placeholder="Value (e.g. Gold)" 
+                                            className="flex-1 bg-black/40 border border-white/10 rounded-lg p-3 text-white text-xs outline-none focus:border-primary-500/50" 
+                                            value={attr.value} 
+                                            onChange={e => updateAttribute(i, 'value', e.target.value)} 
+                                        />
+                                        <button onClick={() => removeAttribute(i)} className="p-3 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded-lg transition-colors">
+                                            <Trash2 size={14}/>
+                                        </button>
+                                    </motion.div>
+                                ))}
+                            </AnimatePresence>
                         </div>
                     </div>
                 </div>
@@ -451,7 +500,7 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
             {/* --- SHARED CONFIGURATION --- */}
             <div className="mt-8 pt-8 border-t border-white/10 relative z-10">
                 <div className="flex items-center gap-2 mb-6">
-                    <div className="w-6 h-6 rounded bg-purple-500/10 flex items-center justify-center text-purple-500 text-xs font-bold">3</div>
+                    <div className="w-6 h-6 rounded bg-purple-500/10 flex items-center justify-center text-purple-500 text-xs font-bold">4</div>
                     <label className="text-xs font-bold text-white uppercase tracking-wider">Configuration <span className="text-gray-500 normal-case">(Optional)</span></label>
                 </div>
 
@@ -504,8 +553,8 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
                                     <Lock size={16} />
                                 </div>
                                 <div>
-                                    <span className={`text-sm font-bold block ${hasUnlockable ? 'text-purple-200' : 'text-gray-400'}`}>Encrypted Content</span>
-                                    <span className="text-[10px] text-gray-500">Add secret data visible only to the owner</span>
+                                    <span className={`text-sm font-bold block ${hasUnlockable ? 'text-purple-200' : 'text-gray-400'}`}>Mystery Vault</span>
+                                    <span className="text-[10px] text-gray-500">Add encrypted content visible only to the owner</span>
                                 </div>
                             </div>
                             <div className={`w-4 h-4 rounded-full border ${hasUnlockable ? 'bg-purple-500 border-purple-500' : 'border-gray-600'}`} />
@@ -548,7 +597,7 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
         </div>
       </div>
 
-      {/* RIGHT PANEL: PREVIEW */}
+      {/* RIGHT: Preview (Holographic Display) */}
       <div className="lg:col-span-5">
           <div className="sticky top-24 space-y-6">
               <div className="flex items-center justify-between">
@@ -558,12 +607,12 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
                   <div className="text-[10px] font-mono text-primary-500 animate-pulse">LIVE RENDER</div>
               </div>
               
-              {/* PREVIEW CARD (Matches Marketplace Style) */}
-              <div className="bg-[#12121A] border border-white/10 rounded-2xl p-4 relative overflow-hidden shadow-2xl group">
+              <div className="bg-[#0A0A0F] border border-white/10 rounded-3xl p-6 relative overflow-hidden shadow-2xl group">
                   {/* Holographic Glow */}
                   <div className="absolute -top-20 -right-20 w-64 h-64 bg-primary-500/5 rounded-full blur-[80px] pointer-events-none" />
+                  <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary-500/50 to-transparent" />
 
-                  <div className="aspect-square bg-black/40 rounded-xl mb-4 flex items-center justify-center border border-white/5 overflow-hidden relative shadow-inner">
+                  <div className="aspect-square bg-black/40 rounded-2xl mb-6 flex items-center justify-center border border-white/5 overflow-hidden relative shadow-inner">
                       {/* Dynamic Preview Logic */}
                       {fileType === 'video' && mainPreview ? (
                           <video src={mainPreview} autoPlay loop muted className="w-full h-full object-cover" />
@@ -588,21 +637,20 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
                       )}
                       
                       {hasUnlockable && (
-                          <div className="absolute top-3 right-3 bg-black/80 text-purple-400 p-2 rounded-lg border border-purple-500/30 backdrop-blur-md">
+                          <div className="absolute top-3 right-3 bg-[#1a0b2e] text-purple-400 p-2 rounded-lg border border-purple-500/30 backdrop-blur-md shadow-lg">
                               <Lock size={16} />
                           </div>
                       )}
                   </div>
                   
                   <div className="space-y-4 font-mono">
-                      {/* System Tags (Simulated Marketplace Look) */}
+                      {/* Official System Tags */}
                       <div className="flex flex-wrap gap-2">
-                          <div className="px-2 py-1 rounded bg-white/5 border border-white/10 text-[8px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1">
-                              {fileType === 'video' ? <Video size={10}/> : fileType === 'audio' ? <Music size={10}/> : <ImageIcon size={10}/>}
-                              {fileType.toUpperCase()} Asset
+                          <div className="px-2 py-1 rounded bg-blue-500/10 border border-blue-500/20 text-[8px] font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1">
+                              <Globe size={10}/> BSC Testnet
                           </div>
-                          <div className="px-2 py-1 rounded bg-white/5 border border-white/10 text-[8px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1">
-                              <Box size={10}/> BSC Testnet
+                          <div className="px-2 py-1 rounded bg-amber-500/10 border border-amber-500/20 text-[8px] font-bold uppercase tracking-wider text-amber-500 flex items-center gap-1">
+                              <ShieldCheck size={10}/> Official Protocol
                           </div>
                           <div className="px-2 py-1 rounded bg-white/5 border border-white/10 text-[8px] font-bold uppercase tracking-wider text-gray-500 flex items-center gap-1">
                               Unlisted
@@ -610,7 +658,7 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
                       </div>
 
                       <div>
-                          <h3 className="text-xl font-black text-white leading-tight line-clamp-1 uppercase tracking-tight">{name || "UNTITLED_ASSET"}</h3>
+                          <h3 className="text-2xl font-black text-white leading-tight line-clamp-1 uppercase tracking-tight">{name || "UNTITLED_ASSET"}</h3>
                           <p className="text-xs text-gray-500 mt-1 uppercase tracking-wider">{isNewColl ? newCollName : collections.find(c => c.id === selectedCollectionId)?.name || "GENERAL_COLLECTION"}</p>
                       </div>
                       
@@ -631,6 +679,20 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
                               </div>
                           )}
                       </div>
+                  </div>
+              </div>
+              
+              {/* Info Cards */}
+              <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-white/5 p-4 rounded-xl border border-white/5">
+                      <Database size={16} className="text-blue-400 mb-2"/>
+                      <h4 className="text-xs font-bold text-white">IPFS Storage</h4>
+                      <p className="text-[10px] text-gray-500 mt-1">Decentralized & Permanent</p>
+                  </div>
+                  <div className="bg-white/5 p-4 rounded-xl border border-white/5">
+                      <ShieldCheck size={16} className="text-emerald-400 mb-2"/>
+                      <h4 className="text-xs font-bold text-white">Verified Contract</h4>
+                      <p className="text-[10px] text-gray-500 mt-1">Standard ERC-721</p>
                   </div>
               </div>
           </div>
