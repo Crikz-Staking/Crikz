@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Sparkles, Check, Lock, Info, Image as ImageIcon, Link as LinkIcon, FileText, Package, Trash2 } from 'lucide-react';
+import { Upload, Sparkles, Check, Lock, Info, Image as ImageIcon, Link as LinkIcon, FileText, Package, Trash2, Video, Music, Box } from 'lucide-react';
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseEther, decodeEventLog } from 'viem';
 import { toast } from 'react-hot-toast';
@@ -16,12 +16,13 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
 
   // Files
   const [mainFile, setMainFile] = useState<File | null>(null);
-  const [coverFile, setCoverFile] = useState<File | null>(null); // For preview
+  const [coverFile, setCoverFile] = useState<File | null>(null); 
   const [externalLink, setExternalLink] = useState('');
   
   // Previews
   const [mainPreview, setMainPreview] = useState<string | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [fileType, setFileType] = useState<'image' | 'video' | 'audio' | 'other'>('image');
 
   // Metadata
   const [name, setName] = useState('');
@@ -37,7 +38,7 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
   const [attributes, setAttributes] = useState<{ trait_type: string, value: string }[]>([]);
   const [unlockableContent, setUnlockableContent] = useState('');
   const [hasUnlockable, setHasUnlockable] = useState(false);
-  const [royalty, setRoyalty] = useState('5'); // Default 5%
+  const [royalty, setRoyalty] = useState('5'); 
 
   const mainInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
@@ -58,7 +59,6 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
       if (isSuccess && receipt) {
           toast.success("Minted Successfully!");
           
-          // Extract Token ID
           let mintedId = null;
           for (const log of receipt.logs) {
               try {
@@ -72,9 +72,7 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
                       mintedId = args.tokenId?.toString();
                       break;
                   }
-              } catch (e) {
-                  // Ignore decoding errors for non-relevant logs
-              }
+              } catch (e) {}
           }
 
           if (mintedId) {
@@ -98,23 +96,25 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
   const handleMainFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files?.[0]) {
           const f = e.target.files[0];
-          
-          // Size Check (100MB soft limit for browser reliability)
           if (f.size > 100 * 1024 * 1024) {
-              toast.error("File too large. Please use files under 100MB.");
+              toast.error("File too large. Max 100MB.");
               return;
           }
 
           setMainFile(f);
-          
-          // If image, auto-set as cover
+          const url = URL.createObjectURL(f);
+          setMainPreview(url);
+
           if (f.type.startsWith('image/')) {
-              const url = URL.createObjectURL(f);
-              setMainPreview(url);
+              setFileType('image');
               setCoverFile(f);
               setCoverPreview(url);
+          } else if (f.type.startsWith('video/')) {
+              setFileType('video');
+          } else if (f.type.startsWith('audio/')) {
+              setFileType('audio');
           } else {
-              setMainPreview(null); // Non-image preview logic handled by icon
+              setFileType('other');
           }
       }
   };
@@ -123,7 +123,7 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
       if (e.target.files?.[0]) {
           const f = e.target.files[0];
           if (!f.type.startsWith('image/')) {
-              toast.error("Cover must be an image (JPG, PNG, GIF)");
+              toast.error("Cover must be an image");
               return;
           }
           setCoverFile(f);
@@ -139,7 +139,6 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
         return toast.error("Cover image required for non-image files");
     }
 
-    // Collection Logic
     let finalCollectionId = selectedCollectionId;
     if (isNewColl) {
         if (!newCollName) return toast.error("Collection Name Required");
@@ -151,7 +150,6 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
       let mainContentUri = '';
       let coverImageUri = '';
 
-      // 1. Upload Main Content
       if (mintType === 'file' && mainFile) {
           toast.loading("Uploading main file...", { id: 'mint' });
           const cid = await uploadToIPFS(mainFile);
@@ -160,9 +158,7 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
           mainContentUri = externalLink;
       }
 
-      // 2. Upload Cover Image (if different or explicit)
       if (coverFile) {
-          // Avoid re-uploading if cover is same as main
           if (mintType === 'file' && mainFile === coverFile) {
               coverImageUri = mainContentUri;
           } else {
@@ -172,16 +168,15 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
           }
       }
 
-      // 3. Metadata
       const metadataObj = {
         name: name,
         description: description,
-        image: coverImageUri, // Standard display image
-        animation_url: mainContentUri, // The actual content (video/audio/html/etc)
+        image: coverImageUri, 
+        animation_url: mainContentUri, 
         external_url: "https://crikz.protocol",
         attributes: [
             ...attributes,
-            { trait_type: "Type", value: mintType === 'link' ? 'External Link' : mainFile?.type || 'Unknown' },
+            { trait_type: "Type", value: fileType.charAt(0).toUpperCase() + fileType.slice(1) },
             { trait_type: "Collection", value: isNewColl ? newCollName : collections.find(c => c.id === finalCollectionId)?.name || "General" }
         ],
         seller_fee_basis_points: Math.floor(Number(royalty) * 100),
@@ -191,13 +186,11 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
           (metadataObj as any).unlockable_content = unlockableContent;
       }
 
-      // 4. Upload Metadata
       toast.loading("Finalizing metadata...", { id: 'mint' });
       const metaBlob = new Blob([JSON.stringify(metadataObj)], { type: 'application/json' });
       const metaFile = new File([metaBlob], "metadata.json");
       const metaCid = await uploadToIPFS(metaFile);
       
-      // 5. Mint
       toast.loading("Confirming in Wallet...", { id: 'mint' });
       writeContract({
         address: CRIKZ_NFT_ADDRESS as `0x${string}`,
@@ -223,68 +216,67 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 font-mono">
       
-      {/* LEFT: Form */}
+      {/* LEFT: Form (Technical Lab Look) */}
       <div className="lg:col-span-7 space-y-6">
         
-        {/* Info Banner */}
-        <div className="bg-blue-500/10 border border-blue-500/20 p-4 rounded-2xl flex gap-3">
-            <Info className="text-blue-400 shrink-0" size={20} />
-            <div className="text-xs text-gray-300 space-y-1">
-                <p className="font-bold text-blue-400">Minting Guidelines</p>
-                <p>• Supported: Images (JPG, PNG, GIF), Video (MP4), Audio (MP3), 3D (GLB), PDFs, ZIP Archives.</p>
-                <p>• Max File Size: 100MB (Browser Limit). For larger files, host externally and use "Link Mode".</p>
-                <p>• Cover Image: Required for non-image files to display correctly in the marketplace.</p>
+        <div className="bg-[#050508] border border-white/10 p-4 rounded-none border-l-4 border-l-blue-500 flex gap-3">
+            <Info className="text-blue-500 shrink-0" size={20} />
+            <div className="text-xs text-gray-400 space-y-1">
+                <p className="font-bold text-blue-500 uppercase tracking-widest">Minting Protocol v1.0</p>
+                <p>Supported Formats: JPG, PNG, GIF, MP4, MP3, GLB. Max Size: 100MB.</p>
             </div>
         </div>
 
-        <div className="glass-card p-8 rounded-3xl border border-white/10 bg-[#0A0A0F]">
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-black text-white flex items-center gap-2">
-                    <Sparkles className="text-primary-500" /> Create Artifact
+        <div className="bg-[#0A0A0F] p-8 border border-white/10 relative overflow-hidden">
+            {/* Grid Background */}
+            <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none" />
+
+            <div className="flex justify-between items-center mb-8 relative z-10">
+                <h2 className="text-2xl font-bold text-white flex items-center gap-2 uppercase tracking-widest">
+                    <Box className="text-primary-500" /> Artifact Lab
                 </h2>
-                <div className="flex bg-black/40 p-1 rounded-lg border border-white/10">
-                    <button onClick={() => setMintType('file')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${mintType === 'file' ? 'bg-white/10 text-white' : 'text-gray-500'}`}>Upload File</button>
-                    <button onClick={() => setMintType('link')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${mintType === 'link' ? 'bg-white/10 text-white' : 'text-gray-500'}`}>External Link</button>
+                <div className="flex bg-black border border-white/20 p-1">
+                    <button onClick={() => setMintType('file')} className={`px-4 py-1 text-xs font-bold uppercase transition-all ${mintType === 'file' ? 'bg-white text-black' : 'text-gray-500 hover:text-white'}`}>File</button>
+                    <button onClick={() => setMintType('link')} className={`px-4 py-1 text-xs font-bold uppercase transition-all ${mintType === 'link' ? 'bg-white text-black' : 'text-gray-500 hover:text-white'}`}>Link</button>
                 </div>
             </div>
 
             {/* Main Asset Upload */}
-            <div className="mb-6">
-                <label className="text-xs font-bold text-gray-500 uppercase mb-2 block flex items-center">
-                    {mintType === 'file' ? 'Main Asset' : 'Asset Link'}
-                    <Tooltip content="The primary content of your NFT. Can be an image, video, audio, or any file." />
+            <div className="mb-8 relative z-10">
+                <label className="text-[10px] font-bold text-primary-500 uppercase mb-2 block flex items-center gap-2">
+                    Input Source <div className="h-px flex-1 bg-primary-500/20"></div>
                 </label>
                 
                 {mintType === 'file' ? (
                     <div 
                         onClick={() => mainInputRef.current?.click()} 
-                        className="border-2 border-dashed border-white/10 hover:border-primary-500/50 rounded-2xl h-32 flex flex-col items-center justify-center cursor-pointer bg-black/20 transition-colors group"
+                        className="border border-dashed border-white/20 hover:border-primary-500 h-32 flex flex-col items-center justify-center cursor-pointer bg-black/40 transition-colors group"
                     >
                         <input type="file" ref={mainInputRef} className="hidden" onChange={handleMainFileChange} />
                         {mainFile ? (
                             <div className="text-center">
                                 <Check size={24} className="text-emerald-500 mx-auto mb-2"/>
                                 <span className="font-bold text-white text-sm">{mainFile.name}</span>
-                                <p className="text-xs text-gray-500 mt-1">{(mainFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                                <p className="text-xs text-gray-500 mt-1 font-mono">{(mainFile.size / 1024 / 1024).toFixed(2)} MB</p>
                             </div>
                         ) : (
                             <>
                                 <Upload size={24} className="text-gray-500 group-hover:text-primary-500 mb-2 transition-colors"/>
-                                <span className="text-gray-400 font-bold text-xs">Click to Upload File</span>
+                                <span className="text-gray-500 font-bold text-xs uppercase tracking-wider">Initialize Upload</span>
                             </>
                         )}
                     </div>
                 ) : (
-                    <div className="flex items-center gap-2 bg-black/40 border border-white/10 rounded-xl px-3 py-3">
+                    <div className="flex items-center gap-2 bg-black border border-white/20 px-3 py-3">
                         <LinkIcon size={16} className="text-gray-500"/>
                         <input 
                             type="text" 
                             placeholder="https://..." 
                             value={externalLink} 
                             onChange={e => setExternalLink(e.target.value)}
-                            className="bg-transparent w-full text-sm text-white outline-none"
+                            className="bg-transparent w-full text-sm text-white outline-none font-mono"
                         />
                     </div>
                 )}
@@ -292,14 +284,13 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
 
             {/* Cover Image (Conditional) */}
             {(!mainFile?.type.startsWith('image/') || mintType === 'link') && (
-                <div className="mb-6 animate-in fade-in slide-in-from-top-2">
-                    <label className="text-xs font-bold text-gray-500 uppercase mb-2 block flex items-center gap-2">
-                        Cover Image <span className="text-red-500">*</span>
-                        <span className="text-[9px] normal-case font-normal bg-white/5 px-2 rounded text-gray-400">Required for preview</span>
+                <div className="mb-8 relative z-10">
+                    <label className="text-[10px] font-bold text-primary-500 uppercase mb-2 block flex items-center gap-2">
+                        Cover Thumbnail <div className="h-px flex-1 bg-primary-500/20"></div>
                     </label>
                     <div 
                         onClick={() => coverInputRef.current?.click()} 
-                        className="border-2 border-dashed border-white/10 hover:border-primary-500/50 rounded-2xl h-24 flex flex-col items-center justify-center cursor-pointer bg-black/20 transition-colors group"
+                        className="border border-dashed border-white/20 hover:border-primary-500 h-24 flex flex-col items-center justify-center cursor-pointer bg-black/40 transition-colors group"
                     >
                         <input type="file" ref={coverInputRef} className="hidden" onChange={handleCoverFileChange} accept="image/*" />
                         {coverFile ? (
@@ -308,8 +299,8 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
                                 <span className="font-bold text-white text-xs">{coverFile.name}</span>
                             </div>
                         ) : (
-                            <span className="text-gray-400 font-bold text-xs flex items-center gap-2">
-                                <ImageIcon size={16}/> Upload Cover (JPG/PNG)
+                            <span className="text-gray-500 font-bold text-xs uppercase tracking-wider flex items-center gap-2">
+                                <ImageIcon size={16}/> Upload Cover
                             </span>
                         )}
                     </div>
@@ -317,94 +308,72 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
             )}
 
             {/* Basic Info */}
-            <div className="grid grid-cols-1 gap-4 mb-6">
+            <div className="grid grid-cols-1 gap-6 mb-8 relative z-10">
                 <div>
-                    <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Name</label>
-                    <input type="text" placeholder="Item Name" className="input-field" value={name} onChange={e => setName(e.target.value)} />
+                    <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Artifact Name</label>
+                    <input type="text" placeholder="IDENTIFIER" className="w-full bg-black border border-white/20 p-3 text-white focus:border-primary-500 outline-none font-mono text-sm" value={name} onChange={e => setName(e.target.value)} />
                 </div>
                 <div>
-                    <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Description</label>
-                    <textarea placeholder="Describe your artifact..." className="input-field h-24" value={description} onChange={e => setDescription(e.target.value)} />
+                    <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Description Data</label>
+                    <textarea placeholder="Enter technical specifications..." className="w-full bg-black border border-white/20 p-3 text-white focus:border-primary-500 outline-none font-mono text-sm h-24" value={description} onChange={e => setDescription(e.target.value)} />
                 </div>
             </div>
 
             {/* Collection & Attributes */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 relative z-10">
                 <div>
                     <div className="flex justify-between items-center mb-2">
-                        <label className="text-xs font-bold text-gray-500 uppercase flex items-center">
-                            Collection <Tooltip content="Organize your items locally. Does not affect on-chain contract." />
-                        </label>
-                        <button onClick={() => setIsNewColl(!isNewColl)} className="text-[10px] font-bold text-primary-500 hover:text-white transition-colors">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase">Collection</label>
+                        <button onClick={() => setIsNewColl(!isNewColl)} className="text-[10px] font-bold text-primary-500 hover:text-white transition-colors uppercase">
                             {isNewColl ? 'Cancel' : '+ New'}
                         </button>
                     </div>
                     {!isNewColl ? (
-                        <select className="input-field" value={selectedCollectionId} onChange={e => setSelectedCollectionId(e.target.value)}>
+                        <select className="w-full bg-black border border-white/20 p-3 text-white focus:border-primary-500 outline-none font-mono text-sm" value={selectedCollectionId} onChange={e => setSelectedCollectionId(e.target.value)}>
                             {collections.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
                     ) : (
-                        <input type="text" placeholder="New Collection Name" value={newCollName} onChange={e => setNewCollName(e.target.value)} className="input-field" />
+                        <input type="text" placeholder="NEW_COLLECTION_ID" value={newCollName} onChange={e => setNewCollName(e.target.value)} className="w-full bg-black border border-white/20 p-3 text-white focus:border-primary-500 outline-none font-mono text-sm" />
                     )}
                 </div>
                 
                 <div>
                     <div className="flex justify-between items-center mb-2">
-                        <label className="text-xs font-bold text-gray-500 uppercase flex items-center">
-                            Attributes <Tooltip content="Traits like 'Color', 'Rarity', etc. Displayed in marketplace." />
-                        </label>
-                        <button onClick={addAttribute} className="text-[10px] font-bold text-primary-500 hover:text-white transition-colors">+ Add</button>
+                        <label className="text-[10px] font-bold text-gray-500 uppercase">Attributes</label>
+                        <button onClick={addAttribute} className="text-[10px] font-bold text-primary-500 hover:text-white transition-colors uppercase">+ Add Param</button>
                     </div>
                     <div className="space-y-2 max-h-32 overflow-y-auto custom-scrollbar pr-1">
                         {attributes.map((attr, i) => (
                             <div key={i} className="flex gap-1">
-                                <input placeholder="Type" className="input-field py-1 text-[10px]" value={attr.trait_type} onChange={e => updateAttribute(i, 'trait_type', e.target.value)} />
-                                <input placeholder="Value" className="input-field py-1 text-[10px]" value={attr.value} onChange={e => updateAttribute(i, 'value', e.target.value)} />
+                                <input placeholder="TYPE" className="w-1/2 bg-black border border-white/20 p-2 text-white text-[10px] font-mono" value={attr.trait_type} onChange={e => updateAttribute(i, 'trait_type', e.target.value)} />
+                                <input placeholder="VALUE" className="w-1/2 bg-black border border-white/20 p-2 text-white text-[10px] font-mono" value={attr.value} onChange={e => updateAttribute(i, 'value', e.target.value)} />
                                 <button onClick={() => removeAttribute(i)} className="text-red-500 hover:text-red-400"><Trash2 size={12}/></button>
                             </div>
                         ))}
-                        {attributes.length === 0 && <div className="text-[10px] text-gray-600 italic">No attributes</div>}
                     </div>
                 </div>
             </div>
 
             {/* Unlockable Content */}
-            <div className="mb-6">
+            <div className="mb-8 relative z-10">
                 <label className="flex items-center gap-2 cursor-pointer mb-2">
                     <input type="checkbox" checked={hasUnlockable} onChange={e => setHasUnlockable(e.target.checked)} className="accent-primary-500" />
-                    <span className="text-xs font-bold text-white flex items-center gap-1">
-                        <Lock size={12}/> Unlockable Content
-                        <Tooltip content="Content only visible to the owner of the NFT." />
+                    <span className="text-[10px] font-bold text-white flex items-center gap-1 uppercase tracking-wider">
+                        <Lock size={10}/> Encrypted Content
                     </span>
                 </label>
                 {hasUnlockable && (
                     <textarea 
-                        placeholder="Access keys, links, or hidden data..." 
-                        className="input-field h-20 font-mono text-xs text-emerald-400"
+                        placeholder="Enter secret data..." 
+                        className="w-full bg-black border border-emerald-500/30 p-3 text-emerald-500 focus:border-emerald-500 outline-none font-mono text-xs h-20"
                         value={unlockableContent}
                         onChange={e => setUnlockableContent(e.target.value)}
                     />
                 )}
             </div>
 
-            {/* Compact Earnings */}
-            <div className="mb-8 bg-black/20 p-3 rounded-xl border border-white/5 flex items-center justify-between">
-                <div>
-                    <label className="text-xs font-bold text-gray-400 block">Creator Royalties</label>
-                    <p className="text-[9px] text-gray-600">Protocol Fee: 0.618% (Fixed)</p>
-                </div>
-                <div className="flex items-center gap-2">
-                    <input 
-                        type="number" min="0" max="20" step="0.1" 
-                        value={royalty} onChange={e => setRoyalty(e.target.value)} 
-                        className="w-16 bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-right text-sm font-bold text-white outline-none focus:border-primary-500"
-                    />
-                    <span className="text-xs font-bold text-gray-500">%</span>
-                </div>
-            </div>
-
-            <button onClick={handleMint} disabled={isPending || isConfirming} className="btn-primary w-full py-4 text-lg shadow-glow-sm" style={{ backgroundColor: dynamicColor }}>
-                {isPending ? 'Confirming...' : isConfirming ? 'Minting...' : 'Mint Artifact'}
+            <button onClick={handleMint} disabled={isPending || isConfirming} className="w-full py-4 bg-primary-500 text-black font-black text-lg uppercase tracking-widest hover:bg-primary-400 transition-all relative z-10">
+                {isPending ? 'CONFIRMING...' : isConfirming ? 'MINTING...' : 'INITIALIZE MINT'}
             </button>
         </div>
       </div>
@@ -412,50 +381,56 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
       {/* RIGHT: Preview */}
       <div className="lg:col-span-5">
           <div className="sticky top-24 space-y-6">
-              <h3 className="text-lg font-bold text-white">Preview</h3>
+              <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest">Output Preview</h3>
               
-              <div className="glass-card p-4 rounded-3xl border border-white/10 bg-[#0A0A0F] overflow-hidden group shadow-2xl">
-                  <div className="aspect-square bg-black/60 rounded-2xl mb-4 flex items-center justify-center border border-white/5 overflow-hidden relative">
-                      {coverPreview ? (
+              <div className="bg-[#0A0A0F] border border-white/10 p-4 relative overflow-hidden shadow-2xl">
+                  <div className="aspect-square bg-black/60 mb-4 flex items-center justify-center border border-white/5 overflow-hidden relative">
+                      {/* Dynamic Preview Logic */}
+                      {fileType === 'video' && mainPreview ? (
+                          <video src={mainPreview} autoPlay loop muted className="w-full h-full object-cover" />
+                      ) : fileType === 'audio' && mainPreview ? (
+                          <div className="flex flex-col items-center gap-4">
+                              <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center animate-pulse">
+                                  <Music size={32} className="text-white"/>
+                              </div>
+                              <audio src={mainPreview} controls className="w-48 h-8" />
+                          </div>
+                      ) : coverPreview ? (
                           <img src={coverPreview} className="w-full h-full object-cover" alt="Preview" />
                       ) : mainPreview ? (
                           <img src={mainPreview} className="w-full h-full object-cover" alt="Preview" />
                       ) : (
                           <div className="flex flex-col items-center gap-2 opacity-30">
-                              {mintType === 'file' && mainFile ? (
-                                  mainFile.type.includes('pdf') ? <FileText size={48}/> : <Package size={48}/>
-                              ) : (
-                                  <ImageIcon size={48}/>
-                              )}
-                              <span className="text-xs font-bold">No Preview</span>
+                              <Box size={48}/>
+                              <span className="text-xs font-bold font-mono">NO_SIGNAL</span>
                           </div>
                       )}
                       
                       {hasUnlockable && (
-                          <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-md text-primary-500 p-2 rounded-lg border border-primary-500/30">
+                          <div className="absolute top-3 right-3 bg-black/80 text-emerald-500 p-2 border border-emerald-500/30">
                               <Lock size={16} />
                           </div>
                       )}
                   </div>
                   
-                  <div className="space-y-2">
-                      <div className="flex justify-between items-start">
-                          <div>
-                              <h3 className="text-xl font-black text-white leading-tight line-clamp-1">{name || "Untitled"}</h3>
-                              <p className="text-xs text-gray-500 mt-1">{isNewColl ? newCollName : collections.find(c => c.id === selectedCollectionId)?.name}</p>
-                          </div>
+                  <div className="space-y-4 font-mono">
+                      <div>
+                          <h3 className="text-xl font-bold text-white leading-tight line-clamp-1 uppercase">{name || "UNTITLED_ASSET"}</h3>
+                          <p className="text-[10px] text-gray-500 mt-1 uppercase">{isNewColl ? newCollName : collections.find(c => c.id === selectedCollectionId)?.name}</p>
                       </div>
                       
-                      {attributes.length > 0 && (
-                          <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-white/5">
-                              {attributes.map((attr, i) => (
-                                  <div key={i} className="bg-white/5 border border-white/10 rounded px-2 py-1 text-[10px]">
-                                      <span className="text-gray-500 uppercase font-bold mr-1">{attr.trait_type}:</span>
-                                      <span className="text-white font-bold">{attr.value}</span>
-                                  </div>
-                              ))}
+                      <div className="grid grid-cols-2 gap-2 pt-4 border-t border-white/10">
+                          <div className="bg-white/5 p-2 border border-white/5">
+                              <div className="text-[8px] text-gray-500 uppercase">Type</div>
+                              <div className="text-xs text-white font-bold">{fileType.toUpperCase()}</div>
                           </div>
-                      )}
+                          {attributes.map((attr, i) => (
+                              <div key={i} className="bg-white/5 p-2 border border-white/5">
+                                  <div className="text-[8px] text-gray-500 uppercase">{attr.trait_type || 'PARAM'}</div>
+                                  <div className="text-xs text-white font-bold">{attr.value || 'VALUE'}</div>
+                              </div>
+                          ))}
+                      </div>
                   </div>
               </div>
           </div>

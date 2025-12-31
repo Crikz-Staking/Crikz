@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Search, LayoutGrid, List as ListIcon, Gavel, Tag, Loader2, Eye, ChevronLeft, ChevronRight, Layers, RefreshCw } from 'lucide-react';
+import { Search, LayoutGrid, List as ListIcon, Gavel, Tag, Loader2, Eye, ChevronLeft, ChevronRight, Layers, RefreshCw, Sparkles } from 'lucide-react';
 import { formatTokenAmount, shortenAddress } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMarketListings, AuctionItem, FixedItem } from '@/hooks/web3/useMarketListings';
@@ -60,7 +60,6 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
               return Number(pB - pA);
           });
       } else {
-          // Newest (by ID usually implies newer mint, or reverse array for listing time)
           result.sort((a, b) => Number(b.tokenId - a.tokenId));
       }
       return result;
@@ -121,25 +120,19 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
   };
 
   useEffect(() => {
-      // Initial Timer: 27 seconds
       startTimer(27000);
       return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, []);
 
-  // Handle Preview State Changes
   useEffect(() => {
       isPreviewOpenRef.current = !!selectedItem;
-      
       if (!selectedItem) {
-          // Preview closed: Reset to 18s, then back to 27s loop
           if (timerRef.current) clearInterval(timerRef.current);
-          
           timerRef.current = setTimeout(() => {
               refresh();
-              startTimer(27000); // Resume normal 27s cycle
+              startTimer(27000);
           }, 18000);
       } else {
-          // Preview Open: Stop timer
           if (timerRef.current) clearInterval(timerRef.current);
       }
   }, [selectedItem]);
@@ -161,7 +154,7 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
                         {t}
                     </button>
                 ))}
-                <Tooltip content="Filter items by sale type. Fixed price items are instant buy, Auctions require bidding." />
+                <Tooltip content="Filter items by sale type." />
             </div>
 
             <div className="flex gap-2 flex-1 justify-end items-center">
@@ -174,8 +167,8 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
                     />
                 </div>
                 <div className="flex bg-black/40 rounded-xl p-1 border border-white/10">
-                    <button onClick={() => { setViewMode('grid'); setPage(1); }} className={`p-2 rounded-lg transition-colors ${viewMode === 'grid' ? 'bg-white/10 text-white' : 'text-gray-500'}`} title="Grid View (9 items)"><LayoutGrid size={14}/></button>
-                    <button onClick={() => { setViewMode('list'); setPage(1); }} className={`p-2 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-white/10 text-white' : 'text-gray-500'}`} title="List View (27 items)"><ListIcon size={14}/></button>
+                    <button onClick={() => { setViewMode('grid'); setPage(1); }} className={`p-2 rounded-lg transition-colors ${viewMode === 'grid' ? 'bg-white/10 text-white' : 'text-gray-500'}`} title="Grid View"><LayoutGrid size={14}/></button>
+                    <button onClick={() => { setViewMode('list'); setPage(1); }} className={`p-2 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-white/10 text-white' : 'text-gray-500'}`} title="List View"><ListIcon size={14}/></button>
                 </div>
                 <button onClick={() => refresh()} className="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors" title="Force Refresh">
                     <RefreshCw size={14} />
@@ -203,14 +196,17 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
                                 animate={{ opacity: 1, scale: 1 }}
                                 exit={{ opacity: 0, scale: 0.95 }}
                                 onClick={() => setSelectedItem({ ...item, metadata: meta })}
-                                className={`glass-card rounded-2xl border border-white/10 hover:border-primary-500/50 transition-all group bg-[#12121A] cursor-pointer overflow-hidden relative shadow-lg hover:shadow-primary-500/10 ${viewMode === 'list' ? 'flex flex-row items-center p-3 gap-4 h-24' : 'p-4 flex flex-col'}`}
+                                className={`glass-card rounded-2xl border border-white/10 hover:border-primary-500/50 transition-all group bg-[#12121A] cursor-pointer overflow-hidden relative shadow-lg hover:shadow-primary-500/20 ${viewMode === 'list' ? 'flex flex-row items-center p-3 gap-4 h-24' : 'p-4 flex flex-col'}`}
                             >
                                 {/* Image Area */}
                                 <div className={`bg-black/40 rounded-xl flex items-center justify-center relative overflow-hidden border border-white/5 ${viewMode === 'list' ? 'w-20 h-full shrink-0' : 'aspect-square mb-4 w-full'}`}>
                                     {meta.image ? (
                                         <img src={meta.image} alt={meta.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                                     ) : (
-                                        <span className="text-4xl group-hover:scale-110 transition-transform">💠</span>
+                                        <div className="flex flex-col items-center justify-center text-gray-600">
+                                            <Sparkles size={32} className="mb-2 opacity-50"/>
+                                            <span className="text-[10px] font-bold">Loading...</span>
+                                        </div>
                                     )}
                                     
                                     {/* Badges */}
@@ -236,7 +232,6 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
                                             <h3 className="font-black text-white text-sm truncate pr-2 group-hover:text-primary-500 transition-colors">
                                                 {meta.name || `Artifact #${item.tokenId}`}
                                             </h3>
-                                            <Tooltip content="Verified Collection" />
                                         </div>
                                         <p className="text-[10px] text-gray-500 truncate mb-2">
                                             By <span className="text-gray-300 font-mono">{shortenAddress(item.seller)}</span>
@@ -259,7 +254,7 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
                                         <div>
                                             <div className="text-[9px] text-gray-500 uppercase font-bold">{isAuction ? 'Current Bid' : 'Price'}</div>
                                             <div className="text-lg font-black text-white flex items-baseline gap-1">
-                                                {formatTokenAmount(price)} <span className="text-[10px] text-primary-500 font-bold">CRKZ</span>
+                                                {formatTokenAmount(price)} <span className="text-[10px] text-primary-500 font-bold">CRIKZ</span>
                                             </div>
                                         </div>
                                         
