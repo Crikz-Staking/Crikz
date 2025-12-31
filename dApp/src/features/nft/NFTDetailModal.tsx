@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Tag, User, Send, Loader2, FileText, Layers, ExternalLink, Music, Video, Image as ImageIcon, Box } from 'lucide-react';
+import { X, Tag, User, Send, Loader2, FileText, Layers, ExternalLink, Music, Video, Image as ImageIcon, Box, Globe, ShieldCheck, MessageSquare } from 'lucide-react';
 import { formatTokenAmount, shortenAddress } from '@/lib/utils';
 import { toast } from 'react-hot-toast';
 
@@ -95,17 +95,20 @@ export default function NFTDetailModal({ item, onClose, onBuy, isPending }: NFTD
                 <div className="w-full md:w-5/12 bg-[#0A0A0F] border-l border-white/10 flex flex-col h-full">
                     <div className="flex-1 overflow-y-auto custom-scrollbar p-8">
                         
-                        {/* System Attributes (Top) */}
+                        {/* System Attributes (Top) - Consistent Style */}
                         <div className="flex flex-wrap gap-2 mb-6">
-                            <div className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-[10px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-2">
-                                {mediaType === 'video' ? <Video size={12}/> : mediaType === 'audio' ? <Music size={12}/> : <ImageIcon size={12}/>}
+                            <div className="px-2 py-1 rounded bg-blue-500/10 border border-blue-500/20 text-[8px] font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1">
+                                <Globe size={10}/> BSC Testnet
+                            </div>
+                            <div className="px-2 py-1 rounded bg-amber-500/10 border border-amber-500/20 text-[8px] font-bold uppercase tracking-wider text-amber-500 flex items-center gap-1">
+                                <ShieldCheck size={10}/> Official Protocol
+                            </div>
+                            <div className="px-2 py-1 rounded bg-white/5 border border-white/10 text-[8px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1">
+                                {mediaType === 'video' ? <Video size={10}/> : mediaType === 'audio' ? <Music size={10}/> : <ImageIcon size={10}/>}
                                 {mediaType.toUpperCase()} Asset
                             </div>
-                            <div className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-[10px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-2">
-                                <Box size={12}/> BSC Testnet
-                            </div>
-                            <div className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center gap-2 border ${item.type === 'fixed' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-purple-500/10 text-purple-500 border-purple-500/20'}`}>
-                                <Tag size={12}/> {item.type === 'fixed' ? 'Fixed Price' : 'Auction'}
+                            <div className={`px-2 py-1 rounded text-[8px] font-bold uppercase tracking-wider flex items-center gap-1 border ${item.type === 'fixed' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-purple-500/10 text-purple-500 border-purple-500/20'}`}>
+                                <Tag size={10}/> {item.type === 'fixed' ? 'Fixed Price' : 'Auction'}
                             </div>
                         </div>
 
@@ -123,7 +126,7 @@ export default function NFTDetailModal({ item, onClose, onBuy, isPending }: NFTD
                             <div className="absolute top-0 right-0 w-32 h-32 bg-primary-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-primary-500/10 transition-colors" />
                             
                             <div className="relative z-10">
-                                <p className="text-xs font-bold text-gray-500 uppercase mb-1">{item.type === 'fixed' ? 'Current Price' : 'Current Bid'}</p>
+                                <p className="text-xs font-bold text-gray-500 uppercase mb-1">{item.type === 'fixed' ? 'Current Price' : 'Highest Bid'}</p>
                                 <div className="text-4xl font-black text-white mb-6 flex items-baseline gap-2">
                                     {formatTokenAmount(price)} <span className="text-lg text-primary-500">CRIKZ</span>
                                 </div>

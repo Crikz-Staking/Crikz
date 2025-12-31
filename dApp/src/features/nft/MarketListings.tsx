@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Search, LayoutGrid, List as ListIcon, Gavel, Tag, Loader2, Eye, ChevronLeft, ChevronRight, Layers, RefreshCw, Sparkles } from 'lucide-react';
+import { Search, LayoutGrid, List as ListIcon, Gavel, Tag, Loader2, Eye, ChevronLeft, ChevronRight, Layers, RefreshCw, Sparkles, Globe, ShieldCheck, Video, Music, Image as ImageIcon, Box } from 'lucide-react';
 import { formatTokenAmount, shortenAddress } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMarketListings, AuctionItem, FixedItem } from '@/hooks/web3/useMarketListings';
@@ -92,7 +92,6 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
                 const res = await fetch(httpUrl);
                 const json = await res.json();
                 
-                // Normalize Image
                 if (json.image && json.image.startsWith('ipfs://')) {
                     json.image = json.image.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
                 }
@@ -188,6 +187,9 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
                         const meta = metadataCache[item.id] || {};
                         const isAuction = item.type === 'auction';
                         const price = isAuction ? (item as AuctionItem).highestBid || (item as AuctionItem).minPrice : (item as FixedItem).price;
+                        
+                        // Determine File Type for Tag
+                        const fileType = meta.attributes?.find((a: any) => a.trait_type === 'Type')?.value || 'Image';
 
                         return (
                             <motion.div 
@@ -237,15 +239,15 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
                                             By <span className="text-gray-300 font-mono">{shortenAddress(item.seller)}</span>
                                         </p>
                                         
-                                        {/* Attributes Preview (Grid Only) */}
-                                        {viewMode === 'grid' && meta.attributes && (
-                                            <div className="flex gap-1 mb-3 overflow-hidden">
-                                                {meta.attributes.slice(0, 2).map((attr: any, i: number) => (
-                                                    <span key={i} className="text-[9px] bg-white/5 px-1.5 py-0.5 rounded text-gray-400 border border-white/5 truncate max-w-[80px]">
-                                                        {attr.value}
-                                                    </span>
-                                                ))}
-                                                {meta.attributes.length > 2 && <span className="text-[9px] text-gray-600">+{meta.attributes.length - 2}</span>}
+                                        {/* System Tags (Grid Only) */}
+                                        {viewMode === 'grid' && (
+                                            <div className="flex flex-wrap gap-1 mb-3">
+                                                <div className="px-1.5 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 text-[8px] font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1">
+                                                    <Globe size={8}/> BSC
+                                                </div>
+                                                <div className="px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-[8px] font-bold uppercase tracking-wider text-amber-500 flex items-center gap-1">
+                                                    <ShieldCheck size={8}/> Official
+                                                </div>
                                             </div>
                                         )}
                                     </div>
@@ -254,7 +256,7 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
                                         <div>
                                             <div className="text-[9px] text-gray-500 uppercase font-bold">{isAuction ? 'Current Bid' : 'Price'}</div>
                                             <div className="text-lg font-black text-white flex items-baseline gap-1">
-                                                {formatTokenAmount(price)} <span className="text-[10px] text-primary-500 font-bold">CRIKZ</span>
+                                                {formatTokenAmount(price)} <span className="text-[10px] text-primary-500 font-bold">CRKZ</span>
                                             </div>
                                         </div>
                                         

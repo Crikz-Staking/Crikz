@@ -4,7 +4,7 @@ import {
     Link as LinkIcon, FileText, Package, Trash2, Video, Music, 
     Box, Layers, Settings, ShieldCheck, Cpu, Zap, XCircle, AlertCircle,
     Plus, Grid, List, Copy, CheckSquare, Square, ArrowRight, RefreshCw,
-    Database, Globe, Smartphone
+    Database, Globe, Smartphone, ChevronDown, Tag, AlertTriangle
 } from 'lucide-react';
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseEther, decodeEventLog } from 'viem';
@@ -254,36 +254,20 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
       {/* LEFT PANEL: CREATION LAB */}
       <div className="lg:col-span-7 space-y-6">
         
-        {/* Mode Switcher */}
-        <div className="flex items-center justify-between bg-[#12121A] border border-white/10 p-2 rounded-2xl">
-            <div className="flex gap-2">
-                <button 
-                    onClick={() => setMode('single')}
-                    className={`px-6 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${mode === 'single' ? 'bg-primary-500 text-black shadow-glow-sm' : 'text-gray-500 hover:text-white'}`}
-                >
-                    <Sparkles size={16}/> Single
-                </button>
-                {/* Hidden on Mobile */}
-                <button 
-                    onClick={() => setMode('batch')}
-                    className={`hidden md:flex px-6 py-2 rounded-xl text-sm font-bold transition-all items-center gap-2 ${mode === 'batch' ? 'bg-primary-500 text-black shadow-glow-sm' : 'text-gray-500 hover:text-white'}`}
-                >
-                    <Layers size={16}/> Batch
-                </button>
+        {/* Status Bar */}
+        <div className="flex items-center justify-between bg-[#12121A] border border-white/10 p-3 rounded-2xl">
+            <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-primary-500 rounded-full animate-pulse shadow-[0_0_8px_#f59e0b]"></div>
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Protocol v2.1</span>
             </div>
-            <div className="text-[10px] font-mono text-gray-500 px-4 flex items-center gap-2">
-                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"/> LAB ONLINE
+            <div className="text-[10px] font-bold text-red-400 flex items-center gap-2">
+                <AlertTriangle size={12} />
+                WARNING: Minting is irreversible and permanent.
             </div>
-        </div>
-
-        {/* Mobile Warning for Batch */}
-        <div className="md:hidden bg-white/5 border border-white/10 p-3 rounded-xl flex items-center gap-3 text-xs text-gray-400">
-            <Smartphone size={16} className="text-primary-500"/>
-            <span>Batch minting is optimized for desktop. Switch to a larger screen for bulk operations.</span>
         </div>
 
         {/* MAIN WORKSPACE */}
-        <div className="bg-[#0A0A0F] p-6 md:p-8 border border-white/10 relative overflow-hidden rounded-3xl shadow-2xl">
+        <div className="bg-[#0A0A0F] p-8 border border-white/10 relative overflow-hidden rounded-3xl shadow-2xl">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,0.05),transparent_50%)] pointer-events-none" />
 
             {/* --- SINGLE MODE --- */}
@@ -350,7 +334,7 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
                             <div className="relative">
                                 <input 
                                     type="text" 
-                                    placeholder="Artifact Name" 
+                                    placeholder="Crikzly" 
                                     value={name} 
                                     onChange={e => setName(e.target.value)}
                                     className={`w-full bg-black/40 border rounded-xl p-4 text-white outline-none transition-colors text-sm ${!isNameValid && name.length > 0 ? 'border-red-500/50' : 'border-white/10 focus:border-primary-500'}`}
@@ -358,7 +342,7 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
                                 {!isNameValid && name.length > 0 && <XCircle size={18} className="absolute right-4 top-4 text-red-500"/>}
                             </div>
                             <textarea 
-                                placeholder="Description & Lore..." 
+                                placeholder="This is a description of Crikzly." 
                                 value={description} 
                                 onChange={e => setDescription(e.target.value)}
                                 className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white focus:border-primary-500 outline-none transition-colors h-32 resize-none"
@@ -394,13 +378,13 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
                                         className="flex gap-2 items-center"
                                     >
                                         <input 
-                                            placeholder="Type (e.g. Color)" 
+                                            placeholder="Type (Colour, Size etc.)" 
                                             className="w-1/3 bg-black/40 border border-white/10 rounded-lg p-3 text-white text-xs outline-none focus:border-primary-500/50" 
                                             value={attr.trait_type} 
                                             onChange={e => updateAttribute(i, 'trait_type', e.target.value)} 
                                         />
                                         <input 
-                                            placeholder="Value (e.g. Gold)" 
+                                            placeholder="Value (shiny, 99)" 
                                             className="flex-1 bg-black/40 border border-white/10 rounded-lg p-3 text-white text-xs outline-none focus:border-primary-500/50" 
                                             value={attr.value} 
                                             onChange={e => updateAttribute(i, 'value', e.target.value)} 
@@ -517,7 +501,7 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
                                 >
                                     {collections.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                 </select>
-                                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500"><Box size={14}/></div>
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500"><ChevronDown size={14}/></div>
                             </div>
                         ) : (
                             <input type="text" placeholder="New Collection Name" value={newCollName} onChange={e => setNewCollName(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white focus:border-primary-500 outline-none text-sm" />
@@ -607,12 +591,12 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
                   <div className="text-[10px] font-mono text-primary-500 animate-pulse">LIVE RENDER</div>
               </div>
               
-              <div className="bg-[#0A0A0F] border border-white/10 rounded-3xl p-6 relative overflow-hidden shadow-2xl group">
+              {/* PREVIEW CARD (Matches Marketplace Style) */}
+              <div className="bg-[#12121A] border border-white/10 rounded-2xl p-4 relative overflow-hidden shadow-2xl group">
                   {/* Holographic Glow */}
                   <div className="absolute -top-20 -right-20 w-64 h-64 bg-primary-500/5 rounded-full blur-[80px] pointer-events-none" />
-                  <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary-500/50 to-transparent" />
 
-                  <div className="aspect-square bg-black/40 rounded-2xl mb-6 flex items-center justify-center border border-white/5 overflow-hidden relative shadow-inner">
+                  <div className="aspect-square bg-black/40 rounded-xl mb-4 flex items-center justify-center border border-white/5 overflow-hidden relative shadow-inner">
                       {/* Dynamic Preview Logic */}
                       {fileType === 'video' && mainPreview ? (
                           <video src={mainPreview} autoPlay loop muted className="w-full h-full object-cover" />
@@ -636,15 +620,22 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
                           </div>
                       )}
                       
+                      {/* Badges (Simulated) */}
+                      <div className="absolute top-2 left-2 flex flex-col gap-1">
+                          <div className="px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-wider flex items-center gap-1 backdrop-blur-md bg-emerald-500/80 text-black">
+                              <Tag size={8}/> Buy Now
+                          </div>
+                      </div>
+
                       {hasUnlockable && (
-                          <div className="absolute top-3 right-3 bg-[#1a0b2e] text-purple-400 p-2 rounded-lg border border-purple-500/30 backdrop-blur-md shadow-lg">
+                          <div className="absolute top-3 right-3 bg-black/80 text-purple-400 p-2 rounded-lg border border-purple-500/30 backdrop-blur-md shadow-lg">
                               <Lock size={16} />
                           </div>
                       )}
                   </div>
                   
                   <div className="space-y-4 font-mono">
-                      {/* Official System Tags */}
+                      {/* System Tags (Simulated Marketplace Look) */}
                       <div className="flex flex-wrap gap-2">
                           <div className="px-2 py-1 rounded bg-blue-500/10 border border-blue-500/20 text-[8px] font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1">
                               <Globe size={10}/> BSC Testnet
@@ -652,13 +643,14 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
                           <div className="px-2 py-1 rounded bg-amber-500/10 border border-amber-500/20 text-[8px] font-bold uppercase tracking-wider text-amber-500 flex items-center gap-1">
                               <ShieldCheck size={10}/> Official Protocol
                           </div>
-                          <div className="px-2 py-1 rounded bg-white/5 border border-white/10 text-[8px] font-bold uppercase tracking-wider text-gray-500 flex items-center gap-1">
-                              Unlisted
+                          <div className="px-2 py-1 rounded bg-white/5 border border-white/10 text-[8px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1">
+                              {fileType === 'video' ? <Video size={10}/> : fileType === 'audio' ? <Music size={10}/> : <ImageIcon size={10}/>}
+                              {fileType.toUpperCase()} Asset
                           </div>
                       </div>
 
                       <div>
-                          <h3 className="text-2xl font-black text-white leading-tight line-clamp-1 uppercase tracking-tight">{name || "UNTITLED_ASSET"}</h3>
+                          <h3 className="text-xl font-black text-white leading-tight line-clamp-1 uppercase tracking-tight">{name || "Crikzly"}</h3>
                           <p className="text-xs text-gray-500 mt-1 uppercase tracking-wider">{isNewColl ? newCollName : collections.find(c => c.id === selectedCollectionId)?.name || "GENERAL_COLLECTION"}</p>
                       </div>
                       
@@ -667,17 +659,41 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
                               <div className="text-[8px] text-gray-500 uppercase font-bold mb-1">Type</div>
                               <div className="text-xs text-white font-bold">{fileType.toUpperCase()}</div>
                           </div>
-                          {attributes.slice(0, 3).map((attr, i) => (
+                          {attributes.length > 0 ? attributes.slice(0, 3).map((attr, i) => (
                               <div key={i} className="bg-white/5 p-3 rounded-lg border border-white/5">
                                   <div className="text-[8px] text-gray-500 uppercase font-bold mb-1">{attr.trait_type || 'PARAM'}</div>
                                   <div className="text-xs text-white font-bold truncate">{attr.value || 'VALUE'}</div>
                               </div>
-                          ))}
+                          )) : (
+                              <>
+                                <div className="bg-white/5 p-3 rounded-lg border border-white/5 opacity-50">
+                                    <div className="text-[8px] text-gray-500 uppercase font-bold mb-1">Colour</div>
+                                    <div className="text-xs text-white font-bold truncate">Shiny</div>
+                                </div>
+                                <div className="bg-white/5 p-3 rounded-lg border border-white/5 opacity-50">
+                                    <div className="text-[8px] text-gray-500 uppercase font-bold mb-1">Size</div>
+                                    <div className="text-xs text-white font-bold truncate">99</div>
+                                </div>
+                              </>
+                          )}
                           {attributes.length > 3 && (
                               <div className="bg-white/5 p-3 rounded-lg border border-white/5 flex items-center justify-center">
                                   <span className="text-xs text-gray-500 font-bold">+{attributes.length - 3} MORE</span>
                               </div>
                           )}
+                      </div>
+
+                      {/* Simulated Price Action */}
+                      <div className="flex justify-between items-end mt-4 pt-4 border-t border-white/10">
+                          <div>
+                              <div className="text-[9px] text-gray-500 uppercase font-bold">Price</div>
+                              <div className="text-lg font-black text-white flex items-baseline gap-1">
+                                  999 <span className="text-[10px] text-primary-500 font-bold">CRKZ</span>
+                              </div>
+                          </div>
+                          <button className="px-4 py-2 bg-primary-500 text-black rounded-xl text-xs font-bold shadow-glow-sm">
+                              Purchase
+                          </button>
                       </div>
                   </div>
               </div>
