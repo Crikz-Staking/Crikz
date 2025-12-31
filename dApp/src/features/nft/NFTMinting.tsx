@@ -66,7 +66,10 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
   // --- VALIDATION ---
   const isNameValid = mode === 'single' ? name.trim().length > 0 : batchItems.every(i => i.name.trim().length > 0);
   const isAssetValid = mode === 'single' ? (mintType === 'file' ? !!mainFile : !!externalLink) : batchItems.length > 0;
-  const canMint = isNameValid && isAssetValid;
+  // Cover is required if main file is NOT an image
+  const isCoverValid = (mintType === 'file' && mainFile?.type.startsWith('image/')) || !!coverFile || (mintType === 'link' && !!coverFile) || mode === 'batch';
+  
+  const canMint = isNameValid && isAssetValid && isCoverValid;
 
   // Set default collection
   useEffect(() => {
@@ -254,20 +257,37 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
       {/* LEFT PANEL: CREATION LAB */}
       <div className="lg:col-span-7 space-y-6">
         
-        {/* Status Bar */}
-        <div className="flex items-center justify-between bg-[#12121A] border border-white/10 p-3 rounded-2xl">
-            <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-primary-500 rounded-full animate-pulse shadow-[0_0_8px_#f59e0b]"></div>
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Protocol v2.1</span>
+        {/* Mode Switcher */}
+        <div className="flex items-center justify-between bg-[#12121A] border border-white/10 p-2 rounded-2xl">
+            <div className="flex gap-2">
+                <button 
+                    onClick={() => setMode('single')}
+                    className={`px-6 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${mode === 'single' ? 'bg-primary-500 text-black shadow-glow-sm' : 'text-gray-500 hover:text-white'}`}
+                >
+                    <Sparkles size={16}/> Single
+                </button>
+                {/* Hidden on Mobile */}
+                <button 
+                    onClick={() => setMode('batch')}
+                    className={`hidden md:flex px-6 py-2 rounded-xl text-sm font-bold transition-all items-center gap-2 ${mode === 'batch' ? 'bg-primary-500 text-black shadow-glow-sm' : 'text-gray-500 hover:text-white'}`}
+                >
+                    <Layers size={16}/> Batch
+                </button>
             </div>
-            <div className="text-[10px] font-bold text-red-400 flex items-center gap-2">
+            <div className="text-[10px] font-bold text-red-400 px-4 flex items-center gap-2">
                 <AlertTriangle size={12} />
                 WARNING: Minting is irreversible and permanent.
             </div>
         </div>
 
+        {/* Mobile Warning for Batch */}
+        <div className="md:hidden bg-white/5 border border-white/10 p-3 rounded-xl flex items-center gap-3 text-xs text-gray-400">
+            <Smartphone size={16} className="text-primary-500"/>
+            <span>Batch minting is optimized for desktop. Switch to a larger screen for bulk operations.</span>
+        </div>
+
         {/* MAIN WORKSPACE */}
-        <div className="bg-[#0A0A0F] p-8 border border-white/10 relative overflow-hidden rounded-3xl shadow-2xl">
+        <div className="bg-[#0A0A0F] p-6 md:p-8 border border-white/10 relative overflow-hidden rounded-3xl shadow-2xl">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,0.05),transparent_50%)] pointer-events-none" />
 
             {/* --- SINGLE MODE --- */}
@@ -324,11 +344,39 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
                         )}
                     </div>
 
+                    {/* Cover Image (Conditional) */}
+                    {(!mainFile?.type.startsWith('image/') || mintType === 'link') && (
+                        <div className="mb-8 relative z-10 animate-in fade-in slide-in-from-top-2">
+                            <div className="flex items-center justify-between mb-2">
+                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                                    Cover Thumbnail <Tooltip content="Required for Audio/Video/3D files to display in marketplace." />
+                                </label>
+                                {!isCoverValid && <span className="text-[10px] text-red-500 font-bold flex items-center gap-1"><AlertCircle size={10}/> REQUIRED</span>}
+                            </div>
+                            <div 
+                                onClick={() => coverInputRef.current?.click()} 
+                                className={`flex items-center gap-4 p-3 rounded-xl border bg-black/20 hover:bg-white/5 cursor-pointer transition-colors group ${!isCoverValid ? 'border-red-500/30' : 'border-white/10'}`}
+                            >
+                                <input type="file" ref={coverInputRef} className="hidden" onChange={handleCoverFileChange} accept="image/*" />
+                                <div className="w-12 h-12 rounded-lg bg-white/5 flex items-center justify-center text-gray-500 group-hover:text-white">
+                                    {coverFile ? <Check size={20} className="text-emerald-500"/> : <ImageIcon size={20}/>}
+                                </div>
+                                <div className="flex-1">
+                                    <span className="text-xs font-bold text-white block">{coverFile ? coverFile.name : "Upload Cover Image"}</span>
+                                    <span className="text-[10px] text-gray-500">{coverFile ? "Ready to upload" : "JPG, PNG, GIF supported"}</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* 2. IDENTITY */}
                     <div>
-                        <div className="flex items-center gap-2 mb-4">
-                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${isNameValid ? 'bg-emerald-500 text-black' : 'bg-white/10 text-gray-500'}`}>2</div>
-                            <h3 className="text-sm font-bold text-white uppercase tracking-widest">Identity</h3>
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${isNameValid ? 'bg-emerald-500 text-black' : 'bg-white/10 text-gray-500'}`}>2</div>
+                                <h3 className="text-sm font-bold text-white uppercase tracking-widest">Identity</h3>
+                            </div>
+                            {!isNameValid && <span className="text-[10px] text-red-500 font-bold flex items-center gap-1"><AlertCircle size={10}/> REQUIRED</span>}
                         </div>
                         <div className="space-y-4">
                             <div className="relative">
@@ -350,7 +398,7 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
                         </div>
                     </div>
 
-                    {/* 3. TRAITS (Re-added) */}
+                    {/* 3. TRAITS */}
                     <div>
                         <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-2">
