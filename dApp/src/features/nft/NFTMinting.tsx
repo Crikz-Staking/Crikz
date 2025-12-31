@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
     Upload, Sparkles, Check, Lock, Info, Image as ImageIcon, 
     Link as LinkIcon, FileText, Package, Trash2, Video, Music, 
-    Box, Layers, Settings, ShieldCheck, Cpu, Zap 
+    Box, Layers, Settings, ShieldCheck, Cpu, Zap, XCircle, AlertCircle 
 } from 'lucide-react';
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseEther, decodeEventLog } from 'viem';
@@ -43,10 +43,18 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
   const [attributes, setAttributes] = useState<{ trait_type: string, value: string }[]>([]);
   const [unlockableContent, setUnlockableContent] = useState('');
   const [hasUnlockable, setHasUnlockable] = useState(false);
-  const [royalty, setRoyalty] = useState('5'); 
+  const [royalty, setRoyalty] = useState('0'); // Default 0%
 
   const mainInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
+
+  // Validation State
+  const isNameValid = name.trim().length > 0;
+  const isAssetValid = mintType === 'file' ? !!mainFile : !!externalLink;
+  // Cover is required if main file is NOT an image
+  const isCoverValid = (mintType === 'file' && mainFile?.type.startsWith('image/')) || !!coverFile || (mintType === 'link' && !!coverFile);
+  
+  const canMint = isNameValid && isAssetValid && isCoverValid;
 
   // Set default collection
   useEffect(() => {
@@ -137,12 +145,7 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
   };
 
   const handleMint = async () => {
-    if (!name) return toast.error("Name is required");
-    if (mintType === 'file' && !mainFile) return toast.error("Main file is required");
-    if (mintType === 'link' && !externalLink) return toast.error("External link is required");
-    if (!coverFile && mintType === 'file' && !mainFile?.type.startsWith('image/')) {
-        return toast.error("Cover image required for non-image files");
-    }
+    if (!canMint) return;
 
     let finalCollectionId = selectedCollectionId;
     if (isNewColl) {
@@ -221,30 +224,18 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 font-mono">
       
       {/* LEFT: Form (Technical Lab Look) */}
       <div className="lg:col-span-7 space-y-6">
         
-        {/* Status Bar */}
-        <div className="flex items-center justify-between bg-[#12121A] border border-white/10 p-3 rounded-xl">
-            <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_#10b981]"></div>
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">System Ready</span>
-            </div>
-            <div className="text-[10px] font-mono text-gray-500">
-                Protocol v2.1
-            </div>
-        </div>
+        <div className="bg-[#0A0A0F] p-8 border border-white/10 relative overflow-hidden rounded-3xl shadow-2xl">
+            {/* Grid Background */}
+            <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none" />
 
-        {/* Main Card */}
-        <div className="glass-card p-8 rounded-3xl border border-white/10 bg-[#0A0A0F] relative overflow-hidden">
-            {/* Decorative Background Elements */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-primary-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-            
             <div className="flex justify-between items-center mb-8 relative z-10">
                 <div>
-                    <h2 className="text-2xl font-black text-white flex items-center gap-2">
+                    <h2 className="text-2xl font-bold text-white flex items-center gap-2 uppercase tracking-widest">
                         <Cpu className="text-primary-500" /> Minting Lab
                     </h2>
                     <p className="text-xs text-gray-500 mt-1">Create and deploy digital assets to the blockchain.</p>
@@ -269,15 +260,20 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
 
             {/* MODULE 1: ASSET INGESTION */}
             <div className="mb-8 relative z-10">
-                <div className="flex items-center gap-2 mb-3">
-                    <div className="w-6 h-6 rounded bg-primary-500/10 flex items-center justify-center text-primary-500 text-xs font-bold">1</div>
-                    <label className="text-xs font-bold text-white uppercase tracking-wider">Asset Ingestion</label>
+                <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                        <div className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${isAssetValid ? 'bg-emerald-500/20 text-emerald-500' : 'bg-primary-500/10 text-primary-500'}`}>
+                            {isAssetValid ? <Check size={14}/> : '1'}
+                        </div>
+                        <label className="text-xs font-bold text-white uppercase tracking-wider">Asset Ingestion</label>
+                    </div>
+                    {!isAssetValid && <span className="text-[10px] text-red-500 font-bold flex items-center gap-1"><AlertCircle size={10}/> REQUIRED</span>}
                 </div>
                 
                 {mintType === 'file' ? (
                     <div 
                         onClick={() => mainInputRef.current?.click()} 
-                        className="group relative border-2 border-dashed border-white/10 hover:border-primary-500/50 rounded-2xl h-40 flex flex-col items-center justify-center cursor-pointer bg-black/20 transition-all overflow-hidden"
+                        className={`group relative border-2 border-dashed rounded-2xl h-40 flex flex-col items-center justify-center cursor-pointer bg-black/20 transition-all overflow-hidden ${!isAssetValid ? 'border-red-500/30 hover:border-red-500' : 'border-white/10 hover:border-primary-500/50'}`}
                     >
                         <div className="absolute inset-0 bg-primary-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
                         <input type="file" ref={mainInputRef} className="hidden" onChange={handleMainFileChange} />
@@ -298,12 +294,12 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
                                     <Upload size={20} />
                                 </div>
                                 <span className="text-gray-400 font-bold text-xs uppercase tracking-wider group-hover:text-primary-500 transition-colors">Drop Artifact Here</span>
-                                <p className="text-[10px] text-gray-600 mt-1">Max 100MB (JPG, PNG, MP4, MP3, GLB)</p>
+                                <p className="text-[10px] text-gray-600 mt-1">JPG, PNG, GIF, MP4, MP3, GLB (Max 100MB)</p>
                             </div>
                         )}
                     </div>
                 ) : (
-                    <div className="flex items-center gap-3 bg-black/40 border border-white/10 rounded-xl px-4 py-4 focus-within:border-primary-500/50 transition-colors">
+                    <div className={`flex items-center gap-3 bg-black/40 border rounded-xl px-4 py-4 transition-colors ${!isAssetValid ? 'border-red-500/30' : 'border-white/10 focus-within:border-primary-500/50'}`}>
                         <LinkIcon size={18} className="text-gray-500"/>
                         <input 
                             type="text" 
@@ -323,14 +319,15 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
                         <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
                             Cover Thumbnail <Tooltip content="Required for Audio/Video/3D files to display in marketplace." />
                         </label>
+                        {!isCoverValid && <span className="text-[10px] text-red-500 font-bold flex items-center gap-1"><AlertCircle size={10}/> REQUIRED</span>}
                     </div>
                     <div 
                         onClick={() => coverInputRef.current?.click()} 
-                        className="flex items-center gap-4 p-3 rounded-xl border border-white/10 bg-black/20 hover:bg-white/5 cursor-pointer transition-colors group"
+                        className={`flex items-center gap-4 p-3 rounded-xl border bg-black/20 hover:bg-white/5 cursor-pointer transition-colors group ${!isCoverValid ? 'border-red-500/30' : 'border-white/10'}`}
                     >
                         <input type="file" ref={coverInputRef} className="hidden" onChange={handleCoverFileChange} accept="image/*" />
                         <div className="w-12 h-12 rounded-lg bg-white/5 flex items-center justify-center text-gray-500 group-hover:text-white">
-                            <ImageIcon size={20}/>
+                            {coverFile ? <Check size={20} className="text-emerald-500"/> : <ImageIcon size={20}/>}
                         </div>
                         <div className="flex-1">
                             <span className="text-xs font-bold text-white block">{coverFile ? coverFile.name : "Upload Cover Image"}</span>
@@ -342,21 +339,29 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
 
             {/* MODULE 2: METADATA */}
             <div className="mb-8 relative z-10">
-                <div className="flex items-center gap-2 mb-3">
-                    <div className="w-6 h-6 rounded bg-blue-500/10 flex items-center justify-center text-blue-500 text-xs font-bold">2</div>
-                    <label className="text-xs font-bold text-white uppercase tracking-wider">Identity Data</label>
+                <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                        <div className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${isNameValid ? 'bg-emerald-500/20 text-emerald-500' : 'bg-blue-500/10 text-blue-500'}`}>
+                            {isNameValid ? <Check size={14}/> : '2'}
+                        </div>
+                        <label className="text-xs font-bold text-white uppercase tracking-wider">Identity Data</label>
+                    </div>
+                    {!isNameValid && <span className="text-[10px] text-red-500 font-bold flex items-center gap-1"><AlertCircle size={10}/> REQUIRED</span>}
                 </div>
 
                 <div className="grid grid-cols-1 gap-4">
                     <div className="space-y-1">
                         <label className="text-[10px] font-bold text-gray-500 uppercase ml-1">Name</label>
-                        <input 
-                            type="text" 
-                            placeholder="e.g. Cosmic Cube #001" 
-                            className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white focus:border-primary-500 outline-none transition-colors text-sm" 
-                            value={name} 
-                            onChange={e => setName(e.target.value)} 
-                        />
+                        <div className="relative">
+                            <input 
+                                type="text" 
+                                placeholder="e.g. Cosmic Cube #001" 
+                                className={`w-full bg-black/40 border rounded-xl p-3 text-white outline-none transition-colors text-sm ${!isNameValid && name.length > 0 ? 'border-red-500/50' : 'border-white/10 focus:border-primary-500'}`}
+                                value={name} 
+                                onChange={e => setName(e.target.value)} 
+                            />
+                            {!isNameValid && name.length > 0 && <XCircle size={16} className="absolute right-3 top-3 text-red-500"/>}
+                        </div>
                     </div>
                     <div className="space-y-1">
                         <label className="text-[10px] font-bold text-gray-500 uppercase ml-1">Description</label>
@@ -374,7 +379,7 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
             <div className="mb-8 relative z-10">
                 <div className="flex items-center gap-2 mb-3">
                     <div className="w-6 h-6 rounded bg-purple-500/10 flex items-center justify-center text-purple-500 text-xs font-bold">3</div>
-                    <label className="text-xs font-bold text-white uppercase tracking-wider">Configuration</label>
+                    <label className="text-xs font-bold text-white uppercase tracking-wider">Configuration <span className="text-gray-500 normal-case">(Optional)</span></label>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -402,10 +407,10 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
                         ) : (
                             <input 
                                 type="text" 
-                                placeholder="New Collection Name" 
+                                placeholder="NEW_COLLECTION_ID" 
                                 value={newCollName} 
                                 onChange={e => setNewCollName(e.target.value)} 
-                                className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white focus:border-primary-500 outline-none text-sm" 
+                                className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white focus:border-primary-500 outline-none font-mono text-sm" 
                             />
                         )}
                     </div>
@@ -438,7 +443,7 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
                         <div className={`w-3 h-3 bg-white rounded-full absolute top-1 transition-all ${hasUnlockable ? 'left-6' : 'left-1'}`} />
                     </div>
                     <span className="text-xs font-bold text-white flex items-center gap-2 uppercase tracking-wider">
-                        <Lock size={12} className={hasUnlockable ? 'text-emerald-400' : 'text-gray-500'}/> Encrypted Content
+                        <Lock size={12} className={hasUnlockable ? 'text-emerald-400' : 'text-gray-500'}/> Encrypted Content <span className="text-gray-500 normal-case">(Optional)</span>
                     </span>
                 </label>
                 
@@ -473,11 +478,15 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
 
                 <button 
                     onClick={handleMint} 
-                    disabled={isPending || isConfirming} 
-                    className="px-8 py-3 bg-primary-500 text-black font-black text-sm uppercase tracking-widest rounded-xl hover:bg-primary-400 transition-all shadow-[0_0_20px_rgba(245,158,11,0.4)] hover:shadow-[0_0_30px_rgba(245,158,11,0.6)] hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100 flex items-center gap-2"
+                    disabled={isPending || isConfirming || !canMint} 
+                    className={`px-8 py-3 font-black text-sm uppercase tracking-widest rounded-xl transition-all shadow-lg flex items-center gap-2 ${
+                        canMint 
+                        ? 'bg-primary-500 text-black hover:bg-primary-400 hover:scale-105 active:scale-95 shadow-primary-500/20' 
+                        : 'bg-white/5 text-gray-500 cursor-not-allowed'
+                    }`}
                 >
                     {isPending ? <Zap className="animate-spin" size={16}/> : <Sparkles size={16}/>}
-                    {isPending ? 'Confirming...' : isConfirming ? 'Minting...' : 'Initialize Mint'}
+                    {isPending ? 'MINTING...' : isConfirming ? 'CONFIRMING...' : 'MINT'}
                 </button>
             </div>
         </div>
@@ -530,6 +539,20 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
                   </div>
                   
                   <div className="space-y-4 font-mono">
+                      {/* System Tags (Simulated Marketplace Look) */}
+                      <div className="flex flex-wrap gap-2">
+                          <div className="px-2 py-1 rounded bg-white/5 border border-white/10 text-[8px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1">
+                              {fileType === 'video' ? <Video size={10}/> : fileType === 'audio' ? <Music size={10}/> : <ImageIcon size={10}/>}
+                              {fileType.toUpperCase()} Asset
+                          </div>
+                          <div className="px-2 py-1 rounded bg-white/5 border border-white/10 text-[8px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1">
+                              <Box size={10}/> BSC Testnet
+                          </div>
+                          <div className="px-2 py-1 rounded bg-white/5 border border-white/10 text-[8px] font-bold uppercase tracking-wider text-gray-500 flex items-center gap-1">
+                              Unlisted
+                          </div>
+                      </div>
+
                       <div>
                           <h3 className="text-2xl font-black text-white leading-tight line-clamp-1 uppercase tracking-tight">{name || "UNTITLED_ASSET"}</h3>
                           <p className="text-xs text-gray-500 mt-1 uppercase tracking-wider">{isNewColl ? newCollName : collections.find(c => c.id === selectedCollectionId)?.name || "GENERAL_COLLECTION"}</p>
