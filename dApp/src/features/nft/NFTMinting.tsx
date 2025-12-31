@@ -6,6 +6,7 @@ import { toast } from 'react-hot-toast';
 import { CRIKZ_NFT_ADDRESS, CRIKZ_NFT_ABI } from '@/config/index';
 import { uploadToIPFS } from '@/lib/ipfs-service';
 import { useCollectionManager } from '@/hooks/web3/useCollectionManager';
+import Tooltip from '@/components/ui/Tooltip';
 
 export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
   const { collections, createCollection, assignMintedItem } = useCollectionManager();
@@ -203,7 +204,7 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
         abi: CRIKZ_NFT_ABI,
         functionName: 'mint',
         args: [`ipfs://${metaCid}`],
-        value: parseEther('0.01') // FIX: Increased to 0.01 BNB to match contract requirement
+        value: parseEther('0.01') 
       });
       
       toast.dismiss('mint');
@@ -238,7 +239,7 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
             </div>
         </div>
 
-        <div className="glass-card p-8 rounded-3xl border border-white/10 bg-background-elevated">
+        <div className="glass-card p-8 rounded-3xl border border-white/10 bg-[#0A0A0F]">
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-black text-white flex items-center gap-2">
                     <Sparkles className="text-primary-500" /> Create Artifact
@@ -251,8 +252,9 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
 
             {/* Main Asset Upload */}
             <div className="mb-6">
-                <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">
+                <label className="text-xs font-bold text-gray-500 uppercase mb-2 block flex items-center">
                     {mintType === 'file' ? 'Main Asset' : 'Asset Link'}
+                    <Tooltip content="The primary content of your NFT. Can be an image, video, audio, or any file." />
                 </label>
                 
                 {mintType === 'file' ? (
@@ -330,7 +332,9 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div>
                     <div className="flex justify-between items-center mb-2">
-                        <label className="text-xs font-bold text-gray-500 uppercase">Collection</label>
+                        <label className="text-xs font-bold text-gray-500 uppercase flex items-center">
+                            Collection <Tooltip content="Organize your items locally. Does not affect on-chain contract." />
+                        </label>
                         <button onClick={() => setIsNewColl(!isNewColl)} className="text-[10px] font-bold text-primary-500 hover:text-white transition-colors">
                             {isNewColl ? 'Cancel' : '+ New'}
                         </button>
@@ -346,7 +350,9 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
                 
                 <div>
                     <div className="flex justify-between items-center mb-2">
-                        <label className="text-xs font-bold text-gray-500 uppercase">Attributes</label>
+                        <label className="text-xs font-bold text-gray-500 uppercase flex items-center">
+                            Attributes <Tooltip content="Traits like 'Color', 'Rarity', etc. Displayed in marketplace." />
+                        </label>
                         <button onClick={addAttribute} className="text-[10px] font-bold text-primary-500 hover:text-white transition-colors">+ Add</button>
                     </div>
                     <div className="space-y-2 max-h-32 overflow-y-auto custom-scrollbar pr-1">
@@ -366,7 +372,10 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
             <div className="mb-6">
                 <label className="flex items-center gap-2 cursor-pointer mb-2">
                     <input type="checkbox" checked={hasUnlockable} onChange={e => setHasUnlockable(e.target.checked)} className="accent-primary-500" />
-                    <span className="text-xs font-bold text-white flex items-center gap-1"><Lock size={12}/> Unlockable Content</span>
+                    <span className="text-xs font-bold text-white flex items-center gap-1">
+                        <Lock size={12}/> Unlockable Content
+                        <Tooltip content="Content only visible to the owner of the NFT." />
+                    </span>
                 </label>
                 {hasUnlockable && (
                     <textarea 
@@ -405,7 +414,7 @@ export default function NFTMinting({ dynamicColor }: { dynamicColor: string }) {
           <div className="sticky top-24 space-y-6">
               <h3 className="text-lg font-bold text-white">Preview</h3>
               
-              <div className="glass-card p-4 rounded-3xl border border-white/10 bg-black/40 overflow-hidden group">
+              <div className="glass-card p-4 rounded-3xl border border-white/10 bg-[#0A0A0F] overflow-hidden group shadow-2xl">
                   <div className="aspect-square bg-black/60 rounded-2xl mb-4 flex items-center justify-center border border-white/5 overflow-hidden relative">
                       {coverPreview ? (
                           <img src={coverPreview} className="w-full h-full object-cover" alt="Preview" />

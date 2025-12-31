@@ -1,11 +1,10 @@
-// src/hooks/web3/useMarketListings.ts
 import { useState, useEffect, useCallback } from 'react';
 import { usePublicClient } from 'wagmi';
 import { NFT_MARKETPLACE_ABI, NFT_MARKETPLACE_ADDRESS } from '@/config/index';
 
 export interface AuctionItem {
-    id: string; // Unique ID for UI (contract-token)
-    auctionId: bigint; // Contract ID
+    id: string;
+    auctionId: bigint;
     nftContract: string;
     tokenId: bigint;
     seller: string;
@@ -44,7 +43,6 @@ export function useMarketListings() {
         setError(null);
         
         try {
-            // Parallel Fetching using Multicall (implicit in Wagmi/Viem usually, but explicit here for clarity)
             const [activeListings, activeAuctions] = await Promise.all([
                 publicClient.readContract({
                     address: NFT_MARKETPLACE_ADDRESS,
@@ -87,17 +85,15 @@ export function useMarketListings() {
 
         } catch (e: any) {
             console.error("Market Data Fetch Error:", e);
-            setError("Failed to load market data. Ensure contract is deployed.");
+            setError("Failed to load market data.");
         } finally {
             setIsLoading(false);
         }
     }, [publicClient]);
 
+    // Initial fetch only. No auto-polling here.
     useEffect(() => {
         fetchMarketData();
-        // Poll every 15 seconds for updates
-        const interval = setInterval(fetchMarketData, 15000);
-        return () => clearInterval(interval);
     }, [fetchMarketData]);
 
     return { 
