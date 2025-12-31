@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { FolderPlus, Settings, Trash2, Tag, Image as ImageIcon, X, Edit3, Download, Lock, Gavel, Clock, Eye, RefreshCw, Move, AlertTriangle, CheckCircle } from 'lucide-react';
+import { FolderPlus, Settings, Trash2, Tag, Image as ImageIcon, X, Edit3, Download, Lock, Gavel, Eye, RefreshCw, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { useRealNFTIndexer, RichNFT } from '@/hooks/web3/useRealNFTIndexer';
-import { useCollectionManager } from '@/hooks/web3/useCollectionManager';
+import { useCollectionManager, Collection } from '@/hooks/web3/useCollectionManager';
 import { useMarketListings } from '@/hooks/web3/useMarketListings';
 import { useWriteContract, useWaitForTransactionReceipt, useAccount } from 'wagmi';
 import { CRIKZ_NFT_ADDRESS, CRIKZ_NFT_ABI, NFT_MARKETPLACE_ADDRESS, NFT_MARKETPLACE_ABI } from '@/config/index';
@@ -26,7 +26,7 @@ export default function UserCollection({ dynamicColor }: { dynamicColor: string 
   
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState<any>(null);
+  const [showEditModal, setShowEditModal] = useState<Collection | null>(null);
   const [showMoveModal, setShowMoveModal] = useState<RichNFT | null>(null);
   const [showListModal, setShowListModal] = useState<RichNFT | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -40,7 +40,7 @@ export default function UserCollection({ dynamicColor }: { dynamicColor: string 
   const { writeContract: burn, data: burnHash } = useWriteContract();
   const { isSuccess: burnSuccess } = useWaitForTransactionReceipt({ hash: burnHash });
   
-  const { writeContract: cancelListing, data: cancelHash, isPending: isCancelling } = useWriteContract();
+  const { writeContract: cancelListing, data: cancelHash } = useWriteContract();
   const { isSuccess: cancelSuccess } = useWaitForTransactionReceipt({ hash: cancelHash });
 
   const { writeContract: endAuction, data: endHash } = useWriteContract();
@@ -121,7 +121,6 @@ export default function UserCollection({ dynamicColor }: { dynamicColor: string 
               // 3. Open List Modal for Relist
               setShowMoveModal(null);
               setShowListModal(showMoveModal); // This will trigger the listing flow
-              // Note: We can't auto-sign the list tx, user must approve in modal
           } else {
               setShowMoveModal(null);
               refetch();
@@ -447,7 +446,15 @@ function SimpleModal({ isOpen, onClose, title, children }: any) {
     );
 }
 
-function MoveForm({ collections, currentId, onMove, showRelistOption }: any) {
+// Explicitly typed props for MoveForm to fix TS7006
+interface MoveFormProps {
+    collections: Collection[];
+    currentId: string;
+    onMove: (targetId: string, relist: boolean) => void;
+    showRelistOption: boolean;
+}
+
+function MoveForm({ collections, currentId, onMove, showRelistOption }: MoveFormProps) {
     const [target, setTarget] = useState(collections[0]?.id || '');
     const [relist, setRelist] = useState(false);
 
@@ -456,7 +463,7 @@ function MoveForm({ collections, currentId, onMove, showRelistOption }: any) {
             <div>
                 <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Destination</label>
                 <select value={target} onChange={e => setTarget(e.target.value)} className="input-field">
-                    {collections.filter((c: any) => c.id !== currentId).map((c: any) => (
+                    {collections.filter((c) => c.id !== currentId).map((c) => (
                         <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
                 </select>

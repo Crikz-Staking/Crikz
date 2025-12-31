@@ -131,10 +131,7 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
       isPreviewOpenRef.current = !!selectedItem;
       
       if (!selectedItem) {
-          // Preview closed: Reset to 18s, then back to 27s loop? 
-          // Requirement: "reset for 18 seconds after the preview is closed"
-          // Interpretation: Wait 18s once, then refresh, then resume standard cycle? 
-          // Or just change interval to 18s? Assuming wait 18s then refresh.
+          // Preview closed: Reset to 18s, then back to 27s loop
           if (timerRef.current) clearInterval(timerRef.current);
           
           timerRef.current = setTimeout(() => {
