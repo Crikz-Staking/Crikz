@@ -3,6 +3,16 @@
 export type EvolutionStage = 'GENESIS' | 'SENTIENT' | 'SAPIENT' | 'TRANSCENDENT';
 export type Vector = [number, number, number, number, number, number];
 
+export type AIProvider = 'groq' | 'openrouter' | 'google';
+
+export interface ModelConfig {
+  id: string;
+  name: string;
+  provider: AIProvider;
+  description: string; // Added
+  limitInfo: string;   // Added
+}
+
 export interface InternalDrives {
   curiosity: number;   
   stability: number;   
