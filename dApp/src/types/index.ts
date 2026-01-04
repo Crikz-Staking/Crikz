@@ -84,8 +84,11 @@ export interface BetSelection {
 }
 
 // Navigation Types
-export type MainSection = 'active' | 'passive' | 'tools';
-export type ActiveView = 'dashboard' | 'nft' | 'arcade' | 'betting'; 
+export type MainSection = 'active' | 'passive' | 'tools' | 'about';
+
+// Sub-views for the "Active" section
+export type ActiveView = 'marketplace' | 'production' | 'sportsbook' | 'arcade';
+
 export type PassiveView = 'learning' | 'analytics' | 'audio' | 'video';
 export type ToolCategory = 'files' | 'crypto' | 'dev' | 'security';
 export type Language = 'en' | 'sq';
