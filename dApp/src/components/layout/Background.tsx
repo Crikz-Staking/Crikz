@@ -1,10 +1,12 @@
 import React, { useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 
+// 1. Define the expected props to fix the TypeScript error
 interface BackgroundEffectsProps {
   aiState?: 'idle' | 'thinking' | 'responding';
 }
 
+// 2. Accept the prop in the function signature
 export default function BackgroundEffects({ aiState }: BackgroundEffectsProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -39,8 +41,8 @@ export default function BackgroundEffects({ aiState }: BackgroundEffectsProps) {
         this.size = 1.5 + Math.random() * 2.5;
         this.opacity = Math.random() * 0.6 + 0.3;
         
-        // Locked Gold Palette
-        const hue = 35 + Math.random() * 10; 
+        // Locked Gold Palette (As requested in your code)
+        const hue = 35 + Math.random() * 10; // 35-45 (Amber/Gold)
         this.color = `hsla(${hue}, 100%, 60%, ${this.opacity})`;
         
         this.updatePosition();
@@ -56,10 +58,8 @@ export default function BackgroundEffects({ aiState }: BackgroundEffectsProps) {
         const b = 0.2;
         
         const spiralRadius = a * Math.exp(b * (this.angle % 20)) * this.radius / 5;
-        
         this.x = centerX + spiralRadius * Math.cos(this.angle);
-        // CHANGE: Added negative sign (-) before this.angle to reverse rotation
-        this.y = centerY + spiralRadius * Math.sin(-this.angle); 
+        this.y = centerY + spiralRadius * Math.sin(this.angle);
       }
 
       update() {
