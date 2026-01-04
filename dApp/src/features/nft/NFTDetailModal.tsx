@@ -11,6 +11,15 @@ interface NFTDetailModalProps {
     isPending: boolean;
 }
 
+// Helper to resolve IPFS
+const resolveIPFS = (uri: string) => {
+  if (!uri) return '';
+  if (uri.startsWith('ipfs://')) {
+    return uri.replace('ipfs://', 'https://ipfs.io/ipfs/');
+  }
+  return uri;
+};
+
 export default function NFTDetailModal({ item, onClose, onBuy, isPending }: NFTDetailModalProps) {
     const [showOffer, setShowOffer] = useState(false);
     const [offerPrice, setOfferPrice] = useState('');
@@ -18,6 +27,10 @@ export default function NFTDetailModal({ item, onClose, onBuy, isPending }: NFTD
 
     const meta = item.metadata || {};
     const price = item.type === 'fixed' ? item.price : (item.highestBid || item.minPrice);
+    
+    // Resolve images for display
+    const displayImage = resolveIPFS(meta.image);
+    const displayAnimation = resolveIPFS(meta.animation_url);
 
     // Lock Body Scroll
     useEffect(() => {
@@ -38,8 +51,8 @@ export default function NFTDetailModal({ item, onClose, onBuy, isPending }: NFTD
     // Determine Media Type for Preview
     const getMediaType = () => {
         const fileType = meta.attributes?.find((a: any) => a.trait_type === 'Type')?.value?.toLowerCase() || '';
-        if (fileType.includes('video') || meta.animation_url?.endsWith('.mp4')) return 'video';
-        if (fileType.includes('audio') || meta.animation_url?.endsWith('.mp3')) return 'audio';
+        if (fileType.includes('video') || displayAnimation?.endsWith('.mp4')) return 'video';
+        if (fileType.includes('audio') || displayAnimation?.endsWith('.mp3')) return 'audio';
         return 'image';
     };
 
@@ -68,7 +81,7 @@ export default function NFTDetailModal({ item, onClose, onBuy, isPending }: NFTD
                     <div className="relative z-10 w-full h-full flex items-center justify-center">
                         {mediaType === 'video' ? (
                             <video 
-                                src={meta.animation_url || meta.image} 
+                                src={displayAnimation || displayImage} 
                                 controls 
                                 autoPlay 
                                 loop 
@@ -79,13 +92,16 @@ export default function NFTDetailModal({ item, onClose, onBuy, isPending }: NFTD
                                 <div className="w-32 h-32 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center animate-pulse">
                                     <Music size={48} className="text-white" />
                                 </div>
-                                <audio src={meta.animation_url} controls className="w-full" />
+                                <audio src={displayAnimation} controls className="w-full" />
                             </div>
                         ) : (
                             <img 
-                                src={meta.image} 
+                                src={displayImage} 
                                 alt={meta.name} 
                                 className="max-w-full max-h-full object-contain rounded-xl shadow-2xl drop-shadow-[0_0_30px_rgba(245,158,11,0.2)]" 
+                                onError={(e) => {
+                                    e.currentTarget.src = 'https://placehold.co/600x600/1a1a1a/FFF?text=No+Image';
+                                }}
                             />
                         )}
                     </div>
@@ -95,7 +111,7 @@ export default function NFTDetailModal({ item, onClose, onBuy, isPending }: NFTD
                 <div className="w-full md:w-5/12 bg-[#0A0A0F] border-l border-white/10 flex flex-col h-full">
                     <div className="flex-1 overflow-y-auto custom-scrollbar p-8">
                         
-                        {/* System Attributes (Top) - Consistent Style */}
+                        {/* System Attributes (Top) */}
                         <div className="flex flex-wrap gap-2 mb-6">
                             <div className="px-2 py-1 rounded bg-blue-500/10 border border-blue-500/20 text-[8px] font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1">
                                 <Globe size={10}/> BSC Testnet
@@ -215,11 +231,15 @@ export default function NFTDetailModal({ item, onClose, onBuy, isPending }: NFTD
                             </div>
                         </div>
 
-                        {meta.external_url && (
-                            <a href={meta.external_url} target="_blank" rel="noreferrer" className="mt-8 flex items-center justify-center gap-2 text-xs font-bold text-gray-500 hover:text-white transition-colors w-full py-4 border-t border-white/5">
-                                <ExternalLink size={12}/> View External Resource
-                            </a>
-                        )}
+                        {/* Updated External Link */}
+                        <a 
+                            href={`https://testnet.bscscan.com/token/${item.nftContract}?a=${item.tokenId}`} 
+                            target="_blank" 
+                            rel="noreferrer" 
+                            className="mt-8 flex items-center justify-center gap-2 text-xs font-bold text-gray-500 hover:text-white transition-colors w-full py-4 border-t border-white/5"
+                        >
+                            <ExternalLink size={12}/> View on BscScan
+                        </a>
                     </div>
                 </div>
             </motion.div>

@@ -15,6 +15,15 @@ interface MarketListingsProps {
   listings: any[];
 }
 
+// Helper to resolve IPFS
+const resolveIPFS = (uri: string) => {
+  if (!uri) return '';
+  if (uri.startsWith('ipfs://')) {
+    return uri.replace('ipfs://', 'https://ipfs.io/ipfs/');
+  }
+  return uri;
+};
+
 export default function MarketListings({ onBuy, isPending }: MarketListingsProps) {
   const { items, isLoading, refresh } = useMarketListings();
   const publicClient = usePublicClient();
@@ -88,16 +97,19 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
                     args: [item.tokenId]
                 }) as string;
 
-                const httpUrl = uri.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                // Use reliable gateway
+                const httpUrl = resolveIPFS(uri);
                 const res = await fetch(httpUrl);
                 const json = await res.json();
                 
-                if (json.image && json.image.startsWith('ipfs://')) {
-                    json.image = json.image.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                // Resolve image inside metadata
+                if (json.image) {
+                    json.image = resolveIPFS(json.image);
                 }
                 newMeta[item.id] = json;
             } catch (e) {
-                newMeta[item.id] = { name: `Item #${item.tokenId}`, description: 'Metadata unavailable' };
+                console.warn("Metadata fetch failed for", item.id, e);
+                newMeta[item.id] = { name: `Item #${item.tokenId}`, description: 'Metadata unavailable', image: null };
             }
         }));
 
@@ -188,9 +200,6 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
                         const isAuction = item.type === 'auction';
                         const price = isAuction ? (item as AuctionItem).highestBid || (item as AuctionItem).minPrice : (item as FixedItem).price;
                         
-                        // Determine File Type for Tag
-                        const fileType = meta.attributes?.find((a: any) => a.trait_type === 'Type')?.value || 'Image';
-
                         return (
                             <motion.div 
                                 key={item.id}
@@ -203,7 +212,16 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
                                 {/* Image Area */}
                                 <div className={`bg-black/40 rounded-xl flex items-center justify-center relative overflow-hidden border border-white/5 ${viewMode === 'list' ? 'w-20 h-full shrink-0' : 'aspect-square mb-4 w-full'}`}>
                                     {meta.image ? (
-                                        <img src={meta.image} alt={meta.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                                        <img 
+                                            src={meta.image} 
+                                            alt={meta.name} 
+                                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                            onError={(e) => {
+                                                // Fallback if image fails to load
+                                                e.currentTarget.style.display = 'none';
+                                                e.currentTarget.parentElement?.classList.add('fallback-active');
+                                            }}
+                                        />
                                     ) : (
                                         <div className="flex flex-col items-center justify-center text-gray-600">
                                             <Sparkles size={32} className="mb-2 opacity-50"/>
@@ -211,8 +229,13 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
                                         </div>
                                     )}
                                     
+                                    {/* Fallback Icon (Hidden by default, shown via CSS if img fails) */}
+                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 [.fallback-active_&]:opacity-100">
+                                        <ImageIcon size={32} className="text-gray-700" />
+                                    </div>
+                                    
                                     {/* Badges */}
-                                    <div className="absolute top-2 left-2 flex flex-col gap-1">
+                                    <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
                                         <div className={`px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-wider flex items-center gap-1 backdrop-blur-md ${isAuction ? 'bg-purple-500/80 text-white' : 'bg-emerald-500/80 text-black'}`}>
                                             {isAuction ? <Gavel size={8}/> : <Tag size={8}/>}
                                             {isAuction ? 'Auction' : 'Buy Now'}
@@ -220,7 +243,7 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
                                     </div>
                                     
                                     {/* Hover Overlay */}
-                                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
+                                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px] z-20">
                                         <div className="bg-white text-black px-4 py-2 rounded-full font-bold text-xs flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-transform">
                                             <Eye size={14}/> View Details
                                         </div>
