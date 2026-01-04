@@ -21,10 +21,13 @@
   --shadow-glow-md: 0 0 20px -4px rgba(245, 158, 11, 0.4);
 }
 
-/* Ensure compatibility with v3 class names if using the PostCSS plugin */
 :root {
   --primary-500: #f59e0b;
   color-scheme: dark;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
@@ -32,34 +35,42 @@ body {
   color: #e5e7eb;
   font-family: 'Inter', sans-serif;
   overflow-x: hidden;
+  /* Subtle grid pattern for depth */
   background-image: 
-    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-  background-size: 40px 40px;
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 50px 50px;
 }
 
+/* Refined Glass Card */
 .glass-card {
-  background: rgba(23, 23, 30, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 4px 24px -1px rgba(0, 0, 0, 0.2);
+  background: rgba(18, 18, 26, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+  transition: border-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.glass-card:hover {
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 .input-field {
-    @apply w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:border-primary-500 transition-colors;
+    @apply w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:border-primary-500 transition-colors placeholder-gray-600;
 }
 
 .btn-primary {
-    @apply bg-primary-500 text-black font-bold rounded-xl hover:bg-primary-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply bg-primary-500 text-black font-bold rounded-xl hover:bg-primary-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-glow-sm hover:shadow-glow-md active:scale-95;
 }
 
-/* Scrollbar */
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--color-background);
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
   background: #333;
@@ -67,4 +78,12 @@ body {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-primary-600);
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+.scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
 }

@@ -4,59 +4,29 @@ import { CrikzlingBrainV3 } from '@/lib/brain/crikzling-brain-v3';
 import { useContractData } from '@/hooks/web3/useContractData';
 import { ModelConfig } from '@/lib/brain/types';
 
+// FILTERED LIST: Only high-availability models
 export const AVAILABLE_MODELS: ModelConfig[] = [
-    // GROQ SOURCE
     { 
         id: 'llama-3.3-70b-versatile', 
-        name: 'Llama 3.3 70B', 
+        name: 'Crikz Core (Llama 3)', 
         provider: 'groq', 
-        description: 'Ultra-fast, versatile reasoning.',
-        limitInfo: 'High speed, moderate rate limits.'
+        description: 'The standard protocol intelligence. Fast and reliable.',
+        limitInfo: 'High speed, optimized for Crikz queries.'
+    },
+    { 
+        id: 'gemini-1.5-flash', 
+        name: 'Gemini Flash', 
+        provider: 'google', 
+        description: 'Google\'s lightweight model. Good for general knowledge.',
+        limitInfo: '15 Requests/min.'
     },
     { 
         id: 'mixtral-8x7b-32768', 
         name: 'Mixtral 8x7b', 
         provider: 'groq', 
-        description: 'Great for complex instructions.',
-        limitInfo: 'Fast, generous token allowance.'
-    },
-    // OPENROUTER SOURCE
-    { 
-        id: 'google/gemini-2.0-flash-exp:free', 
-        name: 'Gemini 2.0 Flash', 
-        provider: 'openrouter', 
-        description: 'Next-gen speed and massive context.',
-        limitInfo: 'Free tier (OpenRouter limits apply).'
-    },
-    { 
-        id: 'anthropic/claude-3.5-sonnet', 
-        name: 'Claude 3.5 Sonnet', 
-        provider: 'openrouter', 
-        description: 'Most intelligent & human-like coding/writing.',
-        limitInfo: 'Paid/Credits required on OpenRouter.'
-    },
-    { 
-        id: 'deepseek/deepseek-chat', 
-        name: 'DeepSeek V3', 
-        provider: 'openrouter', 
-        description: 'Powerful open-source alternative to GPT-4.',
-        limitInfo: 'Very low cost per million tokens.'
-    },
-    // GOOGLE NATIVE SOURCE
-    { 
-        id: 'gemini-1.5-pro', 
-        name: 'Gemini 1.5 Pro', 
-        provider: 'google', 
-        description: 'Google\'s flagship high-intelligence model.',
-        limitInfo: '15 Requests per minute (Free Tier).'
-    },
-    { 
-        id: 'gemini-1.5-flash', 
-        name: 'Gemini 1.5 Flash', 
-        provider: 'google', 
-        description: 'Lightweight and extremely fast.',
-        limitInfo: '15 Requests per minute (Free Tier).'
-    },
+        description: 'Complex reasoning for deeper protocol analysis.',
+        limitInfo: 'Generous token allowance.'
+    }
 ];
 
 export function useCrikzlingV3() {
@@ -75,8 +45,9 @@ export function useCrikzlingV3() {
       active_orders_count: activeOrders?.length || 0,
       total_reputation: totalReputation,
       global_total_reputation: globalFund?.totalReputation,
+      wallet_address: address
     };
-  }, [balance, activeOrders, totalReputation]);
+  }, [balance, activeOrders, totalReputation, address]);
 
   useEffect(() => {
     if (!brain) setBrain(new CrikzlingBrainV3());
@@ -92,10 +63,15 @@ export function useCrikzlingV3() {
       const { response } = await brain.process(text, dappContextRef.current, selectedModel);
       setMessages(prev => [...prev, { role: 'bot', content: response, timestamp: Date.now() }]);
     } catch (e: any) {
-      setMessages(prev => [...prev, { role: 'system', content: e.message || "Connection Error.", timestamp: Date.now() }]);
+      console.error(e);
+      setMessages(prev => [...prev, { role: 'system', content: "Neural Link Unstable: " + (e.message || "Connection Error."), timestamp: Date.now() }]);
     } finally {
       setIsThinking(false);
     }
+  };
+
+  const clearHistory = () => {
+      setMessages([]);
   };
 
   return {
@@ -104,6 +80,7 @@ export function useCrikzlingV3() {
     isThinking, 
     selectedModel,
     setSelectedModel,
+    clearHistory,
     isOwner: !!address
   };
 }

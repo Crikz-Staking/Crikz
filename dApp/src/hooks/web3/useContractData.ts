@@ -49,9 +49,11 @@ export function useContractData() {
     ],
     query: {
       enabled: true,
-      // FIX: Increased staleTime to 10s to prevent 3s flickering
-      staleTime: 10000, 
-      refetchInterval: 15000, // Poll every 15s instead of every block
+      // STABILITY FIX: Increased staleTime to 30s to prevent UI flickering
+      // The data will be considered "fresh" for 30 seconds, preventing loading spinners
+      staleTime: 30000, 
+      refetchInterval: 30000, // Poll every 30s
+      refetchOnWindowFocus: false, // Prevent refetching just because user clicked the window
     }
   });
 
@@ -115,7 +117,8 @@ export function useContractData() {
     globalFund,
     currentAPR: BASE_APR,
     refetchAll: refetch,
-    isLoading: isReadLoading || isRefetching,
+    // Only show loading on initial load, not on background refetches
+    isLoading: isReadLoading, 
     isConnected: !!address
   };
 }

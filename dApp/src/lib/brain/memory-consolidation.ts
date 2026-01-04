@@ -1,113 +1,116 @@
-import { Memory, BrainState, Vector } from './types';
-import { pipeline, FeatureExtractionPipeline } from '@xenova/transformers';
+import { MemoryConsolidationEngine } from './memory-consolidation';
+import { BrainState, DAppContext, ActionPlan, ModelConfig } from './types';
+import { formatEther } from 'viem';
 
-export interface MemoryQuery {
-  text: string;
-  timeRange?: [number, number];
-  limit?: number;
-}
+export class CrikzlingBrainV3 { 
+  private memory: MemoryConsolidationEngine;
 
-export class MemoryConsolidationEngine {
-  private longTerm: Memory[] = [];
-  private embedder: FeatureExtractionPipeline | null = null;
-  private isReady: boolean = false;
-
-  constructor(state?: Partial<BrainState>) {
-    if (state) {
-      this.longTerm = state.longTermMemory || [];
-    }
+  constructor(baseState?: string) {
+    this.memory = new MemoryConsolidationEngine(baseState ? JSON.parse(baseState) : undefined);
   }
 
-  public async init() {
-    if (this.isReady) return;
+  public async process(
+    text: string, 
+    dappContext: DAppContext | undefined, 
+    config: ModelConfig
+  ): Promise<{ response: string; actionPlan: ActionPlan }> { 
+    
+    const relevantMemories = await this.memory.retrieve(text, 3);
+    const memoryContext = relevantMemories.map(m => `[Past Interaction]: ${m.content}`).join("\n");
+
+    // --- ADVANCED SYSTEM PROMPT ---
+    const systemPrompt = `
+    You are Crikzling, the AI Guardian of the Crikz Protocol.
+    
+    **PROTOCOL IDENTITY:**
+    - Network: BSC Testnet
+    - Core Philosophy: Fibonacci Mathematics (Phi) & Algorithmic Reputation.
+    - Token: CRKZ (Crikz Token).
+    
+    **WEBSITE NAVIGATION & HELP:**
+    - **Dashboard** (/dashboard): Create Production Orders (Staking), view active orders, claim yield.
+    - **NFT Marketplace** (/nft): Mint, Buy, Sell, and Auction digital artifacts.
+    - **Sports Betting** (/betting): Bet CRKZ on live sports events.
+    - **Arcade** (/arcade): Play provably fair blockchain games (Plinko, Crash, etc.).
+    - **Passive Hub** (/passive): Watch decentralized media and read analytics.
+    - **Tools** (/tools): Utilities like Unit Converter, IPFS Upload, etc.
+
+    **USER CONTEXT:**
+    - Wallet Connected: ${dappContext?.wallet_address || 'No'}
+    - Balance: ${dappContext?.user_balance ? formatEther(dappContext.user_balance as bigint) : '0'} CRKZ
+    - Active Orders: ${dappContext?.active_orders_count || 0}
+    - Reputation: ${dappContext?.total_reputation ? formatEther(dappContext.total_reputation as bigint) : '0'}
+
+    **INSTRUCTIONS:**
+    1. Be helpful, concise, and slightly futuristic in tone.
+    2. If the user asks about "blinking" or "lag", explain that the neural link (data fetching) has been optimized in the latest update.
+    3. If the user is confused, guide them to the specific section of the dApp.
+    4. If the user reports a bug, apologize and suggest they use the "Send Transcript to Support" button in the chat interface.
+    5. Explain that Production Orders use Fibonacci time-locks (5, 13, 34 days...) to generate yield.
+
+    **MEMORY CONTEXT:**
+    ${memoryContext}
+    `;
+
     try {
-      // Load a lightweight embedding model (approx 20MB)
-      this.embedder = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
-      this.isReady = true;
-      console.log("🧠 Memory Embedder Loaded");
-    } catch (e) {
-      console.error("Failed to load embedder", e);
+        let responseText = "";
+        let response: Response;
+
+        if (config.provider === 'google') {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${config.id}:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`;
+            response = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: `${systemPrompt}\n\nUSER QUERY: ${text}` }] }]
+                })
+            });
+        } else {
+            // Groq / OpenRouter
+            const url = config.provider === 'groq' ? "https://api.groq.com/openai/v1/chat/completions" : "https://openrouter.ai/api/v1/chat/completions";
+            const key = config.provider === 'groq' ? import.meta.env.VITE_GROQ_API_KEY : import.meta.env.VITE_OPENROUTER_API_KEY;
+
+            response = await fetch(url, {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${key}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    messages: [
+                        { role: "system", content: systemPrompt },
+                        { role: "user", content: text }
+                    ],
+                    model: config.id,
+                    temperature: 0.7,
+                    max_tokens: 500
+                })
+            });
+        }
+
+        if (response.status === 429) {
+            throw new Error(`[RATE LIMIT]: The ${config.provider.toUpperCase()} model is busy. Please switch models in settings.`);
+        }
+        if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(`[API ERROR]: ${errData.error?.message || 'Connection Failed'}`);
+        }
+
+        const data = await response.json();
+        if (config.provider === 'google') {
+            responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "I am processing that thought...";
+        } else {
+            responseText = data.choices?.[0]?.message?.content || "I am processing that thought...";
+        }
+
+        // Store interaction
+        await this.memory.store('user', text, dappContext);
+        await this.memory.store('bot', responseText, dappContext);
+
+        return { response: responseText, actionPlan: { type: 'RESPOND_NATURAL', requiresBlockchain: false, priority: 1, reasoning: 'Chat' } };
+
+    } catch (error: any) {
+        throw error; 
     }
-  }
-
-  private async generateEmbedding(text: string): Promise<number[]> {
-    if (!this.embedder) await this.init();
-    if (!this.embedder) return new Array(384).fill(0);
-
-    const output = await this.embedder(text, { pooling: 'mean', normalize: true });
-    // Convert Tensor to array
-    return Array.from(output.data);
-  }
-
-  private cosineSimilarity(a: number[], b: number[]): number {
-    let dotProduct = 0;
-    let normA = 0;
-    let normB = 0;
-    for (let i = 0; i < a.length; i++) {
-      dotProduct += a[i] * b[i];
-      normA += a[i] * a[i];
-      normB += b[i] * b[i];
-    }
-    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
-  }
-
-  public async store(
-    role: 'user' | 'bot',
-    content: string,
-    dappContext?: any
-  ): Promise<void> {
-    // Generate vector for semantic search
-    const vector = await this.generateEmbedding(content);
-    
-    // Map 384-dim vector to 6-dim game vector (simplified reduction for UI stats)
-    const gameVector: Vector = [
-        Math.abs(vector[0]), Math.abs(vector[1]), Math.abs(vector[2]), 
-        Math.abs(vector[3]), Math.abs(vector[4]), Math.abs(vector[5])
-    ];
-
-    const memory: Memory = {
-      id: crypto.randomUUID(),
-      role,
-      content,
-      timestamp: Date.now(),
-      concepts: [], // Legacy support
-      emotional_weight: 1.0,
-      access_count: 0,
-      vector: gameVector,
-      embedding: vector, // New field for RAG
-      dapp_context: dappContext
-    } as any; // Cast to any to allow new embedding field
-
-    this.longTerm.push(memory);
-    
-    // Keep memory size manageable
-    if (this.longTerm.length > 500) {
-        this.longTerm.shift(); // Remove oldest
-    }
-  }
-
-  public async retrieve(query: string, limit: number = 3): Promise<Memory[]> {
-    if (this.longTerm.length === 0) return [];
-    
-    const queryVector = await this.generateEmbedding(query);
-
-    const scored = this.longTerm.map(mem => {
-        // If memory doesn't have embedding (legacy), return 0 score
-        const score = (mem as any).embedding 
-            ? this.cosineSimilarity(queryVector, (mem as any).embedding)
-            : 0;
-        return { mem, score };
-    });
-
-    // Sort by similarity
-    scored.sort((a, b) => b.score - a.score);
-
-    return scored.slice(0, limit).map(s => s.mem);
-  }
-
-  public exportState() {
-    return {
-      longTermMemory: this.longTerm
-    };
   }
 }
