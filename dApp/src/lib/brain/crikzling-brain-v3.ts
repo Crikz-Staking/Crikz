@@ -1,5 +1,5 @@
 import { MemoryConsolidationEngine } from './memory-consolidation';
-import { DAppContext, ActionPlan, ModelConfig } from './types';
+import { DAppContext, ActionPlan, ModelConfig, Memory } from './types';
 import { formatEther } from 'viem';
 
 export class CrikzlingBrainV3 { 
@@ -16,23 +16,26 @@ export class CrikzlingBrainV3 {
   ): Promise<{ response: string; actionPlan: ActionPlan }> { 
     
     // 1. Retrieve Context
-    const relevantMemories = await this.memory.retrieve(text, 2);
-    const memoryContext = relevantMemories.map(m => `[History]: ${m.content}`).join("\n");
+    const relevantMemories = await this.memory.retrieve(text, 5);
+    
+    // FIX: Explicitly typed 'm' as Memory to solve TS7006
+    const memoryContext = relevantMemories
+        .map((m: Memory) => `[${m.role.toUpperCase()}]: ${m.content}`)
+        .join("\n");
 
     // 2. Professional System Prompt
     const systemPrompt = `
     You are the **Crikz Protocol Architect**, an advanced AI assistant embedded in a decentralized application (dApp) on the BSC Testnet.
     
     **YOUR OBJECTIVE:**
-    Provide accurate, professional, and helpful assistance regarding the Crikz ecosystem. Do not be weird, obsessive, or cryptic. Be concise and technical but accessible.
+    Provide accurate, professional, and helpful assistance regarding the Crikz ecosystem.
 
     **PROJECT KNOWLEDGE BASE:**
     - **Core**: A DeFi protocol combining Fibonacci mathematics with algorithmic reputation.
     - **Token**: $CRKZ (Crikz Token). Used for staking, betting, and governance.
     - **NFT Marketplace**: Users can mint files (IPFS), buy/sell, and auction digital assets.
-    - **Sports Betting**: A decentralized sportsbook for live events (Soccer, eSports, etc.).
-    - **Arcade**: Provably fair blockchain games (Plinko, Crash, Blackjack).
-    - **Security**: Non-custodial, smart contract-based logic.
+    - **Sports Betting**: A decentralized sportsbook for live events.
+    - **Arcade**: Provably fair blockchain games.
     - **Current Status**: Running on BSC Testnet (Chain ID 97).
 
     **USER CONTEXT:**
@@ -40,23 +43,19 @@ export class CrikzlingBrainV3 {
     - Balance: ${dappContext?.user_balance ? formatEther(dappContext.user_balance as bigint) : '0'} CRKZ
     - Active Orders: ${dappContext?.active_orders_count || 0}
 
-    **GUIDELINES:**
-    1. If the user says "Hello", welcome them to the Crikz Protocol and offer a tour of the features (Betting, NFTs, Dashboard).
-    2. If asked about the "background" or "site", explain that the interface reacts to neural activity in real-time.
-    3. If asked about "Phi" or "Fibonacci", explain it briefly as the mathematical foundation for the staking yields, but move on quickly.
-    4. If the user reports a bug, apologize professionally and suggest using the "Email Transcript" button.
-
     **CONVERSATION HISTORY:**
     ${memoryContext}
+    
+    **USER QUERY:**
+    ${text}
     `;
 
     try {
         let responseText = "";
         let response: Response;
 
-        // --- GOOGLE GEMINI (Fixed Endpoint) ---
+        // --- GOOGLE GEMINI ---
         if (config.provider === 'google') {
-            // Using v1beta endpoint which is currently standard for free tier keys
             const url = `https://generativelanguage.googleapis.com/v1beta/models/${config.id}:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`;
             
             response = await fetch(url, {
@@ -65,7 +64,7 @@ export class CrikzlingBrainV3 {
                 body: JSON.stringify({
                     contents: [{ 
                         role: "user",
-                        parts: [{ text: `${systemPrompt}\n\nUSER QUERY: ${text}` }] 
+                        parts: [{ text: systemPrompt }] 
                     }]
                 })
             });
@@ -83,11 +82,10 @@ export class CrikzlingBrainV3 {
                 },
                 body: JSON.stringify({
                     messages: [
-                        { role: "system", content: systemPrompt },
-                        { role: "user", content: text }
+                        { role: "user", content: systemPrompt }
                     ],
                     model: config.id,
-                    temperature: 0.5, // Lower temperature for more professional responses
+                    temperature: 0.5,
                     max_tokens: 1024
                 })
             });
@@ -95,7 +93,6 @@ export class CrikzlingBrainV3 {
 
         if (!response.ok) {
             const errData = await response.json();
-            console.error("AI Error:", errData);
             throw new Error(`AI Provider Error: ${errData.error?.message || response.statusText}`);
         }
 
