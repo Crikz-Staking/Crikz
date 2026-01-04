@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Tag, User, Send, Loader2, FileText, Layers, ExternalLink, Music, Video, Image as ImageIcon, Box, Globe, ShieldCheck, MessageSquare } from 'lucide-react';
 import { formatTokenAmount, shortenAddress } from '@/lib/utils';
 import { toast } from 'react-hot-toast';
+import IPFSImage from '@/components/ui/IPFSImage'; // <--- NEW IMPORT
 
 interface NFTDetailModalProps {
     item: any;
@@ -11,12 +12,12 @@ interface NFTDetailModalProps {
     isPending: boolean;
 }
 
-// Robust IPFS Resolver
+// Helper to resolve IPFS for non-image assets (Video/Audio)
 const resolveIPFS = (uri: string) => {
   if (!uri) return '';
   if (uri.startsWith('http')) return uri;
   const cid = uri.replace('ipfs://', '');
-  return `https://dweb.link/ipfs/${cid}`;
+  return `https://gateway.pinata.cloud/ipfs/${cid}`;
 };
 
 export default function NFTDetailModal({ item, onClose, onBuy, isPending }: NFTDetailModalProps) {
@@ -27,8 +28,7 @@ export default function NFTDetailModal({ item, onClose, onBuy, isPending }: NFTD
     const meta = item.metadata || {};
     const price = item.type === 'fixed' ? item.price : (item.highestBid || item.minPrice);
     
-    // Resolve images for display
-    const displayImage = resolveIPFS(meta.image);
+    // Resolve animation URL for video/audio
     const displayAnimation = resolveIPFS(meta.animation_url);
 
     // Lock Body Scroll
@@ -80,7 +80,7 @@ export default function NFTDetailModal({ item, onClose, onBuy, isPending }: NFTD
                     <div className="relative z-10 w-full h-full flex items-center justify-center">
                         {mediaType === 'video' ? (
                             <video 
-                                src={displayAnimation || displayImage} 
+                                src={displayAnimation} 
                                 controls 
                                 autoPlay 
                                 loop 
@@ -93,22 +93,11 @@ export default function NFTDetailModal({ item, onClose, onBuy, isPending }: NFTD
                                 </div>
                                 <audio src={displayAnimation} controls className="w-full" />
                             </div>
-                        ) : displayImage ? (
-                            <img 
-                                src={displayImage} 
+                        ) : meta.image ? (
+                            <IPFSImage 
+                                src={meta.image} 
                                 alt={meta.name} 
                                 className="max-w-full max-h-full object-contain rounded-xl shadow-2xl drop-shadow-[0_0_30px_rgba(245,158,11,0.2)]" 
-                                onError={(e) => {
-                                    e.currentTarget.style.display = 'none';
-                                    // Show fallback if image fails
-                                    const parent = e.currentTarget.parentElement;
-                                    if (parent) {
-                                        const fallback = document.createElement('div');
-                                        fallback.className = "flex flex-col items-center text-gray-500";
-                                        fallback.innerHTML = '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg><span class="text-xs mt-2">Image Failed to Load</span>';
-                                        parent.appendChild(fallback);
-                                    }
-                                }}
                             />
                         ) : (
                             <div className="flex flex-col items-center text-gray-600">

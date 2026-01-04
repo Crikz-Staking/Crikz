@@ -7,6 +7,7 @@ import { usePublicClient } from 'wagmi';
 import { CRIKZ_NFT_ABI } from '@/config/index';
 import NFTDetailModal from './NFTDetailModal';
 import Tooltip from '@/components/ui/Tooltip';
+import IPFSImage from '@/components/ui/IPFSImage'; // <--- NEW IMPORT
 
 interface MarketListingsProps {
   onBuy: (listingId: bigint, price: bigint) => void;
@@ -15,14 +16,12 @@ interface MarketListingsProps {
   listings: any[];
 }
 
-// Robust IPFS Resolver
-const resolveIPFS = (uri: string) => {
+// Helper for JSON metadata fetching only
+const resolveMetadataGateway = (uri: string) => {
   if (!uri) return '';
-  // If it's already a web URL, return it
   if (uri.startsWith('http')) return uri;
-  // Strip prefix and use reliable gateway
   const cid = uri.replace('ipfs://', '');
-  return `https://dweb.link/ipfs/${cid}`;
+  return `https://gateway.pinata.cloud/ipfs/${cid}`; // Prefer Pinata for JSON
 };
 
 export default function MarketListings({ onBuy, isPending }: MarketListingsProps) {
@@ -35,19 +34,15 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [selectedItem, setSelectedItem] = useState<any>(null);
   
-  // Metadata Cache
   const [metadataCache, setMetadataCache] = useState<Record<string, any>>({});
   const [loadingMeta, setLoadingMeta] = useState(false);
 
-  // Pagination
   const [page, setPage] = useState(1);
   const itemsPerPage = viewMode === 'grid' ? 9 : 27;
 
-  // Timer Logic Refs
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const isPreviewOpenRef = useRef(false);
 
-  // --- FILTERING & SORTING ---
   const filteredItems = useMemo(() => {
       let result = items;
       if (marketType !== 'all') result = result.filter(i => i.type === marketType);
@@ -78,7 +73,6 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
   const paginatedItems = filteredItems.slice((page - 1) * itemsPerPage, page * itemsPerPage);
   const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
 
-  // --- METADATA FETCHING ---
   useEffect(() => {
     const fetchMetadata = async () => {
         if (!publicClient || paginatedItems.length === 0) return;
@@ -98,18 +92,13 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
                     args: [item.tokenId]
                 }) as string;
 
-                // Use reliable gateway for JSON
-                const httpUrl = resolveIPFS(uri);
+                const httpUrl = resolveMetadataGateway(uri);
                 const res = await fetch(httpUrl);
                 const json = await res.json();
                 
-                // Resolve image inside metadata immediately
-                if (json.image) {
-                    json.image = resolveIPFS(json.image);
-                }
                 newMeta[item.id] = json;
             } catch (e) {
-                console.warn("Metadata fetch failed for", item.id, e);
+                console.warn("Metadata fetch failed for", item.id);
                 newMeta[item.id] = { name: `Item #${item.tokenId}`, description: 'Metadata unavailable', image: null };
             }
         }));
@@ -121,7 +110,6 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
     fetchMetadata();
   }, [paginatedItems, publicClient]);
 
-  // --- AUTO REFRESH LOGIC ---
   const startTimer = (duration: number) => {
       if (timerRef.current) clearInterval(timerRef.current);
       timerRef.current = setInterval(() => {
@@ -149,12 +137,10 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
       }
   }, [selectedItem]);
 
-
   if (isLoading && items.length === 0) return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary-500" size={40}/></div>;
 
   return (
     <div className="space-y-6">
-        {/* Controls */}
         <div className="flex flex-col md:flex-row gap-4 justify-between bg-gradient-to-r from-[#1a1a24] to-[#12121a] p-4 rounded-2xl border border-white/5 shadow-lg">
             <div className="flex gap-2 overflow-x-auto items-center">
                 {['all', 'fixed', 'auction'].map(t => (
@@ -188,7 +174,6 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
             </div>
         </div>
 
-        {/* Grid/List */}
         {paginatedItems.length === 0 ? (
             <div className="text-center py-20 text-gray-500 bg-white/5 rounded-3xl border border-white/5 border-dashed">
                 <p>No items found matching your criteria.</p>
@@ -210,18 +195,12 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
                                 onClick={() => setSelectedItem({ ...item, metadata: meta })}
                                 className={`glass-card rounded-2xl border border-white/10 hover:border-primary-500/50 transition-all group bg-[#12121A] cursor-pointer overflow-hidden relative shadow-lg hover:shadow-primary-500/20 ${viewMode === 'list' ? 'flex flex-row items-center p-3 gap-4 h-24' : 'p-4 flex flex-col'}`}
                             >
-                                {/* Image Area */}
                                 <div className={`bg-black/40 rounded-xl flex items-center justify-center relative overflow-hidden border border-white/5 ${viewMode === 'list' ? 'w-20 h-full shrink-0' : 'aspect-square mb-4 w-full'}`}>
                                     {meta.image ? (
-                                        <img 
+                                        <IPFSImage 
                                             src={meta.image} 
                                             alt={meta.name} 
                                             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                                            onError={(e) => {
-                                                // Fallback if image fails to load
-                                                e.currentTarget.style.display = 'none';
-                                                e.currentTarget.parentElement?.classList.add('fallback-active');
-                                            }}
                                         />
                                     ) : (
                                         <div className="flex flex-col items-center justify-center text-gray-600">
@@ -230,12 +209,6 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
                                         </div>
                                     )}
                                     
-                                    {/* Fallback Icon (Hidden by default, shown via CSS if img fails) */}
-                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 [.fallback-active_&]:opacity-100">
-                                        <ImageIcon size={32} className="text-gray-700" />
-                                    </div>
-                                    
-                                    {/* Badges */}
                                     <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
                                         <div className={`px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-wider flex items-center gap-1 backdrop-blur-md ${isAuction ? 'bg-purple-500/80 text-white' : 'bg-emerald-500/80 text-black'}`}>
                                             {isAuction ? <Gavel size={8}/> : <Tag size={8}/>}
@@ -243,7 +216,6 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
                                         </div>
                                     </div>
                                     
-                                    {/* Hover Overlay */}
                                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px] z-20">
                                         <div className="bg-white text-black px-4 py-2 rounded-full font-bold text-xs flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-transform">
                                             <Eye size={14}/> View Details
@@ -251,7 +223,6 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
                                     </div>
                                 </div>
 
-                                {/* Info Area */}
                                 <div className="flex-1 min-w-0 flex flex-col justify-between h-full">
                                     <div>
                                         <div className="flex justify-between items-start mb-1">
@@ -263,7 +234,6 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
                                             By <span className="text-gray-300 font-mono">{shortenAddress(item.seller)}</span>
                                         </p>
                                         
-                                        {/* System Tags (Grid Only) */}
                                         {viewMode === 'grid' && (
                                             <div className="flex flex-wrap gap-1 mb-3">
                                                 <div className="px-1.5 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 text-[8px] font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1">
@@ -302,7 +272,6 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
             </div>
         )}
 
-        {/* Pagination */}
         {totalPages > 1 && (
             <div className="flex justify-center items-center gap-4 mt-8 bg-black/20 p-2 rounded-2xl border border-white/5 w-fit mx-auto">
                 <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="p-2 bg-white/5 rounded-xl hover:bg-white/10 disabled:opacity-30 transition-colors"><ChevronLeft size={16}/></button>
@@ -311,7 +280,6 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
             </div>
         )}
 
-        {/* Detail Modal */}
         {selectedItem && (
             <NFTDetailModal 
                 item={selectedItem} 
