@@ -1,8 +1,13 @@
-// src/components/BackgroundEffects.tsx
 import React, { useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 
-export default function BackgroundEffects() {
+// 1. Define the expected props to fix the TypeScript error
+interface BackgroundEffectsProps {
+  aiState?: 'idle' | 'thinking' | 'responding';
+}
+
+// 2. Accept the prop in the function signature
+export default function BackgroundEffects({ aiState }: BackgroundEffectsProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -36,7 +41,7 @@ export default function BackgroundEffects() {
         this.size = 1.5 + Math.random() * 2.5;
         this.opacity = Math.random() * 0.6 + 0.3;
         
-        // Locked Gold Palette
+        // Locked Gold Palette (As requested in your code)
         const hue = 35 + Math.random() * 10; // 35-45 (Amber/Gold)
         this.color = `hsla(${hue}, 100%, 60%, ${this.opacity})`;
         
@@ -82,6 +87,8 @@ export default function BackgroundEffects() {
       particles.push(new FibonacciParticle());
     }
 
+    let animationFrameId: number;
+
     function animate() {
       if (!ctx || !canvas) return;
       
@@ -109,11 +116,14 @@ export default function BackgroundEffects() {
           }
         });
       });
-      requestAnimationFrame(animate);
+      animationFrameId = requestAnimationFrame(animate);
     }
 
     animate();
-    return () => { window.removeEventListener('resize', resize); };
+    return () => { 
+        window.removeEventListener('resize', resize);
+        cancelAnimationFrame(animationFrameId);
+    };
   }, []);
 
   return (
