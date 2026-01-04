@@ -10,7 +10,6 @@ export interface ModelConfig {
   limitInfo: string;
 }
 
-// Simplified Memory Interface
 export interface Memory {
   role: 'user' | 'bot' | 'system';
   content: string;
@@ -22,7 +21,6 @@ export interface DAppContext {
   active_orders_count?: number;
   total_reputation?: bigint;
   global_total_reputation?: bigint;
-  // FIX: Added this property to solve TS2339
   wallet_address?: string; 
 }
 
@@ -35,7 +33,30 @@ export interface ActionPlan {
   reasoning: string;
 }
 
-// Keep for compatibility if other files import it, but we won't use complex logic
+// --- LEGACY TYPES RESTORED FOR DASHBOARD COMPATIBILITY ---
+
+export interface InternalDrives {
+  curiosity: number;   
+  stability: number;   
+  efficiency: number;  
+  social: number;      
+  energy: number;      
+}
+
+export type Vector = [number, number, number, number, number, number];
+
+export interface CognitiveLogEntry {
+  id: string;
+  timestamp: number;
+  type: 'INTERACTION' | 'SYSTEM' | 'WEB_SYNC'; 
+  input: string; 
+  output: string; 
+  intent?: string;
+  dappContext?: any; 
+  actionPlan?: ActionPlan;   
+}
+
 export interface BrainState {
   longTermMemory: Memory[];
+  drives: InternalDrives; // Kept for dashboard
 }

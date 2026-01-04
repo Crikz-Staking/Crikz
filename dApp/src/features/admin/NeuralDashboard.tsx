@@ -43,7 +43,6 @@ interface NeuralDashboardProps {
     crystallize?: () => void;
     uploadFile?: (content: string) => void;
     isSyncing?: boolean;
-    // Removed old training props
     trainConcept?: any;
     simpleTrain?: any;
 }
@@ -55,7 +54,6 @@ export default function NeuralDashboard({
 }: NeuralDashboardProps) {
     const [view, setView] = useState<'monitor' | 'cortex' | 'matrix' | 'timeline'>('monitor');
     
-    // Safe access to stats
     const isConnected = brainStats?.connectivity?.isConnected || false;
     const stamina = brainStats?.connectivity?.stamina || 0;
 
@@ -377,7 +375,9 @@ function MonitorView({ stats, logs, crystallize, isSyncing }: { stats: any, logs
 
 function MatrixView({ stats, onUpdate }: { stats: any, onUpdate: (d: InternalDrives) => void }) {
     const [drives, setDrives] = useState<InternalDrives>(stats.drives);
-    const handleChange = (k: keyof InternalDrives, v: number) => setDrives(prev => ({ ...prev, [k]: v }));
+    
+    // FIX: Explicitly type 'prev' to InternalDrives
+    const handleChange = (k: keyof InternalDrives, v: number) => setDrives((prev: InternalDrives) => ({ ...prev, [k]: v }));
 
     return (
         <div className="max-w-xl mx-auto glass-card p-8 rounded-3xl border border-white/10 bg-background-elevated">

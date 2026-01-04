@@ -11,7 +11,11 @@ export default function CrikzlingAvatar() {
   const [showSettings, setShowSettings] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   
-  const { messages, sendMessage, isThinking, selectedModel, setSelectedModel, clearHistory } = useCrikzlingV3();
+  // FIX: Destructure aiState instead of isThinking
+  const { messages, sendMessage, aiState, selectedModel, setSelectedModel, clearHistory } = useCrikzlingV3();
+  
+  // FIX: Derive boolean for UI logic
+  const isThinking = aiState === 'thinking';
 
   // Auto-scroll to bottom
   useEffect(() => {
