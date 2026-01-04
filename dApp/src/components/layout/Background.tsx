@@ -36,7 +36,7 @@ export default function BackgroundEffects({ aiState = 'idle' }: BackgroundEffect
       speed: number;
       size: number;
       opacity: number;
-      color: string;
+      color: string = ''; // Fixed: Initialized with default value
 
       constructor() {
         this.angle = Math.random() * Math.PI * 2;
