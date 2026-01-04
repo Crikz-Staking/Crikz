@@ -3,8 +3,8 @@ import { useAccount } from 'wagmi';
 import { CrikzlingBrainV3 } from '@/lib/brain/crikzling-brain-v3';
 import { useContractData } from '@/hooks/web3/useContractData';
 import { ModelConfig } from '@/lib/brain/types';
+import { triggerInteraction } from '@/lib/interaction-events'; // Import
 
-// ONLY FUNCTIONAL MODELS
 export const AVAILABLE_MODELS: ModelConfig[] = [
     { 
         id: 'llama-3.3-70b-versatile', 
@@ -27,9 +27,7 @@ export function useCrikzlingV3() {
   const [brain, setBrain] = useState<CrikzlingBrainV3 | null>(null);
   const [messages, setMessages] = useState<{role: 'user' | 'bot' | 'system', content: string, timestamp: number}[]>([]);
   
-  // AI State: 'idle' | 'thinking' | 'responding'
   const [aiState, setAiState] = useState<'idle' | 'thinking' | 'responding'>('idle');
-  
   const [selectedModel, setSelectedModel] = useState<ModelConfig>(AVAILABLE_MODELS[0]);
 
   const { balance, activeOrders, totalReputation, globalFund } = useContractData();
@@ -53,20 +51,24 @@ export function useCrikzlingV3() {
     if (!brain || aiState === 'thinking') return;
     
     setAiState('thinking');
+    triggerInteraction('AI_THOUGHT'); // Trigger Background
+
     setMessages(prev => [...prev, { role: 'user', content: text, timestamp: Date.now() }]);
 
     try {
       const { response } = await brain.process(text, dappContextRef.current, selectedModel);
       
       setAiState('responding');
+      triggerInteraction('AI_RESPONSE'); // Trigger Background
+
       setMessages(prev => [...prev, { role: 'bot', content: response, timestamp: Date.now() }]);
       
-      // Go back to idle after a short delay to let animations finish
       setTimeout(() => setAiState('idle'), 2000);
 
     } catch (e: any) {
       setMessages(prev => [...prev, { role: 'system', content: `Error: ${e.message}`, timestamp: Date.now() }]);
       setAiState('idle');
+      triggerInteraction('ERROR');
     }
   };
 
@@ -75,7 +77,7 @@ export function useCrikzlingV3() {
   return {
     messages, 
     sendMessage, 
-    aiState, // Exported for Background.tsx
+    aiState, 
     selectedModel,
     setSelectedModel,
     clearHistory,

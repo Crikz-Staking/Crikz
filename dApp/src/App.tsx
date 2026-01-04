@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { useAccount } from 'wagmi';
 import Header from '@/components/layout/Header';
@@ -15,8 +15,9 @@ import BlockchainGames from '@/features/games/BlockchainGames';
 import BettingLayout from '@/features/betting/BettingLayout';
 
 import { useAppWatcher } from '@/hooks/useAppWatcher';
-import { useCrikzlingV3 } from '@/hooks/useCrikzlingV3'; // Import hook here to share state
+import { useCrikzlingV3 } from '@/hooks/useCrikzlingV3'; 
 import { MainSection, ActiveView, Language } from '@/types';
+import { triggerInteraction } from '@/lib/interaction-events';
 
 export default function App() {
   const { isConnected } = useAccount();
@@ -24,17 +25,20 @@ export default function App() {
   const [currentSection, setCurrentSection] = useState<MainSection>('active');
   const [activeView, setActiveView] = useState<ActiveView>('dashboard');
   
-  // Initialize AI Hook at App level to share 'aiState' with Background
   const { aiState } = useCrikzlingV3();
   
   useAppWatcher();
 
-  const getThemeColor = () => {
-    // Dynamic color based on AI state takes precedence for "Cool Factor"
-    if (aiState === 'thinking') return '#a78bfa'; // Purple
-    if (aiState === 'responding') return '#10b981'; // Emerald
+  // Trigger background event when sub-view changes
+  const handleSubViewChange = (view: ActiveView) => {
+      setActiveView(view);
+      triggerInteraction('NAVIGATION');
+  };
 
-    // Fallback to section colors
+  const getThemeColor = () => {
+    if (aiState === 'thinking') return '#a78bfa'; 
+    if (aiState === 'responding') return '#10b981'; 
+
     switch (currentSection) {
       case 'active': return '#f59e0b';
       case 'passive': return '#3b82f6';
@@ -47,7 +51,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen relative text-white selection:bg-primary-500/30 overflow-x-hidden">
-      {/* Pass AI State to Background */}
+      {/* Background reacts to AI State and Event Bus */}
       <BackgroundEffects aiState={aiState} />
       
       <Toaster position="bottom-right" reverseOrder={false} />
@@ -55,7 +59,7 @@ export default function App() {
       <Header 
         lang={lang} 
         setLang={setLang} 
-        setViewMode={setActiveView} 
+        setViewMode={handleSubViewChange} 
         dynamicColor={dynamicColor}
       />
 
@@ -79,7 +83,7 @@ export default function App() {
                 ].map(view => (
                     <button 
                         key={view.id}
-                        onClick={() => setActiveView(view.id as ActiveView)}
+                        onClick={() => handleSubViewChange(view.id as ActiveView)}
                         className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${
                             activeView === view.id 
                             ? 'bg-white/10 text-white shadow-lg' 
@@ -109,16 +113,7 @@ export default function App() {
         </div>
       </main>
 
-      {/* AI Avatar is self-contained but shares context via hook internally if needed, 
-          but here we just render it. Note: The hook inside App() is just for background state. 
-          The component uses its own instance of the hook. 
-          *Correction*: To sync state perfectly, we should pass props, but useCrikzlingV3 
-          creates a new brain instance. For visual sync, the background reacting to *any* 
-          hook instance is fine for visual flair, or we can context provider it. 
-          For simplicity in this file structure, the Avatar component manages the actual chat.
-      */}
       <CrikzlingAvatar />
-
       <Footer />
     </div>
   );

@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { LayoutDashboard, ShoppingBag, Gamepad2, Tv, Wrench } from 'lucide-react';
 import { MainSection } from '@/types';
+import { triggerInteraction } from '@/lib/interaction-events'; // Import Event Bus
 
 interface GlobalNavigationProps {
   currentSection: MainSection;
@@ -12,15 +13,17 @@ interface GlobalNavigationProps {
 export default function GlobalNavigation({ currentSection, setSection, dynamicColor }: GlobalNavigationProps) {
   const navItems = [
     { id: 'active', label: 'Dashboard', icon: LayoutDashboard, desc: 'Staking & Orders' },
-    { id: 'nft', label: 'Marketplace', icon: ShoppingBag, desc: 'NFT Trading' }, // Mapped to 'active' logic in App.tsx but visually distinct
-    { id: 'arcade', label: 'Arcade', icon: Gamepad2, desc: 'Games & Betting' }, // Mapped to 'active' logic
+    { id: 'nft', label: 'Marketplace', icon: ShoppingBag, desc: 'NFT Trading' },
+    { id: 'arcade', label: 'Arcade', icon: Gamepad2, desc: 'Games & Betting' },
     { id: 'passive', label: 'Media Hub', icon: Tv, desc: 'Stream & Learn' },
     { id: 'tools', label: 'Utilities', icon: Wrench, desc: 'Dev Tools' }
   ];
 
-  // Helper to map visual ID to logical section
   const handleNav = (id: string) => {
-      if (['active', 'nft', 'arcade'].includes(id)) setSection('active'); // These share the 'active' logic in App.tsx
+      // Trigger Background Effect
+      triggerInteraction('NAVIGATION');
+      
+      if (['active', 'nft', 'arcade'].includes(id)) setSection('active');
       else setSection(id as MainSection);
   };
 
@@ -28,13 +31,10 @@ export default function GlobalNavigation({ currentSection, setSection, dynamicCo
     <div className="flex justify-center mb-10">
       <div className="flex items-center gap-2 bg-[#12121A]/80 backdrop-blur-xl p-2 rounded-2xl border border-white/10 shadow-2xl">
         {navItems.map((item) => {
-          // Determine active state based on logical mapping
           let isActive = false;
-          if (currentSection === 'active' && (item.id === 'active' || item.id === 'nft' || item.id === 'arcade')) isActive = true; // Simplified for visual demo, ideally App.tsx handles sub-views
+          if (currentSection === 'active' && (item.id === 'active' || item.id === 'nft' || item.id === 'arcade')) isActive = true;
           if (currentSection === item.id) isActive = true;
 
-          // Override for specific sub-views if needed, but for now let's keep it clean:
-          // We will just highlight the main section.
           const isMainActive = currentSection === (['nft','arcade'].includes(item.id) ? 'active' : item.id);
 
           return (
