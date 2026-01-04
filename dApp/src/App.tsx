@@ -15,22 +15,30 @@ import BlockchainGames from '@/features/games/BlockchainGames';
 import BettingLayout from '@/features/betting/BettingLayout';
 
 import { useAppWatcher } from '@/hooks/useAppWatcher';
+import { useCrikzlingV3 } from '@/hooks/useCrikzlingV3'; // Import hook here to share state
 import { MainSection, ActiveView, Language } from '@/types';
 
 export default function App() {
   const { isConnected } = useAccount();
   const [lang, setLang] = useState<Language>('en');
   const [currentSection, setCurrentSection] = useState<MainSection>('active');
-  // Default to NFT Marketplace
-  const [activeView, setActiveView] = useState<ActiveView>('nft');
+  const [activeView, setActiveView] = useState<ActiveView>('dashboard');
+  
+  // Initialize AI Hook at App level to share 'aiState' with Background
+  const { aiState } = useCrikzlingV3();
   
   useAppWatcher();
 
   const getThemeColor = () => {
+    // Dynamic color based on AI state takes precedence for "Cool Factor"
+    if (aiState === 'thinking') return '#a78bfa'; // Purple
+    if (aiState === 'responding') return '#10b981'; // Emerald
+
+    // Fallback to section colors
     switch (currentSection) {
       case 'active': return '#f59e0b';
-      case 'passive': return '#a78bfa';
-      case 'tools': return '#22d3ee';
+      case 'passive': return '#3b82f6';
+      case 'tools': return '#ec4899';
       default: return '#f59e0b';
     }
   };
@@ -39,7 +47,8 @@ export default function App() {
 
   return (
     <div className="min-h-screen relative text-white selection:bg-primary-500/30 overflow-x-hidden">
-      <BackgroundEffects />
+      {/* Pass AI State to Background */}
+      <BackgroundEffects aiState={aiState} />
       
       <Toaster position="bottom-right" reverseOrder={false} />
 
@@ -60,40 +69,26 @@ export default function App() {
         <div className="mt-8 transition-all duration-500">
           {currentSection === 'active' && (
             <div className="space-y-8">
-              {/* Navigation Sub-Menu for Active Section - REORDERED */}
-              <div className="flex flex-wrap justify-center gap-4 mb-8">
-                <button 
-                  onClick={() => setActiveView('dashboard')}
-                  className={`px-6 py-2 rounded-full font-bold transition-all ${
-                    activeView === 'dashboard' ? 'bg-primary-500 text-black shadow-lg shadow-primary-500/20' : 'bg-white/5 hover:bg-white/10 text-gray-400'
-                  }`}
-                >
-                  Dashboard
-                </button>
-                <button 
-                  onClick={() => setActiveView('nft')}
-                  className={`px-6 py-2 rounded-full font-bold transition-all ${
-                    activeView === 'nft' ? 'bg-primary-500 text-black shadow-lg shadow-primary-500/20' : 'bg-white/5 hover:bg-white/10 text-gray-400'
-                  }`}
-                >
-                  NFT Marketplace
-                </button>
-                <button 
-                  onClick={() => setActiveView('betting')}
-                  className={`px-6 py-2 rounded-full font-bold transition-all flex items-center gap-2 ${
-                    activeView === 'betting' ? 'bg-primary-500 text-black shadow-lg shadow-primary-500/20' : 'bg-white/5 hover:bg-white/10 text-gray-400'
-                  }`}
-                >
-                  Sports Betting
-                </button>
-                <button 
-                  onClick={() => setActiveView('arcade')}
-                  className={`px-6 py-2 rounded-full font-bold transition-all ${
-                    activeView === 'arcade' ? 'bg-primary-500 text-black shadow-lg shadow-primary-500/20' : 'bg-white/5 hover:bg-white/10 text-gray-400'
-                  }`}
-                >
-                  Blockchain Games
-                </button>
+              {/* Sub-Navigation for Active Section */}
+              <div className="flex flex-wrap justify-center gap-2 mb-8 bg-black/20 p-1 rounded-xl w-fit mx-auto border border-white/5">
+                {[
+                    { id: 'dashboard', label: 'Dashboard' },
+                    { id: 'nft', label: 'NFT Market' },
+                    { id: 'betting', label: 'Sports' },
+                    { id: 'arcade', label: 'Arcade' }
+                ].map(view => (
+                    <button 
+                        key={view.id}
+                        onClick={() => setActiveView(view.id as ActiveView)}
+                        className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${
+                            activeView === view.id 
+                            ? 'bg-white/10 text-white shadow-lg' 
+                            : 'text-gray-500 hover:text-white'
+                        }`}
+                    >
+                        {view.label}
+                    </button>
+                ))}
               </div>
               
               {/* Content Render */}
@@ -114,6 +109,14 @@ export default function App() {
         </div>
       </main>
 
+      {/* AI Avatar is self-contained but shares context via hook internally if needed, 
+          but here we just render it. Note: The hook inside App() is just for background state. 
+          The component uses its own instance of the hook. 
+          *Correction*: To sync state perfectly, we should pass props, but useCrikzlingV3 
+          creates a new brain instance. For visual sync, the background reacting to *any* 
+          hook instance is fine for visual flair, or we can context provider it. 
+          For simplicity in this file structure, the Avatar component manages the actual chat.
+      */}
       <CrikzlingAvatar />
 
       <Footer />

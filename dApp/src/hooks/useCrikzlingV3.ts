@@ -4,28 +4,21 @@ import { CrikzlingBrainV3 } from '@/lib/brain/crikzling-brain-v3';
 import { useContractData } from '@/hooks/web3/useContractData';
 import { ModelConfig } from '@/lib/brain/types';
 
-// FILTERED LIST: Only high-availability models
+// ONLY FUNCTIONAL MODELS
 export const AVAILABLE_MODELS: ModelConfig[] = [
     { 
         id: 'llama-3.3-70b-versatile', 
-        name: 'Crikz Core (Llama 3)', 
+        name: 'Crikz Core (Llama 3.3)', 
         provider: 'groq', 
-        description: 'The standard protocol intelligence. Fast and reliable.',
-        limitInfo: 'High speed, optimized for Crikz queries.'
+        description: 'High-speed protocol architect. Best for general queries.',
+        limitInfo: 'Fast & Reliable'
     },
     { 
         id: 'gemini-1.5-flash', 
-        name: 'Gemini Flash', 
+        name: 'Gemini 1.5 Flash', 
         provider: 'google', 
-        description: 'Google\'s lightweight model. Good for general knowledge.',
-        limitInfo: '15 Requests/min.'
-    },
-    { 
-        id: 'mixtral-8x7b-32768', 
-        name: 'Mixtral 8x7b', 
-        provider: 'groq', 
-        description: 'Complex reasoning for deeper protocol analysis.',
-        limitInfo: 'Generous token allowance.'
+        description: 'Google\'s efficient multimodal model.',
+        limitInfo: 'Standard Rate Limits'
     }
 ];
 
@@ -33,7 +26,10 @@ export function useCrikzlingV3() {
   const { address } = useAccount();
   const [brain, setBrain] = useState<CrikzlingBrainV3 | null>(null);
   const [messages, setMessages] = useState<{role: 'user' | 'bot' | 'system', content: string, timestamp: number}[]>([]);
-  const [isThinking, setIsThinking] = useState(false);
+  
+  // AI State: 'idle' | 'thinking' | 'responding'
+  const [aiState, setAiState] = useState<'idle' | 'thinking' | 'responding'>('idle');
+  
   const [selectedModel, setSelectedModel] = useState<ModelConfig>(AVAILABLE_MODELS[0]);
 
   const { balance, activeOrders, totalReputation, globalFund } = useContractData();
@@ -54,30 +50,32 @@ export function useCrikzlingV3() {
   }, []);
 
   const sendMessage = async (text: string) => {
-    if (!brain || isThinking) return;
+    if (!brain || aiState === 'thinking') return;
     
-    setIsThinking(true);
+    setAiState('thinking');
     setMessages(prev => [...prev, { role: 'user', content: text, timestamp: Date.now() }]);
 
     try {
       const { response } = await brain.process(text, dappContextRef.current, selectedModel);
+      
+      setAiState('responding');
       setMessages(prev => [...prev, { role: 'bot', content: response, timestamp: Date.now() }]);
+      
+      // Go back to idle after a short delay to let animations finish
+      setTimeout(() => setAiState('idle'), 2000);
+
     } catch (e: any) {
-      console.error(e);
-      setMessages(prev => [...prev, { role: 'system', content: "Neural Link Unstable: " + (e.message || "Connection Error."), timestamp: Date.now() }]);
-    } finally {
-      setIsThinking(false);
+      setMessages(prev => [...prev, { role: 'system', content: `Error: ${e.message}`, timestamp: Date.now() }]);
+      setAiState('idle');
     }
   };
 
-  const clearHistory = () => {
-      setMessages([]);
-  };
+  const clearHistory = () => setMessages([]);
 
   return {
     messages, 
     sendMessage, 
-    isThinking, 
+    aiState, // Exported for Background.tsx
     selectedModel,
     setSelectedModel,
     clearHistory,

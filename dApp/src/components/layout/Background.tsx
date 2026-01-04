@@ -1,14 +1,16 @@
-// src/components/BackgroundEffects.tsx
 import React, { useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 
-export default function BackgroundEffects() {
+interface BackgroundProps {
+  aiState: 'idle' | 'thinking' | 'responding';
+}
+
+export default function BackgroundEffects({ aiState }: BackgroundProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
@@ -19,119 +21,127 @@ export default function BackgroundEffects() {
     resize();
     window.addEventListener('resize', resize);
 
-    class FibonacciParticle {
-      x: number = 0;
-      y: number = 0;
-      angle: number;
-      radius: number;
-      speed: number;
+    // --- CONFIGURATION BASED ON AI STATE ---
+    const getConfig = () => {
+        switch(aiState) {
+            case 'thinking': 
+                return { color: '167, 139, 250', speed: 0.002, connectionDist: 150, opacity: 0.6 }; // Purple
+            case 'responding': 
+                return { color: '16, 185, 129', speed: 0.005, connectionDist: 200, opacity: 0.8 }; // Emerald/Green
+            default: 
+                return { color: '245, 158, 11', speed: 0.0005, connectionDist: 100, opacity: 0.3 }; // Gold (Idle)
+        }
+    };
+
+    class Node {
+      x: number;
+      y: number;
+      vx: number;
+      vy: number;
       size: number;
-      opacity: number;
-      color: string;
 
       constructor() {
-        this.angle = Math.random() * Math.PI * 2;
-        this.radius = Math.random() * Math.min(canvas!.width, canvas!.height) / 1.2;
-        this.speed = 0.0005 + Math.random() * 0.002;
-        this.size = 1.5 + Math.random() * 2.5;
-        this.opacity = Math.random() * 0.6 + 0.3;
-        
-        // Locked Gold Palette
-        const hue = 35 + Math.random() * 10; // 35-45 (Amber/Gold)
-        this.color = `hsla(${hue}, 100%, 60%, ${this.opacity})`;
-        
-        this.updatePosition();
+        this.x = Math.random() * canvas!.width;
+        this.y = Math.random() * canvas!.height;
+        this.vx = (Math.random() - 0.5) * 0.5;
+        this.vy = (Math.random() - 0.5) * 0.5;
+        this.size = Math.random() * 2;
       }
 
-      updatePosition() {
-        if (!canvas) return;
-        const centerX = canvas.width / 2;
-        const centerY = canvas.height / 2;
-        
-        // Fibonacci spiral: r = a * e^(b*θ)
-        const a = 0.5;
-        const b = 0.2;
-        
-        const spiralRadius = a * Math.exp(b * (this.angle % 20)) * this.radius / 5;
-        this.x = centerX + spiralRadius * Math.cos(this.angle);
-        this.y = centerY + spiralRadius * Math.sin(this.angle);
+      update(speedMult: number) {
+        this.x += this.vx * (speedMult * 1000); // Speed up based on state
+        this.y += this.vy * (speedMult * 1000);
+
+        if (this.x < 0) this.x = canvas!.width;
+        if (this.x > canvas!.width) this.x = 0;
+        if (this.y < 0) this.y = canvas!.height;
+        if (this.y > canvas!.height) this.y = 0;
       }
 
-      update() {
-        this.angle += this.speed;
-        this.updatePosition();
-        // Twinkle
-        this.opacity += (Math.random() - 0.5) * 0.02;
-        this.opacity = Math.max(0.2, Math.min(0.8, this.opacity));
-      }
-
-      draw() {
+      draw(color: string, opacity: number) {
         if (!ctx) return;
-        ctx.fillStyle = this.color;
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = this.color;
+        ctx.fillStyle = `rgba(${color}, ${opacity})`;
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
         ctx.fill();
-        ctx.shadowBlur = 0;
       }
     }
 
-    const particles: FibonacciParticle[] = [];
-    for (let i = 0; i < 150; i++) {
-      particles.push(new FibonacciParticle());
-    }
+    const nodes: Node[] = Array.from({ length: 100 }, () => new Node());
+
+    let animationFrame: number;
 
     function animate() {
       if (!ctx || !canvas) return;
-      
-      // Clear with slight trail
-      ctx.fillStyle = 'rgba(10, 10, 15, 0.1)';
+      const config = getConfig();
+
+      // Clear with trail effect
+      ctx.fillStyle = 'rgba(10, 10, 15, 0.2)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      particles.forEach((particle, i) => {
-        particle.update();
-        particle.draw();
+      nodes.forEach((node, i) => {
+        node.update(config.speed);
+        node.draw(config.color, config.opacity);
 
-        // Connect nearby
-        particles.slice(i + 1).forEach((otherParticle) => {
-          const dx = particle.x - otherParticle.x;
-          const dy = particle.y - otherParticle.y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
+        // Connections
+        for (let j = i + 1; j < nodes.length; j++) {
+          const other = nodes[j];
+          const dx = node.x - other.x;
+          const dy = node.y - other.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
 
-          if (distance < 120) {
-            ctx.strokeStyle = `rgba(245, 158, 11, ${0.15 * (1 - distance / 120)})`;
-            ctx.lineWidth = 0.5;
+          if (dist < config.connectionDist) {
             ctx.beginPath();
-            ctx.moveTo(particle.x, particle.y);
-            ctx.lineTo(otherParticle.x, otherParticle.y);
+            ctx.strokeStyle = `rgba(${config.color}, ${0.15 * (1 - dist / config.connectionDist)})`;
+            ctx.lineWidth = 0.5;
+            ctx.moveTo(node.x, node.y);
+            ctx.lineTo(other.x, other.y);
             ctx.stroke();
           }
-        });
+        }
       });
-      requestAnimationFrame(animate);
+
+      animationFrame = requestAnimationFrame(animate);
     }
 
     animate();
-    return () => { window.removeEventListener('resize', resize); };
-  }, []);
+    return () => { 
+        window.removeEventListener('resize', resize);
+        cancelAnimationFrame(animationFrame);
+    };
+  }, [aiState]); // Re-run when AI state changes
+
+  // --- GRADIENT ORBS (React to State) ---
+  const getOrbColors = () => {
+      switch(aiState) {
+          case 'thinking': return ['#7c3aed', '#4c1d95']; // Violet
+          case 'responding': return ['#10b981', '#059669']; // Emerald
+          default: return ['#f59e0b', '#d97706']; // Gold
+      }
+  };
+  const orbColors = getOrbColors();
 
   return (
     <>
-      <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-0" style={{ opacity: 0.8 }} />
-      {/* Static Gold Gradient Orbs */}
+      <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-0" />
+      
+      {/* Dynamic Orbs */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
         <motion.div
           className="absolute top-1/4 left-1/4 w-[500px] h-[500px] rounded-full blur-[140px] opacity-20"
-          style={{ background: 'radial-gradient(circle, #F59E0B 0%, transparent 70%)' }}
-          animate={{ scale: [1, 1.2, 1], opacity: [0.15, 0.25, 0.15] }}
-          transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
+          animate={{ 
+              background: `radial-gradient(circle, ${orbColors[0]} 0%, transparent 70%)`,
+              scale: aiState === 'thinking' ? [1, 1.2, 1] : 1
+          }}
+          transition={{ duration: 2 }}
         />
         <motion.div
           className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] rounded-full blur-[140px] opacity-15"
-          style={{ background: 'radial-gradient(circle, #D97706 0%, transparent 70%)' }}
-          animate={{ scale: [1, 1.3, 1], opacity: [0.15, 0.3, 0.15] }}
-          transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
+          animate={{ 
+              background: `radial-gradient(circle, ${orbColors[1]} 0%, transparent 70%)`,
+              scale: aiState === 'responding' ? [1, 1.5, 1] : 1
+          }}
+          transition={{ duration: 1 }}
         />
       </div>
     </>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { CircleDollarSign, Tv, Hammer } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, Gamepad2, Tv, Wrench } from 'lucide-react';
 import { MainSection } from '@/types';
 
 interface GlobalNavigationProps {
@@ -10,63 +10,66 @@ interface GlobalNavigationProps {
 }
 
 export default function GlobalNavigation({ currentSection, setSection, dynamicColor }: GlobalNavigationProps) {
-  const sections = [
-    { 
-      id: 'active', 
-      icon: CircleDollarSign, 
-      label: 'Active',
-      description: 'Invest & Trade' 
-    },
-    { 
-      id: 'passive', 
-      icon: Tv, 
-      label: 'Passive',
-      description: 'Media & Games' 
-    },
-    { 
-      id: 'tools', 
-      icon: Hammer, 
-      label: 'Tools',
-      description: 'Utilities' 
-    }
-  ] as const;
+  const navItems = [
+    { id: 'active', label: 'Dashboard', icon: LayoutDashboard, desc: 'Staking & Orders' },
+    { id: 'nft', label: 'Marketplace', icon: ShoppingBag, desc: 'NFT Trading' }, // Mapped to 'active' logic in App.tsx but visually distinct
+    { id: 'arcade', label: 'Arcade', icon: Gamepad2, desc: 'Games & Betting' }, // Mapped to 'active' logic
+    { id: 'passive', label: 'Media Hub', icon: Tv, desc: 'Stream & Learn' },
+    { id: 'tools', label: 'Utilities', icon: Wrench, desc: 'Dev Tools' }
+  ];
+
+  // Helper to map visual ID to logical section
+  const handleNav = (id: string) => {
+      if (['active', 'nft', 'arcade'].includes(id)) setSection('active'); // These share the 'active' logic in App.tsx
+      else setSection(id as MainSection);
+  };
 
   return (
-    <div className="flex justify-center mb-6">
-      <div className="flex items-center gap-4 sm:gap-8 bg-black/40 p-2 rounded-3xl border border-white/10 backdrop-blur-md">
-        {sections.map((section) => {
-          const isActive = currentSection === section.id;
-          const Icon = section.icon;
+    <div className="flex justify-center mb-10">
+      <div className="flex items-center gap-2 bg-[#12121A]/80 backdrop-blur-xl p-2 rounded-2xl border border-white/10 shadow-2xl">
+        {navItems.map((item) => {
+          // Determine active state based on logical mapping
+          let isActive = false;
+          if (currentSection === 'active' && (item.id === 'active' || item.id === 'nft' || item.id === 'arcade')) isActive = true; // Simplified for visual demo, ideally App.tsx handles sub-views
+          if (currentSection === item.id) isActive = true;
+
+          // Override for specific sub-views if needed, but for now let's keep it clean:
+          // We will just highlight the main section.
+          const isMainActive = currentSection === (['nft','arcade'].includes(item.id) ? 'active' : item.id);
 
           return (
             <button
-              key={section.id}
-              onClick={() => setSection(section.id as MainSection)}
-              className="relative group flex flex-col items-center justify-center w-20 h-20 sm:w-24 sm:h-24 rounded-2xl transition-all"
+              key={item.id}
+              onClick={() => handleNav(item.id)}
+              className="relative group flex items-center gap-3 px-5 py-3 rounded-xl transition-all overflow-hidden"
             >
-              {isActive && (
+              {isMainActive && (
                 <motion.div
-                  layoutId="globalNavGlow"
-                  className="absolute inset-0 rounded-2xl bg-white/5 border border-white/10"
-                  initial={false}
+                  layoutId="navGlow"
+                  className="absolute inset-0 bg-white/10 border border-white/10 rounded-xl"
                   transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
                 />
               )}
               
-              <div className={`relative z-10 transition-transform duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-105'}`}>
-                <Icon 
-                  size={32} 
-                  strokeWidth={isActive ? 2.5 : 1.5}
-                  style={{ 
-                    color: isActive ? dynamicColor : '#6b7280',
-                    filter: isActive ? `drop-shadow(0 0 8px ${dynamicColor}50)` : 'none'
-                  }} 
-                />
-              </div>
+              <item.icon 
+                size={20} 
+                className={`relative z-10 transition-colors ${isMainActive ? 'text-white' : 'text-gray-500 group-hover:text-gray-300'}`}
+                style={{ color: isMainActive ? dynamicColor : undefined }}
+              />
               
-              <span className={`relative z-10 mt-2 text-[10px] font-bold uppercase tracking-wider transition-colors ${isActive ? 'text-white' : 'text-gray-500'}`}>
-                {section.label}
-              </span>
+              <div className="flex flex-col items-start relative z-10">
+                <span className={`text-sm font-bold leading-none ${isMainActive ? 'text-white' : 'text-gray-400'}`}>
+                    {item.label}
+                </span>
+                {isMainActive && (
+                    <motion.span 
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} 
+                        className="text-[9px] text-gray-400 font-mono mt-1"
+                    >
+                        {item.desc}
+                    </motion.span>
+                )}
+              </div>
             </button>
           );
         })}
