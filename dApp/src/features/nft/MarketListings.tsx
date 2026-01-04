@@ -85,8 +85,8 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
                 }) as string;
 
                 // Fetch JSON Metadata
-                // We use Pinata gateway explicitly for JSON as it's small and fast
-                const gatewayUrl = uri.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                // Use dweb.link as it's generally reliable for metadata
+                const gatewayUrl = uri.replace('ipfs://', 'https://dweb.link/ipfs/');
                 const res = await fetch(gatewayUrl);
                 const json = await res.json();
                 

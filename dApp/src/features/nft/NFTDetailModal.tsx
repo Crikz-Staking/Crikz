@@ -17,7 +17,7 @@ const resolveIPFS = (uri: string) => {
   if (!uri) return '';
   if (uri.startsWith('http')) return uri;
   const cid = uri.replace('ipfs://', '');
-  return `https://gateway.pinata.cloud/ipfs/${cid}`;
+  return `https://dweb.link/ipfs/${cid}`;
 };
 
 export default function NFTDetailModal({ item, onClose, onBuy, isPending }: NFTDetailModalProps) {

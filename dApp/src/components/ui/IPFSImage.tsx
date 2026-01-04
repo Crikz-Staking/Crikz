@@ -7,12 +7,12 @@ interface IPFSImageProps {
   className?: string;
 }
 
-// Priority Order: Pinata (Source) -> Cloudflare (Fast) -> IPFS.io (Canonical) -> Dweb (Backup)
+// Priority Order: Dweb (Reliable) -> Cloudflare (Fast) -> IPFS.io (Canonical) -> Pinata (Backup)
 const GATEWAYS = [
-  'https://gateway.pinata.cloud/ipfs/',
+  'https://dweb.link/ipfs/',
   'https://cloudflare-ipfs.com/ipfs/',
   'https://ipfs.io/ipfs/',
-  'https://dweb.link/ipfs/'
+  'https://gateway.pinata.cloud/ipfs/'
 ];
 
 export default function IPFSImage({ src, alt, className = "" }: IPFSImageProps) {
@@ -33,8 +33,8 @@ export default function IPFSImage({ src, alt, className = "" }: IPFSImageProps) 
     setIsLoading(true);
     setGatewayIndex(0);
 
-    // If it's a normal URL (http/https), use it directly
-    if (src.startsWith('http')) {
+    // If it's a normal URL (http/https) or blob (local preview), use it directly
+    if (src.startsWith('http') || src.startsWith('blob:')) {
       setCurrentSrc(src);
       return;
     }

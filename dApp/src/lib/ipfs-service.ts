@@ -64,12 +64,12 @@ export const downloadFromIPFS = (uri: string) => {
     
     // Normalize IPFS Protocol
     if (uri.startsWith('ipfs://')) {
-        return uri.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+        return uri.replace('ipfs://', 'https://dweb.link/ipfs/');
     }
     
     // Handle raw CID
     if (!uri.startsWith('http')) {
-        return `https://gateway.pinata.cloud/ipfs/${uri}`;
+        return `https://dweb.link/ipfs/${uri}`;
     }
     
     return uri;
