@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { formatEther } from 'viem';
 import { Wallet, Award, TrendingUp, Lock, Receipt, Zap } from 'lucide-react'; // 
 import { formatTokenAmount } from '@/lib/utils'; // [cite: 740]
+import AnimatedCounter from '@/components/ui/AnimatedCounter';
+
 
 interface StatsPanelProps {
   balance: bigint | undefined;
@@ -58,9 +60,12 @@ export default function StatsPanel({
 
             {isLoading ? <div className="h-8 w-1/2 bg-white/10 animate-pulse rounded"/> : (
               <div className="flex items-baseline gap-1">
-                 <span className="text-2xl font-black text-white">
-                    {stat.value ? formatTokenAmount(stat.value) : '0.00'}
-                 </span>
+                <span className="text-2xl font-black text-white">
+   <AnimatedCounter 
+      value={stat.value ? parseFloat(formatTokenAmount(stat.value)) : 0} 
+      decimals={2}
+   />
+</span>
                  <span className="text-[10px] font-bold text-gray-500">{stat.suffix}</span>
               </div>
             )}
