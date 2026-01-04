@@ -11,13 +11,12 @@ interface NFTDetailModalProps {
     isPending: boolean;
 }
 
-// Helper to resolve IPFS
+// Robust IPFS Resolver
 const resolveIPFS = (uri: string) => {
   if (!uri) return '';
-  if (uri.startsWith('ipfs://')) {
-    return uri.replace('ipfs://', 'https://ipfs.io/ipfs/');
-  }
-  return uri;
+  if (uri.startsWith('http')) return uri;
+  const cid = uri.replace('ipfs://', '');
+  return `https://dweb.link/ipfs/${cid}`;
 };
 
 export default function NFTDetailModal({ item, onClose, onBuy, isPending }: NFTDetailModalProps) {
@@ -94,15 +93,28 @@ export default function NFTDetailModal({ item, onClose, onBuy, isPending }: NFTD
                                 </div>
                                 <audio src={displayAnimation} controls className="w-full" />
                             </div>
-                        ) : (
+                        ) : displayImage ? (
                             <img 
                                 src={displayImage} 
                                 alt={meta.name} 
                                 className="max-w-full max-h-full object-contain rounded-xl shadow-2xl drop-shadow-[0_0_30px_rgba(245,158,11,0.2)]" 
                                 onError={(e) => {
-                                    e.currentTarget.src = 'https://placehold.co/600x600/1a1a1a/FFF?text=No+Image';
+                                    e.currentTarget.style.display = 'none';
+                                    // Show fallback if image fails
+                                    const parent = e.currentTarget.parentElement;
+                                    if (parent) {
+                                        const fallback = document.createElement('div');
+                                        fallback.className = "flex flex-col items-center text-gray-500";
+                                        fallback.innerHTML = '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg><span class="text-xs mt-2">Image Failed to Load</span>';
+                                        parent.appendChild(fallback);
+                                    }
                                 }}
                             />
+                        ) : (
+                            <div className="flex flex-col items-center text-gray-600">
+                                <ImageIcon size={64} className="mb-4 opacity-50"/>
+                                <span className="text-sm font-bold">No Preview Available</span>
+                            </div>
                         )}
                     </div>
                 </div>

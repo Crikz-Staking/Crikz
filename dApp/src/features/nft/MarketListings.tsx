@@ -15,13 +15,14 @@ interface MarketListingsProps {
   listings: any[];
 }
 
-// Helper to resolve IPFS
+// Robust IPFS Resolver
 const resolveIPFS = (uri: string) => {
   if (!uri) return '';
-  if (uri.startsWith('ipfs://')) {
-    return uri.replace('ipfs://', 'https://ipfs.io/ipfs/');
-  }
-  return uri;
+  // If it's already a web URL, return it
+  if (uri.startsWith('http')) return uri;
+  // Strip prefix and use reliable gateway
+  const cid = uri.replace('ipfs://', '');
+  return `https://dweb.link/ipfs/${cid}`;
 };
 
 export default function MarketListings({ onBuy, isPending }: MarketListingsProps) {
@@ -97,12 +98,12 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
                     args: [item.tokenId]
                 }) as string;
 
-                // Use reliable gateway
+                // Use reliable gateway for JSON
                 const httpUrl = resolveIPFS(uri);
                 const res = await fetch(httpUrl);
                 const json = await res.json();
                 
-                // Resolve image inside metadata
+                // Resolve image inside metadata immediately
                 if (json.image) {
                     json.image = resolveIPFS(json.image);
                 }
