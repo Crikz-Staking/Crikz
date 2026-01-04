@@ -1,18 +1,9 @@
+// src/components/BackgroundEffects.tsx
 import React, { useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 
-interface BackgroundEffectsProps {
-  aiState?: 'idle' | 'thinking' | 'responding';
-}
-
-export default function BackgroundEffects({ aiState = 'idle' }: BackgroundEffectsProps) {
+export default function BackgroundEffects() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const stateRef = useRef(aiState);
-
-  // Keep stateRef in sync with prop for the animation loop
-  useEffect(() => {
-    stateRef.current = aiState;
-  }, [aiState]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -36,7 +27,7 @@ export default function BackgroundEffects({ aiState = 'idle' }: BackgroundEffect
       speed: number;
       size: number;
       opacity: number;
-      color: string = ''; // Fixed: Initialized with default value
+      color: string;
 
       constructor() {
         this.angle = Math.random() * Math.PI * 2;
@@ -45,19 +36,11 @@ export default function BackgroundEffects({ aiState = 'idle' }: BackgroundEffect
         this.size = 1.5 + Math.random() * 2.5;
         this.opacity = Math.random() * 0.6 + 0.3;
         
-        // Initial color setup
-        this.updateColor();
-        this.updatePosition();
-      }
-
-      updateColor() {
-        let hue = 35; // Gold (Idle)
-        if (stateRef.current === 'thinking') hue = 260; // Purple
-        if (stateRef.current === 'responding') hue = 150; // Green
-        
-        // Add slight variation
-        hue += Math.random() * 10;
+        // Locked Gold Palette
+        const hue = 35 + Math.random() * 10; // 35-45 (Amber/Gold)
         this.color = `hsla(${hue}, 100%, 60%, ${this.opacity})`;
+        
+        this.updatePosition();
       }
 
       updatePosition() {
@@ -75,20 +58,11 @@ export default function BackgroundEffects({ aiState = 'idle' }: BackgroundEffect
       }
 
       update() {
-        // Adjust speed based on state
-        let speedMult = 1;
-        if (stateRef.current === 'thinking') speedMult = 3;
-        if (stateRef.current === 'responding') speedMult = 0.5;
-
-        this.angle += this.speed * speedMult;
+        this.angle += this.speed;
         this.updatePosition();
-        
         // Twinkle
         this.opacity += (Math.random() - 0.5) * 0.02;
         this.opacity = Math.max(0.2, Math.min(0.8, this.opacity));
-        
-        // Update color dynamically
-        this.updateColor();
       }
 
       draw() {
@@ -108,8 +82,6 @@ export default function BackgroundEffects({ aiState = 'idle' }: BackgroundEffect
       particles.push(new FibonacciParticle());
     }
 
-    let animationFrameId: number;
-
     function animate() {
       if (!ctx || !canvas) return;
       
@@ -128,12 +100,7 @@ export default function BackgroundEffects({ aiState = 'idle' }: BackgroundEffect
           const distance = Math.sqrt(dx * dx + dy * dy);
 
           if (distance < 120) {
-            // Dynamic connection color
-            let r=245, g=158, b=11; // Gold
-            if (stateRef.current === 'thinking') { r=167; g=139; b=250; } // Purple
-            if (stateRef.current === 'responding') { r=16; g=185; b=129; } // Emerald
-
-            ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${0.15 * (1 - distance / 120)})`;
+            ctx.strokeStyle = `rgba(245, 158, 11, ${0.15 * (1 - distance / 120)})`;
             ctx.lineWidth = 0.5;
             ctx.beginPath();
             ctx.moveTo(particle.x, particle.y);
@@ -142,44 +109,28 @@ export default function BackgroundEffects({ aiState = 'idle' }: BackgroundEffect
           }
         });
       });
-      animationFrameId = requestAnimationFrame(animate);
+      requestAnimationFrame(animate);
     }
 
     animate();
-    return () => { 
-        window.removeEventListener('resize', resize);
-        cancelAnimationFrame(animationFrameId);
-    };
+    return () => { window.removeEventListener('resize', resize); };
   }, []);
-
-  // Dynamic Orb Colors for Framer Motion
-  const getOrbColor = (pos: 'top' | 'bottom') => {
-      if (aiState === 'thinking') return pos === 'top' ? '#A78BFA' : '#8B5CF6';
-      if (aiState === 'responding') return pos === 'top' ? '#34D399' : '#10B981';
-      return pos === 'top' ? '#F59E0B' : '#D97706'; // Idle
-  };
 
   return (
     <>
       <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-0" style={{ opacity: 0.8 }} />
-      {/* Static Gold Gradient Orbs - Now Dynamic */}
+      {/* Static Gold Gradient Orbs */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
         <motion.div
           className="absolute top-1/4 left-1/4 w-[500px] h-[500px] rounded-full blur-[140px] opacity-20"
-          animate={{ 
-              scale: [1, 1.2, 1], 
-              opacity: [0.15, 0.25, 0.15],
-              background: `radial-gradient(circle, ${getOrbColor('top')} 0%, transparent 70%)`
-          }}
+          style={{ background: 'radial-gradient(circle, #F59E0B 0%, transparent 70%)' }}
+          animate={{ scale: [1, 1.2, 1], opacity: [0.15, 0.25, 0.15] }}
           transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
         />
         <motion.div
           className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] rounded-full blur-[140px] opacity-15"
-          animate={{ 
-              scale: [1, 1.3, 1], 
-              opacity: [0.15, 0.3, 0.15],
-              background: `radial-gradient(circle, ${getOrbColor('bottom')} 0%, transparent 70%)`
-          }}
+          style={{ background: 'radial-gradient(circle, #D97706 0%, transparent 70%)' }}
+          animate={{ scale: [1, 1.3, 1], opacity: [0.15, 0.3, 0.15] }}
           transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
         />
       </div>
