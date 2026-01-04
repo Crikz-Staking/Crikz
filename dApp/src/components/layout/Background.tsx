@@ -2,10 +2,10 @@ import React, { useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 
 interface BackgroundProps {
-  aiState?: 'idle' | 'thinking' | 'responding';
+  aiState: 'idle' | 'thinking' | 'responding';
 }
 
-export default function BackgroundEffects({ aiState = 'idle' }: BackgroundProps) {
+export default function BackgroundEffects({ aiState }: BackgroundProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -14,13 +14,6 @@ export default function BackgroundEffects({ aiState = 'idle' }: BackgroundProps)
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    let animationFrame: number;
-    let time = 0;
-
-    // --- CONFIGURATION ---
-    const PARTICLE_COUNT = 400; // Number of stars in the spiral
-    const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5)); // ~2.399 radians (137.5 degrees)
-
     const resize = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
@@ -28,138 +21,129 @@ export default function BackgroundEffects({ aiState = 'idle' }: BackgroundProps)
     resize();
     window.addEventListener('resize', resize);
 
-    // Get dynamic settings based on AI state
-    const getSettings = () => {
-      switch (aiState) {
-        case 'thinking':
-          return {
-            hue: 270, // Purple
-            speed: 0.002,
-            expansion: 1.2, // Expand slightly
-            glow: 20
-          };
-        case 'responding':
-          return {
-            hue: 160, // Emerald/Cyan
-            speed: 0.008, // Fast spin
-            expansion: 1.1,
-            glow: 15
-          };
-        default: // Idle
-          return {
-            hue: 45, // Gold
-            speed: 0.0005, // Slow, majestic
-            expansion: 1.0,
-            glow: 10
-          };
-      }
+    // --- CONFIGURATION BASED ON AI STATE ---
+    const getConfig = () => {
+        switch(aiState) {
+            case 'thinking': 
+                return { color: '167, 139, 250', speed: 0.002, connectionDist: 150, opacity: 0.6 }; // Purple
+            case 'responding': 
+                return { color: '16, 185, 129', speed: 0.005, connectionDist: 200, opacity: 0.8 }; // Emerald/Green
+            default: 
+                return { color: '245, 158, 11', speed: 0.0005, connectionDist: 100, opacity: 0.3 }; // Gold (Idle)
+        }
     };
+
+    class Node {
+      x: number;
+      y: number;
+      vx: number;
+      vy: number;
+      size: number;
+
+      constructor() {
+        this.x = Math.random() * canvas!.width;
+        this.y = Math.random() * canvas!.height;
+        this.vx = (Math.random() - 0.5) * 0.5;
+        this.vy = (Math.random() - 0.5) * 0.5;
+        this.size = Math.random() * 2;
+      }
+
+      update(speedMult: number) {
+        this.x += this.vx * (speedMult * 1000); // Speed up based on state
+        this.y += this.vy * (speedMult * 1000);
+
+        if (this.x < 0) this.x = canvas!.width;
+        if (this.x > canvas!.width) this.x = 0;
+        if (this.y < 0) this.y = canvas!.height;
+        if (this.y > canvas!.height) this.y = 0;
+      }
+
+      draw(color: string, opacity: number) {
+        if (!ctx) return;
+        ctx.fillStyle = `rgba(${color}, ${opacity})`;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    const nodes: Node[] = Array.from({ length: 100 }, () => new Node());
+
+    let animationFrame: number;
 
     function animate() {
       if (!ctx || !canvas) return;
-      const settings = getSettings();
-      
-      // 1. Deep Space Fade (Trail Effect)
-      ctx.fillStyle = 'rgba(5, 5, 8, 0.2)'; // Very dark blue-black, slight trail
+      const config = getConfig();
+
+      // Clear with trail effect
+      ctx.fillStyle = 'rgba(10, 10, 15, 0.2)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // 2. Center Origin
-      const cx = canvas.width / 2;
-      const cy = canvas.height / 2;
-      
-      // 3. Update Time (Rotation)
-      time += settings.speed;
+      nodes.forEach((node, i) => {
+        node.update(config.speed);
+        node.draw(config.color, config.opacity);
 
-      // 4. Draw Fibonacci Spiral
-      // We draw from outside in, or inside out.
-      
-      ctx.save();
-      ctx.translate(cx, cy);
-      
-      // Rotate the entire galaxy
-      ctx.rotate(time); 
+        // Connections
+        for (let j = i + 1; j < nodes.length; j++) {
+          const other = nodes[j];
+          const dx = node.x - other.x;
+          const dy = node.y - other.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
 
-      for (let i = 1; i < PARTICLE_COUNT; i++) {
-        // Fibonacci Math
-        const angle = i * GOLDEN_ANGLE;
-        const dist = Math.sqrt(i) * (12 * settings.expansion); // Distance from center
-        
-        // Convert polar to cartesian
-        const x = Math.cos(angle) * dist;
-        const y = Math.sin(angle) * dist;
-
-        // Size calculation (larger in middle, smaller at edges)
-        const size = Math.max(0.5, (3 - (dist / 500))); 
-        
-        // Color Logic
-        // Base color + slight variation based on distance for depth
-        const alpha = Math.max(0.1, 1 - (dist / (Math.min(cx, cy) * 1.2)));
-        
-        ctx.beginPath();
-        ctx.arc(x, y, size, 0, Math.PI * 2);
-        
-        // Glow Effect
-        ctx.shadowBlur = settings.glow;
-        ctx.shadowColor = `hsla(${settings.hue}, 100%, 50%, ${alpha})`;
-        ctx.fillStyle = `hsla(${settings.hue}, 80%, 60%, ${alpha})`;
-        
-        ctx.fill();
-
-        // 5. Connect the "Arms" (Technological Lines)
-        // Connecting i to i+something creates spiral arms visually
-        // 34 is a Fibonacci number, creates nice arms
-        const neighborIndex = i + 34; 
-        if (neighborIndex < PARTICLE_COUNT) {
-            const nAngle = neighborIndex * GOLDEN_ANGLE;
-            const nDist = Math.sqrt(neighborIndex) * (12 * settings.expansion);
-            const nx = Math.cos(nAngle) * nDist;
-            const ny = Math.sin(nAngle) * nDist;
-
-            const distToNeighbor = Math.sqrt((x-nx)**2 + (y-ny)**2);
-
-            // Only draw line if close enough (creates the "web" look near center)
-            if (distToNeighbor < 100) {
-                ctx.beginPath();
-                ctx.moveTo(x, y);
-                ctx.lineTo(nx, ny);
-                ctx.strokeStyle = `hsla(${settings.hue}, 100%, 50%, ${alpha * 0.15})`; // Very faint lines
-                ctx.lineWidth = 0.5;
-                ctx.stroke();
-            }
+          if (dist < config.connectionDist) {
+            ctx.beginPath();
+            ctx.strokeStyle = `rgba(${config.color}, ${0.15 * (1 - dist / config.connectionDist)})`;
+            ctx.lineWidth = 0.5;
+            ctx.moveTo(node.x, node.y);
+            ctx.lineTo(other.x, other.y);
+            ctx.stroke();
+          }
         }
-      }
-
-      // 6. The "Black Hole" Center (Event Horizon)
-      // Clear a small circle in the middle to simulate the void
-      ctx.globalCompositeOperation = 'destination-out';
-      ctx.beginPath();
-      ctx.arc(0, 0, 15, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.globalCompositeOperation = 'source-over';
-
-      ctx.restore();
+      });
 
       animationFrame = requestAnimationFrame(animate);
     }
 
     animate();
-
-    return () => {
-      window.removeEventListener('resize', resize);
-      cancelAnimationFrame(animationFrame);
+    return () => { 
+        window.removeEventListener('resize', resize);
+        cancelAnimationFrame(animationFrame);
     };
-  }, [aiState]);
+  }, [aiState]); // Re-run when AI state changes
+
+  // --- GRADIENT ORBS (React to State) ---
+  const getOrbColors = () => {
+      switch(aiState) {
+          case 'thinking': return ['#7c3aed', '#4c1d95']; // Violet
+          case 'responding': return ['#10b981', '#059669']; // Emerald
+          default: return ['#f59e0b', '#d97706']; // Gold
+      }
+  };
+  const orbColors = getOrbColors();
 
   return (
     <>
-      <canvas 
-        ref={canvasRef} 
-        className="fixed inset-0 pointer-events-none z-0" 
-        style={{ background: '#050508' }} // Fallback background color
-      />
+      <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-0" />
       
-      {/* Vignette Overlay for Cinematic Depth */}
-      <div className="fixed inset-0 pointer-events-none z-0 bg-[radial-gradient(circle_at_center,transparent_0%,#000000_100%)] opacity-60" />
+      {/* Dynamic Orbs */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        <motion.div
+          className="absolute top-1/4 left-1/4 w-[500px] h-[500px] rounded-full blur-[140px] opacity-20"
+          animate={{ 
+              background: `radial-gradient(circle, ${orbColors[0]} 0%, transparent 70%)`,
+              scale: aiState === 'thinking' ? [1, 1.2, 1] : 1
+          }}
+          transition={{ duration: 2 }}
+        />
+        <motion.div
+          className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] rounded-full blur-[140px] opacity-15"
+          animate={{ 
+              background: `radial-gradient(circle, ${orbColors[1]} 0%, transparent 70%)`,
+              scale: aiState === 'responding' ? [1, 1.5, 1] : 1
+          }}
+          transition={{ duration: 1 }}
+        />
+      </div>
     </>
   );
 }
