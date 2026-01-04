@@ -1,19 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Image as ImageIcon, Loader2, AlertCircle } from 'lucide-react';
+import { IPFS_GATEWAYS } from '@/lib/ipfs-service';
 
 interface IPFSImageProps {
   src: string;
   alt: string;
   className?: string;
 }
-
-// Priority Order: Dweb (Reliable) -> Cloudflare (Fast) -> IPFS.io (Canonical) -> Pinata (Backup)
-const GATEWAYS = [
-  'https://dweb.link/ipfs/',
-  'https://cloudflare-ipfs.com/ipfs/',
-  'https://ipfs.io/ipfs/',
-  'https://gateway.pinata.cloud/ipfs/'
-];
 
 export default function IPFSImage({ src, alt, className = "" }: IPFSImageProps) {
   const [currentSrc, setCurrentSrc] = useState<string>('');
@@ -28,33 +21,30 @@ export default function IPFSImage({ src, alt, className = "" }: IPFSImageProps) 
       return;
     }
 
-    // Reset state when src changes
     setHasError(false);
     setIsLoading(true);
     setGatewayIndex(0);
 
-    // If it's a normal URL (http/https) or blob (local preview), use it directly
+    // Handle HTTP/Blob directly
     if (src.startsWith('http') || src.startsWith('blob:')) {
       setCurrentSrc(src);
       return;
     }
 
-    // If it's IPFS, start with the first gateway
+    // Handle IPFS
     const cid = src.replace('ipfs://', '');
-    setCurrentSrc(`${GATEWAYS[0]}${cid}`);
+    setCurrentSrc(`${IPFS_GATEWAYS[0]}${cid}`);
 
   }, [src]);
 
   const handleError = () => {
     const nextIndex = gatewayIndex + 1;
     
-    if (nextIndex < GATEWAYS.length) {
-      // Try the next gateway
+    if (nextIndex < IPFS_GATEWAYS.length) {
       const cid = src.replace('ipfs://', '');
       setGatewayIndex(nextIndex);
-      setCurrentSrc(`${GATEWAYS[nextIndex]}${cid}`);
+      setCurrentSrc(`${IPFS_GATEWAYS[nextIndex]}${cid}`);
     } else {
-      // All gateways failed
       setHasError(true);
       setIsLoading(false);
     }
@@ -76,7 +66,6 @@ export default function IPFSImage({ src, alt, className = "" }: IPFSImageProps) 
 
   return (
     <div className={`relative overflow-hidden bg-[#1A1A24] ${className}`}>
-      {/* Loading Skeleton */}
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center z-10 bg-[#1A1A24]">
           <Loader2 size={20} className="animate-spin text-primary-500" />

@@ -4,6 +4,7 @@ import { useAccount, usePublicClient, useReadContract } from 'wagmi';
 import { CRIKZ_NFT_ADDRESS, CRIKZ_NFT_ABI } from '@/config/index';
 import { useCollectionManager } from './useCollectionManager';
 import { useMarketListings } from './useMarketListings';
+import { fetchJSONFromIPFS } from '@/lib/ipfs-service';
 
 export interface RichNFT {
   uniqueKey: string;
@@ -106,30 +107,26 @@ export function useRealNFTIndexer() {
   }, [address, balance, publicClient, importedItems, listings, auctions]);
 
   const processNFTData = async (contract: string, id: bigint, status: 'wallet' | 'auction'): Promise<RichNFT> => {
-      // FIX 1: Ensure publicClient is defined before usage
       if (!publicClient) throw new Error("Public client not initialized");
 
       let meta = { name: `Item #${id}`, image: '', attributes: [] };
-      let uri = '';
       
       try {
-          uri = await publicClient.readContract({
+          const uri = await publicClient.readContract({
             address: contract as `0x${string}`,
             abi: CRIKZ_NFT_ABI,
             functionName: 'tokenURI',
             args: [id]
           }) as string;
 
-          const httpUrl = uri.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-          const res = await fetch(httpUrl);
-          meta = await res.json();
+          const json = await fetchJSONFromIPFS(uri);
+          if (json) meta = json;
       } catch (e) {}
 
       const key = `${contract.toLowerCase()}-${id.toString()}`;
       const colId = itemMapping[key] || 'default';
 
       // Check if listed in Fixed Price Market (Status override)
-      // FIX 2: Explicitly type finalStatus to allow 'listed' assignment
       let finalStatus: 'wallet' | 'listed' | 'auction' = status;
       
       if (status === 'wallet') {
@@ -146,7 +143,7 @@ export function useRealNFTIndexer() {
           id,
           contract,
           name: meta.name || `Item #${id}`,
-          image: meta.image?.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/') || '',
+          image: meta.image || '',
           collectionId: colId,
           status: finalStatus,
           metadata: meta

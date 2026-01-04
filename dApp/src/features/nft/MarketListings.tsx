@@ -8,6 +8,7 @@ import { CRIKZ_NFT_ABI } from '@/config/index';
 import NFTDetailModal from './NFTDetailModal';
 import Tooltip from '@/components/ui/Tooltip';
 import IPFSImage from '@/components/ui/IPFSImage';
+import { fetchJSONFromIPFS } from '@/lib/ipfs-service';
 
 interface MarketListingsProps {
   onBuy: (listingId: bigint, price: bigint) => void;
@@ -84,13 +85,13 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
                     args: [item.tokenId]
                 }) as string;
 
-                // Fetch JSON Metadata
-                // Use dweb.link as it's generally reliable for metadata
-                const gatewayUrl = uri.replace('ipfs://', 'https://dweb.link/ipfs/');
-                const res = await fetch(gatewayUrl);
-                const json = await res.json();
+                const json = await fetchJSONFromIPFS(uri);
                 
-                newMeta[item.id] = json;
+                if (json) {
+                    newMeta[item.id] = json;
+                } else {
+                    throw new Error("Failed to fetch JSON");
+                }
             } catch (e) {
                 console.warn("Metadata fetch failed for", item.id);
                 newMeta[item.id] = { name: `Item #${item.tokenId}`, description: 'Metadata unavailable', image: null };

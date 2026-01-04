@@ -1,38 +1,35 @@
 // src/lib/ipfs-service.ts
 import axios from 'axios';
 
-/**
- * IPFS Service Implementation
- * Uploads data to IPFS via Pinata for permanent decentralized storage.
- */
-
 const PINATA_API_KEY = import.meta.env.VITE_PINATA_API_KEY;
 const PINATA_API_SECRET = import.meta.env.VITE_PINATA_API_SECRET;
 
+// Public Gateways (Ordered by reliability/speed)
+export const IPFS_GATEWAYS = [
+  'https://ipfs.io/ipfs/',
+  'https://dweb.link/ipfs/',
+  'https://cloudflare-ipfs.com/ipfs/',
+  'https://gateway.pinata.cloud/ipfs/'
+];
+
+/**
+ * Uploads a file to IPFS via Pinata
+ */
 export const uploadToIPFS = async (file: File | Blob): Promise<string> => {
-    // Safety Check: Ensure keys exist
     if (!PINATA_API_KEY || !PINATA_API_SECRET) {
         console.warn("⚠️ IPFS Keys missing. Check .env VITE_PINATA_API_KEY");
-        throw new Error("IPFS Configuration Missing: API Keys not found.");
+        throw new Error("IPFS Configuration Missing");
     }
 
     const formData = new FormData();
     formData.append('file', file);
 
-    // Optional: Add metadata for easier organization in Pinata dashboard
     const metadata = JSON.stringify({
-        name: `Crikzling_Memory_${Date.now()}`,
-        keyvalues: {
-            type: 'neural_snapshot',
-            timestamp: Date.now()
-        }
+        name: `Crikz_Asset_${Date.now()}`,
     });
     formData.append('pinataMetadata', metadata);
 
-    // Optional: Pinata Options (CID Version 1 is standard for modern IPFS)
-    const options = JSON.stringify({
-        cidVersion: 1
-    });
+    const options = JSON.stringify({ cidVersion: 1 });
     formData.append('pinataOptions', options);
 
     try {
@@ -48,29 +45,67 @@ export const uploadToIPFS = async (file: File | Blob): Promise<string> => {
                 }
             }
         );
-
-        const cid = response.data.IpfsHash;
-        console.log(`[IPFS] Upload Successful. CID: ${cid}`);
-        return cid;
-
+        return response.data.IpfsHash;
     } catch (error) {
         console.error("IPFS Upload Error:", error);
-        throw new Error("Failed to upload memory block to IPFS.");
+        throw new Error("Failed to upload to IPFS.");
     }
 };
 
-export const downloadFromIPFS = (uri: string) => {
+/**
+ * Resolves an IPFS URI to a HTTP URL using the primary gateway.
+ * Use this for simple display where fallback isn't handled by a component.
+ */
+export const resolveIPFS = (uri: string) => {
     if (!uri) return '';
-    
-    // Normalize IPFS Protocol
-    if (uri.startsWith('ipfs://')) {
-        return uri.replace('ipfs://', 'https://dweb.link/ipfs/');
-    }
-    
-    // Handle raw CID
-    if (!uri.startsWith('http')) {
-        return `https://dweb.link/ipfs/${uri}`;
-    }
-    
-    return uri;
+    if (uri.startsWith('http')) return uri;
+    const cid = uri.replace('ipfs://', '');
+    return `${IPFS_GATEWAYS[0]}${cid}`;
 };
+
+/**
+ * Robustly fetches JSON metadata from IPFS by trying multiple gateways.
+ */
+export const fetchJSONFromIPFS = async (uri: string) => {
+    if (!uri) return null;
+
+    // 1. Try direct if it's already HTTP
+    if (uri.startsWith('http')) {
+        try {
+            const res = await fetch(uri);
+            if (res.ok) return await res.json();
+        } catch (e) { 
+            // If direct http fails, check if it contains a CID we can extract
+            // e.g. https://ipfs.io/ipfs/Qm... -> extract Qm...
+        }
+    }
+
+    // 2. Extract CID
+    // Matches CIDv0 (Qm...) or CIDv1 (bafy...)
+    const cidMatch = uri.match(/(Qm[1-9A-HJ-NP-Za-km-z]{44,}|baf[0-9a-z]{50,})/);
+    if (!cidMatch) return null;
+    
+    const cid = cidMatch[0];
+
+    // 3. Try Gateways
+    for (const gateway of IPFS_GATEWAYS) {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout per gateway
+
+            const res = await fetch(`${gateway}${cid}`, { signal: controller.signal });
+            clearTimeout(timeoutId);
+
+            if (res.ok) {
+                return await res.json();
+            }
+        } catch (e) {
+            continue; // Try next gateway
+        }
+    }
+    
+    console.warn(`Failed to fetch metadata for CID: ${cid}`);
+    return null;
+};
+
+export const downloadFromIPFS = resolveIPFS; // Alias for backward compatibility

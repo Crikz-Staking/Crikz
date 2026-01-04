@@ -4,6 +4,7 @@ import { X, Tag, User, Send, Loader2, FileText, Layers, ExternalLink, Music, Vid
 import { formatTokenAmount, shortenAddress } from '@/lib/utils';
 import { toast } from 'react-hot-toast';
 import IPFSImage from '@/components/ui/IPFSImage';
+import { resolveIPFS } from '@/lib/ipfs-service';
 
 interface NFTDetailModalProps {
     item: any;
@@ -11,14 +12,6 @@ interface NFTDetailModalProps {
     onBuy: (id: bigint, price: bigint) => void;
     isPending: boolean;
 }
-
-// Helper to resolve IPFS for non-image assets (Video/Audio)
-const resolveIPFS = (uri: string) => {
-  if (!uri) return '';
-  if (uri.startsWith('http')) return uri;
-  const cid = uri.replace('ipfs://', '');
-  return `https://dweb.link/ipfs/${cid}`;
-};
 
 export default function NFTDetailModal({ item, onClose, onBuy, isPending }: NFTDetailModalProps) {
     const [showOffer, setShowOffer] = useState(false);
