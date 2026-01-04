@@ -85,15 +85,15 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
                     args: [item.tokenId]
                 }) as string;
 
-                // Robust fetch that handles JSON or raw image URIs
+                // Use the robust fetcher
                 const json = await fetchJSONFromIPFS(uri);
                 
-                if (json) {
-                    newMeta[item.id] = json;
-                } else {
-                    // Fallback if fetch completely fails
-                    newMeta[item.id] = { name: `Item #${item.tokenId}`, description: 'Metadata unavailable', image: null };
-                }
+                // Always assign something, even if it's a fallback
+                newMeta[item.id] = json || { 
+                    name: `Item #${item.tokenId}`, 
+                    description: 'Metadata unavailable', 
+                    image: null 
+                };
             } catch (e) {
                 console.warn("Metadata fetch failed for", item.id);
                 newMeta[item.id] = { name: `Item #${item.tokenId}`, description: 'Metadata unavailable', image: null };

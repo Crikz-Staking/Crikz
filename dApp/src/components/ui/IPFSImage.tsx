@@ -15,7 +15,6 @@ export default function IPFSImage({ src, alt, className = "" }: IPFSImageProps) 
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
-    // Reset state when prop changes
     setHasError(false);
     setIsLoading(true);
     setGatewayIndex(0);
@@ -29,21 +28,20 @@ export default function IPFSImage({ src, alt, className = "" }: IPFSImageProps) 
     // Initial Load
     const url = getGatewayUrl(src, 0);
     setCurrentSrc(url);
-
   }, [src]);
 
   const handleError = () => {
     const nextIndex = gatewayIndex + 1;
     
-    // Try next gateway if available
+    // Only cycle gateways if it's actually an IPFS hash (not a direct http link)
+    // OR if the direct link failed, we can't really do much else.
     if (nextIndex < IPFS_GATEWAYS.length && !src.startsWith('http')) {
       setGatewayIndex(nextIndex);
       const nextUrl = getGatewayUrl(src, nextIndex);
-      console.log(`[IPFSImage] Retrying with gateway ${nextIndex}: ${nextUrl}`);
+      console.log(`[IPFSImage] Retrying ${src} with gateway ${nextIndex}`);
       setCurrentSrc(nextUrl);
     } else {
-      // All gateways failed
-      console.error(`[IPFSImage] Failed to load image: ${src}`);
+      console.error(`[IPFSImage] All gateways failed for: ${src}`);
       setHasError(true);
       setIsLoading(false);
     }
@@ -74,6 +72,7 @@ export default function IPFSImage({ src, alt, className = "" }: IPFSImageProps) 
       <img
         src={currentSrc}
         alt={alt}
+        crossOrigin="anonymous"
         className={`w-full h-full object-cover transition-opacity duration-500 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
         onError={handleError}
         onLoad={handleLoad}

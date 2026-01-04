@@ -10,12 +10,7 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
-  server: {
-    headers: {
-      "Cross-Origin-Embedder-Policy": "require-corp",
-      "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
-    },
-  },
+  // REMOVED: server.headers with Cross-Origin policies that block IPFS
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
@@ -23,7 +18,6 @@ export default defineConfig({
     target: 'esnext',
     rollupOptions: {
       onwarn(warning, warn) {
-        // Ignore specific warnings from the 'ox' dependency
         if (warning.code === 'INVALID_ANNOTATION' && warning.id?.includes('node_modules/ox')) {
           return;
         }
