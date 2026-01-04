@@ -4,7 +4,7 @@ import { X, Tag, User, Send, Loader2, FileText, Layers, ExternalLink, Music, Vid
 import { formatTokenAmount, shortenAddress } from '@/lib/utils';
 import { toast } from 'react-hot-toast';
 import IPFSImage from '@/components/ui/IPFSImage';
-import { resolveIPFS } from '@/lib/ipfs-service';
+import { getGatewayUrl } from '@/lib/ipfs-service';
 
 interface NFTDetailModalProps {
     item: any;
@@ -21,8 +21,8 @@ export default function NFTDetailModal({ item, onClose, onBuy, isPending }: NFTD
     const meta = item.metadata || {};
     const price = item.type === 'fixed' ? item.price : (item.highestBid || item.minPrice);
     
-    // Resolve animation URL for video/audio
-    const displayAnimation = resolveIPFS(meta.animation_url);
+    // Resolve animation URL for video/audio using the robust gateway logic
+    const displayAnimation = getGatewayUrl(meta.animation_url, 0);
 
     // Lock Body Scroll
     useEffect(() => {

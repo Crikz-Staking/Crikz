@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Image as ImageIcon, Loader2, AlertCircle } from 'lucide-react';
-import { IPFS_GATEWAYS } from '@/lib/ipfs-service';
+import { Image as ImageIcon, Loader2, AlertTriangle } from 'lucide-react';
+import { getGatewayUrl, IPFS_GATEWAYS } from '@/lib/ipfs-service';
 
 interface IPFSImageProps {
   src: string;
@@ -15,36 +15,35 @@ export default function IPFSImage({ src, alt, className = "" }: IPFSImageProps) 
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
+    // Reset state when prop changes
+    setHasError(false);
+    setIsLoading(true);
+    setGatewayIndex(0);
+
     if (!src) {
       setHasError(true);
       setIsLoading(false);
       return;
     }
 
-    setHasError(false);
-    setIsLoading(true);
-    setGatewayIndex(0);
-
-    // Handle HTTP/Blob directly
-    if (src.startsWith('http') || src.startsWith('blob:')) {
-      setCurrentSrc(src);
-      return;
-    }
-
-    // Handle IPFS
-    const cid = src.replace('ipfs://', '');
-    setCurrentSrc(`${IPFS_GATEWAYS[0]}${cid}`);
+    // Initial Load
+    const url = getGatewayUrl(src, 0);
+    setCurrentSrc(url);
 
   }, [src]);
 
   const handleError = () => {
     const nextIndex = gatewayIndex + 1;
     
-    if (nextIndex < IPFS_GATEWAYS.length) {
-      const cid = src.replace('ipfs://', '');
+    // Try next gateway if available
+    if (nextIndex < IPFS_GATEWAYS.length && !src.startsWith('http')) {
       setGatewayIndex(nextIndex);
-      setCurrentSrc(`${IPFS_GATEWAYS[nextIndex]}${cid}`);
+      const nextUrl = getGatewayUrl(src, nextIndex);
+      console.log(`[IPFSImage] Retrying with gateway ${nextIndex}: ${nextUrl}`);
+      setCurrentSrc(nextUrl);
     } else {
+      // All gateways failed
+      console.error(`[IPFSImage] Failed to load image: ${src}`);
       setHasError(true);
       setIsLoading(false);
     }
@@ -58,8 +57,8 @@ export default function IPFSImage({ src, alt, className = "" }: IPFSImageProps) 
   if (hasError) {
     return (
       <div className={`flex flex-col items-center justify-center bg-[#1A1A24] text-gray-600 border border-white/5 ${className}`}>
-        <ImageIcon size={24} className="mb-2 opacity-50" />
-        <span className="text-[9px] font-bold uppercase tracking-wider">No Preview</span>
+        <AlertTriangle size={24} className="mb-2 opacity-50 text-amber-500" />
+        <span className="text-[9px] font-bold uppercase tracking-wider">Load Failed</span>
       </div>
     );
   }
