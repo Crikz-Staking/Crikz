@@ -38,7 +38,7 @@ export default function BackgroundEffects({ aiState = 'idle' }: BackgroundEffect
       speed: number;
       size: number;
       opacity: number;
-      color: string;
+      color: string = ''; // Initialized
       isInteraction: boolean;
       life: number; // For interaction particles to eventually fade or merge
 
@@ -61,7 +61,6 @@ export default function BackgroundEffects({ aiState = 'idle' }: BackgroundEffect
             this.speed = 0.0005 + Math.random() * 0.002;
             this.size = 1.5 + Math.random() * 2.5;
             this.opacity = Math.random() * 0.6 + 0.3;
-            this.color = ''; // Will be set by updateColor
             this.life = 1.0;
             this.updateColor();
         }
@@ -90,15 +89,13 @@ export default function BackgroundEffects({ aiState = 'idle' }: BackgroundEffect
         const a = 0.5;
         const b = 0.2;
         
-        // If interaction, radius grows based on angle to simulate traveling OUT the spiral
-        // If base, radius is somewhat fixed but rotates
-        
         let effectiveRadius = this.radius;
         
         if (this.isInteraction) {
             // Calculate radius based on angle to force it to stick to the spiral path
             // As angle increases, radius increases
-            effectiveRadius = a * Math.exp(b * (this.angle % 20)) * (Math.min(canvas.width, canvas.height) / 6);
+            // Fixed: Added '!' to canvas properties to satisfy TS strict null checks
+            effectiveRadius = a * Math.exp(b * (this.angle % 20)) * (Math.min(canvas!.width, canvas!.height) / 6);
         } else {
             // Base particles float around their assigned radius with the spiral offset
             effectiveRadius = a * Math.exp(b * (this.angle % 20)) * this.radius / 5;
@@ -127,7 +124,8 @@ export default function BackgroundEffects({ aiState = 'idle' }: BackgroundEffect
             this.updateColor();
         } else {
             // Interaction particles fade slightly as they reach the edge
-            if (this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) {
+            // Fixed: Added '!' to canvas properties
+            if (this.x < 0 || this.x > canvas!.width || this.y < 0 || this.y > canvas!.height) {
                 this.life -= 0.02;
             }
         }
@@ -238,9 +236,8 @@ export default function BackgroundEffects({ aiState = 'idle' }: BackgroundEffect
                 }
 
                 // If interaction, make line brighter
-                const alpha = p.isInteraction || other.isInteraction ? 0.4 : 0.15;
+                // const alpha = p.isInteraction || other.isInteraction ? 0.4 : 0.15;
                 
-                // Convert hex/hsl to rgba for line if needed, or just use the string if it's valid
                 // Simplified: just use the particle's computed color string but lower opacity
                 ctx.strokeStyle = strokeColor; 
                 ctx.lineWidth = p.isInteraction || other.isInteraction ? 1 : 0.5;
