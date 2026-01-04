@@ -4,8 +4,14 @@ import { Activity, Fuel } from 'lucide-react';
 import { formatUnits } from 'viem';
 
 export default function NetworkStatus() {
-  const { data: blockNumber } = useBlockNumber({ watch: true });
-  const { data: gasPrice } = useGasPrice({ watch: true });
+  // FIX: Removed 'watch: true' (Wagmi v1) and replaced with 'query: { refetchInterval }' (Wagmi v2)
+  const { data: blockNumber } = useBlockNumber({ 
+    query: { refetchInterval: 4000 } // Update every 4 seconds
+  });
+  
+  const { data: gasPrice } = useGasPrice({ 
+    query: { refetchInterval: 10000 } // Update every 10 seconds
+  });
 
   // Convert gas to Gwei (10^9)
   const gasGwei = gasPrice ? parseFloat(formatUnits(gasPrice, 9)).toFixed(2) : '-';
