@@ -12,7 +12,6 @@ export default defineConfig({
   },
   server: {
     headers: {
-      // FIX: Changed to allow-popups to fix Wallet SDK errors
       "Cross-Origin-Embedder-Policy": "require-corp",
       "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
     },
@@ -21,7 +20,16 @@ export default defineConfig({
     outDir: 'dist',
     assetsDir: 'assets',
     chunkSizeWarningLimit: 2000,
-    target: 'esnext'
+    target: 'esnext',
+    rollupOptions: {
+      onwarn(warning, warn) {
+        // Ignore specific warnings from the 'ox' dependency
+        if (warning.code === 'INVALID_ANNOTATION' && warning.id?.includes('node_modules/ox')) {
+          return;
+        }
+        warn(warning);
+      }
+    }
   },
   optimizeDeps: {
     exclude: ['@mlc-ai/web-llm', '@xenova/transformers']
