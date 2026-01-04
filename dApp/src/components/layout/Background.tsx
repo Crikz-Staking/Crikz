@@ -6,17 +6,11 @@ interface BackgroundEffectsProps {
   aiState?: 'idle' | 'thinking' | 'responding';
 }
 
-// Configuration
-const MOLECULE_RADIUS = 250;
-const BASE_ATOM_COUNT = 40;
-const ROTATION_SPEED = 0.002;
-const TRAVEL_SPEED = 0.5;
-
 export default function BackgroundEffects({ aiState = 'idle' }: BackgroundEffectsProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stateRef = useRef(aiState);
 
-  // Sync Ref for animation loop
+  // Sync Ref
   useEffect(() => {
     stateRef.current = aiState;
   }, [aiState]);
@@ -27,7 +21,6 @@ export default function BackgroundEffects({ aiState = 'idle' }: BackgroundEffect
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Resize Handler
     const resize = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
@@ -35,124 +28,136 @@ export default function BackgroundEffects({ aiState = 'idle' }: BackgroundEffect
     resize();
     window.addEventListener('resize', resize);
 
-    // --- PHYSICS ENGINE ---
+    // --- PARTICLE SYSTEM ---
 
-    class Atom {
-      x: number;
-      y: number;
-      z: number;
-      size: number;
-      color: string;
-      targetX: number;
-      targetY: number;
-      targetZ: number;
-      isNew: boolean;
-      orbitOffset: number;
+    class Particle {
+      x: number = 0;
+      y: number = 0;
+      angle: number;
+      radius: number;
       speed: number;
+      size: number;
+      opacity: number;
+      color: string;
+      type: 'SPIRAL' | 'INTERACTION';
+      life: number; // For interaction particles
 
-      constructor(type: 'BASE' | 'INTERACTION', interactionType?: string) {
-        // Random starting position in 3D space
-        this.x = (Math.random() - 0.5) * canvas!.width;
-        this.y = (Math.random() - 0.5) * canvas!.height;
-        this.z = (Math.random() - 0.5) * 500;
+      constructor(type: 'SPIRAL' | 'INTERACTION', interactionType?: string) {
+        this.type = type;
         
-        this.orbitOffset = Math.random() * Math.PI * 2;
-        this.speed = 0.01 + Math.random() * 0.02;
-        this.isNew = type === 'INTERACTION';
-
-        // Determine appearance based on type
-        if (type === 'BASE') {
-          this.size = Math.random() * 2 + 1;
-          this.color = `hsla(35, 100%, 50%, ${Math.random() * 0.5 + 0.2})`; // Gold
+        if (type === 'SPIRAL') {
+            // The Base AI Spiral
+            this.angle = Math.random() * Math.PI * 2;
+            this.radius = Math.random() * Math.min(canvas!.width, canvas!.height) / 1.2;
+            this.speed = 0.0005 + Math.random() * 0.002;
+            this.size = 1.5 + Math.random() * 2.0;
+            this.opacity = Math.random() * 0.5 + 0.1;
+            this.life = 100; // Infinite
+            
+            // Golden / Amber Base
+            const hue = 35 + Math.random() * 10; 
+            this.color = `hsla(${hue}, 100%, 60%, ${this.opacity})`;
         } else {
-          this.size = Math.random() * 4 + 3; // Larger
-          // Color coding based on interaction
-          switch (interactionType) {
-            case 'NAVIGATION': this.color = '#3b82f6'; break; // Blue
-            case 'AI_THOUGHT': this.color = '#a78bfa'; break; // Purple
-            case 'AI_RESPONSE': this.color = '#10b981'; break; // Green
-            case 'TRANSACTION': this.color = '#f59e0b'; break; // Gold/Orange
-            case 'ERROR': this.color = '#ef4444'; break; // Red
-            default: this.color = '#ffffff';
-          }
+            // Interaction Atoms (New Protons)
+            this.angle = Math.random() * Math.PI * 2;
+            this.radius = 0; // Start at center (The Core)
+            this.speed = 0.02 + Math.random() * 0.03; // Fast expansion
+            this.size = Math.random() * 3 + 2;
+            this.opacity = 1;
+            this.life = 1.0; // Decays
+
+            // Color based on Event
+            switch (interactionType) {
+                case 'NAVIGATION': this.color = '#3b82f6'; break; // Blue
+                case 'AI_THOUGHT': this.color = '#a78bfa'; break; // Purple
+                case 'AI_RESPONSE': this.color = '#10b981'; break; // Green
+                case 'TRANSACTION': this.color = '#f59e0b'; break; // Gold
+                case 'ERROR': this.color = '#ef4444'; break; // Red
+                default: this.color = '#ffffff';
+            }
         }
-
-        // Initial Target (Spherical Orbit)
-        const phi = Math.acos(-1 + (2 * Math.random()));
-        const theta = Math.sqrt(BASE_ATOM_COUNT * Math.PI) * phi;
-        this.targetX = MOLECULE_RADIUS * Math.cos(theta) * Math.sin(phi);
-        this.targetY = MOLECULE_RADIUS * Math.sin(theta) * Math.sin(phi);
-        this.targetZ = MOLECULE_RADIUS * Math.cos(phi);
-      }
-
-      update(rotationX: number, rotationY: number, time: number) {
-        // 1. Orbit Logic (The Molecule Spin)
-        // Rotate the target coordinates
-        const cosX = Math.cos(rotationX);
-        const sinX = Math.sin(rotationX);
-        const cosY = Math.cos(rotationY);
-        const sinY = Math.sin(rotationY);
-
-        // Apply 3D Rotation Matrix to the "Ideal" orbit position
-        let tx = this.targetX * cosY - this.targetZ * sinY;
-        let tz = this.targetX * sinY + this.targetZ * cosY;
-        let ty = this.targetY * cosX - tz * sinX;
-        tz = this.targetY * sinX + tz * cosX;
-
-        // 2. AI State Influence (Excitation)
-        let jitter = 0;
-        if (stateRef.current === 'thinking') jitter = 5;
-        if (stateRef.current === 'responding') jitter = 2;
-
-        // 3. Move actual position towards target (Smooth Lerp)
-        // If it's a new atom, it flies in fast, then settles
-        const lerpFactor = this.isNew ? 0.05 : 0.1;
         
-        this.x += (tx - this.x + (Math.random() - 0.5) * jitter) * lerpFactor;
-        this.y += (ty - this.y + (Math.random() - 0.5) * jitter) * lerpFactor;
-        this.z += (tz - this.z) * lerpFactor;
+        this.updatePosition();
+      }
 
-        // 4. "Travel through space" effect (Starfield movement simulation)
-        // We simulate this by moving the center point in the draw function, 
-        // but here we can pulse the radius
-        if (this.isNew && Math.abs(this.x - tx) < 10) {
-            this.isNew = false; // Settled into orbit
+      updatePosition() {
+        if (!canvas) return;
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        
+        if (this.type === 'SPIRAL') {
+            // Fibonacci spiral equation: r = a * e^(b*θ)
+            // We map this to the particle's radius and angle
+            const a = 0.5;
+            const b = 0.2;
+            
+            // Add "Breathing" effect based on AI State
+            let breath = 0;
+            if (stateRef.current === 'thinking') breath = Math.sin(Date.now() / 200) * 20;
+            if (stateRef.current === 'responding') breath = Math.sin(Date.now() / 100) * 40;
+
+            const spiralRadius = (a * Math.exp(b * (this.angle % 20)) * this.radius / 5) + breath;
+            this.x = centerX + spiralRadius * Math.cos(this.angle);
+            this.y = centerY + spiralRadius * Math.sin(this.angle);
+        } else {
+            // Interaction Atoms: Spiral OUTWARDS from center
+            this.radius += 5; // Expand
+            this.x = centerX + this.radius * Math.cos(this.angle);
+            this.y = centerY + this.radius * Math.sin(this.angle);
         }
       }
 
-      draw(centerX: number, centerY: number) {
+      update() {
+        if (this.type === 'SPIRAL') {
+            // Rotate the spiral
+            let speedMult = 1;
+            if (stateRef.current === 'thinking') speedMult = 5;
+            if (stateRef.current === 'responding') speedMult = 2;
+
+            this.angle += this.speed * speedMult;
+            
+            // Twinkle
+            this.opacity += (Math.random() - 0.5) * 0.02;
+            this.opacity = Math.max(0.1, Math.min(0.6, this.opacity));
+        } else {
+            // Interaction atoms rotate slightly while expanding
+            this.angle += 0.05;
+            this.life -= 0.01;
+        }
+
+        this.updatePosition();
+      }
+
+      draw() {
         if (!ctx) return;
         
-        // 3D Projection
-        const fov = 300;
-        const scale = fov / (fov + this.z);
-        const x2d = this.x * scale + centerX;
-        const y2d = this.y * scale + centerY;
-        const size2d = this.size * scale;
-
-        if (scale < 0) return; // Behind camera
-
         ctx.beginPath();
-        ctx.arc(x2d, y2d, size2d, 0, Math.PI * 2);
-        ctx.fillStyle = this.color;
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
         
-        // Glow for interaction atoms
-        if (this.size > 3) {
+        if (this.type === 'SPIRAL') {
+            ctx.fillStyle = this.color;
+        } else {
+            // Interaction atoms glow
+            ctx.fillStyle = this.color;
+            ctx.globalAlpha = Math.max(0, this.life);
             ctx.shadowBlur = 15;
             ctx.shadowColor = this.color;
-        } else {
-            ctx.shadowBlur = 0;
         }
         
         ctx.fill();
+        
+        // Reset context
         ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
       }
     }
 
-    // --- INITIALIZATION ---
-    const atoms: Atom[] = [];
-    for (let i = 0; i < BASE_ATOM_COUNT; i++) {
-      atoms.push(new Atom('BASE'));
+    // --- STATE ---
+    const particles: Particle[] = [];
+    
+    // Initialize Spiral
+    for (let i = 0; i < 200; i++) {
+      particles.push(new Particle('SPIRAL'));
     }
 
     // --- EVENT LISTENER ---
@@ -160,106 +165,95 @@ export default function BackgroundEffects({ aiState = 'idle' }: BackgroundEffect
         const customEvent = e as CustomEvent;
         const { type } = customEvent.detail;
         
-        // Spawn new atoms based on interaction importance
-        const count = type === 'TRANSACTION' ? 5 : type === 'AI_RESPONSE' ? 3 : 1;
-        
+        // Spawn Interaction Atoms
+        const count = type === 'TRANSACTION' ? 20 : 5;
         for(let i=0; i<count; i++) {
-            atoms.push(new Atom('INTERACTION', type));
-        }
-
-        // Limit total atoms to prevent lag
-        if (atoms.length > 150) {
-            atoms.splice(0, atoms.length - 150);
+            particles.push(new Particle('INTERACTION', type));
         }
     };
 
     InteractionBus.addEventListener('crikz-interaction', handleInteraction);
 
     // --- ANIMATION LOOP ---
-    let rotX = 0;
-    let rotY = 0;
-    let time = 0;
+    let animationFrameId: number;
 
     function animate() {
       if (!ctx || !canvas) return;
       
-      // Clear with trail for speed effect
-      ctx.fillStyle = 'rgba(10, 10, 15, 0.2)';
+      // Clear with trail for motion blur effect
+      ctx.fillStyle = 'rgba(10, 10, 15, 0.15)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Update Rotation
-      let speed = ROTATION_SPEED;
-      if (stateRef.current === 'thinking') speed *= 5; // Spin faster when thinking
-      
-      rotX += speed;
-      rotY += speed * 0.5;
-      time += 0.01;
+      // Update & Draw
+      for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i];
+          p.update();
+          p.draw();
 
-      // Center of the molecule (Drifting slightly)
-      const cx = canvas.width / 2 + Math.sin(time) * 20;
-      const cy = canvas.height / 2 + Math.cos(time * 0.5) * 20;
+          // Remove dead interaction particles
+          if (p.type === 'INTERACTION' && p.life <= 0) {
+              particles.splice(i, 1);
+              continue;
+          }
 
-      // Draw Connections (The Molecule Structure)
-      // Only connect atoms that are close to each other
-      ctx.lineWidth = 0.5;
-      for (let i = 0; i < atoms.length; i++) {
-        const a = atoms[i];
-        a.update(rotX, rotY, time);
-        a.draw(cx, cy);
+          // Connect Spiral Particles (The Neural Web)
+          if (p.type === 'SPIRAL') {
+              // Only connect to nearby neighbors in the array to save perf
+              // and create the "strand" look
+              for (let j = i + 1; j < Math.min(i + 5, particles.length); j++) {
+                  const other = particles[j];
+                  if (other.type !== 'SPIRAL') continue;
 
-        // Connections
-        for (let j = i + 1; j < atoms.length; j++) {
-            const b = atoms[j];
-            const dx = a.x - b.x;
-            const dy = a.y - b.y;
-            const dz = a.z - b.z;
-            const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                  const dx = p.x - other.x;
+                  const dy = p.y - other.y;
+                  const dist = Math.sqrt(dx*dx + dy*dy);
 
-            if (dist < 60) {
-                const fov = 300;
-                const scaleA = fov / (fov + a.z);
-                const scaleB = fov / (fov + b.z);
-                
-                if (scaleA > 0 && scaleB > 0) {
-                    ctx.beginPath();
-                    ctx.moveTo(a.x * scaleA + cx, a.y * scaleA + cy);
-                    ctx.lineTo(b.x * scaleB + cx, b.y * scaleB + cy);
-                    
-                    // Dynamic color mixing
-                    const alpha = 1 - (dist / 60);
-                    ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.1})`;
-                    ctx.stroke();
-                }
-            }
-        }
+                  if (dist < 100) {
+                      ctx.beginPath();
+                      ctx.moveTo(p.x, p.y);
+                      ctx.lineTo(other.x, other.y);
+                      
+                      // Dynamic Line Color
+                      let r=245, g=158, b=11; // Gold
+                      if (stateRef.current === 'thinking') { r=167; g=139; b=250; } // Purple
+                      if (stateRef.current === 'responding') { r=16; g=185; b=129; } // Green
+
+                      ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${0.1 * (1 - dist/100)})`;
+                      ctx.lineWidth = 0.5;
+                      ctx.stroke();
+                  }
+              }
+          }
       }
 
-      requestAnimationFrame(animate);
+      animationFrameId = requestAnimationFrame(animate);
     }
 
     animate();
-
-    return () => {
-      window.removeEventListener('resize', resize);
-      InteractionBus.removeEventListener('crikz-interaction', handleInteraction);
+    return () => { 
+        window.removeEventListener('resize', resize);
+        InteractionBus.removeEventListener('crikz-interaction', handleInteraction);
+        cancelAnimationFrame(animationFrameId);
     };
   }, []);
 
   return (
     <>
-      <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-0" style={{ opacity: 1 }} />
-      {/* Ambient Glow based on AI State */}
-      <motion.div 
-        className="fixed inset-0 pointer-events-none z-0"
-        animate={{
-            background: aiState === 'thinking' 
-                ? 'radial-gradient(circle at 50% 50%, rgba(167, 139, 250, 0.15), transparent 70%)' // Purple
-                : aiState === 'responding'
-                ? 'radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.15), transparent 70%)' // Green
-                : 'radial-gradient(circle at 50% 50%, rgba(245, 158, 11, 0.05), transparent 70%)' // Gold
-        }}
-        transition={{ duration: 1 }}
-      />
+      <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-0" style={{ opacity: 0.8 }} />
+      
+      {/* Background Gradient Orbs (Atmosphere) */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        <motion.div
+          className="absolute top-1/4 left-1/4 w-[600px] h-[600px] rounded-full blur-[150px] opacity-10"
+          animate={{ 
+              background: aiState === 'thinking' 
+                ? 'radial-gradient(circle, #A78BFA 0%, transparent 70%)' 
+                : 'radial-gradient(circle, #F59E0B 0%, transparent 70%)',
+              scale: [1, 1.1, 1]
+          }}
+          transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
+        />
+      </div>
     </>
   );
 }

@@ -18,21 +18,34 @@ import { useAppWatcher } from '@/hooks/useAppWatcher';
 import { useCrikzlingV3 } from '@/hooks/useCrikzlingV3'; 
 import { MainSection, ActiveView, Language } from '@/types';
 import { triggerInteraction } from '@/lib/interaction-events';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function App() {
   const { isConnected } = useAccount();
   const [lang, setLang] = useState<Language>('en');
+  
+  // LOGIC FIX: Default to 'active' section and 'nft' view immediately as requested
   const [currentSection, setCurrentSection] = useState<MainSection>('active');
-  const [activeView, setActiveView] = useState<ActiveView>('dashboard');
+  const [activeView, setActiveView] = useState<ActiveView>('nft');
   
   const { aiState } = useCrikzlingV3();
   
   useAppWatcher();
 
-  // Trigger background event when sub-view changes
-  const handleSubViewChange = (view: ActiveView) => {
-      setActiveView(view);
-      triggerInteraction('NAVIGATION');
+  // LOGIC FIX: Centralized Navigation Handler
+  const handleSectionChange = (section: MainSection) => {
+    setCurrentSection(section);
+    triggerInteraction('NAVIGATION');
+    
+    // Reset sub-views when changing main context
+    // Defaulting to NFT Marketplace when clicking "Dashboard" / Active section
+    if (section === 'active') setActiveView('nft');
+  };
+
+  // Handler for Sub-Navigation (Dashboard, NFT, etc.)
+  const handleActiveViewChange = (view: ActiveView) => {
+    setActiveView(view);
+    triggerInteraction('NAVIGATION');
   };
 
   const getThemeColor = () => {
@@ -40,9 +53,9 @@ export default function App() {
     if (aiState === 'responding') return '#10b981'; 
 
     switch (currentSection) {
-      case 'active': return '#f59e0b';
-      case 'passive': return '#3b82f6';
-      case 'tools': return '#ec4899';
+      case 'active': return '#f59e0b'; // Gold
+      case 'passive': return '#3b82f6'; // Blue
+      case 'tools': return '#ec4899'; // Pink
       default: return '#f59e0b';
     }
   };
@@ -50,8 +63,8 @@ export default function App() {
   const dynamicColor = getThemeColor();
 
   return (
-    <div className="min-h-screen relative text-white selection:bg-primary-500/30 overflow-x-hidden">
-      {/* Background reacts to AI State and Event Bus */}
+    <div className="min-h-screen relative text-white selection:bg-primary-500/30 overflow-x-hidden font-sans">
+      {/* The Spiral AI Background */}
       <BackgroundEffects aiState={aiState} />
       
       <Toaster position="bottom-right" reverseOrder={false} />
@@ -59,57 +72,88 @@ export default function App() {
       <Header 
         lang={lang} 
         setLang={setLang} 
-        setViewMode={handleSubViewChange} 
+        setViewMode={handleActiveViewChange} 
         dynamicColor={dynamicColor}
       />
 
       <main className="relative z-10 max-w-7xl mx-auto px-4 pt-24 pb-32">
         <GlobalNavigation 
           currentSection={currentSection} 
-          setSection={setCurrentSection} 
+          setSection={handleSectionChange} 
           dynamicColor={dynamicColor} 
         />
 
-        <div className="mt-8 transition-all duration-500">
-          {currentSection === 'active' && (
-            <div className="space-y-8">
-              {/* Sub-Navigation for Active Section */}
-              <div className="flex flex-wrap justify-center gap-2 mb-8 bg-black/20 p-1 rounded-xl w-fit mx-auto border border-white/5">
-                {[
-                    { id: 'dashboard', label: 'Dashboard' },
-                    { id: 'nft', label: 'NFT Market' },
-                    { id: 'betting', label: 'Sports' },
-                    { id: 'arcade', label: 'Arcade' }
-                ].map(view => (
-                    <button 
-                        key={view.id}
-                        onClick={() => handleSubViewChange(view.id as ActiveView)}
-                        className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${
-                            activeView === view.id 
-                            ? 'bg-white/10 text-white shadow-lg' 
-                            : 'text-gray-500 hover:text-white'
-                        }`}
-                    >
-                        {view.label}
-                    </button>
-                ))}
-              </div>
-              
-              {/* Content Render */}
-              {activeView === 'dashboard' && <Dashboard dynamicColor={dynamicColor} lang={lang} />}
-              {activeView === 'nft' && <NFTMarket dynamicColor={dynamicColor} lang={lang} />}
-              {activeView === 'betting' && <BettingLayout dynamicColor={dynamicColor} />}
-              {activeView === 'arcade' && <BlockchainGames dynamicColor={dynamicColor} lang={lang} />}
-            </div>
-          )}
+        <div className="mt-8">
+          <AnimatePresence mode="wait">
+            {currentSection === 'active' && (
+              <motion.div 
+                key="active-section"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+                className="space-y-8"
+              >
+                {/* Sub-Navigation: Only visible in Active Section */}
+                <div className="flex flex-wrap justify-center gap-2 mb-8 bg-[#12121A]/80 backdrop-blur-md p-1.5 rounded-2xl w-fit mx-auto border border-white/10 shadow-2xl">
+                  {[
+                      { id: 'nft', label: 'Marketplace' }, // Moved to first position
+                      { id: 'dashboard', label: 'Production' },
+                      { id: 'betting', label: 'Sportsbook' },
+                      { id: 'arcade', label: 'Arcade' }
+                  ].map(view => (
+                      <button 
+                          key={view.id}
+                          onClick={() => handleActiveViewChange(view.id as ActiveView)}
+                          className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 ${
+                              activeView === view.id 
+                              ? 'bg-white/10 text-white shadow-inner border border-white/5' 
+                              : 'text-gray-500 hover:text-white hover:bg-white/5'
+                          }`}
+                      >
+                          {view.label}
+                      </button>
+                  ))}
+                </div>
+                
+                {/* Content Render with specific keys for animation */}
+                <AnimatePresence mode="wait">
+                  {activeView === 'nft' && (
+                    <motion.div key="nft" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
+                      <NFTMarket dynamicColor={dynamicColor} lang={lang} />
+                    </motion.div>
+                  )}
+                  {activeView === 'dashboard' && (
+                    <motion.div key="dash" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
+                      <Dashboard dynamicColor={dynamicColor} lang={lang} />
+                    </motion.div>
+                  )}
+                  {activeView === 'betting' && (
+                    <motion.div key="bet" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
+                      <BettingLayout dynamicColor={dynamicColor} />
+                    </motion.div>
+                  )}
+                  {activeView === 'arcade' && (
+                    <motion.div key="arc" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
+                      <BlockchainGames dynamicColor={dynamicColor} lang={lang} />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            )}
 
-          {currentSection === 'passive' && (
-            <PassiveHub dynamicColor={dynamicColor} lang={lang} />
-          )}
+            {currentSection === 'passive' && (
+              <motion.div key="passive-section" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
+                <PassiveHub dynamicColor={dynamicColor} lang={lang} />
+              </motion.div>
+            )}
 
-          {currentSection === 'tools' && (
-            <ToolsLayout dynamicColor={dynamicColor} />
-          )}
+            {currentSection === 'tools' && (
+              <motion.div key="tools-section" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
+                <ToolsLayout dynamicColor={dynamicColor} />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </main>
 
