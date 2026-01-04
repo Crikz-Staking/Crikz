@@ -31,132 +31,132 @@ export default function BackgroundEffects({ aiState = 'idle' }: BackgroundEffect
 
     // --- PARTICLE CLASS ---
     class FibonacciParticle {
-      // Position state
-      baseAngle: number; // The fixed position on the spiral structure
-      distanceFromCenter: number; // The target distance (r)
-      currentDistance: number; // For animation (starts at 0, grows to r)
-      
-      // Appearance
+      x: number = 0;
+      y: number = 0;
+      angle: number;
+      radius: number;
+      speed: number;
       size: number;
-      color: string;
+      opacity: number;
+      color: string = ''; // Initialized
       isInteraction: boolean;
-      
-      // Physics
-      driftSpeed: number;
+      life: number; // For interaction particles to eventually fade or merge
 
       constructor(type: 'BASE' | 'INTERACTION', interactionColor?: string) {
         this.isInteraction = type === 'INTERACTION';
         
-        // 1. Determine Position on the Spiral
-        // We use random angles to fill the spiral naturally
-        this.baseAngle = Math.random() * Math.PI * 20; // 10 full rotations worth of spiral space
-        
-        // Fibonacci Spiral Formula: r = a * e^(b * theta)
-        // We map the angle to a distance
-        const a = 2; 
-        const b = 0.15;
-        // Calculate target radius based on the angle (Golden Spiral)
-        // We use modulo to create multiple "arms" if desired, or just raw angle for a single spiral
-        // Let's create a multi-arm effect for a denser molecule look
-        const armOffset = (Math.floor(Math.random() * 3) * (Math.PI * 2)) / 3; 
-        const theta = this.baseAngle;
-        
-        // Target distance from center
-        this.distanceFromCenter = (a * Math.exp(b * (theta % 10))) * (Math.min(canvas!.width, canvas!.height) / 20);
-        
-        // Clamp distance to screen bounds to keep molecule visible
-        this.distanceFromCenter = Math.min(this.distanceFromCenter, Math.min(canvas!.width, canvas!.height) / 2.2);
-
-        // 2. Animation State
         if (this.isInteraction) {
-            this.currentDistance = 0; // Start at core
-            this.size = Math.random() * 4 + 4; // Bigger atoms
+            // Interaction Atoms: Start at the center (The Core) and spiral out
+            this.angle = 0; 
+            this.radius = 10; // Start close to center
+            this.speed = 0.05; // Move faster along the neural path
+            this.size = Math.random() * 3 + 3; // Larger than base
+            this.opacity = 1;
             this.color = interactionColor || '#ffffff';
+            this.life = 1.0;
         } else {
-            this.currentDistance = this.distanceFromCenter; // Already in place
-            this.size = Math.random() * 2 + 1;
-            this.color = ''; // Set in updateColor
+            // Base Atoms: Random placement on the spiral
+            this.angle = Math.random() * Math.PI * 2;
+            this.radius = Math.random() * Math.min(canvas!.width, canvas!.height) / 1.2;
+            this.speed = 0.0005 + Math.random() * 0.002;
+            this.size = 1.5 + Math.random() * 2.5;
+            this.opacity = Math.random() * 0.6 + 0.3;
+            this.life = 1.0;
             this.updateColor();
         }
-
-        this.driftSpeed = 0.002 + Math.random() * 0.004;
+        
+        this.updatePosition();
       }
 
       updateColor() {
-        if (this.isInteraction) return; 
+        if (this.isInteraction) return; // Keep interaction color fixed
 
         let hue = 35; // Gold (Idle)
         if (stateRef.current === 'thinking') hue = 260; // Purple
         if (stateRef.current === 'responding') hue = 150; // Green
         
         // Add slight variation
-        hue += Math.random() * 15;
-        const alpha = Math.random() * 0.5 + 0.2;
-        this.color = `hsla(${hue}, 100%, 60%, ${alpha})`;
+        hue += Math.random() * 10;
+        this.color = `hsla(${hue}, 100%, 60%, ${this.opacity})`;
       }
 
-      update(globalRotation: number) {
-        // 1. Animate Arrival (Interaction Atoms fly from center to their slot)
-        if (this.isInteraction && this.currentDistance < this.distanceFromCenter) {
-            // Ease out animation
-            this.currentDistance += (this.distanceFromCenter - this.currentDistance) * 0.05;
-            if (Math.abs(this.currentDistance - this.distanceFromCenter) < 1) {
-                this.currentDistance = this.distanceFromCenter;
+      updatePosition() {
+        if (!canvas) return;
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        
+        // Fibonacci spiral: r = a * e^(b*θ)
+        const a = 0.5;
+        const b = 0.2;
+        
+        let effectiveRadius = this.radius;
+        
+        if (this.isInteraction) {
+            // Calculate radius based on angle to force it to stick to the spiral path
+            // As angle increases, radius increases
+            // Fixed: Added '!' to canvas properties to satisfy TS strict null checks
+            effectiveRadius = a * Math.exp(b * (this.angle % 20)) * (Math.min(canvas!.width, canvas!.height) / 6);
+        } else {
+            // Base particles float around their assigned radius with the spiral offset
+            effectiveRadius = a * Math.exp(b * (this.angle % 20)) * this.radius / 5;
+        }
+
+        this.x = centerX + effectiveRadius * Math.cos(this.angle);
+        this.y = centerY + effectiveRadius * Math.sin(this.angle);
+      }
+
+      update() {
+        // Adjust speed based on state
+        let speedMult = 1;
+        if (stateRef.current === 'thinking') speedMult = 3;
+        if (stateRef.current === 'responding') speedMult = 0.5;
+
+        // Interaction particles move faster to "deliver" the data
+        if (this.isInteraction) speedMult = 5;
+
+        this.angle += this.speed * speedMult;
+        this.updatePosition();
+        
+        if (!this.isInteraction) {
+            // Twinkle for base particles
+            this.opacity += (Math.random() - 0.5) * 0.02;
+            this.opacity = Math.max(0.2, Math.min(0.8, this.opacity));
+            this.updateColor();
+        } else {
+            // Interaction particles fade slightly as they reach the edge
+            // Fixed: Added '!' to canvas properties
+            if (this.x < 0 || this.x > canvas!.width || this.y < 0 || this.y > canvas!.height) {
+                this.life -= 0.02;
             }
         }
-
-        // 2. Base Atoms Twinkle
-        if (!this.isInteraction && Math.random() > 0.98) {
-            this.updateColor();
-        }
       }
 
-      draw(centerX: number, centerY: number, globalRotation: number) {
+      draw() {
         if (!ctx) return;
-
-        // Calculate actual screen position based on Global Rotation
-        // x = r * cos(theta + rotation)
-        const finalAngle = this.baseAngle + globalRotation;
-        
-        const x = centerX + this.currentDistance * Math.cos(finalAngle);
-        const y = centerY + this.currentDistance * Math.sin(finalAngle);
-
-        ctx.beginPath();
-        ctx.arc(x, y, this.size, 0, Math.PI * 2);
         ctx.fillStyle = this.color;
         
-        // Glow for interaction atoms
-        if (this.isInteraction) {
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = this.color;
-        } else {
-            ctx.shadowBlur = 0;
-        }
+        // Glow effect
+        ctx.shadowBlur = this.isInteraction ? 20 : 15;
+        ctx.shadowColor = this.color;
         
+        ctx.globalAlpha = this.isInteraction ? this.life : 1;
+        
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
         ctx.fill();
+        
         ctx.shadowBlur = 0;
-
-        // Draw connection line to center if it's a new interaction atom traveling
-        if (this.isInteraction && this.currentDistance < this.distanceFromCenter * 0.9) {
-            ctx.beginPath();
-            ctx.moveTo(centerX, centerY);
-            ctx.lineTo(x, y);
-            ctx.strokeStyle = this.color;
-            ctx.globalAlpha = 0.2;
-            ctx.stroke();
-            ctx.globalAlpha = 1.0;
-        }
+        ctx.globalAlpha = 1;
       }
     }
 
     // --- INITIALIZATION ---
     const particles: FibonacciParticle[] = [];
-    // Create the initial "Base Molecule"
-    for (let i = 0; i < 120; i++) {
+    for (let i = 0; i < 150; i++) {
       particles.push(new FibonacciParticle('BASE'));
     }
 
-    // --- EVENT LISTENER ---
+    // --- EVENT LISTENER FOR INTERACTIONS ---
     const handleInteraction = (e: Event) => {
         const customEvent = e as CustomEvent;
         const { type } = customEvent.detail;
@@ -165,25 +165,26 @@ export default function BackgroundEffects({ aiState = 'idle' }: BackgroundEffect
         let count = 1;
 
         switch (type) {
-            case 'NAVIGATION': color = '#3b82f6'; count = 1; break; // Blue
-            case 'AI_THOUGHT': color = '#a78bfa'; count = 2; break; // Purple
-            case 'AI_RESPONSE': color = '#10b981'; count = 2; break; // Green
-            case 'TRANSACTION': color = '#f59e0b'; count = 5; break; // Gold (Burst)
-            case 'ERROR': color = '#ef4444'; count = 1; break; // Red
+            case 'NAVIGATION': color = '#3b82f6'; count = 2; break; // Blue
+            case 'AI_THOUGHT': color = '#a78bfa'; count = 3; break; // Purple
+            case 'AI_RESPONSE': color = '#10b981'; count = 3; break; // Green
+            case 'TRANSACTION': color = '#f59e0b'; count = 8; break; // Gold/Orange (Burst)
+            case 'ERROR': color = '#ef4444'; count = 2; break; // Red
         }
 
-        // Add new atoms to the molecule
+        // Inject new atoms into the spiral
         for(let i=0; i<count; i++) {
-            particles.push(new FibonacciParticle('INTERACTION', color));
+            // Stagger them slightly
+            setTimeout(() => {
+                particles.push(new FibonacciParticle('INTERACTION', color));
+            }, i * 100);
         }
 
-        // Performance Cap: Remove oldest BASE particles if too many, 
-        // but try to keep INTERACTION particles longer to show history
-        if (particles.length > 400) {
-            // Find a base particle to remove
-            const idx = particles.findIndex(p => !p.isInteraction);
-            if (idx !== -1) particles.splice(idx, 1);
-            else particles.shift(); // Fallback
+        // Cleanup old particles if too many
+        if (particles.length > 300) {
+            // Remove oldest interaction particles first
+            const removeIdx = particles.findIndex(p => p.isInteraction && p.life < 0.5);
+            if (removeIdx > -1) particles.splice(removeIdx, 1);
         }
     };
 
@@ -191,72 +192,61 @@ export default function BackgroundEffects({ aiState = 'idle' }: BackgroundEffect
 
     // --- ANIMATION LOOP ---
     let animationFrameId: number;
-    let globalRotation = 0;
 
     function animate() {
       if (!ctx || !canvas) return;
       
       // Clear with slight trail for motion blur
-      ctx.fillStyle = 'rgba(10, 10, 15, 0.2)';
+      ctx.fillStyle = 'rgba(10, 10, 15, 0.15)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      const centerX = canvas.width / 2;
-      const centerY = canvas.height / 2;
-
-      // Rotate the entire molecule
-      let speed = 0.001;
-      if (stateRef.current === 'thinking') speed = 0.005;
-      if (stateRef.current === 'responding') speed = 0.002;
-      
-      globalRotation += speed;
-
-      // Update & Draw
-      for (let i = 0; i < particles.length; i++) {
+      // Update and Draw
+      for (let i = particles.length - 1; i >= 0; i--) {
           const p = particles[i];
-          p.update(globalRotation);
-          p.draw(centerX, centerY, globalRotation);
+          p.update();
+          
+          // Remove dead particles
+          if (p.isInteraction && p.life <= 0) {
+              particles.splice(i, 1);
+              continue;
+          }
+          
+          p.draw();
 
-          // Draw Connections (The Neural Web)
-          // Connect atoms that are physically close in the current rotation
-          // Optimization: Only check a subset or neighbors
-          if (i % 2 === 0) { // Optimization: Only connect half the particles
-              // Find one close neighbor to connect to
-              // We can cheat and connect to the next particle in the array if it's close
-              // or calculate real distance. Real distance is better for the "Molecule" look.
-              
-              // Let's connect to random other particles to form the web
-              // But only if they are close
-              for (let j = i + 1; j < Math.min(i + 10, particles.length); j++) {
-                  const other = particles[j];
-                  
-                  // Calculate actual positions
-                  const ang1 = p.baseAngle + globalRotation;
-                  const x1 = centerX + p.currentDistance * Math.cos(ang1);
-                  const y1 = centerY + p.currentDistance * Math.sin(ang1);
+          // Connect nearby particles (The Neural Web)
+          // We limit connections to optimize performance
+          for (let j = i + 1; j < particles.length; j++) {
+            const other = particles[j];
+            const dx = p.x - other.x;
+            const dy = p.y - other.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
 
-                  const ang2 = other.baseAngle + globalRotation;
-                  const x2 = centerX + other.currentDistance * Math.cos(ang2);
-                  const y2 = centerY + other.currentDistance * Math.sin(ang2);
+            if (distance < 120) {
+                // Dynamic connection color
+                // If one is an interaction particle, color the line that color
+                let strokeColor = p.color;
+                if (other.isInteraction) strokeColor = other.color;
+                else if (p.isInteraction) strokeColor = p.color;
+                else {
+                    // Base color logic
+                    let r=245, g=158, b=11; // Gold
+                    if (stateRef.current === 'thinking') { r=167; g=139; b=250; } // Purple
+                    if (stateRef.current === 'responding') { r=16; g=185; b=129; } // Emerald
+                    strokeColor = `rgba(${r}, ${g}, ${b}, ${0.15 * (1 - distance / 120)})`;
+                }
 
-                  const dist = Math.sqrt(Math.pow(x2-x1, 2) + Math.pow(y2-y1, 2));
-
-                  if (dist < 100) {
-                      ctx.beginPath();
-                      ctx.moveTo(x1, y1);
-                      ctx.lineTo(x2, y2);
-                      
-                      // Dynamic Line Color
-                      let strokeColor = 'rgba(255, 255, 255, 0.05)';
-                      
-                      // If connecting an interaction atom, color the line
-                      if (p.isInteraction) strokeColor = p.color.replace(')', ', 0.2)').replace('rgb', 'rgba');
-                      if (other.isInteraction) strokeColor = other.color.replace(')', ', 0.2)').replace('rgb', 'rgba');
-
-                      ctx.strokeStyle = strokeColor;
-                      ctx.lineWidth = 0.5;
-                      ctx.stroke();
-                  }
-              }
+                // If interaction, make line brighter
+                // const alpha = p.isInteraction || other.isInteraction ? 0.4 : 0.15;
+                
+                // Simplified: just use the particle's computed color string but lower opacity
+                ctx.strokeStyle = strokeColor; 
+                ctx.lineWidth = p.isInteraction || other.isInteraction ? 1 : 0.5;
+                
+                ctx.beginPath();
+                ctx.moveTo(p.x, p.y);
+                ctx.lineTo(other.x, other.y);
+                ctx.stroke();
+            }
           }
       }
       
