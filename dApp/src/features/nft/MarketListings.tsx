@@ -7,7 +7,7 @@ import { usePublicClient } from 'wagmi';
 import { CRIKZ_NFT_ABI } from '@/config/index';
 import NFTDetailModal from './NFTDetailModal';
 import Tooltip from '@/components/ui/Tooltip';
-import IPFSImage from '@/components/ui/IPFSImage'; // <--- NEW IMPORT
+import IPFSImage from '@/components/ui/IPFSImage';
 
 interface MarketListingsProps {
   onBuy: (listingId: bigint, price: bigint) => void;
@@ -15,14 +15,6 @@ interface MarketListingsProps {
   isLoading: boolean;
   listings: any[];
 }
-
-// Helper for JSON metadata fetching only
-const resolveMetadataGateway = (uri: string) => {
-  if (!uri) return '';
-  if (uri.startsWith('http')) return uri;
-  const cid = uri.replace('ipfs://', '');
-  return `https://gateway.pinata.cloud/ipfs/${cid}`; // Prefer Pinata for JSON
-};
 
 export default function MarketListings({ onBuy, isPending }: MarketListingsProps) {
   const { items, isLoading, refresh } = useMarketListings();
@@ -92,8 +84,10 @@ export default function MarketListings({ onBuy, isPending }: MarketListingsProps
                     args: [item.tokenId]
                 }) as string;
 
-                const httpUrl = resolveMetadataGateway(uri);
-                const res = await fetch(httpUrl);
+                // Fetch JSON Metadata
+                // We use Pinata gateway explicitly for JSON as it's small and fast
+                const gatewayUrl = uri.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                const res = await fetch(gatewayUrl);
                 const json = await res.json();
                 
                 newMeta[item.id] = json;

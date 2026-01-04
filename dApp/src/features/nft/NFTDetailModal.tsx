@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Tag, User, Send, Loader2, FileText, Layers, ExternalLink, Music, Video, Image as ImageIcon, Box, Globe, ShieldCheck, MessageSquare } from 'lucide-react';
 import { formatTokenAmount, shortenAddress } from '@/lib/utils';
 import { toast } from 'react-hot-toast';
-import IPFSImage from '@/components/ui/IPFSImage'; // <--- NEW IMPORT
+import IPFSImage from '@/components/ui/IPFSImage';
 
 interface NFTDetailModalProps {
     item: any;
