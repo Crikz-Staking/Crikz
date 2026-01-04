@@ -1,6 +1,7 @@
 import React from 'react';
-import { Github, Twitter, Globe } from 'lucide-react';
+import { Github, Twitter, Facebook } from 'lucide-react';
 import BrandLogo from './BrandLogo';
+import NetworkStatus from '@/components/ui/NetworkStatus';
 
 export default function Footer() {
   return (
@@ -16,23 +17,46 @@ export default function Footer() {
           </div>
 
           <div className="flex gap-6">
-            <SocialLink href="#" icon={<Github size={20} />} />
-            <SocialLink href="#" icon={<Twitter size={20} />} />
-            <SocialLink href="#" icon={<Globe size={20} />} />
+            <SocialLink 
+              href="https://github.com/Crikz-Staking/Crikz" 
+              icon={<Github size={20} />} 
+              label="GitHub"
+            />
+            <SocialLink 
+              href="http://x.com/crikztoken" 
+              icon={<Twitter size={20} />} 
+              label="X (Twitter)"
+            />
+            <SocialLink 
+              href="https://www.facebook.com/crikztoken" 
+              icon={<Facebook size={20} />} 
+              label="Facebook"
+            />
           </div>
         </div>
         
-        <div className="border-t border-white/5 mt-8 pt-8 text-center text-[10px] text-gray-600 font-mono">
-          © 2025 Crikz Protocol. All systems nominal.
+        <div className="border-t border-white/5 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+          <div className="text-center md:text-left text-[10px] text-gray-600 font-mono">
+            © 2025 Crikz Protocol. All systems nominal.
+          </div>
+          
+          {/* Network Status Widget */}
+          <NetworkStatus />
         </div>
       </div>
     </footer>
   );
 }
 
-function SocialLink({ href, icon }: { href: string, icon: React.ReactNode }) {
+function SocialLink({ href, icon, label }: { href: string, icon: React.ReactNode, label: string }) {
   return (
-    <a href={href} className="text-gray-500 hover:text-primary-500 transition-colors p-2 bg-white/5 rounded-full hover:bg-white/10">
+    <a 
+      href={href} 
+      target="_blank" 
+      rel="noopener noreferrer"
+      className="text-gray-500 hover:text-primary-500 transition-colors p-2 bg-white/5 rounded-full hover:bg-white/10"
+      aria-label={label}
+    >
       {icon}
     </a>
   );

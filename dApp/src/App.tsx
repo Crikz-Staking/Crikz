@@ -10,7 +10,7 @@ import Footer from '@/components/layout/Footer';
 import GlobalNavigation from '@/components/layout/GlobalNavigation';
 import BackgroundEffects from '@/components/layout/Background';
 import CrikzlingAvatar from '@/components/ui/CrikzlingAvatar';
-import CommandPalette from '@/components/ui/CommandPalette'; // <--- NEW IMPORT
+import CommandPalette from '@/components/ui/CommandPalette';
 
 // Feature Components
 import Dashboard from '@/features/dashboard/Dashboard'; // Production
@@ -42,7 +42,6 @@ export default function App() {
   useAppWatcher();
 
   // Navigation Handlers
-  // We cast the string input to the specific type to satisfy TypeScript if CommandPalette passes raw strings
   const handleSectionChange = (section: string) => {
     setCurrentSection(section as MainSection);
     triggerInteraction('NAVIGATION');
@@ -73,14 +72,51 @@ export default function App() {
     <div className="min-h-screen relative text-white selection:bg-primary-500/30 overflow-x-hidden font-sans">
       {/* Background & Effects */}
       <BackgroundEffects aiState={aiState} />
-      <Toaster position="bottom-right" reverseOrder={false} />
+      
+      {/* Custom Sci-Fi Toaster Configuration */}
+      <Toaster 
+        position="bottom-right"
+        toastOptions={{
+          className: '!bg-[#12121A] !border !border-white/10 !text-white !rounded-xl !shadow-2xl',
+          style: {
+            background: '#12121A',
+            color: '#fff',
+            border: '1px solid rgba(255,255,255,0.1)',
+            fontFamily: 'monospace',
+            fontSize: '12px',
+            padding: '16px',
+          },
+          success: {
+            iconTheme: {
+              primary: '#10B981',
+              secondary: '#000',
+            },
+            style: {
+              borderLeft: '4px solid #10B981',
+            }
+          },
+          error: {
+            iconTheme: {
+              primary: '#EF4444',
+              secondary: '#000',
+            },
+            style: {
+              borderLeft: '4px solid #EF4444',
+            }
+          },
+          loading: {
+            style: {
+              borderLeft: '4px solid #F59E0B',
+            }
+          }
+        }}
+      />
 
       {/* Header */}
       <Header 
         lang={lang} 
         setLang={setLang} 
         setViewMode={(mode) => {
-            // If header logo is clicked, reset to default
             setCurrentSection('active');
             setActiveView('marketplace');
         }} 
@@ -88,7 +124,7 @@ export default function App() {
       />
 
       <main className="relative z-10 max-w-7xl mx-auto px-4 pt-24 pb-32">
-        {/* 1. Main Section Tabs (Active, Passive, Tools, About) */}
+        {/* 1. Main Section Tabs */}
         <GlobalNavigation 
           currentSection={currentSection} 
           setSection={(s) => handleSectionChange(s)} 
