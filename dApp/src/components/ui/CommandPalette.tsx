@@ -1,9 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, ArrowRight, Command } from 'lucide-react';
-import { useNavigate } from 'react-router-dom'; // Or your state setter
+import { Search, ArrowRight } from 'lucide-react';
 
-export default function CommandPalette({ setSection, setView }: any) {
+// Define the props interface
+interface CommandPaletteProps {
+  setSection: (section: string) => void;
+  setView?: (view: string) => void;
+}
+
+export default function CommandPalette({ setSection, setView }: CommandPaletteProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
 
@@ -22,8 +27,10 @@ export default function CommandPalette({ setSection, setView }: any) {
     { name: 'Go to Marketplace', section: 'active', view: 'marketplace' },
     { name: 'Create Production Order', section: 'active', view: 'production' },
     { name: 'Open Sportsbook', section: 'active', view: 'sportsbook' },
+    { name: 'Open Arcade', section: 'active', view: 'arcade' },
     { name: 'View Analytics', section: 'passive', view: 'analytics' },
-    { name: 'Developer Tools', section: 'tools', view: 'dev' },
+    { name: 'Developer Tools', section: 'tools', view: null },
+    { name: 'About Protocol', section: 'about', view: null },
   ];
 
   const filtered = actions.filter(a => a.name.toLowerCase().includes(query.toLowerCase()));
@@ -56,7 +63,7 @@ export default function CommandPalette({ setSection, setView }: any) {
                   key={i}
                   onClick={() => {
                     setSection(action.section);
-                    if(setView) setView(action.view);
+                    if(action.view && setView) setView(action.view);
                     setIsOpen(false);
                   }}
                   className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-primary-500/10 hover:text-primary-500 text-gray-400 transition-colors group text-left"

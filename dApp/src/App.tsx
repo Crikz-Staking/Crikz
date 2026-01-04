@@ -10,6 +10,7 @@ import Footer from '@/components/layout/Footer';
 import GlobalNavigation from '@/components/layout/GlobalNavigation';
 import BackgroundEffects from '@/components/layout/Background';
 import CrikzlingAvatar from '@/components/ui/CrikzlingAvatar';
+import CommandPalette from '@/components/ui/CommandPalette'; // <--- NEW IMPORT
 
 // Feature Components
 import Dashboard from '@/features/dashboard/Dashboard'; // Production
@@ -41,13 +42,14 @@ export default function App() {
   useAppWatcher();
 
   // Navigation Handlers
-  const handleSectionChange = (section: MainSection) => {
-    setCurrentSection(section);
+  // We cast the string input to the specific type to satisfy TypeScript if CommandPalette passes raw strings
+  const handleSectionChange = (section: string) => {
+    setCurrentSection(section as MainSection);
     triggerInteraction('NAVIGATION');
   };
 
-  const handleActiveViewChange = (view: ActiveView) => {
-    setActiveView(view);
+  const handleActiveViewChange = (view: string) => {
+    setActiveView(view as ActiveView);
     triggerInteraction('NAVIGATION');
   };
 
@@ -89,7 +91,7 @@ export default function App() {
         {/* 1. Main Section Tabs (Active, Passive, Tools, About) */}
         <GlobalNavigation 
           currentSection={currentSection} 
-          setSection={handleSectionChange} 
+          setSection={(s) => handleSectionChange(s)} 
           dynamicColor={dynamicColor} 
         />
 
@@ -183,6 +185,12 @@ export default function App() {
           </AnimatePresence>
         </div>
       </main>
+
+      {/* Global Command Palette (Ctrl+K) */}
+      <CommandPalette 
+        setSection={handleSectionChange} 
+        setView={handleActiveViewChange} 
+      />
 
       <CrikzlingAvatar />
       <Footer />
